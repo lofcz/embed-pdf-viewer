@@ -325,7 +325,7 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
         execute: () => this.executor.renderPageRaw(doc, page, options),
         meta: { docId: doc.id, pageIndex: page.index, operation: 'renderPageRaw' },
       },
-      { priority: Priority.HIGH },
+      { priority: options?.priority ?? Priority.HIGH },
     );
   }
 
@@ -340,7 +340,7 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
         execute: () => this.executor.renderPageRect(doc, page, rect, options),
         meta: { docId: doc.id, pageIndex: page.index, operation: 'renderPageRectRaw' },
       },
-      { priority: Priority.HIGH },
+      { priority: options?.priority ?? Priority.HIGH },
     );
   }
 
@@ -491,9 +491,14 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
       height: rawImageData.height,
     };
 
+    const sizeLabel = `${rawImageData.width}x${rawImageData.height}`;
+    this.logger.perf(LOG_SOURCE, 'encodeImage', 'encode', 'Begin', sizeLabel);
     this.options
       .imageConverter(() => plainImageData, imageType, quality)
-      .then((result) => resultTask.resolve(result))
+      .then((result) => {
+        this.logger.perf(LOG_SOURCE, 'encodeImage', 'encode', 'End', sizeLabel);
+        resultTask.resolve(result);
+      })
       .catch((error) => resultTask.reject({ code: PdfErrorCode.Unknown, message: String(error) }));
   }
 

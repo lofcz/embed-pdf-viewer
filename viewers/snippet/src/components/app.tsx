@@ -168,6 +168,7 @@ import { UnlockOwnerOverlay } from './unlock-owner-overlay';
 import { ViewPermissionsModal } from './view-permissions-modal';
 import { ensureFontStylesheet } from './font-loader';
 import { resolveUiFontConfig } from './font-config';
+import { PerfOverlay } from './perf-overlay';
 
 // ============================================================================
 // Main Configuration Interface - Uses actual plugin config types directly
@@ -573,7 +574,10 @@ function ViewerLayout({ documentId, tabBarVisibility = 'multiple' }: ViewerLayou
   );
 }
 
-const logger = new AllLogger([new ConsoleLogger(), new PerfLogger()]);
+const logger = new AllLogger([
+  // new ConsoleLogger(),
+  new PerfLogger(),
+]);
 
 export function PDFViewer({ config, onRegistryReady }: PDFViewerProps) {
   // Prefer an explicit override; otherwise resolve the WASM file copied next to
@@ -778,6 +782,7 @@ export function PDFViewer({ config, onRegistryReady }: PDFViewerProps) {
                       />
                       <Capture documentId={activeDocumentId} />
                       <HintLayer documentId={activeDocumentId} />
+                      <PerfOverlay />
                     </UIProvider>
                   </SnippetConfigProvider>
                 ) : (
