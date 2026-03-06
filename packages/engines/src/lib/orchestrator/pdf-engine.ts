@@ -50,8 +50,9 @@ import {
   ImageDataLike,
   IPdfiumExecutor,
   AnnotationAppearanceMap,
+  RenderPriority as Priority,
 } from '@embedpdf/models';
-import { WorkerTaskQueue, Priority } from './task-queue';
+import { WorkerTaskQueue } from './task-queue';
 import type { ImageDataConverter } from '../converters/types';
 
 // Re-export for convenience
@@ -378,38 +379,18 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
     page: PdfPageObject,
     options?: PdfRenderPageAnnotationOptions,
   ): PdfTask<AnnotationAppearanceMap<T>> {
-    const resultTask = new Task<AnnotationAppearanceMap<T>, PdfErrorReason>();
-
-    const renderHandle = this.workerQueue.enqueue(
-      {
-        execute: () => this.executor.renderPageAnnotationsRaw(doc, page, options),
-        meta: { docId: doc.id, pageIndex: page.index, operation: 'renderPageAnnotationsRaw' },
-      },
-      { priority: Priority.MEDIUM },
-    );
-
-    // Wire up abort: when resultTask is aborted, also abort the queue task
-    const originalAbort = resultTask.abort.bind(resultTask);
-    resultTask.abort = (reason) => {
-      renderHandle.abort(reason);
-      originalAbort(reason);
-    };
-
-    renderHandle.wait(
-      (rawMap) => {
-        if (resultTask.state.stage !== 0 /* Pending */) {
-          return;
-        }
-        this.encodeAppearanceMap(rawMap, options, resultTask);
-      },
-      (error) => {
-        if (resultTask.state.stage === 0 /* Pending */) {
-          resultTask.fail(error);
-        }
-      },
-    );
-
-    return resultTask;
+    return this.workerQueue
+      .enqueue(
+        {
+          execute: () => this.executor.renderPageAnnotationsRaw(doc, page, options),
+          meta: { docId: doc.id, pageIndex: page.index, operation: 'renderPageAnnotationsRaw' },
+        },
+        { priority: Priority.MEDIUM },
+      )
+      .map(
+        (rawMap) => this.encodeAppearanceMap(rawMap, options),
+        (err: unknown) => ({ code: PdfErrorCode.Unknown, message: String(err) }),
+      );
   }
 
   renderPageAnnotationsRaw(
@@ -436,52 +417,25 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
     pageIndex?: number,
     priority: Priority = Priority.CRITICAL,
   ): PdfTask<T> {
-    const resultTask = new Task<T, PdfErrorReason>();
-
-    // Step 1: Add HIGH/MEDIUM priority task to render raw bytes
-    const renderHandle = this.workerQueue.enqueue(
-      {
-        execute: () => renderFn(),
-        meta: { docId, pageIndex, operation: 'render' },
-      },
-      { priority },
-    );
-
-    // Wire up abort: when resultTask is aborted, also abort the queue task
-    const originalAbort = resultTask.abort.bind(resultTask);
-    resultTask.abort = (reason) => {
-      renderHandle.abort(reason); // Cancel the queue task!
-      originalAbort(reason);
-    };
-
-    renderHandle.wait(
-      (rawImageData) => {
-        // Check if resultTask was already aborted before encoding
-        if (resultTask.state.stage !== 0 /* Pending */) {
-          return;
-        }
-        this.encodeImage(rawImageData, options, resultTask);
-      },
-      (error) => {
-        // Only forward error if resultTask is still pending
-        if (resultTask.state.stage === 0 /* Pending */) {
-          resultTask.fail(error);
-        }
-      },
-    );
-
-    return resultTask;
+    return this.workerQueue
+      .enqueue(
+        {
+          execute: () => renderFn(),
+          meta: { docId, pageIndex, operation: 'render' },
+        },
+        { priority },
+      )
+      .map(
+        (rawImageData) => this.encodeImage(rawImageData, options),
+        (err: unknown) => ({ code: PdfErrorCode.Unknown, message: String(err) }),
+      );
   }
 
   /**
    * Encode image using encoder pool or inline
    */
-  private encodeImage(
-    rawImageData: ImageDataLike,
-    options: any,
-    resultTask: Task<T, PdfErrorReason>,
-  ): void {
-    const imageType = options?.imageType ?? 'image/png';
+  private encodeImage(rawImageData: ImageDataLike, options: any): Promise<T> {
+    const imageType = options?.imageType ?? 'image/webp';
     const quality = options?.quality;
 
     // Convert to plain object for encoding
@@ -491,26 +445,17 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
       height: rawImageData.height,
     };
 
-    const sizeLabel = `${rawImageData.width}x${rawImageData.height}`;
-    this.logger.perf(LOG_SOURCE, 'encodeImage', 'encode', 'Begin', sizeLabel);
-    this.options
-      .imageConverter(() => plainImageData, imageType, quality)
-      .then((result) => {
-        this.logger.perf(LOG_SOURCE, 'encodeImage', 'encode', 'End', sizeLabel);
-        resultTask.resolve(result);
-      })
-      .catch((error) => resultTask.reject({ code: PdfErrorCode.Unknown, message: String(error) }));
+    return this.options.imageConverter(() => plainImageData, imageType, quality);
   }
 
   /**
    * Encode a full annotation appearance map to the output type T.
    */
-  private encodeAppearanceMap(
+  private async encodeAppearanceMap(
     rawMap: AnnotationAppearanceMap<ImageDataLike>,
     options: PdfRenderPageAnnotationOptions | undefined,
-    resultTask: Task<AnnotationAppearanceMap<T>, PdfErrorReason>,
-  ): void {
-    const imageType = options?.imageType ?? 'image/png';
+  ): Promise<AnnotationAppearanceMap<T>> {
+    const imageType = options?.imageType ?? 'image/webp';
     const quality = options?.imageQuality;
 
     const convertImage = (rawImageData: ImageDataLike): Promise<T> => {
@@ -545,17 +490,8 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
       }
     }
 
-    Promise.all(jobs)
-      .then(() => {
-        if (resultTask.state.stage === 0 /* Pending */) {
-          resultTask.resolve(encodedMap);
-        }
-      })
-      .catch((error) => {
-        if (resultTask.state.stage === 0 /* Pending */) {
-          resultTask.reject({ code: PdfErrorCode.Unknown, message: String(error) });
-        }
-      });
+    await Promise.all(jobs);
+    return encodedMap;
   }
 
   // ========== Annotations ==========

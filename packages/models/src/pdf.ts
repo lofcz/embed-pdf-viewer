@@ -3249,6 +3249,17 @@ export interface PdfOpenDocumentUrlOptions {
   normalizeRotation?: boolean;
 }
 
+/**
+ * Scheduling priority for render operations (higher = more urgent).
+ * Used by the orchestrator engine's task queue.
+ */
+export enum RenderPriority {
+  LOW = 0,
+  MEDIUM = 1,
+  HIGH = 2,
+  CRITICAL = 3,
+}
+
 export interface PdfRenderOptions {
   /**
    * Scale factor
@@ -3271,9 +3282,9 @@ export interface PdfRenderOptions {
    */
   imageQuality?: number;
   /**
-   * Scheduling priority (higher = more urgent). Only used by the orchestrator engine.
+   * Scheduling priority.
    */
-  priority?: number;
+  priority?: RenderPriority;
 }
 
 export interface ConvertToBlobOptions {
