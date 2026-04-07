@@ -27,6 +27,7 @@ var createPdfium = (() => {
       readyPromiseReject = reject;
     });
     [
+      '_EPDF_CloseFormFillInfo',
       '_EPDF_GetMetaKeyCount',
       '_EPDF_GetMetaKeyName',
       '_EPDF_GetMetaTrapped',
@@ -36,10 +37,13 @@ var createPdfium = (() => {
       '_EPDF_IsEncrypted',
       '_EPDF_IsOwnerUnlocked',
       '_EPDF_LoadPageNormalized',
+      '_EPDF_OpenFormFillInfo',
       '_EPDF_PNG_EncodeRGBA',
       '_EPDF_RemoveEncryption',
       '_EPDF_RenderAnnotBitmap',
       '_EPDF_RenderAnnotBitmapUnrotated',
+      '_EPDF_SaveDocumentToBuffer',
+      '_EPDF_SaveDocumentToBufferWithVersion',
       '_EPDF_SetEncryption',
       '_EPDF_SetMetaText',
       '_EPDF_SetMetaTrapped',
@@ -154,6 +158,13 @@ var createPdfium = (() => {
       '_EPDFPage_GetAnnotRaw',
       '_EPDFPage_RemoveAnnotByName',
       '_EPDFPage_RemoveAnnotRaw',
+      '_EPDFSig_GetContactInfo',
+      '_EPDFSig_GetLocation',
+      '_EPDFSig_PrepareSignatureDict',
+      '_EPDFSig_SetContactInfo',
+      '_EPDFSig_SetDocMDP',
+      '_EPDFSig_SetLocation',
+      '_EPDFSig_SetReason',
       '_EPDFText_RedactInQuads',
       '_EPDFText_RedactInRect',
       '_FORM_CanRedo',
@@ -7160,6 +7171,14 @@ var createPdfium = (() => {
       'FORM_IsIndexSelected',
       3,
     ));
+    var _EPDF_OpenFormFillInfo = (Module['_EPDF_OpenFormFillInfo'] = createExportWrapper(
+      'EPDF_OpenFormFillInfo',
+      0,
+    ));
+    var _EPDF_CloseFormFillInfo = (Module['_EPDF_CloseFormFillInfo'] = createExportWrapper(
+      'EPDF_CloseFormFillInfo',
+      1,
+    ));
     var _FPDFDoc_GetJavaScriptActionCount = (Module['_FPDFDoc_GetJavaScriptActionCount'] =
       createExportWrapper('FPDFDoc_GetJavaScriptActionCount', 1));
     var _FPDFDoc_GetJavaScriptAction = (Module['_FPDFDoc_GetJavaScriptAction'] =
@@ -7213,6 +7232,12 @@ var createPdfium = (() => {
       'FPDF_SaveWithVersion',
       4,
     ));
+    var _EPDF_SaveDocumentToBuffer = (Module['_EPDF_SaveDocumentToBuffer'] = createExportWrapper(
+      'EPDF_SaveDocumentToBuffer',
+      3,
+    ));
+    var _EPDF_SaveDocumentToBufferWithVersion = (Module['_EPDF_SaveDocumentToBufferWithVersion'] =
+      createExportWrapper('EPDF_SaveDocumentToBufferWithVersion', 4));
     var _FPDFText_GetCharIndexFromTextIndex = (Module['_FPDFText_GetCharIndexFromTextIndex'] =
       createExportWrapper('FPDFText_GetCharIndexFromTextIndex', 2));
     var _FPDFText_GetTextIndexFromCharIndex = (Module['_FPDFText_GetTextIndexFromCharIndex'] =
@@ -7241,6 +7266,32 @@ var createPdfium = (() => {
     ));
     var _FPDFSignatureObj_GetDocMDPPermission = (Module['_FPDFSignatureObj_GetDocMDPPermission'] =
       createExportWrapper('FPDFSignatureObj_GetDocMDPPermission', 1));
+    var _EPDFSig_PrepareSignatureDict = (Module['_EPDFSig_PrepareSignatureDict'] =
+      createExportWrapper('EPDFSig_PrepareSignatureDict', 3));
+    var _EPDFSig_SetReason = (Module['_EPDFSig_SetReason'] = createExportWrapper(
+      'EPDFSig_SetReason',
+      2,
+    ));
+    var _EPDFSig_SetLocation = (Module['_EPDFSig_SetLocation'] = createExportWrapper(
+      'EPDFSig_SetLocation',
+      2,
+    ));
+    var _EPDFSig_SetContactInfo = (Module['_EPDFSig_SetContactInfo'] = createExportWrapper(
+      'EPDFSig_SetContactInfo',
+      2,
+    ));
+    var _EPDFSig_SetDocMDP = (Module['_EPDFSig_SetDocMDP'] = createExportWrapper(
+      'EPDFSig_SetDocMDP',
+      3,
+    ));
+    var _EPDFSig_GetLocation = (Module['_EPDFSig_GetLocation'] = createExportWrapper(
+      'EPDFSig_GetLocation',
+      3,
+    ));
+    var _EPDFSig_GetContactInfo = (Module['_EPDFSig_GetContactInfo'] = createExportWrapper(
+      'EPDFSig_GetContactInfo',
+      3,
+    ));
     var _FPDF_StructTree_GetForPage = (Module['_FPDF_StructTree_GetForPage'] = createExportWrapper(
       'FPDF_StructTree_GetForPage',
       1,

@@ -118,7 +118,7 @@ const wasmBinary = await fetch('path/to/pdfium.wasm').then((r) =>
   r.arrayBuffer(),
 );
 const pdfium = await init({ wasmBinary });
-pdfium.PDFiumExt_Init();
+pdfium.FPDF_InitLibrary();
 ```
 
 ### Loading a PDF Document

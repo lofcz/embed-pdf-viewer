@@ -1,5 +1,6 @@
 /* AUTO-GENERATED — DO NOT EDIT BY HAND */
 export const functions = {
+  EPDF_CloseFormFillInfo: [['number'] as const, null] as const,
   EPDF_GetMetaKeyCount: [['number', 'boolean'] as const, 'number'] as const,
   EPDF_GetMetaKeyName: [
     ['number', 'number', 'boolean', 'number', 'number'] as const,
@@ -12,6 +13,7 @@ export const functions = {
   EPDF_IsEncrypted: [['number'] as const, 'boolean'] as const,
   EPDF_IsOwnerUnlocked: [['number'] as const, 'boolean'] as const,
   EPDF_LoadPageNormalized: [['number', 'number', 'number'] as const, 'number'] as const,
+  EPDF_OpenFormFillInfo: [[] as const, 'number'] as const,
   EPDF_PNG_EncodeRGBA: [
     ['number', 'number', 'number', 'number', 'number', 'number'] as const,
     'number',
@@ -24,6 +26,11 @@ export const functions = {
   EPDF_RenderAnnotBitmapUnrotated: [
     ['number', 'number', 'number', 'number', 'number', 'number'] as const,
     'boolean',
+  ] as const,
+  EPDF_SaveDocumentToBuffer: [['number', 'number', 'number'] as const, 'number'] as const,
+  EPDF_SaveDocumentToBufferWithVersion: [
+    ['number', 'number', 'number', 'number'] as const,
+    'number',
   ] as const,
   EPDF_SetEncryption: [['number', 'string', 'string', 'number'] as const, 'boolean'] as const,
   EPDF_SetMetaText: [['number', 'string', 'number'] as const, 'boolean'] as const,
@@ -184,6 +191,13 @@ export const functions = {
   EPDFPage_GetAnnotRaw: [['number', 'number', 'number'] as const, 'number'] as const,
   EPDFPage_RemoveAnnotByName: [['number', 'number'] as const, 'boolean'] as const,
   EPDFPage_RemoveAnnotRaw: [['number', 'number', 'number'] as const, 'boolean'] as const,
+  EPDFSig_GetContactInfo: [['number', 'number', 'number'] as const, 'number'] as const,
+  EPDFSig_GetLocation: [['number', 'number', 'number'] as const, 'number'] as const,
+  EPDFSig_PrepareSignatureDict: [['number', 'number', 'number'] as const, 'boolean'] as const,
+  EPDFSig_SetContactInfo: [['number', 'number'] as const, 'boolean'] as const,
+  EPDFSig_SetDocMDP: [['number', 'number', 'number'] as const, 'boolean'] as const,
+  EPDFSig_SetLocation: [['number', 'number'] as const, 'boolean'] as const,
+  EPDFSig_SetReason: [['number', 'number'] as const, 'boolean'] as const,
   EPDFText_RedactInQuads: [
     ['number', 'number', 'number', 'boolean', 'boolean'] as const,
     'boolean',

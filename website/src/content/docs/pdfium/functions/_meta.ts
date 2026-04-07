@@ -1,5 +1,5 @@
 export default {
-  PDFiumExt_Init: '',
+  FPDF_InitLibrary: '',
   FPDF_LoadMemDocument: '',
   FPDF_LoadCustomDocument: '',
   FPDF_GetPageCount: '',

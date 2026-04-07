@@ -95,7 +95,7 @@ import { init } from '@embedpdf/pdfium';
 async function loadPdfWithCustomAccess(url: string) {
   // Initialize PDFium
   const pdfium = await init();
-  pdfium.PDFiumExt_Init();
+  pdfium.FPDF_InitLibrary();
   
   // 1. First load the file size with a HEAD request
   const response = await fetch(url, { method: 'HEAD' });

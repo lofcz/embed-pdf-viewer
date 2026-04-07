@@ -248,7 +248,7 @@ export class PdfiumNative implements IPdfiumExecutor {
     // Initialize PDFium in constructor
     this.logger.debug(LOG_SOURCE, LOG_CATEGORY, 'initialize');
     this.logger.perf(LOG_SOURCE, LOG_CATEGORY, `Initialize`, 'Begin', 'General');
-    this.pdfiumModule.PDFiumExt_Init();
+    this.pdfiumModule.FPDF_InitLibrary();
     this.logger.perf(LOG_SOURCE, LOG_CATEGORY, `Initialize`, 'End', 'General');
 
     // Initialize font fallback system if configured
@@ -1208,8 +1208,8 @@ export class PdfiumNative implements IPdfiumExecutor {
     let widgetFormHandle: number | undefined;
     if (annotation.type === PdfAnnotationSubtype.WIDGET) {
       const widget = annotation as unknown as PdfWidgetAnnoObject;
-      widgetFormInfoPtr = this.pdfiumModule.PDFiumExt_OpenFormFillInfo();
-      widgetFormHandle = this.pdfiumModule.PDFiumExt_InitFormFillEnvironment(
+      widgetFormInfoPtr = this.pdfiumModule.EPDF_OpenFormFillInfo();
+      widgetFormHandle = this.pdfiumModule.FPDFDOC_InitFormFillEnvironment(
         ctx.docPtr,
         widgetFormInfoPtr,
       );
@@ -1401,10 +1401,10 @@ export class PdfiumNative implements IPdfiumExecutor {
 
     if (widgetFormHandle !== undefined) {
       this.pdfiumModule.FORM_OnBeforeClosePage(pageCtx.pagePtr, widgetFormHandle);
-      this.pdfiumModule.PDFiumExt_ExitFormFillEnvironment(widgetFormHandle);
+      this.pdfiumModule.FPDFDOC_ExitFormFillEnvironment(widgetFormHandle);
     }
     if (widgetFormInfoPtr !== undefined) {
-      this.pdfiumModule.PDFiumExt_CloseFormFillInfo(widgetFormInfoPtr);
+      this.pdfiumModule.EPDF_CloseFormFillInfo(widgetFormInfoPtr);
     }
 
     if (!isSucceed) {
@@ -4510,20 +4510,19 @@ export class PdfiumNative implements IPdfiumExecutor {
    * @private
    */
   saveDocument(docPtr: number) {
-    const writerPtr = this.pdfiumModule.PDFiumExt_OpenFileWriter();
-    this.pdfiumModule.PDFiumExt_SaveAsCopy(docPtr, writerPtr);
-    const size = this.pdfiumModule.PDFiumExt_GetFileWriterSize(writerPtr);
-    const dataPtr = this.memoryManager.malloc(size);
-    this.pdfiumModule.PDFiumExt_GetFileWriterData(writerPtr, dataPtr, size);
-    const buffer = new ArrayBuffer(size);
-    const view = new DataView(buffer);
-    for (let i = 0; i < size; i++) {
-      view.setInt8(i, this.pdfiumModule.pdfium.getValue(dataPtr + i, 'i8'));
-    }
-    this.memoryManager.free(dataPtr);
-    this.pdfiumModule.PDFiumExt_CloseFileWriter(writerPtr);
+    const sizePtr = this.memoryManager.malloc(4);
+    const bufferPtr = this.pdfiumModule.EPDF_SaveDocumentToBuffer(docPtr, 0, sizePtr);
+    const size = this.pdfiumModule.pdfium.getValue(sizePtr, 'i32') >>> 0;
+    this.memoryManager.free(sizePtr);
 
-    return buffer;
+    if (!bufferPtr || !size) {
+      throw new Error('EPDF_SaveDocumentToBuffer failed');
+    }
+
+    const result = new Uint8Array(this.pdfiumModule.pdfium.HEAPU8.buffer, bufferPtr, size).slice();
+    this.pdfiumModule.pdfium.wasmExports.free(bufferPtr);
+
+    return result.buffer;
   }
 
   /**
@@ -5701,8 +5700,8 @@ export class PdfiumNative implements IPdfiumExecutor {
       });
     }
 
-    const formInfoPtr = this.pdfiumModule.PDFiumExt_OpenFormFillInfo();
-    const formHandle = this.pdfiumModule.PDFiumExt_InitFormFillEnvironment(ctx.docPtr, formInfoPtr);
+    const formInfoPtr = this.pdfiumModule.EPDF_OpenFormFillInfo();
+    const formHandle = this.pdfiumModule.FPDFDOC_InitFormFillEnvironment(ctx.docPtr, formInfoPtr);
 
     try {
       const out = this.readPageAnnotationsRaw(doc, ctx, page, formHandle);
@@ -5723,8 +5722,8 @@ export class PdfiumNative implements IPdfiumExecutor {
       );
       return PdfTaskHelper.resolve(out);
     } finally {
-      this.pdfiumModule.PDFiumExt_ExitFormFillEnvironment(formHandle);
-      this.pdfiumModule.PDFiumExt_CloseFormFillInfo(formInfoPtr);
+      this.pdfiumModule.FPDFDOC_ExitFormFillEnvironment(formHandle);
+      this.pdfiumModule.EPDF_CloseFormFillInfo(formInfoPtr);
     }
   }
 
@@ -8870,6 +8869,9 @@ export class PdfiumNative implements IPdfiumExecutor {
     contents: string;
     modified: Date | undefined;
     created: Date | undefined;
+    subject?: string;
+    rotation?: number;
+    unrotatedRect?: Rect;
     flags: PdfAnnotationFlagName[];
     custom: unknown;
     blendMode: PdfBlendMode;
@@ -10796,11 +10798,8 @@ export class PdfiumNative implements IPdfiumExecutor {
       const results: Record<number, PdfAnnotationObject[]> = {};
       const total = pages.length;
 
-      const formInfoPtr = this.pdfiumModule.PDFiumExt_OpenFormFillInfo();
-      const formHandle = this.pdfiumModule.PDFiumExt_InitFormFillEnvironment(
-        ctx.docPtr,
-        formInfoPtr,
-      );
+      const formInfoPtr = this.pdfiumModule.EPDF_OpenFormFillInfo();
+      const formHandle = this.pdfiumModule.FPDFDOC_InitFormFillEnvironment(ctx.docPtr, formInfoPtr);
 
       try {
         for (let i = 0; i < pages.length; i++) {
@@ -10817,8 +10816,8 @@ export class PdfiumNative implements IPdfiumExecutor {
           });
         }
       } finally {
-        this.pdfiumModule.PDFiumExt_ExitFormFillEnvironment(formHandle);
-        this.pdfiumModule.PDFiumExt_CloseFormFillInfo(formInfoPtr);
+        this.pdfiumModule.FPDFDOC_ExitFormFillEnvironment(formHandle);
+        this.pdfiumModule.EPDF_CloseFormFillInfo(formInfoPtr);
       }
 
       this.logger.perf(LOG_SOURCE, LOG_CATEGORY, 'GetAnnotationsBatch', 'End', doc.id);

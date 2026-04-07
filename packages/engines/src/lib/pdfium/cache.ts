@@ -389,15 +389,15 @@ export class PageContext {
    */
   withFormHandle<T>(fn: (formHandle: number) => T): T {
     this.ensureAlive();
-    const formInfoPtr = this.pdf.PDFiumExt_OpenFormFillInfo();
-    const formHandle = this.pdf.PDFiumExt_InitFormFillEnvironment(this.docPtr, formInfoPtr);
+    const formInfoPtr = this.pdf.EPDF_OpenFormFillInfo();
+    const formHandle = this.pdf.FPDFDOC_InitFormFillEnvironment(this.docPtr, formInfoPtr);
     this.pdf.FORM_OnAfterLoadPage(this.pagePtr, formHandle);
     try {
       return fn(formHandle);
     } finally {
       this.pdf.FORM_OnBeforeClosePage(this.pagePtr, formHandle);
-      this.pdf.PDFiumExt_ExitFormFillEnvironment(formHandle);
-      this.pdf.PDFiumExt_CloseFormFillInfo(formInfoPtr);
+      this.pdf.FPDFDOC_ExitFormFillEnvironment(formHandle);
+      this.pdf.EPDF_CloseFormFillInfo(formInfoPtr);
     }
   }
 

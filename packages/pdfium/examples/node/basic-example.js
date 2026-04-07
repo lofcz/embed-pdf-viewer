@@ -25,7 +25,7 @@ class PDFiumNodeExample {
 
       // Initialize PDFium
       this.pdfiumInstance = await init({ wasmBinary });
-      this.pdfiumInstance.PDFiumExt_Init();
+      this.pdfiumInstance.FPDF_InitLibrary();
 
       console.log('PDFium initialized successfully!');
       return this.pdfiumInstance;

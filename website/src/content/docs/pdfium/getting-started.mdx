@@ -34,9 +34,9 @@ async function initializePdfium() {
   const wasmBinary = await response.arrayBuffer();
   pdfiumInstance = await init({ wasmBinary });
   
-  // Initialize the PDFium extension library
+  // Initialize the PDFium library
   // This is required before performing any PDF operations
-  pdfiumInstance.PDFiumExt_Init();
+  pdfiumInstance.FPDF_InitLibrary();
   
   return pdfiumInstance;
 }
@@ -46,15 +46,15 @@ const pdfium = await initializePdfium();
 
 The `initializePdfium` function returns a promise that resolves to a PDFium module object. This object contains all the PDFium functions you can use.
 
-### Important: PDFiumExt_Init()
+### Important: FPDF_InitLibrary()
 
-The call to `PDFiumExt_Init()` is critical and must be done before performing any PDF operations. This function initializes the PDFium extension library with proper configurations and ensures that the subsequent PDFium calls work correctly. Failing to call this function may result in unexpected behavior or crashes.
+The call to `FPDF_InitLibrary()` is critical and must be done before performing any PDF operations. This function initializes the PDFium library and allocates global resources. Failing to call this function may result in unexpected behavior or crashes.
 
 ## Basic Workflow
 
 Working with PDFs in PDFium typically follows this pattern:
 
-1. Initialize PDFium (including calling `PDFiumExt_Init()`)
+1. Initialize PDFium (including calling `FPDF_InitLibrary()`)
 2. Load a PDF document
 3. Perform operations on the document (render pages, extract text, etc.)
 4. Clean up resources
@@ -79,8 +79,8 @@ async function initializePdfium() {
   const wasmBinary = await response.arrayBuffer();
   pdfiumInstance = await init({ wasmBinary });
   
-  // Initialize the PDFium extension library
-  pdfiumInstance.PDFiumExt_Init();
+  // Initialize the PDFium library
+  pdfiumInstance.FPDF_InitLibrary();
   
   return pdfiumInstance;
 }
