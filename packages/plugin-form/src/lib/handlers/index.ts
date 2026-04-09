@@ -3,3 +3,4 @@ export { checkboxHandlerFactory } from './checkbox.handler';
 export { radioButtonHandlerFactory } from './radio-button.handler';
 export { comboboxHandlerFactory } from './combobox.handler';
 export { listboxHandlerFactory } from './listbox.handler';
+export { signatureFieldHandlerFactory } from './signature-field.handler';

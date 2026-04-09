@@ -42,6 +42,8 @@ import {
   IPdfiumExecutor,
   ImageDataLike,
   AnnotationAppearanceMap,
+  PrepareSignatureOptions,
+  PreparedSignatureData,
 } from '@embedpdf/models';
 import type { WorkerRequest, WorkerResponse } from './pdfium-native-runner';
 import type { FontFallbackConfig } from '../pdfium/font-fallback';
@@ -133,7 +135,8 @@ type MessageType =
   | 'removeEncryption'
   | 'unlockOwnerPermissions'
   | 'isEncrypted'
-  | 'isOwnerUnlocked';
+  | 'isOwnerUnlocked'
+  | 'prepareSignatureForSigning';
 
 /**
  * RemoteExecutor - Proxy for worker communication
@@ -691,5 +694,19 @@ export class RemoteExecutor implements IPdfiumExecutor {
 
   isOwnerUnlocked(doc: PdfDocumentObject): PdfTask<boolean> {
     return this.send<boolean>('isOwnerUnlocked', [doc]);
+  }
+
+  prepareSignatureForSigning(
+    doc: PdfDocumentObject,
+    page: PdfPageObject,
+    annotation: PdfWidgetAnnoObject,
+    options: PrepareSignatureOptions,
+  ): PdfTask<PreparedSignatureData> {
+    return this.send<PreparedSignatureData>('prepareSignatureForSigning', [
+      doc,
+      page,
+      annotation,
+      options,
+    ]);
   }
 }

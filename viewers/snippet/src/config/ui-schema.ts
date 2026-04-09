@@ -723,6 +723,13 @@ export const viewerUISchema: UISchema = {
             },
             {
               type: 'command-button',
+              id: 'add-form-signature-field',
+              commandId: 'form:add-signature-field',
+              variant: 'icon',
+              categories: ['form', 'form-signature-field'],
+            },
+            {
+              type: 'command-button',
               id: 'overflow-forms-tools',
               commandId: 'form:overflow-tools',
               variant: 'icon',
@@ -1416,6 +1423,12 @@ export const viewerUISchema: UISchema = {
           id: 'form:add-listbox',
           commandId: 'form:add-listbox',
           categories: ['form', 'form-listbox'],
+        },
+        {
+          type: 'command',
+          id: 'form:add-signature-field',
+          commandId: 'form:add-signature-field',
+          categories: ['form', 'form-signature-field'],
         },
       ],
     },

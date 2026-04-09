@@ -554,6 +554,16 @@ export interface PdfSignatureObject {
   reason: string;
 
   /**
+   * location of signing
+   */
+  location: string;
+
+  /**
+   * contact info of signer
+   */
+  contactInfo: string;
+
+  /**
    * creation time of signature
    */
   time: string;
@@ -562,6 +572,79 @@ export interface PdfSignatureObject {
    * MDP
    */
   docMDP: number;
+}
+
+/**
+ * SubFilter values for PDF digital signatures.
+ * Maps to EPDF_SIG_SUBFILTER on the C++ side.
+ *
+ * @public
+ */
+export enum PdfSignatureSubFilter {
+  PKCS7_DETACHED = 0,
+  ETSI_CADES_DETACHED = 1,
+  ETSI_RFC3161 = 2,
+}
+
+/**
+ * Hash algorithms for PDF digital signature digest computation.
+ *
+ * @public
+ */
+export enum PdfSignatureHashAlgorithm {
+  SHA256 = 0,
+  SHA384 = 1,
+  SHA512 = 2,
+}
+
+/**
+ * User-provided signer that performs the actual cryptographic signing.
+ * The engine never handles private keys — the user implements this
+ * with their own crypto (server call, WebCrypto, smart card, etc.).
+ *
+ * @public
+ */
+export interface PdfSigner {
+  sign(digest: ArrayBuffer, algorithm: PdfSignatureHashAlgorithm): Promise<ArrayBuffer>;
+}
+
+/**
+ * Options for preparing a signature field before signing.
+ *
+ * @public
+ */
+export interface PrepareSignatureOptions {
+  subFilter: PdfSignatureSubFilter;
+  contentsSize?: number;
+  reason?: string;
+  location?: string;
+  contactInfo?: string;
+  certify?: { permission: 1 | 2 | 3 };
+}
+
+/**
+ * Data returned from the worker after preparing a signature and
+ * performing an incremental save, including byte offsets for
+ * the placeholder regions that need patching.
+ *
+ * @public
+ */
+export interface PreparedSignatureData {
+  buffer: ArrayBuffer;
+  contentsOffset: number;
+  contentsLength: number;
+  byteRangeOffset: number;
+  byteRangeLength: number;
+}
+
+/**
+ * Options for the full signDocument orchestration flow.
+ *
+ * @public
+ */
+export interface SignDocumentOptions extends PrepareSignatureOptions {
+  signer: PdfSigner;
+  algorithm?: PdfSignatureHashAlgorithm;
 }
 
 /**
@@ -1484,6 +1567,12 @@ export interface PdfPushButtonWidgetAnnoField extends PdfWidgetAnnoFieldBase {
  */
 export interface PdfSignatureWidgetAnnoField extends PdfWidgetAnnoFieldBase {
   type: PDF_FORM_FIELD_TYPE.SIGNATURE;
+  isSigned: boolean;
+  reason?: string;
+  location?: string;
+  contactInfo?: string;
+  signingTime?: string;
+  subFilter?: string;
 }
 
 /**
@@ -3916,6 +4005,23 @@ export interface PdfEngine<T = Blob> {
    * @returns task that resolves to true if owner permissions are unlocked
    */
   isOwnerUnlocked: (doc: PdfDocumentObject) => PdfTask<boolean>;
+
+  /**
+   * Digitally sign a PDF document using an existing signature field.
+   * Prepares the signature dictionary in the worker, performs an incremental save,
+   * then hashes and patches the buffer on the main thread using the user-provided signer.
+   * @param doc - pdf document
+   * @param page - pdf page containing the signature widget
+   * @param annotation - the signature widget annotation to sign
+   * @param options - signing options including the signer callback
+   * @returns task containing the signed PDF as an ArrayBuffer
+   */
+  signDocument: (
+    doc: PdfDocumentObject,
+    page: PdfPageObject,
+    annotation: PdfWidgetAnnoObject,
+    options: SignDocumentOptions,
+  ) => PdfTask<ArrayBuffer>;
 }
 
 /**
@@ -4149,6 +4255,14 @@ export interface IPdfiumExecutor {
   unlockOwnerPermissions(doc: PdfDocumentObject, ownerPassword: string): PdfTask<boolean>;
   isEncrypted(doc: PdfDocumentObject): PdfTask<boolean>;
   isOwnerUnlocked(doc: PdfDocumentObject): PdfTask<boolean>;
+
+  // Digital signature operations
+  prepareSignatureForSigning(
+    doc: PdfDocumentObject,
+    page: PdfPageObject,
+    annotation: PdfWidgetAnnoObject,
+    options: PrepareSignatureOptions,
+  ): PdfTask<PreparedSignatureData>;
 }
 
 /**

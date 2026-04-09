@@ -13,6 +13,7 @@ import {
   radioButtonHandlerFactory,
   comboboxHandlerFactory,
   listboxHandlerFactory,
+  signatureFieldHandlerFactory,
 } from './handlers';
 
 export const formTextFieldTool = defineAnnotationTool({
@@ -251,10 +252,54 @@ export const formListboxTool = defineAnnotationTool({
   pointerHandler: listboxHandlerFactory,
 } satisfies AnnotationTool<PdfWidgetAnnoObject, 'formListbox'>);
 
+export const formSignatureFieldTool = defineAnnotationTool({
+  id: 'formSignatureField' as const,
+  name: 'Signature Field',
+  labelKey: 'form.signaturefield',
+  categories: ['annotation', 'form'],
+  matchScore: (a: PdfAnnotationObject) => {
+    if (a.type !== PdfAnnotationSubtype.WIDGET) return 0;
+    return a.field?.type === PDF_FORM_FIELD_TYPE.SIGNATURE ? 10 : 0;
+  },
+  interaction: {
+    exclusive: false,
+    cursor: 'crosshair',
+    isDraggable: true,
+    isResizable: true,
+    isRotatable: false,
+    isGroupDraggable: true,
+    isGroupResizable: false,
+    isGroupRotatable: false,
+  },
+  defaults: {
+    type: PdfAnnotationSubtype.WIDGET,
+    strokeColor: '#000000',
+    color: '#FFFFFF',
+    strokeWidth: 1,
+    field: {
+      flag: PDF_FORM_FIELD_FLAG.NONE,
+      name: 'SignatureField',
+      alternateName: 'Signature',
+      value: '',
+      type: PDF_FORM_FIELD_TYPE.SIGNATURE,
+      isSigned: false,
+    },
+  },
+  behavior: {
+    useAppearanceStream: false,
+  },
+  clickBehavior: {
+    enabled: true,
+    defaultSize: { width: 200, height: 60 },
+  },
+  pointerHandler: signatureFieldHandlerFactory,
+} satisfies AnnotationTool<PdfWidgetAnnoObject, 'formSignatureField'>);
+
 export const formTools = [
   formTextFieldTool,
   formCheckboxTool,
   formRadioButtonTool,
   formComboboxTool,
   formListboxTool,
+  formSignatureFieldTool,
 ];

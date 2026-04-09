@@ -133,6 +133,9 @@ import {
   PdfPageTextRuns,
   PdfAlphaColor,
   PdfBlendMode,
+  PrepareSignatureOptions,
+  PreparedSignatureData,
+  PdfSignatureSubFilter,
 } from '@embedpdf/models';
 import { computeFormDrawParams, isValidCustomKey, readArrayBuffer, readString } from './helper';
 import { WrappedPdfiumModule } from '@embedpdf/pdfium';
@@ -675,6 +678,22 @@ export class PdfiumNative implements IPdfiumExecutor {
         this.pdfiumModule.pdfium.UTF16ToString,
       );
 
+      const location = readString(
+        this.pdfiumModule.pdfium,
+        (buffer, bufferLength) => {
+          return this.pdfiumModule.EPDFSig_GetLocation(signatureObjPtr, buffer, bufferLength);
+        },
+        this.pdfiumModule.pdfium.UTF16ToString,
+      );
+
+      const contactInfo = readString(
+        this.pdfiumModule.pdfium,
+        (buffer, bufferLength) => {
+          return this.pdfiumModule.EPDFSig_GetContactInfo(signatureObjPtr, buffer, bufferLength);
+        },
+        this.pdfiumModule.pdfium.UTF16ToString,
+      );
+
       const time = readString(
         this.pdfiumModule.pdfium,
         (buffer, bufferLength) => {
@@ -690,6 +709,8 @@ export class PdfiumNative implements IPdfiumExecutor {
         byteRange,
         subFilter,
         reason,
+        location,
+        contactInfo,
         time,
         docMDP,
       });
@@ -1392,6 +1413,9 @@ export class PdfiumNative implements IPdfiumExecutor {
             case PDF_FORM_FIELD_TYPE.COMBOBOX:
             case PDF_FORM_FIELD_TYPE.LISTBOX:
               isSucceed = this.addChoiceFieldContent(widgetFormHandle, annotationPtr, widget);
+              break;
+            case PDF_FORM_FIELD_TYPE.SIGNATURE:
+              isSucceed = true;
               break;
           }
         }
@@ -3217,6 +3241,192 @@ export class PdfiumNative implements IPdfiumExecutor {
   }
 
   /**
+   * Prepare a signature field for signing and perform an incremental save.
+   *
+   * Finds the annotation by ID, calls EPDFSig_PrepareSignatureDict with
+   * metadata/DocMDP, saves incrementally, and scans for placeholder offsets.
+   */
+  prepareSignatureForSigning(
+    doc: PdfDocumentObject,
+    page: PdfPageObject,
+    annotation: PdfWidgetAnnoObject,
+    options: PrepareSignatureOptions,
+  ): PdfTask<PreparedSignatureData> {
+    this.logger.debug(LOG_SOURCE, LOG_CATEGORY, 'prepareSignatureForSigning', doc, page);
+    this.logger.perf(
+      LOG_SOURCE,
+      LOG_CATEGORY,
+      'PrepareSignatureForSigning',
+      'Begin',
+      `${doc.id}-${page.index}`,
+    );
+
+    const ctx = this.cache.getContext(doc.id);
+    if (!ctx) {
+      this.logger.perf(
+        LOG_SOURCE,
+        LOG_CATEGORY,
+        'PrepareSignatureForSigning',
+        'End',
+        `${doc.id}-${page.index}`,
+      );
+      return PdfTaskHelper.reject({
+        code: PdfErrorCode.DocNotOpen,
+        message: 'document does not open',
+      });
+    }
+
+    const pageCtx = ctx.acquirePage(page.index);
+    const annotPtr = this.getAnnotationByName(pageCtx.pagePtr, annotation.id);
+    if (!annotPtr) {
+      pageCtx.release();
+      this.logger.perf(
+        LOG_SOURCE,
+        LOG_CATEGORY,
+        'PrepareSignatureForSigning',
+        'End',
+        `${doc.id}-${page.index}`,
+      );
+      return PdfTaskHelper.reject({
+        code: PdfErrorCode.NotFound,
+        message: 'signature annotation not found',
+      });
+    }
+
+    try {
+      const contentsSize = options.contentsSize ?? 8192;
+      const ok = this.pdfiumModule.EPDFSig_PrepareSignatureDict(
+        annotPtr,
+        options.subFilter as number,
+        contentsSize,
+      );
+      if (!ok) {
+        this.pdfiumModule.FPDFPage_CloseAnnot(annotPtr);
+        pageCtx.release();
+        this.logger.perf(
+          LOG_SOURCE,
+          LOG_CATEGORY,
+          'PrepareSignatureForSigning',
+          'End',
+          `${doc.id}-${page.index}`,
+        );
+        return PdfTaskHelper.reject({
+          code: PdfErrorCode.Unknown,
+          message: 'EPDFSig_PrepareSignatureDict failed (field may already be signed)',
+        });
+      }
+
+      if (options.reason) {
+        this.withWString(options.reason, (ptr) =>
+          this.pdfiumModule.EPDFSig_SetReason(annotPtr, ptr),
+        );
+      }
+      if (options.location) {
+        this.withWString(options.location, (ptr) =>
+          this.pdfiumModule.EPDFSig_SetLocation(annotPtr, ptr),
+        );
+      }
+      if (options.contactInfo) {
+        this.withWString(options.contactInfo, (ptr) =>
+          this.pdfiumModule.EPDFSig_SetContactInfo(annotPtr, ptr),
+        );
+      }
+      if (options.certify) {
+        const mdpOk = this.pdfiumModule.EPDFSig_SetDocMDP(
+          ctx.docPtr,
+          annotPtr,
+          options.certify.permission,
+        );
+        if (!mdpOk) {
+          this.pdfiumModule.FPDFPage_CloseAnnot(annotPtr);
+          pageCtx.release();
+          this.logger.perf(
+            LOG_SOURCE,
+            LOG_CATEGORY,
+            'PrepareSignatureForSigning',
+            'End',
+            `${doc.id}-${page.index}`,
+          );
+          return PdfTaskHelper.reject({
+            code: PdfErrorCode.Unknown,
+            message:
+              'EPDFSig_SetDocMDP failed (document may already have a certification signature)',
+          });
+        }
+      }
+
+      this.pdfiumModule.FPDFPage_CloseAnnot(annotPtr);
+
+      const FPDF_INCREMENTAL = 1;
+      const buffer = this.saveDocument(ctx.docPtr, FPDF_INCREMENTAL);
+
+      const bytes = new Uint8Array(buffer);
+      const contentsResult = this.findContentsPlaceholder(bytes, contentsSize);
+      if (!contentsResult) {
+        pageCtx.release();
+        this.logger.perf(
+          LOG_SOURCE,
+          LOG_CATEGORY,
+          'PrepareSignatureForSigning',
+          'End',
+          `${doc.id}-${page.index}`,
+        );
+        return PdfTaskHelper.reject({
+          code: PdfErrorCode.Unknown,
+          message: 'could not locate /Contents placeholder in saved PDF',
+        });
+      }
+
+      const byteRangeResult = this.findByteRangePlaceholder(bytes);
+      if (!byteRangeResult) {
+        pageCtx.release();
+        this.logger.perf(
+          LOG_SOURCE,
+          LOG_CATEGORY,
+          'PrepareSignatureForSigning',
+          'End',
+          `${doc.id}-${page.index}`,
+        );
+        return PdfTaskHelper.reject({
+          code: PdfErrorCode.Unknown,
+          message: 'could not locate /ByteRange placeholder in saved PDF',
+        });
+      }
+
+      pageCtx.release();
+      this.logger.perf(
+        LOG_SOURCE,
+        LOG_CATEGORY,
+        'PrepareSignatureForSigning',
+        'End',
+        `${doc.id}-${page.index}`,
+      );
+
+      return PdfTaskHelper.resolve({
+        buffer,
+        contentsOffset: contentsResult.offset,
+        contentsLength: contentsResult.length,
+        byteRangeOffset: byteRangeResult.offset,
+        byteRangeLength: byteRangeResult.length,
+      });
+    } catch (error) {
+      this.pdfiumModule.FPDFPage_CloseAnnot(annotPtr);
+      pageCtx.release();
+      this.logger.perf(
+        LOG_SOURCE,
+        LOG_CATEGORY,
+        'PrepareSignatureForSigning',
+        'End',
+        `${doc.id}-${page.index}`,
+      );
+      return PdfTaskHelper.reject({
+        code: PdfErrorCode.Unknown,
+        message: `prepareSignatureForSigning error: ${error}`,
+      });
+    }
+  }
+
+  /**
    * {@inheritDoc @embedpdf/models!PdfEngine.closeDocument}
    *
    * @public
@@ -4509,9 +4719,9 @@ export class PdfiumNative implements IPdfiumExecutor {
    *
    * @private
    */
-  saveDocument(docPtr: number) {
+  saveDocument(docPtr: number, flags: number = 0) {
     const sizePtr = this.memoryManager.malloc(4);
-    const bufferPtr = this.pdfiumModule.EPDF_SaveDocumentToBuffer(docPtr, 0, sizePtr);
+    const bufferPtr = this.pdfiumModule.EPDF_SaveDocumentToBuffer(docPtr, flags, sizePtr);
     const size = this.pdfiumModule.pdfium.getValue(sizePtr, 'i32') >>> 0;
     this.memoryManager.free(sizePtr);
 
@@ -4523,6 +4733,103 @@ export class PdfiumNative implements IPdfiumExecutor {
     this.pdfiumModule.pdfium.wasmExports.free(bufferPtr);
 
     return result.buffer;
+  }
+
+  /**
+   * Scan saved PDF bytes for the /Contents hex placeholder.
+   * Looks for `/Contents <` followed by `contentsSize * 2` zero hex chars and `>`.
+   * Returns the offset and length of the hex string (between < and >).
+   *
+   * @private
+   */
+  private findContentsPlaceholder(
+    bytes: Uint8Array,
+    contentsSize: number,
+  ): { offset: number; length: number } | null {
+    const hexLen = contentsSize * 2;
+    const needle = '/Contents <';
+    const needleBytes = new TextEncoder().encode(needle);
+
+    for (let i = bytes.length - 1; i >= needleBytes.length; i--) {
+      let match = true;
+      for (let j = 0; j < needleBytes.length; j++) {
+        if (bytes[i - needleBytes.length + 1 + j] !== needleBytes[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (!match) continue;
+
+      const hexStart = i - needleBytes.length + 1 + needleBytes.length;
+      if (hexStart + hexLen + 1 > bytes.length) continue;
+
+      let allZeros = true;
+      for (let k = 0; k < hexLen; k++) {
+        if (bytes[hexStart + k] !== 0x30) {
+          allZeros = false;
+          break;
+        }
+      }
+      if (!allZeros) continue;
+
+      if (bytes[hexStart + hexLen] !== 0x3e) continue;
+
+      return { offset: hexStart, length: hexLen };
+    }
+    return null;
+  }
+
+  /**
+   * Scan saved PDF bytes for the /ByteRange placeholder array.
+   * Looks for `/ByteRange [` ... `]` containing the sentinel value 2147483647.
+   * Returns the offset and length of the array content (between [ and ]).
+   *
+   * @private
+   */
+  private findByteRangePlaceholder(bytes: Uint8Array): { offset: number; length: number } | null {
+    const needle = '/ByteRange [';
+    const needleBytes = new TextEncoder().encode(needle);
+    const sentinel = new TextEncoder().encode('2147483647');
+
+    for (let i = bytes.length - 1; i >= needleBytes.length; i--) {
+      let match = true;
+      for (let j = 0; j < needleBytes.length; j++) {
+        if (bytes[i - needleBytes.length + 1 + j] !== needleBytes[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (!match) continue;
+
+      const arrayStart = i - needleBytes.length + 1 + needleBytes.length;
+      let arrayEnd = -1;
+      for (let k = arrayStart; k < Math.min(arrayStart + 200, bytes.length); k++) {
+        if (bytes[k] === 0x5d) {
+          arrayEnd = k;
+          break;
+        }
+      }
+      if (arrayEnd === -1) continue;
+
+      let hasSentinel = false;
+      for (let k = arrayStart; k <= arrayEnd - sentinel.length; k++) {
+        let sentinelMatch = true;
+        for (let s = 0; s < sentinel.length; s++) {
+          if (bytes[k + s] !== sentinel[s]) {
+            sentinelMatch = false;
+            break;
+          }
+        }
+        if (sentinelMatch) {
+          hasSentinel = true;
+          break;
+        }
+      }
+      if (!hasSentinel) continue;
+
+      return { offset: arrayStart, length: arrayEnd - arrayStart };
+    }
+    return null;
   }
 
   /**
@@ -5704,6 +6011,7 @@ export class PdfiumNative implements IPdfiumExecutor {
     const formHandle = this.pdfiumModule.FPDFDOC_InitFormFillEnvironment(ctx.docPtr, formInfoPtr);
 
     try {
+      this.pdfiumModule.EPDF_FixPageFieldsRaw(formHandle, ctx.docPtr, page.index);
       const out = this.readPageAnnotationsRaw(doc, ctx, page, formHandle);
 
       this.logger.perf(
@@ -9421,8 +9729,65 @@ export class PdfiumNative implements IPdfiumExecutor {
       case PDF_FORM_FIELD_TYPE.PUSHBUTTON:
         return { ...base, type };
 
-      case PDF_FORM_FIELD_TYPE.SIGNATURE:
-        return { ...base, type };
+      case PDF_FORM_FIELD_TYPE.SIGNATURE: {
+        const sigHandle = this.pdfiumModule.EPDFSig_GetAnnotSignatureHandle(annotationPtr);
+        if (!sigHandle) {
+          return { ...base, type, isSigned: false };
+        }
+
+        const contentsSize = this.pdfiumModule.FPDFSignatureObj_GetContents(sigHandle, 0, 0);
+        const isSigned = contentsSize > 0;
+
+        if (!isSigned) {
+          return { ...base, type, isSigned: false };
+        }
+
+        const reason = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.FPDFSignatureObj_GetReason(sigHandle, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF16ToString,
+        );
+
+        const location = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.EPDFSig_GetLocation(sigHandle, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF16ToString,
+        );
+
+        const contactInfo = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.EPDFSig_GetContactInfo(sigHandle, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF16ToString,
+        );
+
+        const signingTime = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.FPDFSignatureObj_GetTime(sigHandle, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF8ToString,
+        );
+
+        const subFilterStr = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.FPDFSignatureObj_GetSubFilter(sigHandle, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF8ToString,
+        );
+
+        return {
+          ...base,
+          type,
+          isSigned: true,
+          ...(reason && { reason }),
+          ...(location && { location }),
+          ...(contactInfo && { contactInfo }),
+          ...(signingTime && { signingTime }),
+          ...(subFilterStr && { subFilter: subFilterStr }),
+        };
+      }
 
       default:
         return { ...base, type: type as PdfUnknownWidgetAnnoField['type'] };
@@ -10804,6 +11169,7 @@ export class PdfiumNative implements IPdfiumExecutor {
       try {
         for (let i = 0; i < pages.length; i++) {
           const page = pages[i];
+          this.pdfiumModule.EPDF_FixPageFieldsRaw(formHandle, ctx.docPtr, page.index);
           const annotations = this.readPageAnnotationsRaw(doc, ctx, page, formHandle);
           results[page.index] = annotations;
 

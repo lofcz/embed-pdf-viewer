@@ -28,6 +28,7 @@ var createPdfium = (() => {
     });
     [
       '_EPDF_CloseFormFillInfo',
+      '_EPDF_FixPageFieldsRaw',
       '_EPDF_GetMetaKeyCount',
       '_EPDF_GetMetaKeyName',
       '_EPDF_GetMetaTrapped',
@@ -158,6 +159,7 @@ var createPdfium = (() => {
       '_EPDFPage_GetAnnotRaw',
       '_EPDFPage_RemoveAnnotByName',
       '_EPDFPage_RemoveAnnotRaw',
+      '_EPDFSig_GetAnnotSignatureHandle',
       '_EPDFSig_GetContactInfo',
       '_EPDFSig_GetLocation',
       '_EPDFSig_PrepareSignatureDict',
@@ -7171,6 +7173,10 @@ var createPdfium = (() => {
       'FORM_IsIndexSelected',
       3,
     ));
+    var _EPDF_FixPageFieldsRaw = (Module['_EPDF_FixPageFieldsRaw'] = createExportWrapper(
+      'EPDF_FixPageFieldsRaw',
+      3,
+    ));
     var _EPDF_OpenFormFillInfo = (Module['_EPDF_OpenFormFillInfo'] = createExportWrapper(
       'EPDF_OpenFormFillInfo',
       0,
@@ -7292,6 +7298,8 @@ var createPdfium = (() => {
       'EPDFSig_GetContactInfo',
       3,
     ));
+    var _EPDFSig_GetAnnotSignatureHandle = (Module['_EPDFSig_GetAnnotSignatureHandle'] =
+      createExportWrapper('EPDFSig_GetAnnotSignatureHandle', 1));
     var _FPDF_StructTree_GetForPage = (Module['_FPDF_StructTree_GetForPage'] = createExportWrapper(
       'FPDF_StructTree_GetForPage',
       1,

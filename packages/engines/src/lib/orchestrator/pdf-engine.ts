@@ -50,7 +50,17 @@ import {
   ImageDataLike,
   IPdfiumExecutor,
   AnnotationAppearanceMap,
+  SignDocumentOptions,
+  PdfSignatureHashAlgorithm,
+  PreparedSignatureData,
 } from '@embedpdf/models';
+import {
+  validatePreparedSignature,
+  computeByteRanges,
+  patchByteRange,
+  hashByteRanges,
+  patchContents,
+} from './signing';
 import { WorkerTaskQueue, Priority } from './task-queue';
 import type { ImageDataConverter } from '../converters/types';
 
@@ -1233,5 +1243,81 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
       },
       { priority: Priority.MEDIUM },
     );
+  }
+
+  /**
+   * {@inheritDoc @embedpdf/models!PdfEngine.signDocument}
+   *
+   * Orchestrates the full signing flow:
+   * 1. Worker: prepare signature dict + incremental save + find offsets
+   * 2. Main thread: compute byte ranges, hash, call user signer, patch buffer
+   */
+  signDocument(
+    doc: PdfDocumentObject,
+    page: PdfPageObject,
+    annotation: PdfWidgetAnnoObject,
+    options: SignDocumentOptions,
+  ): PdfTask<ArrayBuffer> {
+    const task = new Task<ArrayBuffer, PdfErrorReason>();
+
+    (async () => {
+      try {
+        // 1. Worker: prepare + incremental save + find offsets
+        const prepared = await new Promise<PreparedSignatureData>((resolve, reject) => {
+          this.workerQueue
+            .enqueue(
+              {
+                execute: () =>
+                  this.executor.prepareSignatureForSigning(doc, page, annotation, {
+                    subFilter: options.subFilter,
+                    contentsSize: options.contentsSize,
+                    reason: options.reason,
+                    location: options.location,
+                    contactInfo: options.contactInfo,
+                    certify: options.certify,
+                  }),
+                meta: { docId: doc.id, operation: 'prepareSignatureForSigning' },
+              },
+              { priority: Priority.HIGH },
+            )
+            .wait(
+              (data) => resolve(data),
+              (error) => reject(error),
+            );
+        });
+
+        validatePreparedSignature(prepared);
+
+        // 2. Main thread: compute actual byte ranges
+        const ranges = computeByteRanges(
+          prepared.buffer.byteLength,
+          prepared.contentsOffset,
+          prepared.contentsLength,
+        );
+
+        // 3. Main thread: patch ByteRange with actual values (before hashing)
+        patchByteRange(prepared.buffer, prepared.byteRangeOffset, prepared.byteRangeLength, ranges);
+
+        // 4. Main thread: hash the byte ranges via WebCrypto
+        const algorithm = options.algorithm ?? PdfSignatureHashAlgorithm.SHA256;
+        const digest = await hashByteRanges(prepared.buffer, ranges, algorithm);
+
+        // 5. Main thread: call user's signer callback
+        const cmsBlob = await options.signer.sign(digest, algorithm);
+
+        // 6. Main thread: patch Contents with CMS blob
+        patchContents(prepared.buffer, prepared.contentsOffset, prepared.contentsLength, cmsBlob);
+
+        task.resolve(prepared.buffer);
+      } catch (error: any) {
+        if (error && typeof error === 'object' && 'type' in error && 'reason' in error) {
+          task.fail(error);
+        } else {
+          task.reject({ code: PdfErrorCode.Unknown, message: String(error) });
+        }
+      }
+    })();
+
+    return task;
   }
 }

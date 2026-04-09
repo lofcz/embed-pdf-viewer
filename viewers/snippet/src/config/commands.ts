@@ -1034,6 +1034,31 @@ export const commands: Record<string, Command<State>> = {
     },
   },
 
+  'form:add-signature-field': {
+    id: 'form:add-signature-field',
+    labelKey: 'form.signaturefield',
+    icon: 'formSignatureField',
+    categories: ['form', 'form-signature-field'],
+    action: ({ registry, documentId }) => {
+      const annotation = registry.getPlugin<AnnotationPlugin>(ANNOTATION_PLUGIN_ID)?.provides();
+      const annotationScope = annotation?.forDocument(documentId);
+      if (!annotationScope) return;
+
+      if (annotationScope.getActiveTool()?.id === 'formSignatureField') {
+        annotationScope.setActiveTool(null);
+      } else {
+        annotationScope.setActiveTool('formSignatureField');
+      }
+    },
+    active: ({ state, documentId }) => {
+      const annotation = state.plugins[ANNOTATION_PLUGIN_ID]?.documents[documentId];
+      return annotation?.activeToolId === 'formSignatureField';
+    },
+    disabled: ({ state, documentId }) => {
+      return lacksPermission(state, documentId, PdfPermissionFlag.ModifyAnnotations);
+    },
+  },
+
   'form:toggle-fill-mode': {
     id: 'form:toggle-fill-mode',
     labelKey: 'form.toggleFillMode',

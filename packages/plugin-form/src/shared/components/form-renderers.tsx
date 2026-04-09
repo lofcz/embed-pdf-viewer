@@ -11,11 +11,13 @@ import { FormCheckbox } from './annotations/form-checkbox';
 import { FormRadioButton } from './annotations/form-radio-button';
 import { FormCombobox } from './annotations/form-combobox';
 import { FormListbox } from './annotations/form-listbox';
+import { FormSignatureField } from './annotations/form-signature-field';
 import { TextFillMode } from './fill-mode/text-fill-mode';
 import { ToggleFillMode } from './fill-mode/toggle-fill-mode';
 import { RadioButtonFillMode } from './fill-mode/radio-button-fill-mode';
 import { ComboboxFillMode } from './fill-mode/combobox-fill-mode';
 import { ListboxFillMode } from './fill-mode/listbox-fill-mode';
+import { SignatureFieldFillMode } from './fill-mode/signature-field-fill-mode';
 
 export interface WidgetPreviewData {
   rect: Rect;
@@ -197,5 +199,36 @@ export const formRenderers: BoxedAnnotationRenderer[] = [
     interactionDefaults: { isDraggable: false, isResizable: true, isRotatable: false },
     useAppearanceStream: false,
     renderLocked: (props) => <ListboxFillMode {...props} />,
+  }),
+  createRenderer<PdfWidgetAnnoObject, WidgetPreviewData>({
+    id: 'formSignatureField',
+    matches: (a): a is PdfWidgetAnnoObject =>
+      a.type === PdfAnnotationSubtype.WIDGET && a.field?.type === PDF_FORM_FIELD_TYPE.SIGNATURE,
+    render: ({ annotation, isSelected, scale, pageIndex, onClick }) => (
+      <FormSignatureField
+        annotation={annotation}
+        isSelected={isSelected}
+        scale={scale}
+        pageIndex={pageIndex}
+        onClick={onClick}
+      />
+    ),
+    renderPreview: ({ bounds, scale }) => (
+      <div
+        style={{
+          position: 'absolute' as const,
+          left: 0,
+          top: 0,
+          width: bounds.size.width * scale,
+          height: bounds.size.height * scale,
+          border: '1px dashed rgba(66, 133, 244, 0.6)',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          boxSizing: 'border-box' as const,
+        }}
+      />
+    ),
+    interactionDefaults: { isDraggable: false, isResizable: true, isRotatable: false },
+    useAppearanceStream: false,
+    renderLocked: (props) => <SignatureFieldFillMode {...props} />,
   }),
 ];

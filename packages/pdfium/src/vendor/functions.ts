@@ -1,6 +1,7 @@
 /* AUTO-GENERATED — DO NOT EDIT BY HAND */
 export const functions = {
   EPDF_CloseFormFillInfo: [['number'] as const, null] as const,
+  EPDF_FixPageFieldsRaw: [['number', 'number', 'number'] as const, null] as const,
   EPDF_GetMetaKeyCount: [['number', 'boolean'] as const, 'number'] as const,
   EPDF_GetMetaKeyName: [
     ['number', 'number', 'boolean', 'number', 'number'] as const,
@@ -191,6 +192,7 @@ export const functions = {
   EPDFPage_GetAnnotRaw: [['number', 'number', 'number'] as const, 'number'] as const,
   EPDFPage_RemoveAnnotByName: [['number', 'number'] as const, 'boolean'] as const,
   EPDFPage_RemoveAnnotRaw: [['number', 'number', 'number'] as const, 'boolean'] as const,
+  EPDFSig_GetAnnotSignatureHandle: [['number'] as const, 'number'] as const,
   EPDFSig_GetContactInfo: [['number', 'number', 'number'] as const, 'number'] as const,
   EPDFSig_GetLocation: [['number', 'number', 'number'] as const, 'number'] as const,
   EPDFSig_PrepareSignatureDict: [['number', 'number', 'number'] as const, 'boolean'] as const,
