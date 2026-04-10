@@ -39,7 +39,12 @@ import {
   useActiveDocument,
 } from '@embedpdf/plugin-document-manager/react';
 import { CommandsPluginPackage, CommandsPluginConfig } from '@embedpdf/plugin-commands/react';
-import { I18nPluginPackage, I18nPluginConfig, useTranslations } from '@embedpdf/plugin-i18n/react';
+import {
+  I18nPluginPackage,
+  I18nPluginConfig,
+  useTranslations,
+  useStaticTranslation,
+} from '@embedpdf/plugin-i18n/react';
 import {
   MarqueeZoom,
   ZoomMode,
@@ -628,12 +633,15 @@ export function PDFViewer({ config, onRegistryReady }: PDFViewerProps) {
     ensureFontStylesheet('ui', uiFont.stylesheetUrl, [uiFont.family]);
   }, [uiFont.family, uiFont.stylesheetUrl]);
 
+  const i18nConfig = useMemo(() => ({ ...DEFAULTS.i18n, ...config.i18n }), [config.i18n]);
+  const staticTranslate = useStaticTranslation(i18nConfig);
+
   if (!engine || isLoading)
     return (
       <div className="embedpdf-snippet-root" style={uiFontStyle}>
         <style>{styles}</style>
         <div className="flex h-full w-full items-center justify-center">
-          <LoadingIndicator size="lg" text="Initializing PDF engine..." />
+          <LoadingIndicator size="lg" text={staticTranslate('viewer.initializingEngine')} />
         </div>
       </div>
     );
@@ -778,7 +786,7 @@ export function PDFViewer({ config, onRegistryReady }: PDFViewerProps) {
               </>
             ) : (
               <div className="flex h-full items-center justify-center">
-                <LoadingIndicator size="lg" text="Initializing plugins..." />
+                <LoadingIndicator size="lg" text={staticTranslate('viewer.initializingPlugins')} />
               </div>
             )}
           </>
