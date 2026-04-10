@@ -1,18 +1,6 @@
-import {
-  ConsoleLogger,
-  ignore,
-  PdfDocumentObject,
-  PdfEngineError,
-  PdfTaskHelper,
-} from '@embedpdf/models';
-import { WebWorkerEngine } from '../src/index';
-import pdfiumWasm from 'url:@embedpdf/pdfium/pdfium.wasm';
-
-async function loadWasmBinary() {
-  const response = await fetch(pdfiumWasm);
-  const wasmBinary = await response.arrayBuffer();
-  return wasmBinary;
-}
+import { ConsoleLogger, ignore, PdfDocumentObject, PdfEngineError } from '@embedpdf/models';
+import { PdfEngine, RemoteExecutor } from '../src/lib/orchestrator/public';
+import { browserImageDataToBlobConverter } from '../src/lib/converters/browser';
 
 async function readFile(file: File): Promise<ArrayBuffer> {
   return new Promise((resolve) => {
@@ -31,66 +19,66 @@ function logError(error: PdfEngineError) {
 
 async function run() {
   const logger = new ConsoleLogger();
+
   const worker = new Worker(new URL('./webworker.ts', import.meta.url), {
     type: 'module',
   });
-  const engine = new WebWorkerEngine(worker, logger);
+
+  const executor = new RemoteExecutor(worker, {
+    bootstrap: 'external',
+    logger,
+  });
+
+  const engine = new PdfEngine<Blob>(executor, {
+    imageConverter: browserImageDataToBlobConverter,
+    logger,
+  });
 
   const passwordElem = document.getElementById('pdf-password') as HTMLInputElement;
   const inputElem = document.getElementById('pdf-file') as HTMLInputElement;
-  const bookmarksElem = document.getElementById('pdf-bookmarks') as HTMLParagraphElement;
   const saveElem = document.getElementById('save') as HTMLInputElement;
 
   let currDoc: PdfDocumentObject | null = null;
   inputElem?.addEventListener('input', async (evt) => {
-    const closeTask = currDoc ? engine.closeDocument(currDoc) : PdfTaskHelper.resolve(true);
+    const closeTask = currDoc ? engine.closeDocument(currDoc) : null;
     currDoc = null;
 
-    closeTask.wait(async () => {
+    const proceed = async () => {
       const file = (evt.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const arrayBuffer = await readFile(file);
-        const password = passwordElem.value;
-        const task = engine.openDocument(
-          { id: file.name, name: file.name, content: arrayBuffer },
-          password,
-        );
-        task.wait(
+      if (!file) return;
+
+      const arrayBuffer = await readFile(file);
+      const password = passwordElem.value;
+      engine
+        .openDocumentBuffer(
+          { id: file.name, content: arrayBuffer },
+          { password: password || undefined },
+        )
+        .wait(
           (doc) => {
             currDoc = doc;
 
-            const task = engine.getBookmarks(doc);
-            task.wait((bookmarks) => {
+            engine.getBookmarks(doc).wait((bookmarks) => {
               console.log(bookmarks);
             }, logError);
 
             for (let i = 0; i < doc.pageCount; i++) {
               const page = doc.pages[i];
 
-              const renderTask = engine.renderPage(doc, page, 1, 0, window.devicePixelRatio, {
-                withAnnotations: true,
-              });
-              renderTask.wait((imageData) => {
-                const canvasElem = document.createElement('canvas') as HTMLCanvasElement;
+              engine.renderPage(doc, page).wait((blob) => {
+                const img = document.createElement('img');
                 const rootElem = document.getElementById('root') as HTMLDivElement;
-                rootElem.appendChild(canvasElem);
-                canvasElem.style.width = `${page.size.width}px`;
-                canvasElem.style.height = `${page.size.height}px`;
-                canvasElem.width = imageData.width;
-                canvasElem.height = imageData.height;
-
-                const ctx = canvasElem.getContext('2d');
-                ctx?.putImageData(imageData, 0, 0, 0, 0, imageData.width, imageData.height);
-                console.log(imageData);
+                rootElem.appendChild(img);
+                img.style.width = `${page.size.width}px`;
+                img.style.height = `${page.size.height}px`;
+                img.src = URL.createObjectURL(blob);
               }, logError);
 
-              const annotationsTask = engine.getPageAnnotations(doc, page, 1, 0);
-              annotationsTask.wait((annotations) => {
+              engine.getPageAnnotations(doc, page).wait((annotations) => {
                 console.log(page.index, annotations);
               }, logError);
 
-              const textRectsTask = engine.getPageTextRects(doc, page, 1, 0);
-              textRectsTask.wait((textRects) => {
+              engine.getPageTextRects(doc, page).wait((textRects) => {
                 console.log(page.index, textRects);
               }, logError);
             }
@@ -99,8 +87,13 @@ async function run() {
             currDoc = null;
           },
         );
-      }
-    }, logError);
+    };
+
+    if (closeTask) {
+      closeTask.wait(proceed, logError);
+    } else {
+      proceed();
+    }
   });
 
   saveElem.addEventListener('click', async () => {

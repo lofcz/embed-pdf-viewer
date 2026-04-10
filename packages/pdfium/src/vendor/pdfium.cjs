@@ -5044,11 +5044,11 @@ var _EPDFAnnot_GetTextAlignment = Module['_EPDFAnnot_GetTextAlignment'] = create
 var _EPDFAnnot_SetVerticalAlignment = Module['_EPDFAnnot_SetVerticalAlignment'] = createExportWrapper('EPDFAnnot_SetVerticalAlignment', 2);
 var _EPDFAnnot_GetVerticalAlignment = Module['_EPDFAnnot_GetVerticalAlignment'] = createExportWrapper('EPDFAnnot_GetVerticalAlignment', 1);
 var _EPDFPage_GetAnnotByName = Module['_EPDFPage_GetAnnotByName'] = createExportWrapper('EPDFPage_GetAnnotByName', 2);
-var _EPDFPage_RemoveAnnotByName = Module['_EPDFPage_RemoveAnnotByName'] = createExportWrapper('EPDFPage_RemoveAnnotByName', 2);
+var _EPDFPage_RemoveAnnotByName = Module['_EPDFPage_RemoveAnnotByName'] = createExportWrapper('EPDFPage_RemoveAnnotByName', 3);
 var _EPDFAnnot_SetLinkedAnnot = Module['_EPDFAnnot_SetLinkedAnnot'] = createExportWrapper('EPDFAnnot_SetLinkedAnnot', 3);
 var _EPDFPage_GetAnnotCountRaw = Module['_EPDFPage_GetAnnotCountRaw'] = createExportWrapper('EPDFPage_GetAnnotCountRaw', 2);
 var _EPDFPage_GetAnnotRaw = Module['_EPDFPage_GetAnnotRaw'] = createExportWrapper('EPDFPage_GetAnnotRaw', 3);
-var _EPDFPage_RemoveAnnotRaw = Module['_EPDFPage_RemoveAnnotRaw'] = createExportWrapper('EPDFPage_RemoveAnnotRaw', 3);
+var _EPDFPage_RemoveAnnotRaw = Module['_EPDFPage_RemoveAnnotRaw'] = createExportWrapper('EPDFPage_RemoveAnnotRaw', 4);
 var _EPDFAnnot_SetName = Module['_EPDFAnnot_SetName'] = createExportWrapper('EPDFAnnot_SetName', 2);
 var _EPDFAnnot_GetName = Module['_EPDFAnnot_GetName'] = createExportWrapper('EPDFAnnot_GetName', 1);
 var _EPDFAnnot_UpdateAppearanceToRect = Module['_EPDFAnnot_UpdateAppearanceToRect'] = createExportWrapper('EPDFAnnot_UpdateAppearanceToRect', 2);

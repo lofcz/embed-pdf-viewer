@@ -6274,7 +6274,7 @@ var createPdfium = (() => {
     ));
     var _EPDFPage_RemoveAnnotByName = (Module['_EPDFPage_RemoveAnnotByName'] = createExportWrapper(
       'EPDFPage_RemoveAnnotByName',
-      2,
+      3,
     ));
     var _EPDFAnnot_SetLinkedAnnot = (Module['_EPDFAnnot_SetLinkedAnnot'] = createExportWrapper(
       'EPDFAnnot_SetLinkedAnnot',
@@ -6290,7 +6290,7 @@ var createPdfium = (() => {
     ));
     var _EPDFPage_RemoveAnnotRaw = (Module['_EPDFPage_RemoveAnnotRaw'] = createExportWrapper(
       'EPDFPage_RemoveAnnotRaw',
-      3,
+      4,
     ));
     var _EPDFAnnot_SetName = (Module['_EPDFAnnot_SetName'] = createExportWrapper(
       'EPDFAnnot_SetName',

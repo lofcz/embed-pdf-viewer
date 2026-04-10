@@ -87,7 +87,8 @@ const baseEntries = {
   'lib/pdfium/index': 'lib/pdfium/index.ts',
   'lib/pdfium/web/direct-engine': 'lib/pdfium/web/direct-engine.ts',
   'lib/pdfium/web/worker-engine': 'lib/pdfium/web/worker-engine.ts',
-  'lib/webworker/engine': 'lib/webworker/engine.ts',
+  'lib/orchestrator/public': 'lib/orchestrator/public.ts',
+  'lib/pdfium/worker-runtime': 'lib/pdfium/worker-runtime.ts',
   'lib/converters/index': 'lib/converters/index.ts',
 } as const;
 

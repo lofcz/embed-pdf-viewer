@@ -1775,7 +1775,9 @@ export class PdfiumNative implements IPdfiumExecutor {
 
     const pageCtx = ctx.acquirePage(page.index);
     let result = false;
-    result = this.removeAnnotationByName(pageCtx.pagePtr, annotation.id);
+    result = pageCtx.withFormHandle((formHandle) => {
+      return this.removeAnnotationByName(pageCtx.pagePtr, annotation.id, formHandle);
+    });
     if (!result) {
       this.logger.error(
         LOG_SOURCE,
@@ -9422,13 +9424,14 @@ export class PdfiumNative implements IPdfiumExecutor {
    * Remove annotation by name
    * @param pagePtr - pointer to pdf page object
    * @param name - name of annotation
+   * @param formHandle - form fill handle (0 to skip field-tree cleanup)
    * @returns true on success
    *
    * @private
    */
-  private removeAnnotationByName(pagePtr: number, name: string): boolean {
+  private removeAnnotationByName(pagePtr: number, name: string, formHandle: number): boolean {
     return this.withWString(name, (wNamePtr) => {
-      return this.pdfiumModule.EPDFPage_RemoveAnnotByName(pagePtr, wNamePtr);
+      return this.pdfiumModule.EPDFPage_RemoveAnnotByName(pagePtr, wNamePtr, formHandle);
     });
   }
 
@@ -11563,6 +11566,7 @@ export class PdfiumNative implements IPdfiumExecutor {
             printDocPtr,
             pageIndex,
             annotIndex,
+            0,
           );
 
           if (removed) {

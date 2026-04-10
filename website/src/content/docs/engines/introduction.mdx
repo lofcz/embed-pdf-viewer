@@ -10,44 +10,23 @@ searchable: true
 
 ## Quick Start
 
-The best way to use the engine in a browser is with a Web Worker to keep the main thread free. Here's a complete example of rendering the first page of a PDF:
-
-**1. Create your worker (`webworker.ts`):**
-```typescript
-import { PdfiumEngineRunner, DEFAULT_PDFIUM_WASM_URL } from '@embedpdf/engines';
-
-async function init() {
-  const response = await fetch(DEFAULT_PDFIUM_WASM_URL);
-  const wasmBinary = await response.arrayBuffer();
-  const runner = new PdfiumEngineRunner(wasmBinary);
-  runner.prepare();
-}
-
-init();
-````
-
-**2. Use the engine in your app (`main.ts`):**
+The fastest way to get started is with `createPdfiumWorkerEngine`, which sets up a Web Worker automatically to keep the main thread free:
 
 ```typescript
-import { WebWorkerEngine } from '@embedpdf/engines/worker';
+import { createPdfiumWorkerEngine, DEFAULT_PDFIUM_WASM_URL } from '@embedpdf/engines/pdfium';
 
-const worker = new Worker(new URL('./webworker.ts', import.meta.url), { 
-  type: 'module' 
-});
-const engine = new WebWorkerEngine(worker);
-
-// Engine is ready to use immediately - no initialization needed!
+const engine = createPdfiumWorkerEngine(DEFAULT_PDFIUM_WASM_URL);
 
 // Open a document and render its first page
-const document = await engine
+const doc = await engine
   .openDocumentUrl({ id: 'demo', url: '/demo.pdf' })
   .toPromise();
 
 const imageBlob = await engine
-  .renderPage(document, document.pages[0])
+  .renderPage(doc, doc.pages[0])
   .toPromise();
 
-// You can now display the image
+// Display the image
 const imageUrl = URL.createObjectURL(imageBlob);
 document.getElementById('my-image').src = imageUrl;
 ```
@@ -83,11 +62,11 @@ npm i @embedpdf/engines @embedpdf/pdfium
 
 ## Usage Patterns
 
-While a Web Worker is recommended for browsers, the engine is flexible and supports other environments.
+The Quick Start above uses `createPdfiumWorkerEngine` which automatically runs PDFium in a Web Worker. The engine also supports other environments.
 
 ### 1\. Main Thread (Browser)
 
-For simpler use cases, you can run the engine directly on the main thread.
+For simpler use cases or environments without Web Worker support, you can run the engine directly on the main thread.
 
 ```typescript
 import { init, DEFAULT_PDFIUM_WASM_URL } from '@embedpdf/pdfium';
@@ -110,7 +89,59 @@ const engine = new PdfEngine(native, {
 // ... use engine methods
 ```
 
-### 2\. Node.js
+### 2\. Custom Worker (Advanced)
+
+If you need full control over the worker—custom WASM loading, your own font configuration, or a non-standard bundler setup—you can bring your own worker and compose the engine from its building blocks.
+
+**1. Create your worker** (`webworker.ts`):
+
+```typescript
+import {
+  PdfiumEngineRunner,
+  DEFAULT_PDFIUM_WASM_URL,
+} from '@embedpdf/engines/pdfium-worker-runtime';
+
+async function init() {
+  const response = await fetch(DEFAULT_PDFIUM_WASM_URL);
+  const wasmBinary = await response.arrayBuffer();
+  const runner = new PdfiumEngineRunner(wasmBinary);
+  await runner.prepare();
+}
+
+init();
+```
+
+**2. Use the engine in your app** (`main.ts`):
+
+```typescript
+import { PdfEngine, RemoteExecutor } from '@embedpdf/engines/orchestrator';
+import { browserImageDataToBlobConverter } from '@embedpdf/engines/converters';
+
+const worker = new Worker(
+  new URL('./webworker.ts', import.meta.url),
+  { type: 'module' },
+);
+
+const executor = new RemoteExecutor(worker, {
+  bootstrap: 'external',
+});
+
+const engine = new PdfEngine(executor, {
+  imageConverter: browserImageDataToBlobConverter,
+});
+
+const doc = await engine
+  .openDocumentUrl({ id: 'demo', url: '/demo.pdf' })
+  .toPromise();
+
+const imageBlob = await engine
+  .renderPage(doc, doc.pages[0])
+  .toPromise();
+```
+
+The `bootstrap: 'external'` option tells the executor that the worker will initialise PDFium on its own and send a `ready` message when it is done. No configuration is sent from the main thread to the worker.
+
+### 3\. Node.js
 
 The engine works seamlessly in Node.js. You'll need to provide an image conversion library like `sharp`.
 

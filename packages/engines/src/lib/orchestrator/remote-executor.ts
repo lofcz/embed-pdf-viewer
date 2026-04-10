@@ -49,22 +49,34 @@ import type { WorkerRequest, WorkerResponse } from './pdfium-native-runner';
 import type { FontFallbackConfig } from '../pdfium/font-fallback';
 
 /**
- * Options for creating a RemoteExecutor
+ * Worker-side configuration sent via the bootstrap message in managed mode.
  */
-export interface RemoteExecutorOptions {
-  /**
-   * URL to the pdfium.wasm file (required)
-   */
+export interface ManagedWorkerBootstrapOptions {
   wasmUrl: string;
-  /**
-   * Logger instance for debugging
-   */
   logger?: Logger;
-  /**
-   * Font fallback configuration for handling missing fonts
-   */
   fontFallback?: FontFallbackConfig;
 }
+
+/**
+ * Options for creating a RemoteExecutor.
+ *
+ * - `managed` – the executor sends a bootstrap message to the worker with
+ *   the WASM URL, logger, and font config. The built-in worker script handles
+ *   everything automatically.
+ * - `external` – the worker is expected to initialise itself (fetch WASM,
+ *   create a `PdfiumEngineRunner`, call `prepare()`). The executor simply
+ *   waits for the worker's `ready` message.
+ */
+export type RemoteExecutorOptions =
+  | {
+      bootstrap: 'managed';
+      logger?: Logger;
+      worker: ManagedWorkerBootstrapOptions;
+    }
+  | {
+      bootstrap: 'external';
+      logger?: Logger;
+    };
 
 const LOG_SOURCE = 'RemoteExecutor';
 const LOG_CATEGORY = 'Worker';
@@ -157,25 +169,31 @@ export class RemoteExecutor implements IPdfiumExecutor {
 
   constructor(
     private worker: Worker,
-    options: RemoteExecutorOptions,
+    private options: RemoteExecutorOptions,
   ) {
     this.logger = options.logger ?? new NoopLogger();
     this.worker.addEventListener('message', this.handleMessage);
 
-    // Create ready task - will be resolved when worker sends 'ready'
     this.readyTask = new Task<boolean, PdfErrorReason>();
     this.pendingRequests.set(RemoteExecutor.READY_TASK_ID, this.readyTask);
 
-    // Send initialization message with WASM URL and font fallback config
-    this.worker.postMessage({
-      id: RemoteExecutor.READY_TASK_ID,
-      type: 'wasmInit',
-      wasmUrl: options.wasmUrl,
-      logger: options.logger ? serializeLogger(options.logger) : undefined,
-      fontFallback: options.fontFallback,
-    });
+    if (options.bootstrap === 'managed') {
+      this.worker.postMessage({
+        id: RemoteExecutor.READY_TASK_ID,
+        type: 'bootstrap',
+        bootstrap: 'managed',
+        wasmUrl: options.worker.wasmUrl,
+        logger: options.worker.logger ? serializeLogger(options.worker.logger) : undefined,
+        fontFallback: options.worker.fontFallback,
+      });
+    }
+    // In 'external' mode we just wait for the worker to send 'ready' on its own.
 
-    this.logger.debug(LOG_SOURCE, LOG_CATEGORY, 'RemoteExecutor created');
+    this.logger.debug(
+      LOG_SOURCE,
+      LOG_CATEGORY,
+      `RemoteExecutor created (bootstrap: ${options.bootstrap})`,
+    );
   }
 
   /**

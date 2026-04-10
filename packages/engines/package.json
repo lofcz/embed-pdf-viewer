@@ -17,11 +17,6 @@
       "import": "./dist/lib/pdfium/index.js",
       "require": "./dist/lib/pdfium/index.cjs"
     },
-    "./worker": {
-      "types": "./dist/lib/webworker/engine.d.ts",
-      "import": "./dist/lib/webworker/engine.js",
-      "require": "./dist/lib/webworker/engine.cjs"
-    },
     "./converters": {
       "types": "./dist/lib/converters/index.d.ts",
       "import": "./dist/lib/converters/index.js",
@@ -36,6 +31,16 @@
       "types": "./dist/lib/pdfium/web/worker-engine.d.ts",
       "import": "./dist/lib/pdfium/web/worker-engine.js",
       "require": "./dist/lib/pdfium/web/worker-engine.cjs"
+    },
+    "./orchestrator": {
+      "types": "./dist/lib/orchestrator/public.d.ts",
+      "import": "./dist/lib/orchestrator/public.js",
+      "require": "./dist/lib/orchestrator/public.cjs"
+    },
+    "./pdfium-worker-runtime": {
+      "types": "./dist/lib/pdfium/worker-runtime.d.ts",
+      "import": "./dist/lib/pdfium/worker-runtime.js",
+      "require": "./dist/lib/pdfium/worker-runtime.cjs"
     },
     "./react": {
       "types": "./dist/react/index.d.ts",

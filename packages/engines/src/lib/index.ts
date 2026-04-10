@@ -4,4 +4,3 @@
  */
 
 export * from './pdfium';
-export * from './webworker';

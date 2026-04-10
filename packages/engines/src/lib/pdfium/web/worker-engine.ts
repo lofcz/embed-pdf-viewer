@@ -80,8 +80,11 @@ export function createPdfiumEngine(
     },
   );
 
-  // Create RemoteExecutor (proxy to worker) - handles wasmInit internally
-  const remoteExecutor = new RemoteExecutor(worker, { wasmUrl, logger, fontFallback });
+  const remoteExecutor = new RemoteExecutor(worker, {
+    bootstrap: 'managed',
+    logger,
+    worker: { wasmUrl, logger, fontFallback },
+  });
 
   const finalEncoderWorkerUrl = URL.createObjectURL(
     new Blob([__ENCODER_WORKER_BODY__], { type: 'application/javascript' }),
