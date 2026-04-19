@@ -648,6 +648,160 @@ export interface SignDocumentOptions extends PrepareSignatureOptions {
 }
 
 /**
+ * Semantic category of a resolved revision entry.
+ * Mirrors the EPDF_SEMANTIC_* constants from PDFium.
+ *
+ * @public
+ */
+export enum PdfRevisionSemanticType {
+  FORM_STATE_CHANGE = 0,
+  ANNOTATION = 1,
+  SIGNATURE = 2,
+  DOCUMENT_TIMESTAMP = 3,
+  DSS = 4,
+  PAGE = 5,
+  CATALOG = 6,
+  OTHER = 7,
+}
+
+/**
+ * Raw diff category of a revision entry.
+ *
+ * @public
+ */
+export enum PdfRevisionDiffCategory {
+  ADDED = 0,
+  MODIFIED = 1,
+  FREED = 2,
+}
+
+/**
+ * Digest / trust evaluation status for signature verification.
+ *
+ * @public
+ */
+export enum SignatureVerificationStatus {
+  VALID = 'valid',
+  INVALID = 'invalid',
+  INDETERMINATE = 'indeterminate',
+  NOT_CHECKED = 'not_checked',
+}
+
+/**
+ * DocMDP compliance status values returned by PDFium.
+ *
+ * @public
+ */
+export enum PdfDocMDPComplianceStatus {
+  COMPLIANT = 0,
+  VIOLATED = 1,
+  NOT_APPLICABLE = 2,
+  UNSUPPORTED = 3,
+  INDETERMINATE = 4,
+}
+
+/**
+ * One resolved revision entry returned by the verification pipeline.
+ *
+ * @public
+ */
+export interface PdfResolvedRevisionEntry {
+  changedObjectId: number;
+  targetObjectId?: number;
+  pageObjectId?: number;
+  diffCategory: PdfRevisionDiffCategory;
+  semanticType: PdfRevisionSemanticType;
+}
+
+/**
+ * Adjacent revision interval with its resolved changed entries.
+ *
+ * @public
+ */
+export interface PdfRevisionInterval {
+  olderRevisionIndex: number;
+  newerRevisionIndex: number;
+  entries: PdfResolvedRevisionEntry[];
+}
+
+/**
+ * Result of byte-range digest verification.
+ *
+ * @public
+ */
+export interface PdfSignatureIntegrityResult {
+  status: SignatureVerificationStatus;
+  digestMatch: boolean;
+  coversEntireRevision: boolean;
+  algorithm?: PdfSignatureHashAlgorithm;
+  message?: string;
+}
+
+/**
+ * Result of DocMDP evaluation for a signature revision.
+ *
+ * @public
+ */
+export interface PdfSignatureDocMDPResult {
+  permission: number;
+  status: PdfDocMDPComplianceStatus;
+  compliant: boolean;
+}
+
+/**
+ * Verification result for a single signature.
+ *
+ * Trust validation is intentionally omitted from the first version, but this
+ * shape leaves room to add it later as another sibling field.
+ *
+ * @public
+ */
+export interface PdfSignatureVerificationResult {
+  signatureIndex: number;
+  revisionIndex: number;
+  subFilter: string;
+  reason?: string;
+  signingTime?: string;
+  integrity: PdfSignatureIntegrityResult;
+  docMDP: PdfSignatureDocMDPResult;
+}
+
+/**
+ * Public verification result returned by verifyDocument()/reverifyDocument().
+ *
+ * @public
+ */
+export interface PdfDocumentVerification {
+  revisionCount: number;
+  signatures: PdfSignatureVerificationResult[];
+  intervals: PdfRevisionInterval[];
+  verifiedAt: Date;
+}
+
+/**
+ * Internal verification payload returned by the executor.
+ *
+ * @public
+ */
+export interface PdfVerificationData {
+  revisionCount: number;
+  rawBytes: Uint8Array;
+  signatures: Array<{
+    signatureIndex: number;
+    revisionIndex: number;
+    revisionFileEnd?: number;
+    cmsBlob: ArrayBuffer;
+    byteRange: number[];
+    subFilter: string;
+    reason?: string;
+    signingTime?: string;
+    docMDPPermission: number;
+    docMDPStatus: PdfDocMDPComplianceStatus;
+  }>;
+  intervals: PdfRevisionInterval[];
+}
+
+/**
  * Bookmark tree of pdf
  *
  * @public
@@ -4022,6 +4176,19 @@ export interface PdfEngine<T = Blob> {
     annotation: PdfWidgetAnnoObject,
     options: SignDocumentOptions,
   ) => PdfTask<ArrayBuffer>;
+  /**
+   * Verify document signatures and expose resolved revision entries.
+   * Digest verification is included in the first version.
+   * @param doc - pdf document
+   * @returns task containing verification results
+   */
+  verifyDocument: (doc: PdfDocumentObject) => PdfTask<PdfDocumentVerification>;
+  /**
+   * Re-verify the current document state by saving a fresh copy and reopening it.
+   * @param doc - pdf document
+   * @returns task containing verification results
+   */
+  reverifyDocument: (doc: PdfDocumentObject) => PdfTask<PdfDocumentVerification>;
 }
 
 /**
@@ -4263,6 +4430,7 @@ export interface IPdfiumExecutor {
     annotation: PdfWidgetAnnoObject,
     options: PrepareSignatureOptions,
   ): PdfTask<PreparedSignatureData>;
+  getVerificationData(doc: PdfDocumentObject): PdfTask<PdfVerificationData>;
 }
 
 /**

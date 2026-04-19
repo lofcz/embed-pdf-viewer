@@ -85,6 +85,7 @@ var createPdfium = (() => {
       '_EPDFAnnot_GetLineEndings',
       '_EPDFAnnot_GetMKColor',
       '_EPDFAnnot_GetName',
+      '_EPDFAnnot_GetObjectNumber',
       '_EPDFAnnot_GetOpacity',
       '_EPDFAnnot_GetOverlayText',
       '_EPDFAnnot_GetOverlayTextRepeat',
@@ -147,6 +148,7 @@ var createPdfium = (() => {
       '_EPDFDest_CreateRemoteXYZ',
       '_EPDFDest_CreateView',
       '_EPDFDest_CreateXYZ',
+      '_EPDFDoc_LoadPageByObjectNumber',
       '_EPDFImageObj_SetJpeg',
       '_EPDFImageObj_SetPng',
       '_EPDFNamedDest_Remove',
@@ -155,13 +157,28 @@ var createPdfium = (() => {
       '_EPDFPage_CreateAnnot',
       '_EPDFPage_CreateFormField',
       '_EPDFPage_GetAnnotByName',
+      '_EPDFPage_GetAnnotByObjectNumber',
       '_EPDFPage_GetAnnotCountRaw',
       '_EPDFPage_GetAnnotRaw',
+      '_EPDFPage_GetObjectNumber',
       '_EPDFPage_RemoveAnnotByName',
       '_EPDFPage_RemoveAnnotRaw',
+      '_EPDFRevision_Compare',
+      '_EPDFRevision_Get',
+      '_EPDFRevision_GetCount',
+      '_EPDFRevision_GetFileEnd',
+      '_EPDFRevision_GetSignature',
+      '_EPDFRevisionDiff_Close',
+      '_EPDFRevisionDiff_GetEntry',
+      '_EPDFRevisionDiff_GetEntryCount',
+      '_EPDFRevisionDiff_GetResolvedEntry',
+      '_EPDFRevisionDiff_GetResolvedEntryCount',
+      '_EPDFRevisionDiff_GetSemanticCategoryCounts',
+      '_EPDFSig_CheckDocMDPCompliance',
       '_EPDFSig_GetAnnotSignatureHandle',
       '_EPDFSig_GetContactInfo',
       '_EPDFSig_GetLocation',
+      '_EPDFSig_GetSignatureRevision',
       '_EPDFSig_PrepareSignatureDict',
       '_EPDFSig_SetContactInfo',
       '_EPDFSig_SetDocMDP',
@@ -6427,6 +6444,12 @@ var createPdfium = (() => {
     ));
     var _EPDFAnnot_SetFormFieldOptions = (Module['_EPDFAnnot_SetFormFieldOptions'] =
       createExportWrapper('EPDFAnnot_SetFormFieldOptions', 4));
+    var _EPDFAnnot_GetObjectNumber = (Module['_EPDFAnnot_GetObjectNumber'] = createExportWrapper(
+      'EPDFAnnot_GetObjectNumber',
+      1,
+    ));
+    var _EPDFPage_GetAnnotByObjectNumber = (Module['_EPDFPage_GetAnnotByObjectNumber'] =
+      createExportWrapper('EPDFPage_GetAnnotByObjectNumber', 2));
     var _FPDFDoc_GetAttachmentCount = (Module['_FPDFDoc_GetAttachmentCount'] = createExportWrapper(
       'FPDFDoc_GetAttachmentCount',
       1,
@@ -7234,6 +7257,40 @@ var createPdfium = (() => {
       'FPDF_RenderPage_Close',
       1,
     ));
+    var _EPDFRevision_GetCount = (Module['_EPDFRevision_GetCount'] = createExportWrapper(
+      'EPDFRevision_GetCount',
+      1,
+    ));
+    var _EPDFRevision_Get = (Module['_EPDFRevision_Get'] = createExportWrapper(
+      'EPDFRevision_Get',
+      2,
+    ));
+    var _EPDFRevision_GetFileEnd = (Module['_EPDFRevision_GetFileEnd'] = createExportWrapper(
+      'EPDFRevision_GetFileEnd',
+      2,
+    ));
+    var _EPDFRevision_Compare = (Module['_EPDFRevision_Compare'] = createExportWrapper(
+      'EPDFRevision_Compare',
+      3,
+    ));
+    var _EPDFRevisionDiff_Close = (Module['_EPDFRevisionDiff_Close'] = createExportWrapper(
+      'EPDFRevisionDiff_Close',
+      1,
+    ));
+    var _EPDFRevisionDiff_GetEntryCount = (Module['_EPDFRevisionDiff_GetEntryCount'] =
+      createExportWrapper('EPDFRevisionDiff_GetEntryCount', 1));
+    var _EPDFRevisionDiff_GetEntry = (Module['_EPDFRevisionDiff_GetEntry'] = createExportWrapper(
+      'EPDFRevisionDiff_GetEntry',
+      4,
+    ));
+    var _EPDFRevisionDiff_GetSemanticCategoryCounts = (Module[
+      '_EPDFRevisionDiff_GetSemanticCategoryCounts'
+    ] = createExportWrapper('EPDFRevisionDiff_GetSemanticCategoryCounts', 5));
+    var _EPDFRevisionDiff_GetResolvedEntryCount = (Module[
+      '_EPDFRevisionDiff_GetResolvedEntryCount'
+    ] = createExportWrapper('EPDFRevisionDiff_GetResolvedEntryCount', 2));
+    var _EPDFRevisionDiff_GetResolvedEntry = (Module['_EPDFRevisionDiff_GetResolvedEntry'] =
+      createExportWrapper('EPDFRevisionDiff_GetResolvedEntry', 8));
     var _FPDF_SaveWithVersion = (Module['_FPDF_SaveWithVersion'] = createExportWrapper(
       'FPDF_SaveWithVersion',
       4,
@@ -7300,6 +7357,14 @@ var createPdfium = (() => {
     ));
     var _EPDFSig_GetAnnotSignatureHandle = (Module['_EPDFSig_GetAnnotSignatureHandle'] =
       createExportWrapper('EPDFSig_GetAnnotSignatureHandle', 1));
+    var _EPDFRevision_GetSignature = (Module['_EPDFRevision_GetSignature'] = createExportWrapper(
+      'EPDFRevision_GetSignature',
+      2,
+    ));
+    var _EPDFSig_GetSignatureRevision = (Module['_EPDFSig_GetSignatureRevision'] =
+      createExportWrapper('EPDFSig_GetSignatureRevision', 2));
+    var _EPDFSig_CheckDocMDPCompliance = (Module['_EPDFSig_CheckDocMDPCompliance'] =
+      createExportWrapper('EPDFSig_CheckDocMDPCompliance', 2));
     var _FPDF_StructTree_GetForPage = (Module['_FPDF_StructTree_GetForPage'] = createExportWrapper(
       'FPDF_StructTree_GetForPage',
       1,
@@ -7692,6 +7757,12 @@ var createPdfium = (() => {
       1,
     ));
     var _FPDF_LoadPage = (Module['_FPDF_LoadPage'] = createExportWrapper('FPDF_LoadPage', 2));
+    var _EPDFDoc_LoadPageByObjectNumber = (Module['_EPDFDoc_LoadPageByObjectNumber'] =
+      createExportWrapper('EPDFDoc_LoadPageByObjectNumber', 2));
+    var _EPDFPage_GetObjectNumber = (Module['_EPDFPage_GetObjectNumber'] = createExportWrapper(
+      'EPDFPage_GetObjectNumber',
+      1,
+    ));
     var _FPDF_GetPageWidthF = (Module['_FPDF_GetPageWidthF'] = createExportWrapper(
       'FPDF_GetPageWidthF',
       1,

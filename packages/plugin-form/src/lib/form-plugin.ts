@@ -12,6 +12,7 @@ import {
   FormStateChangeEvent,
   RenameFieldResult,
   RenderWidgetOptions,
+  SignatureFieldRequest,
 } from './types';
 import {
   FormAction,
@@ -72,6 +73,11 @@ export class FormPlugin extends BasePlugin<
     (documentId, fields) => ({ documentId, fields }),
     { cache: false },
   );
+  private readonly signatureFieldRequest$ = createScopedEmitter<
+    SignatureFieldRequest,
+    SignatureFieldRequest,
+    string
+  >((_, request) => request, { cache: false });
 
   /** Per-document logical field index: documentId → (fieldKey → FieldGroupEntry[]) */
   private readonly fieldGroupIndex = new Map<string, Map<string, FieldGroupEntry[]>>();
@@ -105,6 +111,19 @@ export class FormPlugin extends BasePlugin<
     this.dispatch(initFormState(documentId, { ...initialDocumentState }));
   }
 
+  protected override onDocumentLoaded(documentId: string): void {
+    const doc = this.getCoreDocument(documentId)?.document;
+    if (!doc) return;
+    this.engine.verifyDocument(doc).wait(
+      (verification) => {
+        console.log(verification);
+      },
+      (error) => {
+        console.error(error);
+      },
+    );
+  }
+
   protected override onDocumentClosed(documentId: string): void {
     this.dispatch(cleanupFormState(documentId));
     this.fieldGroupIndex.delete(documentId);
@@ -115,6 +134,7 @@ export class FormPlugin extends BasePlugin<
     this.state$.clearScope(documentId);
     this.fieldValueChange$.clearScope(documentId);
     this.formReady$.clearScope(documentId);
+    this.signatureFieldRequest$.clearScope(documentId);
   }
 
   override onStoreUpdated(prev: FormState, next: FormState): void {
@@ -151,10 +171,13 @@ export class FormPlugin extends BasePlugin<
       getFormValues: (documentId?) => this.getFormValuesMethod(documentId),
       getFormFields: (documentId?) => this.getFormFieldsMethod(documentId),
       setFormValues: (values, documentId?) => this.setFormValuesMethod(values, documentId),
+      requestSignatureField: (annotationId, documentId?) =>
+        this.requestSignatureFieldMethod(annotationId, documentId),
       forDocument: (documentId) => this.createFormScope(documentId),
       onStateChange: this.state$.onGlobal,
       onFieldValueChange: this.fieldValueChange$.onGlobal,
       onFormReady: this.formReady$.onGlobal,
+      onSignatureFieldRequest: this.signatureFieldRequest$.onGlobal,
     };
   }
 
@@ -179,9 +202,12 @@ export class FormPlugin extends BasePlugin<
       getFormValues: () => this.getFormValuesMethod(documentId),
       getFormFields: () => this.getFormFieldsMethod(documentId),
       setFormValues: (values) => this.setFormValuesMethod(values, documentId),
+      requestSignatureField: (annotationId) =>
+        this.requestSignatureFieldMethod(annotationId, documentId),
       onStateChange: this.state$.forScope(documentId),
       onFieldValueChange: this.fieldValueChange$.forScope(documentId),
       onFormReady: this.formReady$.forScope(documentId),
+      onSignatureFieldRequest: this.signatureFieldRequest$.forScope(documentId),
     };
   }
 
@@ -599,6 +625,72 @@ export class FormPlugin extends BasePlugin<
     if (!page) return null;
 
     return { widget, page };
+  }
+
+  private buildSignatureFieldRequest(
+    annotationId: string,
+    documentId: string,
+  ): SignatureFieldRequest | null {
+    const coreDoc = this.getCoreDocument(documentId);
+    const doc = coreDoc?.document;
+    if (!doc) return null;
+
+    const source = this.resolveWidgetPage(annotationId, documentId, doc);
+    if (!source || source.widget.field.type !== PDF_FORM_FIELD_TYPE.SIGNATURE) {
+      return null;
+    }
+
+    const annotation = source.widget as SignatureFieldRequest['annotation'];
+
+    return {
+      documentId,
+      pageIndex: source.page.index,
+      annotationId: annotation.id,
+      annotation,
+      isSigned: annotation.field.isSigned,
+      sign: (options) => {
+        const currentCoreDoc = this.getCoreDocument(documentId);
+        const currentDoc = currentCoreDoc?.document;
+        if (!currentDoc) {
+          return PdfTaskHelper.reject({
+            code: PdfErrorCode.DocNotOpen,
+            message: 'document is not open',
+          });
+        }
+
+        const currentSource = this.resolveWidgetPage(annotationId, documentId, currentDoc);
+        if (!currentSource || currentSource.widget.field.type !== PDF_FORM_FIELD_TYPE.SIGNATURE) {
+          return PdfTaskHelper.reject({
+            code: PdfErrorCode.NotFound,
+            message: 'signature field not found',
+          });
+        }
+
+        if (currentSource.widget.field.isSigned) {
+          return PdfTaskHelper.reject({
+            code: PdfErrorCode.Unknown,
+            message: 'signature field is already signed',
+          });
+        }
+
+        return this.engine.signDocument(
+          currentDoc,
+          currentSource.page,
+          currentSource.widget,
+          options,
+        );
+      },
+    };
+  }
+
+  private requestSignatureFieldMethod(annotationId: string, documentId?: string): void {
+    const docId = documentId ?? this.getActiveDocumentIdOrNull();
+    if (!docId) return;
+
+    const request = this.buildSignatureFieldRequest(annotationId, docId);
+    if (!request) return;
+
+    this.signatureFieldRequest$.emit(docId, request);
   }
 
   private getPageFormAnnoWidgets(
@@ -1027,6 +1119,7 @@ export class FormPlugin extends BasePlugin<
     this.state$.clear();
     this.fieldValueChange$.clear();
     this.formReady$.clear();
+    this.signatureFieldRequest$.clear();
     super.destroy();
   }
 }

@@ -210,6 +210,67 @@ const FormModeToggle = ({ documentId }: { documentId: string }) => {
 
 When the form category is locked, users can type, toggle, and select values. When unlocked, the widgets behave like annotations again, which is useful if you want to let users adjust placement or size in a custom authoring workflow.
 
+### 6. Handling Signature Field Clicks
+
+Unsigned signature widgets are clickable in fill mode. When a user clicks one, the Form Plugin emits `onSignatureFieldRequest`, giving you the widget metadata plus a bound `request.sign(...)` helper. This keeps the UI flow in your app while leaving the low-level PDF preparation inside the engine.
+
+```tsx
+import {
+  useFormCapability,
+  type SignatureFieldRequest,
+} from '@embedpdf/plugin-form/react';
+import {
+  PdfSignatureHashAlgorithm,
+  PdfSignatureSubFilter,
+} from '@embedpdf/models';
+
+const SignatureFlow = ({ documentId }: { documentId: string }) => {
+  const { provides: formCapability } = useFormCapability();
+
+  useEffect(() => {
+    if (!formCapability) return;
+
+    const scope = formCapability.forDocument(documentId);
+
+    return scope.onSignatureFieldRequest((request: SignatureFieldRequest) => {
+      void (async () => {
+        const signedPdf = await request.sign({
+          subFilter: PdfSignatureSubFilter.PKCS7_DETACHED,
+          contentsSize: 16384,
+          signer: {
+            async sign(digest, algorithm: PdfSignatureHashAlgorithm) {
+              const response = await fetch('/api/examples/pdf-signing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  digestBase64: arrayBufferToBase64(digest),
+                  algorithm,
+                }),
+              });
+
+              const { cmsBase64 } = await response.json();
+              return base64ToArrayBuffer(cmsBase64);
+            },
+          },
+        });
+
+        downloadPdf(signedPdf, 'signed-form.pdf');
+      })();
+    });
+  }, [documentId, formCapability]);
+
+  return null;
+};
+```
+
+<Callout type="warning" title="The backend must return CMS, not a raw RSA or ECDSA signature">
+  PDF signature fields expect the `Contents` placeholder to contain a detached CMS/PKCS#7 object. Returning only the bare cryptographic signature bytes is not enough. The worker computes the PDF digest, but your signer callback must still return full CMS bytes.
+</Callout>
+
+<Callout type="info" title="Why this API is event-based">
+  We intentionally keep the signing UX outside plugin config. Some apps want to call a backend immediately, others need a modal, identity picker, smart-card prompt, or approval step first. `onSignatureFieldRequest` gives you a clean handoff point for that app-specific flow.
+</Callout>
+
 ## Live Example — Switching Between Fill and Design Mode
 
 This example shows how to toggle between fill mode and design mode by switching the Annotation Plugin lock state.
@@ -252,6 +313,25 @@ import { FormImportViewer } from '../../code-examples/headless/form-import-examp
   <FormImportViewer />
 </CodeExample>
 
+## Live Example — Backend Digital Signing
+
+This example shows the recommended first-release developer experience: the client listens for `onSignatureFieldRequest`, sends the digest to a backend route, receives detached CMS bytes, and downloads the signed PDF. The example backend generates a self-signed certificate on the server, so Adobe will mark the signer as untrusted by default, but the PDF is still cryptographically signed correctly.
+
+import { FormSigningViewer } from '../../code-examples/headless/form-signing-example';
+
+<CodeExample
+  codePaths={[
+    "content/docs/react/code-examples/headless/form-signing-example.tsx",
+    "app/api/examples/pdf-signing/route.ts"
+  ]}
+>
+  <FormSigningViewer />
+</CodeExample>
+
+<Callout type="info" title="What runs on the client vs. the backend">
+  The client should own user interaction and call `request.sign(...)`. The backend should own private keys and produce the detached CMS response. That split gives the best default security model without making the UI API rigid.
+</Callout>
+
 
 ## Supported Field Types
 
@@ -262,6 +342,7 @@ The following PDF form field types are supported out of the box:
 - **Radio Button** — Select one option from a group
 - **Combo Box** — Dropdown select (single-select)
 - **List Box** — Scrollable list of options
+- **Signature Field** — Clickable in fill mode for unsigned widgets, with signing delegated through `onSignatureFieldRequest`
 
 ## API Reference
 
@@ -295,6 +376,7 @@ The `FormCapability` interface provides document-scoped operations. Most methods
 | **`selectPreviousField(documentId?)`** | Moves focus to the previous field in tab order. |
 | **`getFieldGroup(annotationId, documentId?)`** | Returns all widget entries sharing the same logical field (including the given annotation). |
 | **`getFieldSiblings(annotationId, documentId?)`** | Returns sibling widget entries sharing the same logical field (excluding the given annotation). |
+| **`requestSignatureField(annotationId, documentId?)`** | Manually triggers the same signing request flow used by clickable signature widgets. |
 | **`forDocument(documentId)`** | Returns a `FormScope` bound to a specific document. |
 
 ### `FormScope` (Document-Scoped)
@@ -308,6 +390,7 @@ Returned by `formCapability.forDocument(documentId)`. Same methods as `FormCapab
 | **`onStateChange`** | `(state: FormDocumentState) => void` | Fires when the form plugin's internal state changes (e.g. field selection). |
 | **`onFieldValueChange`** | `(event: FieldValueChangeEvent) => void` | Fires when a form field value is updated (by user interaction or programmatically). |
 | **`onFormReady`** | `(fields: FormFieldInfo[]) => void` | Fires when the form fields have been fully parsed from the PDF. |
+| **`onSignatureFieldRequest`** | `(request: SignatureFieldRequest) => void` | Fires when an unsigned signature widget is requested by the user or manually via `requestSignatureField`. |
 
 ### `FormFieldInfo`
 
@@ -333,5 +416,20 @@ interface FieldValueChangeEvent {
   pageIndex: number;
   annotationId: string;
   widget: PdfWidgetAnnoObject;
+}
+```
+
+### `SignatureFieldRequest`
+
+Passed to the `onSignatureFieldRequest` callback.
+
+```typescript
+interface SignatureFieldRequest {
+  documentId: string;
+  pageIndex: number;
+  annotationId: string;
+  annotation: PdfWidgetAnnoObject & { field: PdfSignatureWidgetAnnoField };
+  isSigned: boolean;
+  sign(options: SignDocumentOptions): PdfTask<ArrayBuffer>;
 }
 ```

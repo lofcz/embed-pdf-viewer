@@ -58,7 +58,7 @@
   </div>
 
   <script type="module">
-    import EmbedPDF from 'https://cdn.jsdelivr.net/npm/@embedpdf/snippet/dist/embedpdf.js';
+    import EmbedPDF from 'https://cdn.jsdelivr.net/npm/@embedpdf/snippet/dist/embedpdf.min.js';
 
     const documentId = 'annotation-doc';
 
@@ -86,7 +86,7 @@
     if (!annotationApi) {
       throw new Error('Annotation plugin not available');
     }
-
+    
     // Register custom stamp tools
     annotationApi.addTool({
       id: 'stampCheckmark',

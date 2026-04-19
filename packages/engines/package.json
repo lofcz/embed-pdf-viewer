@@ -112,7 +112,8 @@
     "@embedpdf/fonts-sc": "workspace:*",
     "@embedpdf/fonts-tc": "workspace:*",
     "@embedpdf/models": "workspace:*",
-    "@embedpdf/pdfium": "workspace:*"
+    "@embedpdf/pdfium": "workspace:*",
+    "asn1js": "^3.0.7"
   },
   "peerDependencies": {
     "preact": "^10.26.4",

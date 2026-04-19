@@ -81,12 +81,19 @@ export function patchByteRange(
   }
 }
 
+function toUint8Array(buffer: ArrayBuffer | Uint8Array): Uint8Array {
+  if (buffer instanceof Uint8Array) {
+    return buffer;
+  }
+  return new Uint8Array(buffer);
+}
+
 /**
  * Hash the two byte ranges of the PDF using WebCrypto.
  * The digest covers everything except the /Contents hex value.
  */
 export async function hashByteRanges(
-  buffer: ArrayBuffer,
+  buffer: ArrayBuffer | Uint8Array,
   ranges: ByteRanges,
   algorithm: PdfSignatureHashAlgorithm,
 ): Promise<ArrayBuffer> {
@@ -96,14 +103,32 @@ export async function hashByteRanges(
     throw new Error(`Unsupported hash algorithm: ${algorithm}`);
   }
 
-  const part1 = new Uint8Array(buffer, r1Start, r1Len);
-  const part2 = new Uint8Array(buffer, r2Start, r2Len);
+  const bytes = toUint8Array(buffer);
+  const part1 = bytes.subarray(r1Start, r1Start + r1Len);
+  const part2 = bytes.subarray(r2Start, r2Start + r2Len);
 
   const combined = new Uint8Array(r1Len + r2Len);
   combined.set(part1, 0);
   combined.set(part2, r1Len);
 
   return crypto.subtle.digest(algoName, combined);
+}
+
+export function compareByteArrays(
+  left: ArrayBuffer | Uint8Array,
+  right: ArrayBuffer | Uint8Array,
+): boolean {
+  const a = toUint8Array(left);
+  const b = toUint8Array(right);
+  if (a.length !== b.length) {
+    return false;
+  }
+
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a[i] ^ b[i];
+  }
+  return diff === 0;
 }
 
 /**

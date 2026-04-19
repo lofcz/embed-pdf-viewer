@@ -44,6 +44,7 @@ import {
   AnnotationAppearanceMap,
   PrepareSignatureOptions,
   PreparedSignatureData,
+  PdfVerificationData,
 } from '@embedpdf/models';
 import type { WorkerRequest, WorkerResponse } from './pdfium-native-runner';
 import type { FontFallbackConfig } from '../pdfium/font-fallback';
@@ -148,7 +149,8 @@ type MessageType =
   | 'unlockOwnerPermissions'
   | 'isEncrypted'
   | 'isOwnerUnlocked'
-  | 'prepareSignatureForSigning';
+  | 'prepareSignatureForSigning'
+  | 'getVerificationData';
 
 /**
  * RemoteExecutor - Proxy for worker communication
@@ -726,5 +728,9 @@ export class RemoteExecutor implements IPdfiumExecutor {
       annotation,
       options,
     ]);
+  }
+
+  getVerificationData(doc: PdfDocumentObject): PdfTask<PdfVerificationData> {
+    return this.send<PdfVerificationData>('getVerificationData', [doc]);
   }
 }

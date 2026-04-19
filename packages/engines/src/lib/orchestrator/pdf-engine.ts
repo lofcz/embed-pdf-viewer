@@ -53,6 +53,13 @@ import {
   SignDocumentOptions,
   PdfSignatureHashAlgorithm,
   PreparedSignatureData,
+  PdfDocumentVerification,
+  PdfSignatureVerificationResult,
+  PdfVerificationData,
+  SignatureVerificationStatus,
+  PdfSignatureIntegrityResult,
+  PdfDocMDPComplianceStatus,
+  PdfRevisionInterval,
 } from '@embedpdf/models';
 import {
   validatePreparedSignature,
@@ -60,9 +67,11 @@ import {
   patchByteRange,
   hashByteRanges,
   patchContents,
+  compareByteArrays,
 } from './signing';
 import { WorkerTaskQueue, Priority } from './task-queue';
 import type { ImageDataConverter } from '../converters/types';
+import { extractDetachedCmsDigestInfo } from './verification';
 
 // Re-export for convenience
 export type { ImageDataConverter } from '../converters/types';
@@ -132,6 +141,63 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
       chunks.push(items.slice(i, i + chunkSize));
     }
     return chunks;
+  }
+
+  private isDigestSupportedSubFilter(subFilter: string): boolean {
+    return subFilter === 'adbe.pkcs7.detached' || subFilter === 'ETSI.CAdES.detached';
+  }
+
+  private async verifySignatureDigest(
+    data: PdfVerificationData,
+    signature: PdfVerificationData['signatures'][number],
+  ): Promise<PdfSignatureIntegrityResult> {
+    if (signature.byteRange.length !== 4) {
+      return {
+        status: SignatureVerificationStatus.INDETERMINATE,
+        digestMatch: false,
+        coversEntireRevision: false,
+        message: 'Unsupported ByteRange length.',
+      };
+    }
+
+    const coversEntireRevision =
+      signature.revisionFileEnd !== undefined
+        ? signature.byteRange[2] + signature.byteRange[3] === signature.revisionFileEnd
+        : false;
+
+    if (!this.isDigestSupportedSubFilter(signature.subFilter)) {
+      return {
+        status: SignatureVerificationStatus.INDETERMINATE,
+        digestMatch: false,
+        coversEntireRevision,
+        message: `Digest verification for SubFilter "${signature.subFilter}" is not implemented yet.`,
+      };
+    }
+
+    const cmsDigestInfo = extractDetachedCmsDigestInfo(signature.cmsBlob);
+    if (!cmsDigestInfo) {
+      return {
+        status: SignatureVerificationStatus.INDETERMINATE,
+        digestMatch: false,
+        coversEntireRevision,
+        message: 'Could not extract messageDigest from CMS.',
+      };
+    }
+
+    const digest = await hashByteRanges(
+      data.rawBytes,
+      signature.byteRange as [number, number, number, number],
+      cmsDigestInfo.algorithm,
+    );
+    const digestMatch = compareByteArrays(digest, cmsDigestInfo.digest);
+
+    return {
+      status: digestMatch ? SignatureVerificationStatus.VALID : SignatureVerificationStatus.INVALID,
+      digestMatch,
+      coversEntireRevision,
+      algorithm: cmsDigestInfo.algorithm,
+      ...(digestMatch ? {} : { message: 'ByteRange digest does not match CMS messageDigest.' }),
+    };
   }
 
   // ========== IPdfEngine Implementation ==========
@@ -1243,6 +1309,132 @@ export class PdfEngine<T = Blob> implements IPdfEngine<T> {
       },
       { priority: Priority.MEDIUM },
     );
+  }
+
+  verifyDocument(doc: PdfDocumentObject): PdfTask<PdfDocumentVerification> {
+    const task = new Task<PdfDocumentVerification, PdfErrorReason>();
+
+    (async () => {
+      try {
+        const data = await new Promise<PdfVerificationData>((resolve, reject) => {
+          this.workerQueue
+            .enqueue(
+              {
+                execute: () => this.executor.getVerificationData(doc),
+                meta: { docId: doc.id, operation: 'getVerificationData' },
+              },
+              { priority: Priority.HIGH },
+            )
+            .wait(resolve, reject);
+        });
+
+        const signatures: PdfSignatureVerificationResult[] = [];
+        for (const signature of data.signatures) {
+          const integrity = await this.verifySignatureDigest(data, signature);
+          const docMDPStatus = signature.docMDPStatus as PdfDocMDPComplianceStatus;
+          signatures.push({
+            signatureIndex: signature.signatureIndex,
+            revisionIndex: signature.revisionIndex,
+            subFilter: signature.subFilter,
+            ...(signature.reason ? { reason: signature.reason } : {}),
+            ...(signature.signingTime ? { signingTime: signature.signingTime } : {}),
+            integrity,
+            docMDP: {
+              permission: signature.docMDPPermission,
+              status: docMDPStatus,
+              compliant: docMDPStatus === PdfDocMDPComplianceStatus.COMPLIANT,
+            },
+          });
+        }
+
+        const intervals: PdfRevisionInterval[] = data.intervals.map((interval) => ({
+          olderRevisionIndex: interval.olderRevisionIndex,
+          newerRevisionIndex: interval.newerRevisionIndex,
+          entries: interval.entries,
+        }));
+
+        task.resolve({
+          revisionCount: data.revisionCount,
+          signatures,
+          intervals,
+          verifiedAt: new Date(),
+        });
+      } catch (error: any) {
+        if (error && typeof error === 'object' && 'type' in error && 'reason' in error) {
+          task.fail(error);
+        } else {
+          task.reject({ code: PdfErrorCode.Unknown, message: String(error) });
+        }
+      }
+    })();
+
+    return task;
+  }
+
+  reverifyDocument(doc: PdfDocumentObject): PdfTask<PdfDocumentVerification> {
+    const task = new Task<PdfDocumentVerification, PdfErrorReason>();
+
+    (async () => {
+      try {
+        const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          this.workerQueue
+            .enqueue(
+              {
+                execute: () => this.executor.saveAsCopy(doc),
+                meta: { docId: doc.id, operation: 'saveAsCopy' },
+              },
+              { priority: Priority.HIGH },
+            )
+            .wait(resolve, reject);
+        });
+
+        const tempDoc = await new Promise<PdfDocumentObject>((resolve, reject) => {
+          this.workerQueue
+            .enqueue(
+              {
+                execute: () =>
+                  this.executor.openDocumentBuffer(
+                    { id: `${doc.id}__reverify__`, content: buffer },
+                    { normalizeRotation: doc.normalizedRotation },
+                  ),
+                meta: { docId: doc.id, operation: 'openDocumentBuffer(reverify)' },
+              },
+              { priority: Priority.HIGH },
+            )
+            .wait(resolve, reject);
+        });
+
+        try {
+          const result = await new Promise<PdfDocumentVerification>((resolve, reject) => {
+            this.verifyDocument(tempDoc).wait(resolve, reject);
+          });
+          task.resolve(result);
+        } finally {
+          await new Promise<void>((resolve) => {
+            this.workerQueue
+              .enqueue(
+                {
+                  execute: () => this.executor.closeDocument(tempDoc),
+                  meta: { docId: tempDoc.id, operation: 'closeDocument' },
+                },
+                { priority: Priority.HIGH },
+              )
+              .wait(
+                () => resolve(),
+                () => resolve(),
+              );
+          });
+        }
+      } catch (error: any) {
+        if (error && typeof error === 'object' && 'type' in error && 'reason' in error) {
+          task.fail(error);
+        } else {
+          task.reject({ code: PdfErrorCode.Unknown, message: String(error) });
+        }
+      }
+    })();
+
+    return task;
   }
 
   /**

@@ -3,7 +3,9 @@ import {
   PDF_FORM_FIELD_TYPE,
   PdfErrorReason,
   PdfRenderPageAnnotationOptions,
+  PdfSignatureWidgetAnnoField,
   PdfTask,
+  SignDocumentOptions,
   PdfWidgetAnnoField,
   PdfWidgetAnnoObject,
   PdfWidgetAnnoOption,
@@ -61,6 +63,15 @@ export interface FormReadyEvent {
   fields: FormFieldInfo[];
 }
 
+export interface SignatureFieldRequest {
+  documentId: string;
+  pageIndex: number;
+  annotationId: string;
+  annotation: PdfWidgetAnnoObject & { field: PdfSignatureWidgetAnnoField };
+  isSigned: boolean;
+  sign(options: SignDocumentOptions): PdfTask<ArrayBuffer>;
+}
+
 export interface FormScope {
   getPageFormAnnoWidgets(pageIndex: number): PdfTask<PdfWidgetAnnoObject[]>;
   setFormFieldValues(
@@ -85,9 +96,11 @@ export interface FormScope {
   getFormValues(): Record<string, string>;
   getFormFields(): FormFieldInfo[];
   setFormValues(values: Record<string, string>): PdfTask<boolean>;
+  requestSignatureField(annotationId: string): void;
   onStateChange: EventHook<FormDocumentState>;
   onFieldValueChange: EventHook<FieldValueChangeEvent>;
   onFormReady: EventHook<FormFieldInfo[]>;
+  onSignatureFieldRequest: EventHook<SignatureFieldRequest>;
 }
 
 export interface FormCapability {
@@ -119,8 +132,10 @@ export interface FormCapability {
   getFormValues(documentId?: string): Record<string, string>;
   getFormFields(documentId?: string): FormFieldInfo[];
   setFormValues(values: Record<string, string>, documentId?: string): PdfTask<boolean>;
+  requestSignatureField(annotationId: string, documentId?: string): void;
   forDocument(documentId: string): FormScope;
   onStateChange: EventHook<FormStateChangeEvent>;
   onFieldValueChange: EventHook<FieldValueChangeEvent>;
   onFormReady: EventHook<FormReadyEvent>;
+  onSignatureFieldRequest: EventHook<SignatureFieldRequest>;
 }

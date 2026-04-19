@@ -185,7 +185,9 @@ const ImportExportToolbar = ({ documentId }: { documentId: string }) => {
 }
 
 export const PDFViewer = () => {
-  const { engine, isLoading } = usePdfiumEngine()
+  const { engine, isLoading } = usePdfiumEngine({
+    wasmUrl: 'http://localhost:3020/pdfium.wasm',
+  })
 
   if (isLoading || !engine) {
     return (

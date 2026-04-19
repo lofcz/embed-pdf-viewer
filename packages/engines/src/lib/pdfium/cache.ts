@@ -35,12 +35,25 @@ export class PdfCache {
   }
 
   /** Open (or re-use) a document */
-  setDocument(id: string, filePtr: number, docPtr: number, normalizeRotation: boolean = false) {
+  setDocument(
+    id: string,
+    filePtr: number,
+    fileLength: number,
+    docPtr: number,
+    normalizeRotation: boolean = false,
+  ) {
     let ctx = this.docs.get(id);
     if (!ctx) {
       // Use per-document normalizeRotation, overriding global config
       const docConfig = { ...this.config, normalizeRotation };
-      ctx = new DocumentContext(filePtr, docPtr, this.pdfium, this.memoryManager, docConfig);
+      ctx = new DocumentContext(
+        filePtr,
+        fileLength,
+        docPtr,
+        this.pdfium,
+        this.memoryManager,
+        docConfig,
+      );
       this.docs.set(id, ctx);
     }
   }
@@ -106,6 +119,7 @@ export class DocumentContext {
 
   constructor(
     public readonly filePtr: number,
+    public readonly fileLength: number,
     public readonly docPtr: number,
     pdfium: WrappedPdfiumModule,
     private readonly memoryManager: MemoryManager,

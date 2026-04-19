@@ -136,6 +136,12 @@ import {
   PrepareSignatureOptions,
   PreparedSignatureData,
   PdfSignatureSubFilter,
+  PdfVerificationData,
+  PdfRevisionInterval,
+  PdfResolvedRevisionEntry,
+  PdfRevisionDiffCategory,
+  PdfRevisionSemanticType,
+  PdfDocMDPComplianceStatus,
 } from '@embedpdf/models';
 import { computeFormDrawParams, isValidCustomKey, readArrayBuffer, readString } from './helper';
 import { WrappedPdfiumModule } from '@embedpdf/pdfium';
@@ -416,7 +422,7 @@ export class PdfiumNative implements IPdfiumExecutor {
       normalizedRotation: normalizeRotation,
     };
 
-    this.cache.setDocument(file.id, filePtr, docPtr, normalizeRotation);
+    this.cache.setDocument(file.id, filePtr, length, docPtr, normalizeRotation);
 
     this.logger.perf(LOG_SOURCE, LOG_CATEGORY, `OpenDocumentBuffer`, 'End', file.id);
 
@@ -452,7 +458,7 @@ export class PdfiumNative implements IPdfiumExecutor {
       normalizedRotation: false,
     };
 
-    this.cache.setDocument(id, 0, docPtr, false);
+    this.cache.setDocument(id, 0, 0, docPtr, false);
 
     this.logger.perf(LOG_SOURCE, LOG_CATEGORY, 'CreateDocument', 'End', id);
     return PdfTaskHelper.resolve(pdfDoc);
@@ -718,6 +724,203 @@ export class PdfiumNative implements IPdfiumExecutor {
     this.logger.perf(LOG_SOURCE, LOG_CATEGORY, `GetSignatures`, 'End', doc.id);
 
     return PdfTaskHelper.resolve(signatures);
+  }
+
+  getVerificationData(doc: PdfDocumentObject): PdfTask<PdfVerificationData> {
+    this.logger.debug(LOG_SOURCE, LOG_CATEGORY, 'getVerificationData', doc);
+    this.logger.perf(LOG_SOURCE, LOG_CATEGORY, 'GetVerificationData', 'Begin', doc.id);
+
+    const ctx = this.cache.getContext(doc.id);
+    if (!ctx) {
+      this.logger.perf(LOG_SOURCE, LOG_CATEGORY, 'GetVerificationData', 'End', doc.id);
+      return PdfTaskHelper.reject({
+        code: PdfErrorCode.DocNotOpen,
+        message: 'document does not open',
+      });
+    }
+
+    try {
+      const revisionCount = this.pdfiumModule.EPDFRevision_GetCount(ctx.docPtr);
+      if (revisionCount < 0) {
+        throw new Error('EPDFRevision_GetCount failed');
+      }
+
+      const rawBytes =
+        ctx.filePtr && ctx.fileLength
+          ? this.pdfiumModule.pdfium.HEAPU8.slice(ctx.filePtr, ctx.filePtr + ctx.fileLength)
+          : new Uint8Array(this.saveDocument(ctx.docPtr));
+
+      const signatures: PdfVerificationData['signatures'] = [];
+      const signatureCount = this.pdfiumModule.FPDF_GetSignatureCount(ctx.docPtr);
+      for (let i = 0; i < signatureCount; i++) {
+        const signaturePtr = this.pdfiumModule.FPDF_GetSignatureObject(ctx.docPtr, i);
+        if (!signaturePtr) {
+          continue;
+        }
+
+        const revisionIndex = this.pdfiumModule.EPDFSig_GetSignatureRevision(
+          ctx.docPtr,
+          signaturePtr,
+        );
+        const byteRangeBuffer = readArrayBuffer(this.pdfiumModule.pdfium, (buffer, bufferSize) => {
+          return (
+            this.pdfiumModule.FPDFSignatureObj_GetByteRange(signaturePtr, buffer, bufferSize) * 4
+          );
+        });
+        const byteRange = Array.from(new Int32Array(byteRangeBuffer));
+        const cmsBlob = readArrayBuffer(this.pdfiumModule.pdfium, (buffer, bufferSize) => {
+          return this.pdfiumModule.FPDFSignatureObj_GetContents(signaturePtr, buffer, bufferSize);
+        });
+        const subFilter = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.FPDFSignatureObj_GetSubFilter(signaturePtr, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF8ToString,
+        );
+        const reason = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.FPDFSignatureObj_GetReason(signaturePtr, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF16ToString,
+        );
+        const signingTime = readString(
+          this.pdfiumModule.pdfium,
+          (buffer, bufferLength) =>
+            this.pdfiumModule.FPDFSignatureObj_GetTime(signaturePtr, buffer, bufferLength),
+          this.pdfiumModule.pdfium.UTF8ToString,
+        );
+
+        let revisionFileEnd: number | undefined;
+        if (revisionIndex >= 0) {
+          const revisionPtr = this.pdfiumModule.EPDFRevision_Get(ctx.docPtr, revisionIndex);
+          revisionFileEnd = revisionPtr ? this.readRevisionFileEnd(revisionPtr) : undefined;
+        }
+
+        signatures.push({
+          signatureIndex: i,
+          revisionIndex,
+          revisionFileEnd,
+          cmsBlob,
+          byteRange,
+          subFilter,
+          ...(reason ? { reason } : {}),
+          ...(signingTime ? { signingTime } : {}),
+          docMDPPermission: this.pdfiumModule.FPDFSignatureObj_GetDocMDPPermission(signaturePtr),
+          docMDPStatus: this.pdfiumModule.EPDFSig_CheckDocMDPCompliance(ctx.docPtr, revisionIndex),
+        });
+      }
+
+      const intervals: PdfRevisionInterval[] = [];
+      for (let newerRevisionIndex = 1; newerRevisionIndex < revisionCount; newerRevisionIndex++) {
+        const olderRevisionIndex = newerRevisionIndex - 1;
+        const diffPtr = this.pdfiumModule.EPDFRevision_Compare(
+          ctx.docPtr,
+          olderRevisionIndex,
+          newerRevisionIndex,
+        );
+        if (!diffPtr) {
+          continue;
+        }
+
+        try {
+          const entries = this.readResolvedRevisionEntries(ctx.docPtr, diffPtr);
+          intervals.push({
+            olderRevisionIndex,
+            newerRevisionIndex,
+            entries,
+          });
+        } finally {
+          this.pdfiumModule.EPDFRevisionDiff_Close(diffPtr);
+        }
+      }
+
+      const verificationData: PdfVerificationData = {
+        revisionCount,
+        rawBytes: rawBytes as PdfVerificationData['rawBytes'],
+        signatures,
+        intervals,
+      };
+
+      this.logger.perf(LOG_SOURCE, LOG_CATEGORY, 'GetVerificationData', 'End', doc.id);
+      return PdfTaskHelper.resolve(verificationData);
+    } catch (error) {
+      this.logger.perf(LOG_SOURCE, LOG_CATEGORY, 'GetVerificationData', 'End', doc.id);
+      return PdfTaskHelper.reject({
+        code: PdfErrorCode.Unknown,
+        message: String(error),
+      });
+    }
+  }
+
+  private readRevisionFileEnd(revisionPtr: number): number | undefined {
+    const outPtr = this.memoryManager.malloc(8);
+    try {
+      const ok = this.pdfiumModule.EPDFRevision_GetFileEnd(revisionPtr, outPtr);
+      if (!ok) {
+        return undefined;
+      }
+
+      const low = this.pdfiumModule.pdfium.getValue(outPtr, 'i32') >>> 0;
+      const high = this.pdfiumModule.pdfium.getValue(outPtr + 4, 'i32') >>> 0;
+      return high * 0x100000000 + low;
+    } finally {
+      this.memoryManager.free(outPtr);
+    }
+  }
+
+  private readResolvedRevisionEntries(docPtr: number, diffPtr: number): PdfResolvedRevisionEntry[] {
+    const count = this.pdfiumModule.EPDFRevisionDiff_GetResolvedEntryCount(docPtr, diffPtr);
+    const changedPtr = this.memoryManager.malloc(4);
+    const targetPtr = this.memoryManager.malloc(4);
+    const pagePtr = this.memoryManager.malloc(4);
+    const diffCategoryPtr = this.memoryManager.malloc(4);
+    const semanticTypePtr = this.memoryManager.malloc(4);
+
+    try {
+      const entries: PdfResolvedRevisionEntry[] = [];
+      for (let i = 0; i < count; i++) {
+        const ok = this.pdfiumModule.EPDFRevisionDiff_GetResolvedEntry(
+          docPtr,
+          diffPtr,
+          i,
+          changedPtr,
+          targetPtr,
+          pagePtr,
+          diffCategoryPtr,
+          semanticTypePtr,
+        );
+        if (!ok) {
+          continue;
+        }
+
+        const changedObjectId = this.pdfiumModule.pdfium.getValue(changedPtr, 'i32') >>> 0;
+        const targetObjectId = this.pdfiumModule.pdfium.getValue(targetPtr, 'i32') >>> 0;
+        const pageObjectId = this.pdfiumModule.pdfium.getValue(pagePtr, 'i32') >>> 0;
+        const diffCategory = this.pdfiumModule.pdfium.getValue(
+          diffCategoryPtr,
+          'i32',
+        ) as PdfRevisionDiffCategory;
+        const semanticType = this.pdfiumModule.pdfium.getValue(
+          semanticTypePtr,
+          'i32',
+        ) as PdfRevisionSemanticType;
+
+        entries.push({
+          changedObjectId,
+          ...(targetObjectId ? { targetObjectId } : {}),
+          ...(pageObjectId ? { pageObjectId } : {}),
+          diffCategory,
+          semanticType,
+        });
+      }
+      return entries;
+    } finally {
+      this.memoryManager.free(changedPtr);
+      this.memoryManager.free(targetPtr);
+      this.memoryManager.free(pagePtr);
+      this.memoryManager.free(diffCategoryPtr);
+      this.memoryManager.free(semanticTypePtr);
+    }
   }
 
   /**
@@ -4739,7 +4942,8 @@ export class PdfiumNative implements IPdfiumExecutor {
 
   /**
    * Scan saved PDF bytes for the /Contents hex placeholder.
-   * Looks for `/Contents <` followed by `contentsSize * 2` zero hex chars and `>`.
+   * Looks for `/Contents` followed by optional PDF whitespace, `<`,
+   * `contentsSize * 2` zero hex chars, and `>`.
    * Returns the offset and length of the hex string (between < and >).
    *
    * @private
@@ -4749,20 +4953,16 @@ export class PdfiumNative implements IPdfiumExecutor {
     contentsSize: number,
   ): { offset: number; length: number } | null {
     const hexLen = contentsSize * 2;
-    const needle = '/Contents <';
+    const needle = '/Contents';
     const needleBytes = new TextEncoder().encode(needle);
 
-    for (let i = bytes.length - 1; i >= needleBytes.length; i--) {
-      let match = true;
-      for (let j = 0; j < needleBytes.length; j++) {
-        if (bytes[i - needleBytes.length + 1 + j] !== needleBytes[j]) {
-          match = false;
-          break;
-        }
-      }
-      if (!match) continue;
+    for (let i = bytes.length - needleBytes.length; i >= 0; i--) {
+      if (!this.matchByteSequence(bytes, i, needleBytes)) continue;
 
-      const hexStart = i - needleBytes.length + 1 + needleBytes.length;
+      const valueStart = this.skipPdfWhitespace(bytes, i + needleBytes.length);
+      if (valueStart >= bytes.length || bytes[valueStart] !== 0x3c) continue;
+
+      const hexStart = valueStart + 1;
       if (hexStart + hexLen + 1 > bytes.length) continue;
 
       let allZeros = true;
@@ -4783,27 +4983,24 @@ export class PdfiumNative implements IPdfiumExecutor {
 
   /**
    * Scan saved PDF bytes for the /ByteRange placeholder array.
-   * Looks for `/ByteRange [` ... `]` containing the sentinel value 2147483647.
+   * Looks for `/ByteRange` followed by optional PDF whitespace and `[...]`
+   * containing the sentinel value 2147483647.
    * Returns the offset and length of the array content (between [ and ]).
    *
    * @private
    */
   private findByteRangePlaceholder(bytes: Uint8Array): { offset: number; length: number } | null {
-    const needle = '/ByteRange [';
+    const needle = '/ByteRange';
     const needleBytes = new TextEncoder().encode(needle);
     const sentinel = new TextEncoder().encode('2147483647');
 
-    for (let i = bytes.length - 1; i >= needleBytes.length; i--) {
-      let match = true;
-      for (let j = 0; j < needleBytes.length; j++) {
-        if (bytes[i - needleBytes.length + 1 + j] !== needleBytes[j]) {
-          match = false;
-          break;
-        }
-      }
-      if (!match) continue;
+    for (let i = bytes.length - needleBytes.length; i >= 0; i--) {
+      if (!this.matchByteSequence(bytes, i, needleBytes)) continue;
 
-      const arrayStart = i - needleBytes.length + 1 + needleBytes.length;
+      const valueStart = this.skipPdfWhitespace(bytes, i + needleBytes.length);
+      if (valueStart >= bytes.length || bytes[valueStart] !== 0x5b) continue;
+
+      const arrayStart = valueStart + 1;
       let arrayEnd = -1;
       for (let k = arrayStart; k < Math.min(arrayStart + 200, bytes.length); k++) {
         if (bytes[k] === 0x5d) {
@@ -4832,6 +5029,41 @@ export class PdfiumNative implements IPdfiumExecutor {
       return { offset: arrayStart, length: arrayEnd - arrayStart };
     }
     return null;
+  }
+
+  private matchByteSequence(bytes: Uint8Array, start: number, needle: Uint8Array): boolean {
+    if (start < 0 || start + needle.length > bytes.length) {
+      return false;
+    }
+
+    for (let index = 0; index < needle.length; index++) {
+      if (bytes[start + index] !== needle[index]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  private skipPdfWhitespace(bytes: Uint8Array, start: number): number {
+    let index = start;
+
+    while (index < bytes.length && this.isPdfWhitespace(bytes[index])) {
+      index++;
+    }
+
+    return index;
+  }
+
+  private isPdfWhitespace(byte: number): boolean {
+    return (
+      byte === 0x00 ||
+      byte === 0x09 ||
+      byte === 0x0a ||
+      byte === 0x0c ||
+      byte === 0x0d ||
+      byte === 0x20
+    );
   }
 
   /**
