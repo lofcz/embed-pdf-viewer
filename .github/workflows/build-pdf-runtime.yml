@@ -31,10 +31,12 @@ jobs:
         target: [linux-x64, linuxmusl-x64, wasm32]
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        uses: pnpm/action-setup@v4
         with:
           version: 10.4.0
-      - uses: actions/setup-node@v6
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
@@ -80,10 +82,12 @@ jobs:
         target: [linux-arm64, linuxmusl-arm64]
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        uses: pnpm/action-setup@v4
         with:
           version: 10.4.0
-      - uses: actions/setup-node@v6
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: pnpm
