@@ -11,6 +11,17 @@ if [[ -z "$TARGET" ]]; then
   exit 1
 fi
 
+sha256_file() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    echo "missing sha256 checksum tool: install shasum or sha256sum" >&2
+    exit 1
+  fi
+}
+
 ARTIFACT_JSON="$(node -e "
 const fs = require('node:fs');
 const file = process.argv[1];
@@ -47,7 +58,7 @@ if [[ ! -f "$ARCHIVE" ]]; then
   fi
 fi
 
-ACTUAL_SHA="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+ACTUAL_SHA="$(sha256_file "$ARCHIVE")"
 if [[ "$ACTUAL_SHA" != "$SHA256" ]]; then
   echo "sha256 mismatch for $ARCHIVE" >&2
   echo "expected: $SHA256" >&2

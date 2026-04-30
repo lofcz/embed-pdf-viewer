@@ -11,7 +11,18 @@ if [[ ! -f "$ARCHIVE" ]]; then
   exit 1
 fi
 
-SHA256="$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')"
+sha256_file() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    echo "missing sha256 checksum tool: install shasum or sha256sum" >&2
+    exit 1
+  fi
+}
+
+SHA256="$(sha256_file "$ARCHIVE")"
 URL="file://$ARCHIVE"
 
 node - <<'NODE' "$MANIFEST" "$TARGET" "$URL" "$SHA256"
