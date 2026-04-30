@@ -1,0 +1,13 @@
+services:
+  pdf-runtime-wasm-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ../..:/workspace
+      - pdf-runtime-gclient:/root/.cache
+    command: bash -lc "corepack enable && pnpm --filter @embedpdf/pdf-runtime wasm:dev"
+
+volumes:
+  pdf-runtime-gclient:

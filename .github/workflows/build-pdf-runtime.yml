@@ -1,0 +1,142 @@
+name: Build PDF Runtime
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'packages/pdf-runtime/**'
+      - '.github/workflows/build-pdf-runtime.yml'
+  push:
+    branches:
+      - main
+      - next
+    paths:
+      - 'packages/pdf-runtime/**'
+      - '.github/workflows/build-pdf-runtime.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux x64 + musl + WASM
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux-x64, linuxmusl-x64, wasm32]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        run: pnpm install --frozen-lockfile
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake clang
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        name: Build target
+        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+      - if: ${{ contains(matrix.target, 'linuxmusl') }}
+        name: Build musl target in Alpine
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            node:22-alpine \
+            sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pdf-runtime-${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/
+
+  linux-arm:
+    name: Linux arm64 + musl
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [linux-arm64, linuxmusl-arm64]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        run: pnpm install --frozen-lockfile
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y cmake clang
+      - if: ${{ !contains(matrix.target, 'linuxmusl') }}
+        name: Build target
+        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+      - if: ${{ contains(matrix.target, 'linuxmusl') }}
+        name: Build musl target in Alpine
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/workspace" \
+            -w /workspace \
+            node:22-alpine \
+            sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pdf-runtime-${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/
+
+  mac:
+    name: macOS
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [darwin-arm64, darwin-x64]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build target
+        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pdf-runtime-${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/
+
+  win:
+    name: Windows
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [win32-x64, win32-arm64]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build target
+        shell: bash
+        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: pdf-runtime-${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/

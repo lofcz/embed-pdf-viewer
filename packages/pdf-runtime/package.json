@@ -1,0 +1,95 @@
+{
+  "name": "@embedpdf/pdf-runtime",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Low-level PDF execution runtime for EmbedPDF, backed by EmbedPDF's fork of PDFium and distributed as WASM and native platform packages.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "browser": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.browser.js"
+      },
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "directory": "packages/pdf-runtime"
+  },
+  "homepage": "https://www.embedpdf.com",
+  "bugs": {
+    "url": "https://github.com/embedpdf/embed-pdf-viewer/issues"
+  },
+  "keywords": [
+    "pdf",
+    "runtime",
+    "wasm",
+    "native",
+    "embedpdf"
+  ],
+  "scripts": {
+    "build": "rollup -c",
+    "build:target": "bash ./scripts/build-target.sh",
+    "build:local": "bash ./scripts/build-all-local.sh",
+    "clean": "rimraf dist build/libpdfium build/generated npm/*/pdf-runtime.node npm/wasm32/pdfium.js npm/wasm32/pdfium.cjs npm/wasm32/pdfium.wasm",
+    "fetch": "bash ./scripts/fetch-libpdfium.sh",
+    "generate:functions": "node ./build/generate-functions.mjs",
+    "generate:napi": "node ./build/generate-napi-binding.mjs",
+    "generate:runtime-methods": "node ./build/generate-runtime-methods.mjs",
+    "lint": "eslint src --color",
+    "lint:fix": "eslint src --color --fix",
+    "runtime:build-local": "bash ./scripts/runtime-build-local.sh",
+    "runtime:package-local": "bash ./scripts/runtime-package-local.sh",
+    "runtime:sync": "bash ./scripts/runtime-sync.sh",
+    "runtime:use-local": "bash ./scripts/runtime-use-local.sh",
+    "test:parity": "node --test ./test/*.test.mjs",
+    "wasm:dev": "bash ./scripts/wasm-dev.sh"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "detect-libc": "^2.1.2"
+  },
+  "optionalDependencies": {
+    "@embedpdf/pdf-runtime-wasm32": "workspace:*",
+    "@embedpdf/pdf-runtime-darwin-arm64": "workspace:*",
+    "@embedpdf/pdf-runtime-darwin-x64": "workspace:*",
+    "@embedpdf/pdf-runtime-linux-x64": "workspace:*",
+    "@embedpdf/pdf-runtime-linux-arm64": "workspace:*",
+    "@embedpdf/pdf-runtime-linuxmusl-x64": "workspace:*",
+    "@embedpdf/pdf-runtime-linuxmusl-arm64": "workspace:*",
+    "@embedpdf/pdf-runtime-win32-x64": "workspace:*",
+    "@embedpdf/pdf-runtime-win32-arm64": "workspace:*"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^25.0.8",
+    "@rollup/plugin-node-resolve": "^15.2.1",
+    "@rollup/plugin-replace": "^5.0.2",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/emscripten": "^1.39.13",
+    "@types/node": "latest",
+    "cmake-js": "^7.3.1",
+    "magic-string": "^0.30.17",
+    "rollup": "^4.53.5",
+    "rollup-plugin-dts": "^6.3.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

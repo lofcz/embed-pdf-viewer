@@ -1,0 +1,14 @@
+pdf-runtime-build.local.json
+
+build/build/
+build/cache/
+build/generated/
+build/libpdfium/
+build/local-artifacts/
+build/local-staging/
+.cache/
+
+npm/*/pdf-runtime.node
+npm/wasm32/pdfium.js
+npm/wasm32/pdfium.cjs
+npm/wasm32/pdfium.wasm
