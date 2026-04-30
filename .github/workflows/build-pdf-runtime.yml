@@ -42,7 +42,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y cmake clang
       - if: ${{ !contains(matrix.target, 'linuxmusl') }}
         name: Build target
-        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+        run: pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}
       - if: ${{ contains(matrix.target, 'linuxmusl') }}
         name: Build musl target in Alpine
         run: |
@@ -50,7 +50,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
             node:22-alpine \
-            sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}"
+            sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}"
       - uses: actions/upload-artifact@v6
         with:
           name: pdf-runtime-${{ matrix.target }}
@@ -79,7 +79,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y cmake clang
       - if: ${{ !contains(matrix.target, 'linuxmusl') }}
         name: Build target
-        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+        run: pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}
       - if: ${{ contains(matrix.target, 'linuxmusl') }}
         name: Build musl target in Alpine
         run: |
@@ -87,7 +87,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/workspace" \
             -w /workspace \
             node:22-alpine \
-            sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}"
+            sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}"
       - uses: actions/upload-artifact@v6
         with:
           name: pdf-runtime-${{ matrix.target }}
@@ -111,7 +111,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build target
-        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+        run: pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}
       - uses: actions/upload-artifact@v6
         with:
           name: pdf-runtime-${{ matrix.target }}
@@ -136,7 +136,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build target
         shell: bash
-        run: pnpm --filter @embedpdf/pdf-runtime build:target -- ${{ matrix.target }}
+        run: pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}
       - uses: actions/upload-artifact@v6
         with:
           name: pdf-runtime-${{ matrix.target }}
