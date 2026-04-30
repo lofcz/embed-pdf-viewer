@@ -9,6 +9,7 @@ build/local-staging/
 .cache/
 
 npm/*/pdf-runtime.node
+npm/win32-*/pdfium.dll
 npm/wasm32/pdfium.js
 npm/wasm32/pdfium.cjs
 npm/wasm32/pdfium.wasm

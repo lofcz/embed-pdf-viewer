@@ -24,7 +24,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 if(WIN32)
-  set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/pdfium.lib")
+  set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/pdfium.dll.lib")
 else()
   set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/libpdfium.a")
 endif()
