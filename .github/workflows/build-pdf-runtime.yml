@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - next
+      - feature/pdf-runtime
     paths:
       - 'packages/pdf-runtime/**'
       - '.github/workflows/build-pdf-runtime.yml'
