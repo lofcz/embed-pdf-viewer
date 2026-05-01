@@ -44,6 +44,16 @@ cmake-js compile \
 
 mkdir -p "$ROOT/npm/$TARGET"
 cp "$ROOT/build/build/Release/pdf-runtime.node" "$ROOT/npm/$TARGET/pdf-runtime.node"
-if [[ "$TARGET" == win32-* ]]; then
-  cp "$LIB_DIR/bin/pdfium.dll" "$ROOT/npm/$TARGET/pdfium.dll"
-fi
+case "$TARGET" in
+  win32-*)
+    cp "$LIB_DIR/bin/pdfium.dll" "$ROOT/npm/$TARGET/pdfium.dll"
+    ;;
+  darwin-*)
+    cp "$LIB_DIR/lib/libpdfium.dylib" "$ROOT/npm/$TARGET/libpdfium.dylib"
+    ;;
+  linux-*)
+    if [[ -f "$LIB_DIR/lib/libpdfium.so" ]]; then
+      cp "$LIB_DIR/lib/libpdfium.so" "$ROOT/npm/$TARGET/libpdfium.so"
+    fi
+    ;;
+esac

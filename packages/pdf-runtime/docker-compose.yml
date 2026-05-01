@@ -7,7 +7,7 @@ services:
     volumes:
       - ../..:/workspace
       - pdf-runtime-gclient:/root/.cache
-    command: bash -lc "corepack enable && pnpm --filter @embedpdf/pdf-runtime wasm:dev"
+    command: bash -lc "corepack enable && PDF_RUNTIME_DEV_TARGETS=wasm32 pnpm --filter @embedpdf/pdf-runtime dev"
 
 volumes:
   pdf-runtime-gclient:

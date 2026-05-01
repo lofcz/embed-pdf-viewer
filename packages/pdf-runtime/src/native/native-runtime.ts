@@ -12,6 +12,7 @@ import type {
 import type { RuntimeTarget } from '../core/platform';
 import { packageNameForTarget } from '../core/platform';
 import { pdfFunctionSignatures } from '../core/pdf-functions.generated';
+import type { PdfFunctions } from '../core/pdf-functions.generated';
 
 type NativeAddon = Record<string, any> & {
   alloc(bytes: number): bigint;
@@ -61,14 +62,12 @@ function createNativeCallbacks(addon: NativeAddon): PdfRuntimeCallbacks {
   };
 }
 
-function createNativeFunctions(
-  addon: NativeAddon,
-): Record<string, (...args: unknown[]) => unknown> {
+function createNativeFunctions(addon: NativeAddon): PdfFunctions {
   const out: Record<string, (...args: unknown[]) => unknown> = {};
   for (const name of Object.keys(pdfFunctionSignatures)) {
     if (typeof addon[name] === 'function') out[name] = addon[name].bind(addon);
   }
-  return out;
+  return out as unknown as PdfFunctions;
 }
 
 export async function createNativeRuntime(target: RuntimeTarget): Promise<PdfRuntimeModule> {

@@ -127,7 +127,7 @@ export function toWrappedPdfiumModule(runtime: PdfRuntimeModule): LegacyWrappedP
   };
 
   for (const key of Object.keys(runtime.fn)) {
-    wrapped[key] = (runtime.fn as Record<string, unknown>)[key];
+    wrapped[key] = (runtime.fn as unknown as Record<string, unknown>)[key];
   }
 
   return wrapped;

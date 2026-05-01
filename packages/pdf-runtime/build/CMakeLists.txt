@@ -25,8 +25,22 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 if(WIN32)
   set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/pdfium.dll.lib")
-else()
-  set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/libpdfium.a")
+elseif(APPLE)
+  set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/libpdfium.dylib")
+  set_target_properties(${PROJECT_NAME} PROPERTIES
+    BUILD_RPATH   "@loader_path"
+    INSTALL_RPATH "@loader_path"
+  )
+elseif(UNIX)
+  if(EXISTS "${PDFIUM_LIB_DIR}/libpdfium.so")
+    set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/libpdfium.so")
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+      BUILD_RPATH   "$ORIGIN"
+      INSTALL_RPATH "$ORIGIN"
+    )
+  else()
+    set(PDFIUM_LIB "${PDFIUM_LIB_DIR}/libpdfium.a")
+  endif()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

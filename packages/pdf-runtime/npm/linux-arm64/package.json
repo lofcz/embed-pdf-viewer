@@ -17,6 +17,7 @@
   "main": "./pdf-runtime.node",
   "files": [
     "pdf-runtime.node",
+    "libpdfium.so",
     "README.md",
     "LICENSE"
   ]

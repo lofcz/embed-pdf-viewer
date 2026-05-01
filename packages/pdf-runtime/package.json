@@ -54,7 +54,7 @@
     "runtime:use-local": "bash ./scripts/runtime-use-local.sh",
     "test:parity": "node --test ./test/*.test.mjs",
     "verify:packages": "bash ./scripts/verify-packages.sh",
-    "wasm:dev": "bash ./scripts/wasm-dev.sh"
+    "dev": "bash ./scripts/dev.sh"
   },
   "files": [
     "dist",

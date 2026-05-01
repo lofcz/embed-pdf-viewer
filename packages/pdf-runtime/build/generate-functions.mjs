@@ -34,7 +34,8 @@ function classifyType(ctype, isReturn = false) {
   if (/\b(double|float)\b/.test(clean)) return { tsType: 'number', kind: clean.includes('float') ? 'f32' : 'f64' };
   if (/\b(int64_t|uint64_t|size_t|long long)\b/.test(clean)) return { tsType: 'bigint', kind: 'i64' };
   if (/\b(FPDF_WIDESTRING|FPDF_WCHAR)\b/.test(clean)) return { tsType: 'Ptr', kind: 'utf16ptr' };
-  if (/\b(FPDF_BYTESTRING|char\s*\*)\b/.test(clean)) return { tsType: clean.includes('*') ? 'Ptr' : 'string', kind: clean.includes('*') ? 'cstring' : 'i32' };
+  if (/\bFPDF_BYTESTRING\b/.test(clean)) return { tsType: 'string', kind: 'cstring' };
+  if (/\bchar\s*\*/.test(clean)) return { tsType: 'Ptr', kind: 'cstring' };
   if (/\*/.test(clean) || /\b(FPDF_|FS_|FORM_|IFSDK_|IPDF_)/.test(clean)) return { tsType: 'Ptr', kind: 'pointer' };
   return { tsType: 'number', kind: 'i32' };
 }
@@ -105,6 +106,33 @@ const tsParams = (fn) =>
     .join(', ');
 const tsReturn = (fn) => (fn.result.tsType === 'Ptr' ? 'Ptr' : fn.result.tsType);
 
+/** Emscripten `Module.cwrap` type strings (single vocabulary end-to-end). */
+function cwrapFor(meta) {
+  switch (meta.kind) {
+    case 'bool':
+      return 'boolean';
+    case 'i64':
+      return 'bigint';
+    case 'cstring':
+      return meta.tsType === 'string' ? 'string' : 'number';
+    case 'pointer':
+    case 'utf16ptr':
+    case 'i32':
+    case 'f32':
+    case 'f64':
+      return 'number';
+    case 'void':
+      return null;
+    default:
+      return 'number';
+  }
+}
+
+const abiValue = (meta) =>
+  meta.tsType === 'void'
+    ? null
+    : { ts: meta.tsType, kind: meta.kind, cwrap: cwrapFor(meta) };
+
 writeFileSync(
   tsOut,
   `/* AUTO-GENERATED - DO NOT EDIT BY HAND. */\n` +
@@ -112,12 +140,24 @@ writeFileSync(
     `export interface PdfFunctions {\n${functions
       .map((fn) => `  ${fn.name}: (${tsParams(fn)}) => ${tsReturn(fn)};`)
       .join('\n')}\n}\n\n` +
+    `export type PdfFunctionTsKind = 'Ptr' | 'number' | 'string' | 'boolean' | 'bigint';\n` +
+    `export type PdfFunctionAbiKind = 'void' | 'bool' | 'i32' | 'i64' | 'f32' | 'f64' | 'pointer' | 'cstring' | 'utf16ptr';\n` +
+    `export type PdfFunctionCwrapKind = 'number' | 'string' | 'boolean' | 'bigint';\n` +
+    `export interface PdfFunctionAbiValue {\n` +
+    `  readonly ts: PdfFunctionTsKind;\n` +
+    `  readonly kind: PdfFunctionAbiKind;\n` +
+    `  readonly cwrap: PdfFunctionCwrapKind;\n` +
+    `}\n` +
+    `export interface PdfFunctionSignature {\n` +
+    `  readonly params: readonly PdfFunctionAbiValue[];\n` +
+    `  readonly result: PdfFunctionAbiValue | null;\n` +
+    `}\n\n` +
     `export const pdfFunctionSignatures = {\n${functions
       .map(
         (fn) =>
-          `  ${fn.name}: { params: ${JSON.stringify(fn.params.map((p) => p.tsType === 'void' ? null : p.tsType))}, result: ${
-            fn.result.tsType === 'void' ? 'null' : JSON.stringify(fn.result.tsType)
-          } },`,
+          `  ${fn.name}: { params: ${JSON.stringify(fn.params.map(abiValue))}, result: ${JSON.stringify(
+            abiValue(fn.result),
+          )} },`,
       )
       .join('\n')}\n} as const;\n`,
 );

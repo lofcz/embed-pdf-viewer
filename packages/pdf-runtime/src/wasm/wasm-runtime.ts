@@ -10,6 +10,7 @@ import type {
   Ptr,
 } from '../core/pdf-runtime-module';
 import { pdfFunctionSignatures } from '../core/pdf-functions.generated';
+import type { PdfFunctionAbiValue, PdfFunctions } from '../core/pdf-functions.generated';
 
 type EmscriptenModule = Record<string, any> & {
   HEAPU8: Uint8Array;
@@ -117,18 +118,42 @@ function createWasmCallbacks(module: EmscriptenModule): PdfRuntimeCallbacks {
   };
 }
 
-function createWasmFunctions(
-  module: EmscriptenModule,
-): Record<string, (...args: unknown[]) => unknown> {
+function fromJsArg(meta: PdfFunctionAbiValue | undefined, value: unknown): unknown {
+  if (meta?.ts === 'Ptr' && typeof value === 'bigint') return Number(value);
+  return value;
+}
+
+function toJsResult(meta: PdfFunctionAbiValue | null, value: unknown): unknown {
+  if (!meta) return undefined;
+  if (meta.ts === 'Ptr' && typeof value === 'number') return toPtr(value);
+  if (meta.ts === 'bigint' && typeof value === 'number') return BigInt(value);
+  return value;
+}
+
+function createWasmFunctions(module: EmscriptenModule): PdfFunctions {
   const out: Record<string, (...args: unknown[]) => unknown> = {};
   for (const [name, signature] of Object.entries(pdfFunctionSignatures)) {
+    const bridge =
+      (call: (...args: unknown[]) => unknown) =>
+      (...args: unknown[]) =>
+        toJsResult(
+          signature.result,
+          call(...args.map((arg, i) => fromJsArg(signature.params[i], arg))),
+        );
+
     if (module.cwrap) {
-      out[name] = module.cwrap(name, signature.result, signature.params);
+      out[name] = bridge(
+        module.cwrap(
+          name,
+          signature.result ? signature.result.cwrap : null,
+          signature.params.map((p) => p.cwrap),
+        ),
+      );
     } else if (typeof module[`_${name}`] === 'function') {
-      out[name] = module[`_${name}`].bind(module);
+      out[name] = bridge(module[`_${name}`].bind(module));
     }
   }
-  return out;
+  return out as unknown as PdfFunctions;
 }
 
 export async function createWasmRuntime(

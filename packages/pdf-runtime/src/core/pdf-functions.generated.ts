@@ -1016,804 +1016,4143 @@ export interface PdfFunctions {
   FPDFTextObj_SetTextRenderMode: (arg0: Ptr, arg1: Ptr) => boolean;
 }
 
+export type PdfFunctionTsKind = 'Ptr' | 'number' | 'string' | 'boolean' | 'bigint';
+export type PdfFunctionAbiKind =
+  | 'void'
+  | 'bool'
+  | 'i32'
+  | 'i64'
+  | 'f32'
+  | 'f64'
+  | 'pointer'
+  | 'cstring'
+  | 'utf16ptr';
+export type PdfFunctionCwrapKind = 'number' | 'string' | 'boolean' | 'bigint';
+export interface PdfFunctionAbiValue {
+  readonly ts: PdfFunctionTsKind;
+  readonly kind: PdfFunctionAbiKind;
+  readonly cwrap: PdfFunctionCwrapKind;
+}
+export interface PdfFunctionSignature {
+  readonly params: readonly PdfFunctionAbiValue[];
+  readonly result: PdfFunctionAbiValue | null;
+}
+
 export const pdfFunctionSignatures = {
-  EPDF_GetMetaKeyCount: { params: ['Ptr', 'boolean'], result: 'number' },
-  EPDF_GetMetaKeyName: { params: ['Ptr', 'number', 'boolean', 'Ptr', 'number'], result: 'number' },
-  EPDF_GetMetaTrapped: { params: ['Ptr'], result: 'Ptr' },
-  EPDF_GetPageRotationByIndex: { params: ['Ptr', 'number'], result: 'number' },
-  EPDF_GetPageSizeByIndexNormalized: { params: ['Ptr', 'number', 'Ptr'], result: 'boolean' },
-  EPDF_HasMetaText: { params: ['Ptr', 'string'], result: 'boolean' },
-  EPDF_IsEncrypted: { params: ['Ptr'], result: 'boolean' },
-  EPDF_IsOwnerUnlocked: { params: ['Ptr'], result: 'boolean' },
-  EPDF_LoadPageNormalized: { params: ['Ptr', 'number', 'Ptr'], result: 'Ptr' },
-  EPDF_PNG_EncodeRGBA: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'Ptr'],
-    result: 'bigint',
+  EPDF_GetMetaKeyCount: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
   },
-  EPDF_RemoveEncryption: { params: ['Ptr'], result: 'boolean' },
+  EPDF_GetMetaKeyName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDF_GetMetaTrapped: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDF_GetPageRotationByIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDF_GetPageSizeByIndexNormalized: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDF_HasMetaText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDF_IsEncrypted: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDF_IsOwnerUnlocked: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDF_LoadPageNormalized: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDF_PNG_EncodeRGBA: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+  },
+  EPDF_RemoveEncryption: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   EPDF_RenderAnnotBitmap: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'Ptr', 'Ptr', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   EPDF_RenderAnnotBitmapUnrotated: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'Ptr', 'Ptr', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  EPDF_SetEncryption: { params: ['Ptr', 'string', 'string', 'number'], result: 'boolean' },
-  EPDF_SetMetaText: { params: ['Ptr', 'string', 'Ptr'], result: 'boolean' },
-  EPDF_SetMetaTrapped: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDF_UnlockOwnerPermissions: { params: ['Ptr', 'string'], result: 'boolean' },
-  EPDFAction_CreateGoTo: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFAction_CreateGoToNamed: { params: ['Ptr', 'string'], result: 'Ptr' },
-  EPDFAction_CreateLaunch: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFAction_CreateRemoteGoToByName: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFAction_CreateRemoteGoToDest: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFAction_CreateURI: { params: ['Ptr', 'string'], result: 'Ptr' },
-  EPDFAnnot_ApplyRedaction: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_ClearBorderEffect: { params: ['Ptr'], result: 'boolean' },
-  EPDFAnnot_ClearColor: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_ClearMKColor: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_ClearRectangleDifferences: { params: ['Ptr'], result: 'boolean' },
-  EPDFAnnot_ExportAppearanceAsDocument: { params: ['Ptr'], result: 'Ptr' },
-  EPDFAnnot_ExportMultipleAppearancesAsDocument: { params: ['Ptr', 'number'], result: 'Ptr' },
-  EPDFAnnot_Flatten: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_GenerateAppearance: { params: ['Ptr'], result: 'boolean' },
-  EPDFAnnot_GenerateAppearanceWithBlend: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_GenerateFormFieldAP: { params: ['Ptr'], result: 'boolean' },
-  EPDFAnnot_GetAPMatrix: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_GetAvailableAppearanceModes: { params: ['Ptr'], result: 'number' },
-  EPDFAnnot_GetBlendMode: { params: ['Ptr'], result: 'Ptr' },
-  EPDFAnnot_GetBorderDashPattern: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
-  EPDFAnnot_GetBorderDashPatternCount: { params: ['Ptr'], result: 'number' },
-  EPDFAnnot_GetBorderEffect: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_GetBorderStyle: { params: ['Ptr', 'number'], result: 'Ptr' },
-  EPDFAnnot_GetButtonExportValue: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  EPDFAnnot_GetCalloutLine: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  EPDFAnnot_GetCalloutLineCount: { params: ['Ptr'], result: 'number' },
-  EPDFAnnot_GetColor: { params: ['Ptr', 'number', 'Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
+  EPDF_SetEncryption: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDF_SetMetaText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDF_SetMetaTrapped: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDF_UnlockOwnerPermissions: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAction_CreateGoTo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAction_CreateGoToNamed: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAction_CreateLaunch: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAction_CreateRemoteGoToByName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAction_CreateRemoteGoToDest: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAction_CreateURI: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_ApplyRedaction: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_ClearBorderEffect: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_ClearColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_ClearMKColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_ClearRectangleDifferences: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_ExportAppearanceAsDocument: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_ExportMultipleAppearancesAsDocument: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_Flatten: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GenerateAppearance: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GenerateAppearanceWithBlend: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GenerateFormFieldAP: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetAPMatrix: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetAvailableAppearanceModes: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetBlendMode: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_GetBorderDashPattern: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetBorderDashPatternCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetBorderEffect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetBorderStyle: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_GetButtonExportValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetCalloutLine: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetCalloutLineCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   EPDFAnnot_GetDefaultAppearance: {
-    params: ['Ptr', 'Ptr', 'number', 'Ptr', 'Ptr', 'Ptr'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  EPDFAnnot_GetExtendedRotation: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_GetFormFieldObjectNumber: { params: ['Ptr', 'Ptr'], result: 'number' },
-  EPDFAnnot_GetFormFieldRawValue: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  EPDFAnnot_GetIntent: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  EPDFAnnot_GetLineEndings: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_GetMKColor: { params: ['Ptr', 'number', 'Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_GetName: { params: ['Ptr'], result: 'Ptr' },
-  EPDFAnnot_GetOpacity: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_GetOverlayText: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  EPDFAnnot_GetOverlayTextRepeat: { params: ['Ptr'], result: 'boolean' },
-  EPDFAnnot_GetRect: { params: ['Ptr', 'Ptr'], result: 'boolean' },
+  EPDFAnnot_GetExtendedRotation: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetFormFieldObjectNumber: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetFormFieldRawValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetIntent: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetLineEndings: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetMKColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetName: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_GetOpacity: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetOverlayText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetOverlayTextRepeat: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   EPDFAnnot_GetRectangleDifferences: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  EPDFAnnot_GetReplyType: { params: ['Ptr'], result: 'Ptr' },
-  EPDFAnnot_GetRichContent: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  EPDFAnnot_GetRotate: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_GetTextAlignment: { params: ['Ptr'], result: 'Ptr' },
-  EPDFAnnot_GetUnrotatedRect: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_GetVerticalAlignment: { params: ['Ptr'], result: 'Ptr' },
-  EPDFAnnot_HasAppearanceStream: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetAction: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetAPMatrix: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetAppearanceFromPage: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_SetBorderDashPattern: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
-  EPDFAnnot_SetBorderEffect: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_SetBorderStyle: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_SetCalloutLine: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
+  EPDFAnnot_GetReplyType: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_GetRichContent: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAnnot_GetRotate: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetTextAlignment: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_GetUnrotatedRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_GetVerticalAlignment: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFAnnot_HasAppearanceStream: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetAction: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetAPMatrix: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetAppearanceFromPage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetBorderDashPattern: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetBorderEffect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetBorderStyle: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetCalloutLine: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   EPDFAnnot_SetColor: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   EPDFAnnot_SetDefaultAppearance: {
-    params: ['Ptr', 'Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  EPDFAnnot_SetExtendedRotation: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_SetFormFieldName: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetFormFieldOptions: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_SetFormFieldValue: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetIntent: { params: ['Ptr', 'string'], result: 'boolean' },
-  EPDFAnnot_SetLine: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetLineEndings: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetLinkedAnnot: { params: ['Ptr', 'string', 'Ptr'], result: 'boolean' },
+  EPDFAnnot_SetExtendedRotation: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetFormFieldName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetFormFieldOptions: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetFormFieldValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetIntent: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetLine: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetLineEndings: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetLinkedAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   EPDFAnnot_SetMKColor: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  EPDFAnnot_SetName: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetNumberValue: { params: ['Ptr', 'string', 'number'], result: 'boolean' },
-  EPDFAnnot_SetOpacity: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_SetOverlayText: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetOverlayTextRepeat: { params: ['Ptr', 'boolean'], result: 'boolean' },
+  EPDFAnnot_SetName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetNumberValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetOpacity: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetOverlayText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetOverlayTextRepeat: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   EPDFAnnot_SetRectangleDifferences: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  EPDFAnnot_SetReplyType: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetRotate: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_SetTextAlignment: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetUnrotatedRect: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetVerticalAlignment: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_SetVertices: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
-  EPDFAnnot_ShareFormField: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAnnot_UpdateAppearanceToRect: { params: ['Ptr', 'number'], result: 'boolean' },
-  EPDFAttachment_GetDescription: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  EPDFAttachment_GetIntegerValue: { params: ['Ptr', 'string', 'Ptr'], result: 'boolean' },
-  EPDFAttachment_SetDescription: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFAttachment_SetSubtype: { params: ['Ptr', 'string'], result: 'boolean' },
-  EPDFBookmark_AppendChild: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFBookmark_Clear: { params: ['Ptr'], result: 'boolean' },
-  EPDFBookmark_ClearTarget: { params: ['Ptr'], result: 'boolean' },
-  EPDFBookmark_Create: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFBookmark_Delete: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFBookmark_InsertAfter: { params: ['Ptr', 'Ptr', 'Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFBookmark_SetAction: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFBookmark_SetDest: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  EPDFBookmark_SetTitle: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFCatalog_GetLanguage: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
+  EPDFAnnot_SetReplyType: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetRotate: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetTextAlignment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetUnrotatedRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetVerticalAlignment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_SetVertices: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_ShareFormField: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAnnot_UpdateAppearanceToRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAttachment_GetDescription: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFAttachment_GetIntegerValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAttachment_SetDescription: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFAttachment_SetSubtype: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFBookmark_AppendChild: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFBookmark_Clear: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFBookmark_ClearTarget: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFBookmark_Create: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFBookmark_Delete: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFBookmark_InsertAfter: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFBookmark_SetAction: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFBookmark_SetDest: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFBookmark_SetTitle: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFCatalog_GetLanguage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
   EPDFDest_CreateRemoteView: {
-    params: ['Ptr', 'number', 'number', 'Ptr', 'number'],
-    result: 'Ptr',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
   },
   EPDFDest_CreateRemoteXYZ: {
-    params: ['Ptr', 'number', 'boolean', 'Ptr', 'boolean', 'Ptr', 'boolean', 'Ptr'],
-    result: 'Ptr',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
   },
-  EPDFDest_CreateView: { params: ['Ptr', 'number', 'Ptr', 'number'], result: 'Ptr' },
+  EPDFDest_CreateView: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
   EPDFDest_CreateXYZ: {
-    params: ['Ptr', 'boolean', 'Ptr', 'boolean', 'Ptr', 'boolean', 'Ptr'],
-    result: 'Ptr',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
   },
-  EPDFImageObj_SetJpeg: { params: ['Ptr', 'number', 'Ptr', 'Ptr', 'bigint'], result: 'boolean' },
-  EPDFImageObj_SetPng: { params: ['Ptr', 'number', 'Ptr', 'Ptr', 'bigint'], result: 'boolean' },
-  EPDFNamedDest_Remove: { params: ['Ptr', 'string'], result: 'boolean' },
-  EPDFNamedDest_SetDest: { params: ['Ptr', 'string', 'Ptr'], result: 'boolean' },
-  EPDFPage_ApplyRedactions: { params: ['Ptr'], result: 'boolean' },
-  EPDFPage_CreateAnnot: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFPage_CreateFormField: { params: ['Ptr', 'Ptr', 'number', 'Ptr'], result: 'Ptr' },
-  EPDFPage_GetAnnotByName: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  EPDFPage_GetAnnotCountRaw: { params: ['Ptr', 'number'], result: 'number' },
-  EPDFPage_GetAnnotRaw: { params: ['Ptr', 'number', 'number'], result: 'Ptr' },
-  EPDFPage_RemoveAnnotByName: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  EPDFPage_RemoveAnnotRaw: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
+  EPDFImageObj_SetJpeg: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFImageObj_SetPng: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFNamedDest_Remove: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFNamedDest_SetDest: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFPage_ApplyRedactions: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFPage_CreateAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFPage_CreateFormField: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFPage_GetAnnotByName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFPage_GetAnnotCountRaw: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  EPDFPage_GetAnnotRaw: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  EPDFPage_RemoveAnnotByName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  EPDFPage_RemoveAnnotRaw: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   EPDFText_RedactInQuads: {
-    params: ['Ptr', 'Ptr', 'bigint', 'boolean', 'boolean'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  EPDFText_RedactInRect: { params: ['Ptr', 'Ptr', 'boolean', 'boolean'], result: 'boolean' },
-  FORM_CanRedo: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FORM_CanUndo: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FORM_DoDocumentAAction: { params: ['Ptr', 'number'], result: null },
-  FORM_DoDocumentJSAction: { params: ['Ptr'], result: null },
-  FORM_DoDocumentOpenAction: { params: ['Ptr'], result: null },
-  FORM_DoPageAAction: { params: ['Ptr', 'Ptr', 'number'], result: null },
-  FORM_ForceToKillFocus: { params: ['Ptr'], result: 'boolean' },
-  FORM_GetFocusedAnnot: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FORM_GetFocusedText: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FORM_GetSelectedText: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FORM_IsIndexSelected: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
-  FORM_OnAfterLoadPage: { params: ['Ptr', 'Ptr'], result: null },
-  FORM_OnBeforeClosePage: { params: ['Ptr', 'Ptr'], result: null },
-  FORM_OnChar: { params: ['Ptr', 'Ptr', 'number', 'number'], result: 'boolean' },
-  FORM_OnFocus: { params: ['Ptr', 'Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FORM_OnKeyDown: { params: ['Ptr', 'Ptr', 'number', 'number'], result: 'boolean' },
-  FORM_OnKeyUp: { params: ['Ptr', 'Ptr', 'number', 'number'], result: 'boolean' },
+  EPDFText_RedactInRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_CanRedo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_CanUndo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_DoDocumentAAction: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FORM_DoDocumentJSAction: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FORM_DoDocumentOpenAction: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FORM_DoPageAAction: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FORM_ForceToKillFocus: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_GetFocusedAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_GetFocusedText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FORM_GetSelectedText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FORM_IsIndexSelected: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_OnAfterLoadPage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FORM_OnBeforeClosePage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FORM_OnChar: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_OnFocus: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_OnKeyDown: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_OnKeyUp: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FORM_OnLButtonDoubleClick: {
-    params: ['Ptr', 'Ptr', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FORM_OnLButtonDown: { params: ['Ptr', 'Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FORM_OnLButtonUp: { params: ['Ptr', 'Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FORM_OnMouseMove: { params: ['Ptr', 'Ptr', 'number', 'number', 'number'], result: 'boolean' },
+  FORM_OnLButtonDown: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_OnLButtonUp: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_OnMouseMove: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FORM_OnMouseWheel: {
-    params: ['Ptr', 'Ptr', 'number', 'Ptr', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FORM_OnRButtonDown: { params: ['Ptr', 'Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FORM_OnRButtonUp: { params: ['Ptr', 'Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FORM_Redo: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FORM_ReplaceAndKeepSelection: { params: ['Ptr', 'Ptr', 'Ptr'], result: null },
-  FORM_ReplaceSelection: { params: ['Ptr', 'Ptr', 'Ptr'], result: null },
-  FORM_SelectAllText: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FORM_SetFocusedAnnot: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FORM_SetIndexSelected: { params: ['Ptr', 'Ptr', 'number', 'boolean'], result: 'boolean' },
-  FORM_Undo: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDF_AddInstalledFont: { params: ['Ptr', 'Ptr', 'number'], result: null },
-  FPDF_CloseDocument: { params: ['Ptr'], result: null },
-  FPDF_ClosePage: { params: ['Ptr'], result: null },
-  FPDF_CloseXObject: { params: ['Ptr'], result: null },
-  FPDF_CopyViewerPreferences: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDF_CountNamedDests: { params: ['Ptr'], result: 'Ptr' },
-  FPDF_CreateClipPath: { params: ['number', 'number', 'number', 'number'], result: 'Ptr' },
-  FPDF_CreateNewDocument: { params: [], result: 'Ptr' },
-  FPDF_DestroyClipPath: { params: ['Ptr'], result: null },
+  FORM_OnRButtonDown: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_OnRButtonUp: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_Redo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_ReplaceAndKeepSelection: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FORM_ReplaceSelection: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FORM_SelectAllText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_SetFocusedAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_SetIndexSelected: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FORM_Undo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_AddInstalledFont: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDF_CloseDocument: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDF_ClosePage: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDF_CloseXObject: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDF_CopyViewerPreferences: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_CountNamedDests: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_CreateClipPath: {
+    params: [
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_CreateNewDocument: { params: [], result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' } },
+  FPDF_DestroyClipPath: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
   FPDF_DestroyLibrary: { params: [], result: null },
   FPDF_DeviceToPage: {
     params: [
-      'Ptr',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
     ],
-    result: 'boolean',
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDF_DocumentHasValidCrossReferenceTable: { params: ['Ptr'], result: 'boolean' },
+  FPDF_DocumentHasValidCrossReferenceTable: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDF_FFLDraw: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
     result: null,
   },
-  FPDF_FreeDefaultSystemFontInfo: { params: ['Ptr'], result: null },
-  FPDF_GetDefaultSystemFontInfo: { params: [], result: 'Ptr' },
-  FPDF_GetDefaultTTFMap: { params: [], result: 'Ptr' },
-  FPDF_GetDefaultTTFMapCount: { params: [], result: 'bigint' },
-  FPDF_GetDefaultTTFMapEntry: { params: ['bigint'], result: 'Ptr' },
-  FPDF_GetDocPermissions: { params: ['Ptr'], result: 'number' },
-  FPDF_GetDocUserPermissions: { params: ['Ptr'], result: 'number' },
-  FPDF_GetFileIdentifier: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_GetFileVersion: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDF_GetFormType: { params: ['Ptr'], result: 'number' },
-  FPDF_GetLastError: { params: [], result: 'number' },
-  FPDF_GetMetaText: { params: ['Ptr', 'string', 'Ptr', 'number'], result: 'number' },
-  FPDF_GetNamedDest: { params: ['Ptr', 'number', 'Ptr', 'Ptr'], result: 'Ptr' },
-  FPDF_GetNamedDestByName: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDF_GetPageAAction: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDF_GetPageBoundingBox: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDF_GetPageCount: { params: ['Ptr'], result: 'number' },
-  FPDF_GetPageHeight: { params: ['Ptr'], result: 'number' },
-  FPDF_GetPageHeightF: { params: ['Ptr'], result: 'number' },
-  FPDF_GetPageLabel: { params: ['Ptr', 'number', 'Ptr', 'number'], result: 'number' },
-  FPDF_GetPageSizeByIndex: { params: ['Ptr', 'number', 'number', 'number'], result: 'number' },
-  FPDF_GetPageSizeByIndexF: { params: ['Ptr', 'number', 'Ptr'], result: 'boolean' },
-  FPDF_GetPageWidth: { params: ['Ptr'], result: 'number' },
-  FPDF_GetPageWidthF: { params: ['Ptr'], result: 'number' },
-  FPDF_GetSecurityHandlerRevision: { params: ['Ptr'], result: 'number' },
-  FPDF_GetSignatureCount: { params: ['Ptr'], result: 'number' },
-  FPDF_GetSignatureObject: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDF_GetTrailerEnds: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
+  FPDF_FreeDefaultSystemFontInfo: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDF_GetDefaultSystemFontInfo: {
+    params: [],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_GetDefaultTTFMap: { params: [], result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' } },
+  FPDF_GetDefaultTTFMapCount: {
+    params: [],
+    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+  },
+  FPDF_GetDefaultTTFMapEntry: {
+    params: [{ ts: 'bigint', kind: 'i64', cwrap: 'bigint' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_GetDocPermissions: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetDocUserPermissions: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetFileIdentifier: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetFileVersion: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_GetFormType: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetLastError: { params: [], result: { ts: 'number', kind: 'i32', cwrap: 'number' } },
+  FPDF_GetMetaText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetNamedDest: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_GetNamedDestByName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_GetPageAAction: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_GetPageBoundingBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_GetPageCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetPageHeight: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'f64', cwrap: 'number' },
+  },
+  FPDF_GetPageHeightF: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'f32', cwrap: 'number' },
+  },
+  FPDF_GetPageLabel: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetPageSizeByIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetPageSizeByIndexF: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_GetPageWidth: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'f64', cwrap: 'number' },
+  },
+  FPDF_GetPageWidthF: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'f32', cwrap: 'number' },
+  },
+  FPDF_GetSecurityHandlerRevision: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetSignatureCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetSignatureObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_GetTrailerEnds: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
   FPDF_GetXFAPacketContent: {
-    params: ['Ptr', 'number', 'Ptr', 'number', 'Ptr'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDF_GetXFAPacketCount: { params: ['Ptr'], result: 'number' },
-  FPDF_GetXFAPacketName: { params: ['Ptr', 'number', 'Ptr', 'number'], result: 'number' },
+  FPDF_GetXFAPacketCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_GetXFAPacketName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
   FPDF_ImportNPagesToOne: {
-    params: ['Ptr', 'number', 'number', 'bigint', 'bigint'],
-    result: 'Ptr',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
   },
-  FPDF_ImportPages: { params: ['Ptr', 'Ptr', 'string', 'number'], result: 'boolean' },
-  FPDF_ImportPagesByIndex: { params: ['Ptr', 'Ptr', 'Ptr', 'number', 'number'], result: 'boolean' },
+  FPDF_ImportPages: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_ImportPagesByIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDF_InitLibrary: { params: [], result: null },
-  FPDF_InitLibraryWithConfig: { params: ['Ptr'], result: null },
-  FPDF_LoadCustomDocument: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDF_LoadDocument: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDF_LoadMemDocument: { params: ['Ptr', 'number', 'string'], result: 'Ptr' },
-  FPDF_LoadMemDocument64: { params: ['Ptr', 'bigint', 'string'], result: 'Ptr' },
-  FPDF_LoadPage: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDF_LoadXFA: { params: ['Ptr'], result: 'boolean' },
-  FPDF_MovePages: { params: ['Ptr', 'Ptr', 'number', 'number'], result: 'boolean' },
-  FPDF_NewFormObjectFromXObject: { params: ['Ptr'], result: 'Ptr' },
-  FPDF_NewXObjectFromPage: { params: ['Ptr', 'Ptr', 'number'], result: 'Ptr' },
+  FPDF_InitLibraryWithConfig: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDF_LoadCustomDocument: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_LoadDocument: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_LoadMemDocument: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_LoadMemDocument64: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_LoadPage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_LoadXFA: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_MovePages: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_NewFormObjectFromXObject: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_NewXObjectFromPage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
   FPDF_PageToDevice: {
     params: [
-      'Ptr',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'Ptr',
-      'Ptr',
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
     ],
-    result: 'boolean',
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDF_RemoveFormFieldHighlight: { params: ['Ptr'], result: null },
-  FPDF_RenderPage_Close: { params: ['Ptr'], result: null },
-  FPDF_RenderPage_Continue: { params: ['Ptr', 'Ptr'], result: 'number' },
+  FPDF_RemoveFormFieldHighlight: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDF_RenderPage_Close: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDF_RenderPage_Continue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
   FPDF_RenderPageBitmap: {
-    params: ['Ptr', 'Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
     result: null,
   },
   FPDF_RenderPageBitmap_Start: {
-    params: ['Ptr', 'Ptr', 'number', 'number', 'number', 'number', 'number', 'number', 'Ptr'],
-    result: 'number',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
   },
   FPDF_RenderPageBitmapWithColorScheme_Start: {
     params: [
-      'Ptr',
-      'Ptr',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'number',
-      'Ptr',
-      'Ptr',
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
     ],
-    result: 'number',
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
   },
-  FPDF_RenderPageBitmapWithMatrix: { params: ['Ptr', 'Ptr', 'Ptr', 'Ptr', 'number'], result: null },
-  FPDF_SaveAsCopy: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDF_SaveWithVersion: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'boolean' },
-  FPDF_SetFormFieldHighlightAlpha: { params: ['Ptr', 'number'], result: null },
-  FPDF_SetFormFieldHighlightColor: { params: ['Ptr', 'number', 'number'], result: null },
-  FPDF_SetSandBoxPolicy: { params: ['Ptr', 'boolean'], result: null },
-  FPDF_SetSystemFontInfo: { params: ['Ptr'], result: null },
-  FPDF_StructElement_Attr_CountChildren: { params: ['Ptr'], result: 'number' },
-  FPDF_StructElement_Attr_GetBlobValue: {
-    params: ['Ptr', 'Ptr', 'number', 'Ptr'],
-    result: 'boolean',
-  },
-  FPDF_StructElement_Attr_GetBooleanValue: { params: ['Ptr', 'boolean'], result: 'boolean' },
-  FPDF_StructElement_Attr_GetChildAtIndex: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDF_StructElement_Attr_GetCount: { params: ['Ptr'], result: 'number' },
-  FPDF_StructElement_Attr_GetName: {
-    params: ['Ptr', 'number', 'Ptr', 'number', 'Ptr'],
-    result: 'boolean',
-  },
-  FPDF_StructElement_Attr_GetNumberValue: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDF_StructElement_Attr_GetStringValue: {
-    params: ['Ptr', 'Ptr', 'number', 'Ptr'],
-    result: 'boolean',
-  },
-  FPDF_StructElement_Attr_GetType: { params: ['Ptr'], result: 'Ptr' },
-  FPDF_StructElement_Attr_GetValue: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDF_StructElement_CountChildren: { params: ['Ptr'], result: 'number' },
-  FPDF_StructElement_GetActualText: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetAltText: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetAttributeAtIndex: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDF_StructElement_GetAttributeCount: { params: ['Ptr'], result: 'number' },
-  FPDF_StructElement_GetChildAtIndex: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDF_StructElement_GetChildMarkedContentID: { params: ['Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetID: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetLang: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetMarkedContentID: { params: ['Ptr'], result: 'number' },
-  FPDF_StructElement_GetMarkedContentIdAtIndex: { params: ['Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetMarkedContentIdCount: { params: ['Ptr'], result: 'number' },
-  FPDF_StructElement_GetObjType: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetParent: { params: ['Ptr'], result: 'Ptr' },
-  FPDF_StructElement_GetStringAttribute: {
-    params: ['Ptr', 'string', 'Ptr', 'number'],
-    result: 'number',
-  },
-  FPDF_StructElement_GetTitle: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_StructElement_GetType: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDF_StructTree_Close: { params: ['Ptr'], result: null },
-  FPDF_StructTree_CountChildren: { params: ['Ptr'], result: 'number' },
-  FPDF_StructTree_GetChildAtIndex: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDF_StructTree_GetForPage: { params: ['Ptr'], result: 'Ptr' },
-  FPDF_VIEWERREF_GetDuplex: { params: ['Ptr'], result: 'Ptr' },
-  FPDF_VIEWERREF_GetName: { params: ['Ptr', 'string', 'Ptr', 'number'], result: 'number' },
-  FPDF_VIEWERREF_GetNumCopies: { params: ['Ptr'], result: 'number' },
-  FPDF_VIEWERREF_GetPrintPageRange: { params: ['Ptr'], result: 'Ptr' },
-  FPDF_VIEWERREF_GetPrintPageRangeCount: { params: ['Ptr'], result: 'bigint' },
-  FPDF_VIEWERREF_GetPrintPageRangeElement: { params: ['Ptr', 'bigint'], result: 'number' },
-  FPDF_VIEWERREF_GetPrintScaling: { params: ['Ptr'], result: 'boolean' },
-  FPDFAction_GetDest: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFAction_GetFilePath: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAction_GetType: { params: ['Ptr'], result: 'number' },
-  FPDFAction_GetURIPath: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_AddFileAttachment: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFAnnot_AddInkStroke: { params: ['Ptr', 'Ptr', 'bigint'], result: 'number' },
-  FPDFAnnot_AppendAttachmentPoints: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_AppendObject: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_CountAttachmentPoints: { params: ['Ptr'], result: 'bigint' },
-  FPDFAnnot_GetAP: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_GetAttachmentPoints: { params: ['Ptr', 'bigint', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_GetBorder: { params: ['Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FPDFAnnot_GetColor: { params: ['Ptr', 'number', 'Ptr', 'Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_GetFileAttachment: { params: ['Ptr'], result: 'Ptr' },
-  FPDFAnnot_GetFlags: { params: ['Ptr'], result: 'number' },
-  FPDFAnnot_GetFocusableSubtypes: { params: ['Ptr', 'Ptr', 'bigint'], result: 'boolean' },
-  FPDFAnnot_GetFocusableSubtypesCount: { params: ['Ptr'], result: 'number' },
-  FPDFAnnot_GetFontColor: { params: ['Ptr', 'Ptr', 'Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_GetFontSize: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
-  FPDFAnnot_GetFormAdditionalActionJavaScript: {
-    params: ['Ptr', 'Ptr', 'number', 'Ptr', 'number'],
-    result: 'number',
-  },
-  FPDFAnnot_GetFormControlCount: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFAnnot_GetFormControlIndex: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFAnnot_GetFormFieldAlternateName: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'number'],
-    result: 'number',
-  },
-  FPDFAnnot_GetFormFieldAtPoint: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFAnnot_GetFormFieldExportValue: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_GetFormFieldFlags: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFAnnot_GetFormFieldName: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_GetFormFieldType: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFAnnot_GetFormFieldValue: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_GetInkListCount: { params: ['Ptr'], result: 'number' },
-  FPDFAnnot_GetInkListPath: { params: ['Ptr', 'number', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_GetLine: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_GetLink: { params: ['Ptr'], result: 'Ptr' },
-  FPDFAnnot_GetLinkedAnnot: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDFAnnot_GetNumberValue: { params: ['Ptr', 'string', 'number'], result: 'boolean' },
-  FPDFAnnot_GetObject: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFAnnot_GetObjectCount: { params: ['Ptr'], result: 'number' },
-  FPDFAnnot_GetOptionCount: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFAnnot_GetOptionLabel: { params: ['Ptr', 'Ptr', 'number', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_GetRect: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_GetStringValue: { params: ['Ptr', 'string', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_GetSubtype: { params: ['Ptr'], result: 'Ptr' },
-  FPDFAnnot_GetValueType: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDFAnnot_GetVertices: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAnnot_HasAttachmentPoints: { params: ['Ptr'], result: 'boolean' },
-  FPDFAnnot_HasKey: { params: ['Ptr', 'string'], result: 'boolean' },
-  FPDFAnnot_IsChecked: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_IsObjectSupportedSubtype: { params: ['Ptr'], result: 'boolean' },
-  FPDFAnnot_IsOptionSelected: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
-  FPDFAnnot_IsSupportedSubtype: { params: ['Ptr'], result: 'boolean' },
-  FPDFAnnot_RemoveInkList: { params: ['Ptr'], result: 'boolean' },
-  FPDFAnnot_RemoveObject: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFAnnot_SetAP: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_SetAttachmentPoints: { params: ['Ptr', 'bigint', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_SetBorder: { params: ['Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FPDFAnnot_SetColor: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFAnnot_SetFlags: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFAnnot_SetFocusableSubtypes: { params: ['Ptr', 'Ptr', 'bigint'], result: 'boolean' },
-  FPDFAnnot_SetFontColor: {
-    params: ['Ptr', 'Ptr', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFAnnot_SetFormFieldFlags: { params: ['Ptr', 'Ptr', 'number'], result: 'boolean' },
-  FPDFAnnot_SetRect: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_SetStringValue: { params: ['Ptr', 'string', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_SetURI: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAnnot_UpdateObject: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFAttachment_GetFile: { params: ['Ptr', 'Ptr', 'number', 'Ptr'], result: 'boolean' },
-  FPDFAttachment_GetName: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAttachment_GetStringValue: { params: ['Ptr', 'string', 'Ptr', 'number'], result: 'number' },
-  FPDFAttachment_GetSubtype: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFAttachment_GetValueType: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDFAttachment_HasKey: { params: ['Ptr', 'string'], result: 'boolean' },
-  FPDFAttachment_SetFile: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'boolean' },
-  FPDFAttachment_SetStringValue: { params: ['Ptr', 'string', 'Ptr'], result: 'boolean' },
-  FPDFAvail_Create: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFAvail_Destroy: { params: ['Ptr'], result: null },
-  FPDFAvail_GetDocument: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDFAvail_GetFirstPageNum: { params: ['Ptr'], result: 'number' },
-  FPDFAvail_IsDocAvail: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFAvail_IsFormAvail: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFAvail_IsLinearized: { params: ['Ptr'], result: 'number' },
-  FPDFAvail_IsPageAvail: { params: ['Ptr', 'number', 'Ptr'], result: 'number' },
-  FPDFBitmap_Create: { params: ['number', 'number', 'number'], result: 'Ptr' },
-  FPDFBitmap_CreateEx: { params: ['number', 'number', 'number', 'Ptr', 'number'], result: 'Ptr' },
-  FPDFBitmap_Destroy: { params: ['Ptr'], result: null },
-  FPDFBitmap_FillRect: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'Ptr'],
-    result: 'boolean',
-  },
-  FPDFBitmap_GetBuffer: { params: ['Ptr'], result: 'Ptr' },
-  FPDFBitmap_GetFormat: { params: ['Ptr'], result: 'number' },
-  FPDFBitmap_GetHeight: { params: ['Ptr'], result: 'number' },
-  FPDFBitmap_GetStride: { params: ['Ptr'], result: 'number' },
-  FPDFBitmap_GetWidth: { params: ['Ptr'], result: 'number' },
-  FPDFBookmark_Find: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFBookmark_GetAction: { params: ['Ptr'], result: 'Ptr' },
-  FPDFBookmark_GetCount: { params: ['Ptr'], result: 'number' },
-  FPDFBookmark_GetDest: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFBookmark_GetFirstChild: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFBookmark_GetNextSibling: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFBookmark_GetTitle: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFCatalog_GetLanguage: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFCatalog_IsTagged: { params: ['Ptr'], result: 'boolean' },
-  FPDFCatalog_SetLanguage: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFClipPath_CountPaths: { params: ['Ptr'], result: 'number' },
-  FPDFClipPath_CountPathSegments: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFClipPath_GetPathSegment: { params: ['Ptr', 'number', 'number'], result: 'Ptr' },
-  FPDFDest_GetDestPageIndex: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFDest_GetLocationInPage: {
-    params: ['Ptr', 'boolean', 'boolean', 'boolean', 'Ptr', 'Ptr', 'Ptr'],
-    result: 'boolean',
-  },
-  FPDFDest_GetView: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'number' },
-  FPDFDoc_AddAttachment: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFDoc_CloseJavaScriptAction: { params: ['Ptr'], result: null },
-  FPDFDoc_DeleteAttachment: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFDOC_ExitFormFillEnvironment: { params: ['Ptr'], result: null },
-  FPDFDoc_GetAttachment: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFDoc_GetAttachmentCount: { params: ['Ptr'], result: 'number' },
-  FPDFDoc_GetJavaScriptAction: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFDoc_GetJavaScriptActionCount: { params: ['Ptr'], result: 'number' },
-  FPDFDoc_GetPageMode: { params: ['Ptr'], result: 'number' },
-  FPDFDOC_InitFormFillEnvironment: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFFont_Close: { params: ['Ptr'], result: null },
-  FPDFFont_GetAscent: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
-  FPDFFont_GetBaseFontName: { params: ['Ptr', 'Ptr', 'bigint'], result: 'bigint' },
-  FPDFFont_GetDescent: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
-  FPDFFont_GetFamilyName: { params: ['Ptr', 'Ptr', 'bigint'], result: 'bigint' },
-  FPDFFont_GetFlags: { params: ['Ptr'], result: 'number' },
-  FPDFFont_GetFontData: { params: ['Ptr', 'Ptr', 'bigint', 'bigint'], result: 'boolean' },
-  FPDFFont_GetGlyphPath: { params: ['Ptr', 'number', 'number'], result: 'Ptr' },
-  FPDFFont_GetGlyphWidth: { params: ['Ptr', 'number', 'number', 'number'], result: 'boolean' },
-  FPDFFont_GetIsEmbedded: { params: ['Ptr'], result: 'number' },
-  FPDFFont_GetItalicAngle: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFFont_GetWeight: { params: ['Ptr'], result: 'number' },
-  FPDFFormObj_CountObjects: { params: ['Ptr'], result: 'number' },
-  FPDFFormObj_GetObject: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFFormObj_RemoveObject: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFGlyphPath_CountGlyphSegments: { params: ['Ptr'], result: 'number' },
-  FPDFGlyphPath_GetGlyphPathSegment: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFImageObj_GetBitmap: { params: ['Ptr'], result: 'Ptr' },
-  FPDFImageObj_GetIccProfileDataDecoded: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'bigint', 'bigint'],
-    result: 'boolean',
-  },
-  FPDFImageObj_GetImageDataDecoded: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFImageObj_GetImageDataRaw: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFImageObj_GetImageFilter: { params: ['Ptr', 'number', 'Ptr', 'number'], result: 'number' },
-  FPDFImageObj_GetImageFilterCount: { params: ['Ptr'], result: 'number' },
-  FPDFImageObj_GetImageMetadata: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFImageObj_GetImagePixelSize: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFImageObj_GetRenderedBitmap: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFImageObj_LoadJpegFile: { params: ['Ptr', 'number', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFImageObj_LoadJpegFileInline: { params: ['Ptr', 'number', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFImageObj_SetBitmap: { params: ['Ptr', 'number', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFImageObj_SetMatrix: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFJavaScriptAction_GetName: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFJavaScriptAction_GetScript: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFLink_CloseWebLinks: { params: ['Ptr'], result: null },
-  FPDFLink_CountQuadPoints: { params: ['Ptr'], result: 'number' },
-  FPDFLink_CountRects: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFLink_CountWebLinks: { params: ['Ptr'], result: 'number' },
-  FPDFLink_Enumerate: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFLink_GetAction: { params: ['Ptr'], result: 'Ptr' },
-  FPDFLink_GetAnnot: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFLink_GetAnnotRect: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFLink_GetDest: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFLink_GetLinkAtPoint: { params: ['Ptr', 'number', 'number'], result: 'Ptr' },
-  FPDFLink_GetLinkZOrderAtPoint: { params: ['Ptr', 'number', 'number'], result: 'number' },
-  FPDFLink_GetQuadPoints: { params: ['Ptr', 'number', 'Ptr'], result: 'boolean' },
-  FPDFLink_GetRect: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFLink_GetTextRange: { params: ['Ptr', 'number', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFLink_GetURL: { params: ['Ptr', 'number', 'Ptr', 'number'], result: 'number' },
-  FPDFLink_LoadWebLinks: { params: ['Ptr'], result: 'Ptr' },
-  FPDFPage_CloseAnnot: { params: ['Ptr'], result: null },
-  FPDFPage_CountObjects: { params: ['Ptr'], result: 'number' },
-  FPDFPage_CreateAnnot: { params: ['Ptr', 'Ptr'], result: 'Ptr' },
-  FPDFPage_Delete: { params: ['Ptr', 'number'], result: null },
-  FPDFPage_Flatten: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFPage_FormFieldZOrderAtPoint: { params: ['Ptr', 'Ptr', 'number', 'number'], result: 'number' },
-  FPDFPage_GenerateContent: { params: ['Ptr'], result: 'boolean' },
-  FPDFPage_GetAnnot: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFPage_GetAnnotCount: { params: ['Ptr'], result: 'number' },
-  FPDFPage_GetAnnotIndex: { params: ['Ptr', 'Ptr'], result: 'number' },
-  FPDFPage_GetArtBox: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFPage_GetBleedBox: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFPage_GetCropBox: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFPage_GetDecodedThumbnailData: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFPage_GetMediaBox: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFPage_GetObject: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFPage_GetRawThumbnailData: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFPage_GetRotation: { params: ['Ptr'], result: 'number' },
-  FPDFPage_GetThumbnailAsBitmap: { params: ['Ptr'], result: 'Ptr' },
-  FPDFPage_GetTrimBox: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
-  },
-  FPDFPage_HasFormFieldAtPoint: { params: ['Ptr', 'Ptr', 'number', 'number'], result: 'number' },
-  FPDFPage_HasTransparency: { params: ['Ptr'], result: 'boolean' },
-  FPDFPage_InsertClipPath: { params: ['Ptr', 'Ptr'], result: null },
-  FPDFPage_InsertObject: { params: ['Ptr', 'Ptr'], result: null },
-  FPDFPage_InsertObjectAtIndex: { params: ['Ptr', 'Ptr', 'bigint'], result: 'boolean' },
-  FPDFPage_New: { params: ['Ptr', 'number', 'number', 'number'], result: 'Ptr' },
-  FPDFPage_RemoveAnnot: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFPage_RemoveObject: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPage_SetArtBox: { params: ['Ptr', 'number', 'number', 'number', 'number'], result: null },
-  FPDFPage_SetBleedBox: { params: ['Ptr', 'number', 'number', 'number', 'number'], result: null },
-  FPDFPage_SetCropBox: { params: ['Ptr', 'number', 'number', 'number', 'number'], result: null },
-  FPDFPage_SetMediaBox: { params: ['Ptr', 'number', 'number', 'number', 'number'], result: null },
-  FPDFPage_SetRotation: { params: ['Ptr', 'number'], result: null },
-  FPDFPage_SetTrimBox: { params: ['Ptr', 'number', 'number', 'number', 'number'], result: null },
-  FPDFPage_TransformAnnots: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
+  FPDF_RenderPageBitmapWithMatrix: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
     result: null,
   },
-  FPDFPage_TransFormWithClip: { params: ['Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPageObj_AddMark: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDFPageObj_CountMarks: { params: ['Ptr'], result: 'number' },
-  FPDFPageObj_CreateNewPath: { params: ['number', 'number'], result: 'Ptr' },
-  FPDFPageObj_CreateNewRect: { params: ['number', 'number', 'number', 'number'], result: 'Ptr' },
-  FPDFPageObj_CreateTextObj: { params: ['Ptr', 'Ptr', 'number'], result: 'Ptr' },
-  FPDFPageObj_Destroy: { params: ['Ptr'], result: null },
+  FPDF_SaveAsCopy: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_SaveWithVersion: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_SetFormFieldHighlightAlpha: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDF_SetFormFieldHighlightColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDF_SetSandBoxPolicy: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: null,
+  },
+  FPDF_SetSystemFontInfo: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDF_StructElement_Attr_CountChildren: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_Attr_GetBlobValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_StructElement_Attr_GetBooleanValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_StructElement_Attr_GetChildAtIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_StructElement_Attr_GetCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_Attr_GetName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_StructElement_Attr_GetNumberValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_StructElement_Attr_GetStringValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDF_StructElement_Attr_GetType: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_StructElement_Attr_GetValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_StructElement_CountChildren: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetActualText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetAltText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetAttributeAtIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetAttributeCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetChildAtIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetChildMarkedContentID: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetID: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetLang: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetMarkedContentID: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetMarkedContentIdAtIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetMarkedContentIdCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetObjType: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetParent: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetStringAttribute: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetTitle: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructElement_GetType: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructTree_Close: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDF_StructTree_CountChildren: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_StructTree_GetChildAtIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_StructTree_GetForPage: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_VIEWERREF_GetDuplex: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_VIEWERREF_GetName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_VIEWERREF_GetNumCopies: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_VIEWERREF_GetPrintPageRange: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDF_VIEWERREF_GetPrintPageRangeCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+  },
+  FPDF_VIEWERREF_GetPrintPageRangeElement: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDF_VIEWERREF_GetPrintScaling: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAction_GetDest: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAction_GetFilePath: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAction_GetType: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAction_GetURIPath: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_AddFileAttachment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_AddInkStroke: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_AppendAttachmentPoints: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_AppendObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_CountAttachmentPoints: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+  },
+  FPDFAnnot_GetAP: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetAttachmentPoints: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetBorder: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetFileAttachment: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFlags: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFocusableSubtypes: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetFocusableSubtypesCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFontColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetFontSize: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetFormAdditionalActionJavaScript: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormControlCount: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormControlIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormFieldAlternateName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormFieldAtPoint: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormFieldExportValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormFieldFlags: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormFieldName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormFieldType: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetFormFieldValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetInkListCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetInkListPath: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetLine: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetLink: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_GetLinkedAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_GetNumberValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_GetObjectCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetOptionCount: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetOptionLabel: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_GetStringValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_GetSubtype: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_GetValueType: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAnnot_GetVertices: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAnnot_HasAttachmentPoints: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_HasKey: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_IsChecked: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_IsObjectSupportedSubtype: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_IsOptionSelected: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_IsSupportedSubtype: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_RemoveInkList: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_RemoveObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetAP: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetAttachmentPoints: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetBorder: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetFlags: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetFocusableSubtypes: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetFontColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetFormFieldFlags: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetStringValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_SetURI: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAnnot_UpdateObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAttachment_GetFile: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAttachment_GetName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAttachment_GetStringValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAttachment_GetSubtype: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAttachment_GetValueType: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAttachment_HasKey: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAttachment_SetFile: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAttachment_SetStringValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFAvail_Create: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAvail_Destroy: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFAvail_GetDocument: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFAvail_GetFirstPageNum: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAvail_IsDocAvail: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAvail_IsFormAvail: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAvail_IsLinearized: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFAvail_IsPageAvail: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFBitmap_Create: {
+    params: [
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBitmap_CreateEx: {
+    params: [
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBitmap_Destroy: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFBitmap_FillRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFBitmap_GetBuffer: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBitmap_GetFormat: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFBitmap_GetHeight: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFBitmap_GetStride: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFBitmap_GetWidth: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFBookmark_Find: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBookmark_GetAction: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBookmark_GetCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFBookmark_GetDest: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBookmark_GetFirstChild: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBookmark_GetNextSibling: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFBookmark_GetTitle: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFCatalog_GetLanguage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFCatalog_IsTagged: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFCatalog_SetLanguage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFClipPath_CountPaths: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFClipPath_CountPathSegments: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFClipPath_GetPathSegment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFDest_GetDestPageIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFDest_GetLocationInPage: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFDest_GetView: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFDoc_AddAttachment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFDoc_CloseJavaScriptAction: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDFDoc_DeleteAttachment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFDOC_ExitFormFillEnvironment: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDFDoc_GetAttachment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFDoc_GetAttachmentCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFDoc_GetJavaScriptAction: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFDoc_GetJavaScriptActionCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFDoc_GetPageMode: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFDOC_InitFormFillEnvironment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFFont_Close: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFFont_GetAscent: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFFont_GetBaseFontName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+  },
+  FPDFFont_GetDescent: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFFont_GetFamilyName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+  },
+  FPDFFont_GetFlags: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFFont_GetFontData: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFFont_GetGlyphPath: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFFont_GetGlyphWidth: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFFont_GetIsEmbedded: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFFont_GetItalicAngle: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFFont_GetWeight: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFFormObj_CountObjects: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFFormObj_GetObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFFormObj_RemoveObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFGlyphPath_CountGlyphSegments: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFGlyphPath_GetGlyphPathSegment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFImageObj_GetBitmap: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFImageObj_GetIccProfileDataDecoded: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFImageObj_GetImageDataDecoded: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFImageObj_GetImageDataRaw: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFImageObj_GetImageFilter: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFImageObj_GetImageFilterCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFImageObj_GetImageMetadata: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFImageObj_GetImagePixelSize: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFImageObj_GetRenderedBitmap: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFImageObj_LoadJpegFile: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFImageObj_LoadJpegFileInline: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFImageObj_SetBitmap: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFImageObj_SetMatrix: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFJavaScriptAction_GetName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFJavaScriptAction_GetScript: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFLink_CloseWebLinks: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: null,
+  },
+  FPDFLink_CountQuadPoints: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFLink_CountRects: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFLink_CountWebLinks: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFLink_Enumerate: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFLink_GetAction: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFLink_GetAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFLink_GetAnnotRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFLink_GetDest: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFLink_GetLinkAtPoint: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFLink_GetLinkZOrderAtPoint: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFLink_GetQuadPoints: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFLink_GetRect: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFLink_GetTextRange: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFLink_GetURL: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFLink_LoadWebLinks: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPage_CloseAnnot: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFPage_CountObjects: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_CreateAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPage_Delete: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_Flatten: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_FormFieldZOrderAtPoint: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_GenerateContent: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_GetAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPage_GetAnnotCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_GetAnnotIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_GetArtBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_GetBleedBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_GetCropBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_GetDecodedThumbnailData: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_GetMediaBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_GetObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPage_GetRawThumbnailData: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_GetRotation: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_GetThumbnailAsBitmap: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPage_GetTrimBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_HasFormFieldAtPoint: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPage_HasTransparency: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_InsertClipPath: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_InsertObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_InsertObjectAtIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_New: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPage_RemoveAnnot: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_RemoveObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPage_SetArtBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_SetBleedBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_SetCropBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_SetMediaBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_SetRotation: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_SetTrimBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_TransformAnnots: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: null,
+  },
+  FPDFPage_TransFormWithClip: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_AddMark: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_CountMarks: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPageObj_CreateNewPath: {
+    params: [
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_CreateNewRect: {
+    params: [
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_CreateTextObj: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_Destroy: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
   FPDFPageObj_GetBounds: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFPageObj_GetClipPath: { params: ['Ptr'], result: 'Ptr' },
-  FPDFPageObj_GetDashArray: { params: ['Ptr', 'number', 'bigint'], result: 'boolean' },
-  FPDFPageObj_GetDashCount: { params: ['Ptr'], result: 'number' },
-  FPDFPageObj_GetDashPhase: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFPageObj_GetFillColor: { params: ['Ptr', 'Ptr', 'Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPageObj_GetIsActive: { params: ['Ptr', 'boolean'], result: 'boolean' },
-  FPDFPageObj_GetLineCap: { params: ['Ptr'], result: 'number' },
-  FPDFPageObj_GetLineJoin: { params: ['Ptr'], result: 'number' },
-  FPDFPageObj_GetMark: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFPageObj_GetMarkedContentID: { params: ['Ptr'], result: 'number' },
-  FPDFPageObj_GetMatrix: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPageObj_GetRotatedBounds: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPageObj_GetStrokeColor: { params: ['Ptr', 'Ptr', 'Ptr', 'Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPageObj_GetStrokeWidth: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFPageObj_GetType: { params: ['Ptr'], result: 'number' },
-  FPDFPageObj_HasTransparency: { params: ['Ptr'], result: 'boolean' },
-  FPDFPageObj_NewImageObj: { params: ['Ptr'], result: 'Ptr' },
-  FPDFPageObj_NewTextObj: { params: ['Ptr', 'string', 'number'], result: 'Ptr' },
-  FPDFPageObj_RemoveMark: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPageObj_SetBlendMode: { params: ['Ptr', 'string'], result: null },
-  FPDFPageObj_SetDashArray: { params: ['Ptr', 'number', 'bigint', 'number'], result: 'boolean' },
-  FPDFPageObj_SetDashPhase: { params: ['Ptr', 'number'], result: 'boolean' },
+  FPDFPageObj_GetClipPath: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_GetDashArray: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetDashCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPageObj_GetDashPhase: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetFillColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetIsActive: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetLineCap: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPageObj_GetLineJoin: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPageObj_GetMark: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_GetMarkedContentID: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPageObj_GetMatrix: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetRotatedBounds: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetStrokeColor: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetStrokeWidth: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_GetType: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPageObj_HasTransparency: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_NewImageObj: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_NewTextObj: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObj_RemoveMark: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_SetBlendMode: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: null,
+  },
+  FPDFPageObj_SetDashArray: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_SetDashPhase: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDFPageObj_SetFillColor: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFPageObj_SetIsActive: { params: ['Ptr', 'boolean'], result: 'boolean' },
-  FPDFPageObj_SetLineCap: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFPageObj_SetLineJoin: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFPageObj_SetMatrix: { params: ['Ptr', 'Ptr'], result: 'boolean' },
+  FPDFPageObj_SetIsActive: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_SetLineCap: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_SetLineJoin: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObj_SetMatrix: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDFPageObj_SetStrokeColor: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFPageObj_SetStrokeWidth: { params: ['Ptr', 'number'], result: 'boolean' },
+  FPDFPageObj_SetStrokeWidth: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDFPageObj_Transform: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
     result: null,
   },
   FPDFPageObj_TransformClipPath: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
     result: null,
   },
-  FPDFPageObj_TransformF: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFPageObjMark_CountParams: { params: ['Ptr'], result: 'number' },
-  FPDFPageObjMark_GetName: { params: ['Ptr', 'Ptr', 'number', 'Ptr'], result: 'boolean' },
-  FPDFPageObjMark_GetParamBlobValue: {
-    params: ['Ptr', 'string', 'Ptr', 'number', 'Ptr'],
-    result: 'boolean',
+  FPDFPageObj_TransformF: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFPageObjMark_GetParamFloatValue: { params: ['Ptr', 'string', 'number'], result: 'boolean' },
-  FPDFPageObjMark_GetParamIntValue: { params: ['Ptr', 'string', 'Ptr'], result: 'boolean' },
+  FPDFPageObjMark_CountParams: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPageObjMark_GetName: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObjMark_GetParamBlobValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObjMark_GetParamFloatValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPageObjMark_GetParamIntValue: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDFPageObjMark_GetParamKey: {
-    params: ['Ptr', 'number', 'Ptr', 'number', 'Ptr'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   FPDFPageObjMark_GetParamStringValue: {
-    params: ['Ptr', 'string', 'Ptr', 'number', 'Ptr'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFPageObjMark_GetParamValueType: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDFPageObjMark_RemoveParam: { params: ['Ptr', 'Ptr', 'string'], result: 'boolean' },
+  FPDFPageObjMark_GetParamValueType: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPageObjMark_RemoveParam: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDFPageObjMark_SetBlobParam: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'string', 'Ptr', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   FPDFPageObjMark_SetFloatParam: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'string', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   FPDFPageObjMark_SetIntParam: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'string', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   FPDFPageObjMark_SetStringParam: {
-    params: ['Ptr', 'Ptr', 'Ptr', 'string', 'string'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   FPDFPath_BezierTo: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFPath_Close: { params: ['Ptr'], result: 'boolean' },
-  FPDFPath_CountSegments: { params: ['Ptr'], result: 'number' },
-  FPDFPath_GetDrawMode: { params: ['Ptr', 'Ptr', 'boolean'], result: 'boolean' },
-  FPDFPath_GetPathSegment: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFPath_LineTo: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
-  FPDFPath_MoveTo: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
-  FPDFPath_SetDrawMode: { params: ['Ptr', 'number', 'boolean'], result: 'boolean' },
-  FPDFPathSegment_GetClose: { params: ['Ptr'], result: 'boolean' },
-  FPDFPathSegment_GetPoint: { params: ['Ptr', 'number', 'number'], result: 'boolean' },
-  FPDFPathSegment_GetType: { params: ['Ptr'], result: 'number' },
-  FPDFSignatureObj_GetByteRange: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFSignatureObj_GetContents: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFSignatureObj_GetDocMDPPermission: { params: ['Ptr'], result: 'number' },
-  FPDFSignatureObj_GetReason: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFSignatureObj_GetSubFilter: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFSignatureObj_GetTime: { params: ['Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFText_ClosePage: { params: ['Ptr'], result: null },
-  FPDFText_CountChars: { params: ['Ptr'], result: 'number' },
-  FPDFText_CountRects: { params: ['Ptr', 'number', 'number'], result: 'number' },
-  FPDFText_FindClose: { params: ['Ptr'], result: null },
-  FPDFText_FindNext: { params: ['Ptr'], result: 'boolean' },
-  FPDFText_FindPrev: { params: ['Ptr'], result: 'boolean' },
-  FPDFText_FindStart: { params: ['Ptr', 'Ptr', 'number', 'number'], result: 'Ptr' },
+  FPDFPath_Close: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPath_CountSegments: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFPath_GetDrawMode: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPath_GetPathSegment: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFPath_LineTo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPath_MoveTo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPath_SetDrawMode: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPathSegment_GetClose: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPathSegment_GetPoint: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFPathSegment_GetType: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFSignatureObj_GetByteRange: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFSignatureObj_GetContents: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFSignatureObj_GetDocMDPPermission: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFSignatureObj_GetReason: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFSignatureObj_GetSubFilter: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFSignatureObj_GetTime: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_ClosePage: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFText_CountChars: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_CountRects: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_FindClose: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFText_FindNext: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFText_FindPrev: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFText_FindStart: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
   FPDFText_GetBoundedText: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'Ptr', 'number'],
-    result: 'number',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
   },
-  FPDFText_GetCharAngle: { params: ['Ptr', 'number'], result: 'number' },
+  FPDFText_GetCharAngle: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'f32', cwrap: 'number' },
+  },
   FPDFText_GetCharBox: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
   FPDFText_GetCharIndexAtPos: {
-    params: ['Ptr', 'number', 'number', 'number', 'number'],
-    result: 'number',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
   },
-  FPDFText_GetCharIndexFromTextIndex: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFText_GetCharOrigin: { params: ['Ptr', 'number', 'number', 'number'], result: 'boolean' },
+  FPDFText_GetCharIndexFromTextIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_GetCharOrigin: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDFText_GetFillColor: {
-    params: ['Ptr', 'number', 'Ptr', 'Ptr', 'Ptr', 'Ptr'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFText_GetFontInfo: { params: ['Ptr', 'number', 'Ptr', 'number', 'Ptr'], result: 'number' },
-  FPDFText_GetFontSize: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFText_GetFontWeight: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFText_GetLooseCharBox: { params: ['Ptr', 'number', 'Ptr'], result: 'boolean' },
-  FPDFText_GetMatrix: { params: ['Ptr', 'number', 'Ptr'], result: 'boolean' },
+  FPDFText_GetFontInfo: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_GetFontSize: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'f64', cwrap: 'number' },
+  },
+  FPDFText_GetFontWeight: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_GetLooseCharBox: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFText_GetMatrix: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
   FPDFText_GetRect: {
-    params: ['Ptr', 'number', 'number', 'number', 'number', 'number'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      { ts: 'number', kind: 'f64', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFText_GetSchCount: { params: ['Ptr'], result: 'number' },
-  FPDFText_GetSchResultIndex: { params: ['Ptr'], result: 'number' },
+  FPDFText_GetSchCount: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_GetSchResultIndex: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
   FPDFText_GetStrokeColor: {
-    params: ['Ptr', 'number', 'Ptr', 'Ptr', 'Ptr', 'Ptr'],
-    result: 'boolean',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
   },
-  FPDFText_GetText: { params: ['Ptr', 'number', 'number', 'Ptr'], result: 'number' },
-  FPDFText_GetTextIndexFromCharIndex: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFText_GetTextObject: { params: ['Ptr', 'number'], result: 'Ptr' },
-  FPDFText_GetUnicode: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFText_HasUnicodeMapError: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFText_IsGenerated: { params: ['Ptr', 'number'], result: 'number' },
-  FPDFText_IsHyphen: { params: ['Ptr', 'number'], result: 'number' },
+  FPDFText_GetText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_GetTextIndexFromCharIndex: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_GetTextObject: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFText_GetUnicode: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_HasUnicodeMapError: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_IsGenerated: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFText_IsHyphen: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
   FPDFText_LoadCidType2Font: {
-    params: ['Ptr', 'Ptr', 'number', 'string', 'Ptr', 'number'],
-    result: 'Ptr',
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
   },
-  FPDFText_LoadFont: { params: ['Ptr', 'Ptr', 'number', 'number', 'boolean'], result: 'Ptr' },
-  FPDFText_LoadPage: { params: ['Ptr'], result: 'Ptr' },
-  FPDFText_LoadStandardFont: { params: ['Ptr', 'string'], result: 'Ptr' },
-  FPDFText_SetCharcodes: { params: ['Ptr', 'Ptr', 'bigint'], result: 'boolean' },
-  FPDFText_SetText: { params: ['Ptr', 'Ptr'], result: 'boolean' },
-  FPDFTextObj_GetFont: { params: ['Ptr'], result: 'Ptr' },
-  FPDFTextObj_GetFontSize: { params: ['Ptr', 'number'], result: 'boolean' },
-  FPDFTextObj_GetRenderedBitmap: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'Ptr' },
-  FPDFTextObj_GetText: { params: ['Ptr', 'Ptr', 'Ptr', 'number'], result: 'number' },
-  FPDFTextObj_GetTextRenderMode: { params: ['Ptr'], result: 'Ptr' },
-  FPDFTextObj_SetTextRenderMode: { params: ['Ptr', 'Ptr'], result: 'boolean' },
+  FPDFText_LoadFont: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFText_LoadPage: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFText_LoadStandardFont: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFText_SetCharcodes: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFText_SetText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFTextObj_GetFont: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFTextObj_GetFontSize: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
+  FPDFTextObj_GetRenderedBitmap: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'number', kind: 'f32', cwrap: 'number' },
+    ],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFTextObj_GetText: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      { ts: 'number', kind: 'i32', cwrap: 'number' },
+    ],
+    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+  },
+  FPDFTextObj_GetTextRenderMode: {
+    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+  },
+  FPDFTextObj_SetTextRenderMode: {
+    params: [
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    ],
+    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+  },
 } as const;

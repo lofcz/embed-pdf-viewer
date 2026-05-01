@@ -24,6 +24,22 @@ const external = (id) =>
   id === 'detect-libc' ||
   optionalRuntimePackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`));
 
+const stubNativeForBrowser = () => ({
+  name: 'stub-native-for-browser',
+  resolveId(source) {
+    if (source === './native/native-runtime') {
+      return '\0virtual:native-runtime-stub';
+    }
+  },
+  load(id) {
+    if (id === '\0virtual:native-runtime-stub') {
+      return `export async function createNativeRuntime() {
+        throw new Error('native runtime not available in browser bundle');
+      }`;
+    }
+  },
+});
+
 const common = {
   input: ENTRY,
   external,
@@ -33,6 +49,7 @@ const common = {
 export default [
   {
     ...common,
+    plugins: [stubNativeForBrowser(), ...common.plugins],
     output: { file: `${DIST}/index.browser.js`, format: 'esm', sourcemap: true },
   },
   {
