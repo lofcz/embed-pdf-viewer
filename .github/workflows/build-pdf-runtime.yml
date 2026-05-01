@@ -46,7 +46,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
-          key: pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
+          key: >-
+            pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
             'packages/pdf-runtime/scripts/build-target.sh',
             'packages/pdf-runtime/scripts/fetch-libpdfium.sh',
@@ -56,7 +57,7 @@ jobs:
             'packages/pdf-runtime/build/CMakeLists.txt',
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
-          ) }}
+            ) }}
       - if: steps.payload-cache.outputs.cache-hit == 'true'
         name: Restore payload from cache
         shell: bash
@@ -141,7 +142,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
-          key: pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
+          key: >-
+            pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
             'packages/pdf-runtime/scripts/build-target.sh',
             'packages/pdf-runtime/scripts/fetch-libpdfium.sh',
@@ -151,7 +153,7 @@ jobs:
             'packages/pdf-runtime/build/CMakeLists.txt',
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
-          ) }}
+            ) }}
       - if: steps.payload-cache.outputs.cache-hit == 'true'
         name: Restore payload from cache
         shell: bash
@@ -216,7 +218,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
-          key: pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
+          key: >-
+            pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
             'packages/pdf-runtime/scripts/build-target.sh',
             'packages/pdf-runtime/scripts/fetch-libpdfium.sh',
@@ -226,7 +229,7 @@ jobs:
             'packages/pdf-runtime/build/CMakeLists.txt',
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
-          ) }}
+            ) }}
       - if: steps.payload-cache.outputs.cache-hit == 'true'
         name: Restore payload from cache
         shell: bash
@@ -276,7 +279,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
-          key: pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
+          key: >-
+            pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
             'packages/pdf-runtime/scripts/build-target.sh',
             'packages/pdf-runtime/scripts/fetch-libpdfium.sh',
@@ -286,7 +290,7 @@ jobs:
             'packages/pdf-runtime/build/CMakeLists.txt',
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
-          ) }}
+            ) }}
       - if: steps.payload-cache.outputs.cache-hit == 'true'
         name: Restore payload from cache
         shell: bash
