@@ -48,7 +48,14 @@ ARCHIVE="$CACHE/libembedpdf-pdf-runtime-$TARGET.tar.gz"
 
 mkdir -p "$CACHE" "$DEST"
 
-if [[ ! -f "$ARCHIVE" ]]; then
+needs_refresh() {
+  [[ ! -f "$ARCHIVE" ]] && return 0
+  local cached_sha
+  cached_sha="$(sha256_file "$ARCHIVE")"
+  [[ "$cached_sha" != "$SHA256" ]]
+}
+
+if needs_refresh; then
   echo "Downloading $TARGET from $URL"
   if [[ "$URL" == file://* ]]; then
     LOCAL_PATH="${URL#file://}"
