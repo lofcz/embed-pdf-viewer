@@ -23,7 +23,12 @@ env:
   CI: true
 
 jobs:
+  build-runtime:
+    uses: ./.github/workflows/build-pdf-runtime.yml
+    secrets: inherit
+
   release:
+    needs: build-runtime
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,6 +55,25 @@ jobs:
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
+
+      - name: Download pdf-runtime artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: pdf-runtime-*
+          path: packages/pdf-runtime/_artifacts
+
+      - name: Stage runtime payloads
+        run: |
+          shopt -s nullglob
+          for dir in packages/pdf-runtime/_artifacts/pdf-runtime-*; do
+            target="${dir##*/pdf-runtime-}"
+            mkdir -p "packages/pdf-runtime/npm/$target"
+            cp -R "$dir/." "packages/pdf-runtime/npm/$target/"
+          done
+          rm -rf packages/pdf-runtime/_artifacts
+
+      - name: Verify pdf-runtime packages
+        run: pnpm run verify:pdf-runtime-packages
 
       - name: Build packages
         run: pnpm run build:viewers

@@ -41,7 +41,17 @@
       "@embedpdf/snippet",
       "@embedpdf/react-pdf-viewer",
       "@embedpdf/vue-pdf-viewer",
-      "@embedpdf/svelte-pdf-viewer"
+      "@embedpdf/svelte-pdf-viewer",
+      "@embedpdf/pdf-runtime",
+      "@embedpdf/pdf-runtime-wasm32",
+      "@embedpdf/pdf-runtime-darwin-arm64",
+      "@embedpdf/pdf-runtime-darwin-x64",
+      "@embedpdf/pdf-runtime-linux-x64",
+      "@embedpdf/pdf-runtime-linux-arm64",
+      "@embedpdf/pdf-runtime-linuxmusl-x64",
+      "@embedpdf/pdf-runtime-linuxmusl-arm64",
+      "@embedpdf/pdf-runtime-win32-x64",
+      "@embedpdf/pdf-runtime-win32-arm64"
     ]
   ],
   "linked": [],
