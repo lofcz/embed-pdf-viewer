@@ -1,5 +1,10 @@
+import type {
+  AnnotationListPageSnapshot,
+  AnnotationListSnapshotAllPages,
+} from '../annotation/AnnotationListSnapshot';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { SerializedEngineError } from '../errors/EngineError';
+import type { PageObjectNumber } from '../identity/PageObjectNumber';
 
 /**
  * Wire protocol used between an Engine-side queue and any Worker host
@@ -26,6 +31,26 @@ export interface MetadataReadWorkerRequest {
   docId: string;
 }
 
+export interface AnnotationsListRawAllWorkerRequest {
+  kind: 'annotations.listRawAll';
+  jobId: WorkerJobId;
+  docId: string;
+}
+
+export interface AnnotationsListRawPageWorkerRequest {
+  kind: 'annotations.listRawPage';
+  jobId: WorkerJobId;
+  docId: string;
+  pageObjectNumber: PageObjectNumber;
+}
+
+export interface AnnotationsListFullPageWorkerRequest {
+  kind: 'annotations.listFullPage';
+  jobId: WorkerJobId;
+  docId: string;
+  pageObjectNumber: PageObjectNumber;
+}
+
 export interface CloseWorkerRequest {
   kind: 'close';
   jobId: WorkerJobId;
@@ -45,6 +70,9 @@ export interface ShutdownWorkerRequest {
 export type WorkerRequest =
   | OpenWorkerRequest
   | MetadataReadWorkerRequest
+  | AnnotationsListRawAllWorkerRequest
+  | AnnotationsListRawPageWorkerRequest
+  | AnnotationsListFullPageWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -52,6 +80,9 @@ export type WorkerRequest =
 export type WorkerResultPayload =
   | { tag: 'open'; docId: string }
   | { tag: 'metadata.read'; metadata: DocumentMetadata }
+  | { tag: 'annotations.listRawAll'; snapshot: AnnotationListSnapshotAllPages }
+  | { tag: 'annotations.listRawPage'; snapshot: AnnotationListPageSnapshot }
+  | { tag: 'annotations.listFullPage'; snapshot: AnnotationListPageSnapshot }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

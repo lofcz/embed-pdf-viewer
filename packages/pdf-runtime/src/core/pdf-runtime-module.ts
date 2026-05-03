@@ -3,6 +3,9 @@ import type { PdfFunctions } from './pdf-functions.generated';
 export type Ptr = bigint & { readonly __brand: 'PdfRuntimePtr' };
 export type Callback = bigint & { readonly __brand: 'PdfRuntimeCallback' };
 
+/** The null pointer; useful when the underlying API accepts a NULL value. */
+export const NULL_PTR = 0n as Ptr;
+
 export type MemoryValueKind = 'i8' | 'i16' | 'i32' | 'i64' | 'f32' | 'f64' | 'ptr';
 
 export type CallbackKind = string;
@@ -17,8 +20,8 @@ export interface PdfRuntimeMemory {
   writeU8String(str: string): Ptr;
   readU16String(ptr: Ptr): string;
   writeU16String(str: string): Ptr;
-  peek(ptr: Ptr, kind: MemoryValueKind): number | bigint;
-  poke(ptr: Ptr, kind: MemoryValueKind, value: number | bigint): void;
+  peek(ptr: Ptr, kind: MemoryValueKind, byteOffset?: number): number | bigint;
+  poke(ptr: Ptr, kind: MemoryValueKind, value: number | bigint, byteOffset?: number): void;
 }
 
 export interface PdfRuntimeCallbacks {

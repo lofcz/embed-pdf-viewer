@@ -10,7 +10,7 @@ import type {
   Ptr,
 } from '../core/pdf-runtime-module';
 import { pdfFunctionSignatures } from '../core/pdf-functions.generated';
-import type { PdfFunctionAbiValue, PdfFunctions } from '../core/pdf-functions.generated';
+import type { PdfFunctionAbiSlot, PdfFunctions } from '../core/pdf-functions.generated';
 
 type EmscriptenModule = Record<string, any> & {
   HEAPU8: Uint8Array;
@@ -97,11 +97,11 @@ function createWasmMemory(module: EmscriptenModule): PdfRuntimeMemory {
       module.stringToUTF16?.(str, toNumber(ptr), bytes);
       return ptr;
     },
-    peek(ptr, kind) {
-      return module.getValue?.(toNumber(ptr), wasmValueKind(kind)) ?? 0;
+    peek(ptr, kind, byteOffset = 0) {
+      return module.getValue?.(toNumber(ptr) + byteOffset, wasmValueKind(kind)) ?? 0;
     },
-    poke(ptr, kind, value) {
-      module.setValue?.(toNumber(ptr), value, wasmValueKind(kind));
+    poke(ptr, kind, value, byteOffset = 0) {
+      module.setValue?.(toNumber(ptr) + byteOffset, value, wasmValueKind(kind));
     },
   };
 }
@@ -118,12 +118,19 @@ function createWasmCallbacks(module: EmscriptenModule): PdfRuntimeCallbacks {
   };
 }
 
-function fromJsArg(meta: PdfFunctionAbiValue | undefined, value: unknown): unknown {
-  if (meta?.ts === 'Ptr' && typeof value === 'bigint') return Number(value);
+/**
+ * Translate a JS argument to whatever the wasm32 ABI expects for this slot.
+ *
+ * The codegen tells the truth on each target now (size_t = i32 on wasm), so
+ * the only translation left is `Ptr` (TS bigint) → numeric address for cwrap.
+ */
+function fromJsArg(meta: PdfFunctionAbiSlot | undefined, value: unknown): unknown {
+  if (!meta) return value;
+  if (meta.ts === 'Ptr' && typeof value === 'bigint') return Number(value);
   return value;
 }
 
-function toJsResult(meta: PdfFunctionAbiValue | null, value: unknown): unknown {
+function toJsResult(meta: PdfFunctionAbiSlot | null, value: unknown): unknown {
   if (!meta) return undefined;
   if (meta.ts === 'Ptr' && typeof value === 'number') return toPtr(value);
   if (meta.ts === 'bigint' && typeof value === 'number') return BigInt(value);
@@ -142,12 +149,10 @@ function createWasmFunctions(module: EmscriptenModule): PdfFunctions {
         );
 
     if (module.cwrap) {
+      // `null` only appears for void return; params never carry it.
+      const paramTypes = signature.params.map((p) => p.wasm.cwrap as string);
       out[name] = bridge(
-        module.cwrap(
-          name,
-          signature.result ? signature.result.cwrap : null,
-          signature.params.map((p) => p.cwrap),
-        ),
+        module.cwrap(name, signature.result ? signature.result.wasm.cwrap : null, paramTypes),
       );
     } else if (typeof module[`_${name}`] === 'function') {
       out[name] = bridge(module[`_${name}`].bind(module));

@@ -3,10 +3,13 @@ import {
   EngineError,
   EngineErrorCode,
   serializeError,
-  type SerializedEngineError,
+  type AnnotationsListFullPageWorkerRequest,
+  type AnnotationsListRawAllWorkerRequest,
+  type AnnotationsListRawPageWorkerRequest,
   type CloseWorkerRequest,
   type MetadataReadWorkerRequest,
   type OpenWorkerRequest,
+  type SerializedEngineError,
   type ShutdownWorkerRequest,
   type WorkerJobId,
   type WorkerRequest,
@@ -15,6 +18,8 @@ import {
 } from '@embedpdf/engine-core';
 import { DocumentSession } from '../session/DocumentSession';
 import { ensureInitialized, destroyLibrary } from '../runtime-bootstrap';
+import { RawAnnotationReader } from '../readers/annotations/RawAnnotationReader';
+import { FullAnnotationReader } from '../readers/annotations/FullAnnotationReader';
 
 /**
  * The piece that runs "inside the worker": owns runtime, manages document
@@ -56,6 +61,15 @@ export class WorkerHost {
         case 'metadata.read':
           result = this.handleMetadataRead(msg, ctrl.signal);
           break;
+        case 'annotations.listRawAll':
+          result = this.handleAnnotationsListRawAll(msg, ctrl.signal);
+          break;
+        case 'annotations.listRawPage':
+          result = this.handleAnnotationsListRawPage(msg, ctrl.signal);
+          break;
+        case 'annotations.listFullPage':
+          result = this.handleAnnotationsListFullPage(msg, ctrl.signal);
+          break;
         case 'close':
           result = this.handleClose(msg);
           break;
@@ -91,12 +105,39 @@ export class WorkerHost {
     req: MetadataReadWorkerRequest,
     signal: AbortSignal,
   ): WorkerResultPayload {
-    const session = this.sessions.get(req.docId);
-    if (!session || !session.isOpen()) {
-      throw new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${req.docId}`);
-    }
+    const session = this.requireSession(req.docId);
     const metadata = session.metadata().read(signal);
     return { tag: 'metadata.read', metadata };
+  }
+
+  private handleAnnotationsListRawAll(
+    req: AnnotationsListRawAllWorkerRequest,
+    signal: AbortSignal,
+  ): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const reader = new RawAnnotationReader(this.runtime, session);
+    const snapshot = reader.listAll(signal);
+    return { tag: 'annotations.listRawAll', snapshot };
+  }
+
+  private handleAnnotationsListRawPage(
+    req: AnnotationsListRawPageWorkerRequest,
+    signal: AbortSignal,
+  ): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const reader = new RawAnnotationReader(this.runtime, session);
+    const snapshot = reader.listOne(req.pageObjectNumber, signal);
+    return { tag: 'annotations.listRawPage', snapshot };
+  }
+
+  private handleAnnotationsListFullPage(
+    req: AnnotationsListFullPageWorkerRequest,
+    signal: AbortSignal,
+  ): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const reader = new FullAnnotationReader(this.runtime, session);
+    const snapshot = reader.list(req.pageObjectNumber, signal);
+    return { tag: 'annotations.listFullPage', snapshot };
   }
 
   private handleClose(req: CloseWorkerRequest): WorkerResultPayload {
@@ -116,5 +157,13 @@ export class WorkerHost {
       destroyLibrary(this.runtime);
     }
     return { tag: 'shutdown' };
+  }
+
+  private requireSession(docId: string): DocumentSession {
+    const session = this.sessions.get(docId);
+    if (!session || !session.isOpen()) {
+      throw new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${docId}`);
+    }
+    return session;
   }
 }

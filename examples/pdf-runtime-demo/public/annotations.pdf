@@ -1,0 +1,99 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Resources <<>>
+/Annots [4 0 R 5 0 R 6 0 R 7 0 R <<
+/Type /Annot
+/Subtype /Highlight
+/Rect [100 100 200 120]
+/QuadPoints [100 120 200 120 100 100 200 100]
+/C [1 1 0]
+/CA 0.5
+/F 4
+/Contents (direct)
+>>]
+>>
+endobj
+4 0 obj
+<<
+/Type /Annot
+/Subtype /Highlight
+/Rect [50 50 150 70]
+/QuadPoints [50 70 150 70 50 50 150 50]
+/C [1 1 0]
+/CA 0.5
+/F 4
+/Contents (highlight 1)
+/T (alice)
+/M (D:20240101000000Z)
+>>
+endobj
+5 0 obj
+<<
+/Type /Annot
+/Subtype /Highlight
+/Rect [200 200 300 220]
+/QuadPoints [200 220 300 220 200 200 300 200]
+/C [1 0.8 0]
+/CA 0.7
+/F 4
+/Contents (highlight 2)
+>>
+endobj
+6 0 obj
+<<
+/Type /Annot
+/Subtype /Ink
+/Rect [300 300 400 400]
+/InkList [[300 300 320 320 340 340 360 360 380 380]]
+/C [0 0 1]
+/F 4
+>>
+endobj
+7 0 obj
+<<
+/Type /Annot
+/Subtype /Highlight
+/Rect [400 50 500 70]
+/QuadPoints [400 70 500 70 400 50 500 50]
+/C [0 1 0]
+/CA 1
+/F 4
+/NM (named-highlight-1)
+>>
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000394 00000 n 
+0000000591 00000 n 
+0000000765 00000 n 
+0000000906 00000 n 
+trailer
+<<
+/Size 8
+/Root 1 0 R
+>>
+startxref
+1070
+%%EOF

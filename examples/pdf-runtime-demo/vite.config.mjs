@@ -8,6 +8,7 @@ export default defineConfig({
       input: {
         main: resolve(import.meta.dirname, 'index.html'),
         engine: resolve(import.meta.dirname, 'engine.html'),
+        annotations: resolve(import.meta.dirname, 'annotations.html'),
       },
     },
   },

@@ -20,6 +20,10 @@ export { InlineTransport } from './transport/InlineTransport';
 export { BrowserWorkerTransport } from './transport/BrowserWorkerTransport';
 export { Priority } from './worker/Priority';
 export type { WorkerRequest, WorkerResponse } from './worker/protocol';
+export { LocalDocumentHandle } from './document/LocalDocumentHandle';
+export { LocalDocumentAnnotationsService } from './document/LocalDocumentAnnotationsService';
+export { LocalPageHandle } from './document/LocalPageHandle';
+export { LocalPageAnnotationsService } from './document/LocalPageAnnotationsService';
 
 export interface CreateLocalEngineOptions extends Omit<LocalEngineOptions, 'transport'> {
   /** Forwarded to @embedpdf/pdf-runtime when no transport is provided. */

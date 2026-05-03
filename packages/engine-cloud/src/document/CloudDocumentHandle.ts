@@ -3,14 +3,20 @@ import {
   EngineError,
   EngineErrorCode,
   wirePaths,
+  type DocumentAnnotationsService,
   type DocumentHandle,
+  type PageHandle,
+  type PageObjectNumber,
 } from '@embedpdf/engine-core';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudMetadataService } from './CloudMetadataService';
+import { CloudDocumentAnnotationsService } from './CloudDocumentAnnotationsService';
+import { CloudPageHandle } from './CloudPageHandle';
 
 export class CloudDocumentHandle implements DocumentHandle {
   readonly id: string;
   readonly metadata: CloudMetadataService;
+  readonly annotations: DocumentAnnotationsService;
   private closed = false;
 
   constructor(
@@ -19,6 +25,11 @@ export class CloudDocumentHandle implements DocumentHandle {
   ) {
     this.id = id;
     this.metadata = new CloudMetadataService(http, id, () => this.closed);
+    this.annotations = new CloudDocumentAnnotationsService(http, id, () => this.closed);
+  }
+
+  page(pageObjectNumber: PageObjectNumber): PageHandle {
+    return new CloudPageHandle(pageObjectNumber, -1, this.http, this.id, () => this.closed);
   }
 
   close(): AbortablePromise<void> {

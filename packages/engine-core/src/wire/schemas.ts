@@ -1,7 +1,14 @@
 import { z } from 'zod';
+import type {
+  AnnotationListPageSnapshot,
+  AnnotationListSnapshotAllPages,
+} from '../annotation/AnnotationListSnapshot';
+import { AnnotationDTOSchema } from '../annotation/kinds';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
+import { RevisionTokenSchema } from '../annotation/base.schema';
+import type { PageState } from '../revision/PageState';
 
 export const DocumentMetadataSchema: z.ZodType<DocumentMetadata> = z.object({
   title: z.string().nullable(),
@@ -10,8 +17,8 @@ export const DocumentMetadataSchema: z.ZodType<DocumentMetadata> = z.object({
   keywords: z.string().nullable(),
   producer: z.string().nullable(),
   creator: z.string().nullable(),
-  creationDate: z.string().nullable(),
-  modificationDate: z.string().nullable(),
+  created: z.string().datetime().nullable(),
+  modified: z.string().datetime().nullable(),
   trapped: z.enum(['true', 'false', 'unknown']),
   custom: z.record(z.string(), z.string()),
 });
@@ -32,3 +39,20 @@ export const EngineErrorPayloadSchema: z.ZodType<SerializedEngineError> = z.obje
   message: z.string(),
   details: z.record(z.string(), z.unknown()).optional(),
 });
+
+export const PageStateSchema: z.ZodType<PageState> = z.object({
+  pageObjectNumber: z.number().int().positive(),
+  pageIndex: z.number().int().nonnegative(),
+  revision: RevisionTokenSchema,
+  hasAnyWeakAnnotations: z.boolean(),
+});
+
+export const AnnotationListPageSnapshotSchema: z.ZodType<AnnotationListPageSnapshot> = z.object({
+  pageState: PageStateSchema,
+  annotations: z.array(AnnotationDTOSchema),
+});
+
+export const AnnotationListSnapshotAllPagesSchema: z.ZodType<AnnotationListSnapshotAllPages> =
+  z.object({
+    pages: z.array(AnnotationListPageSnapshotSchema),
+  });

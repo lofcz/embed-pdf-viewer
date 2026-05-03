@@ -12,7 +12,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
-    }
+    },
+    "./worker-entry": "./src/worker/worker-entry.ts"
   },
   "scripts": {
     "build": "pnpm run clean && vite build",
@@ -23,6 +24,8 @@
   },
   "files": [
     "dist",
+    "src/worker/worker-entry.ts",
+    "src/worker/protocol.ts",
     "LICENSE",
     "README.md"
   ],

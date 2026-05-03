@@ -10,6 +10,9 @@ export { CloudEngine } from './CloudEngine';
 export type { CloudEngineOptions } from './CloudEngine';
 export { CloudDocumentHandle } from './document/CloudDocumentHandle';
 export { CloudMetadataService } from './document/CloudMetadataService';
+export { CloudDocumentAnnotationsService } from './document/CloudDocumentAnnotationsService';
+export { CloudPageHandle } from './document/CloudPageHandle';
+export { CloudPageAnnotationsService } from './document/CloudPageAnnotationsService';
 export { HttpClient } from './transport/HttpClient';
 export type { HttpClientOptions } from './transport/HttpClient';
 

@@ -13,6 +13,9 @@ export { AbortError, isAbortError } from './promise/AbortError';
 export type { Engine } from './engine/Engine';
 export type { DocumentHandle } from './engine/DocumentHandle';
 export type { MetadataService } from './engine/MetadataService';
+export type { PageHandle } from './engine/PageHandle';
+export type { DocumentAnnotationsService } from './engine/DocumentAnnotationsService';
+export type { PageAnnotationsService } from './engine/PageAnnotationsService';
 
 export type { OpenInput, OpenInputBytes, OpenInputPreuploaded, OpenOptions } from './dto/OpenInput';
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
@@ -25,6 +28,9 @@ export {
   DocumentMetadataSchema,
   OpenDocumentResponseSchema,
   EngineErrorPayloadSchema,
+  PageStateSchema,
+  AnnotationListPageSnapshotSchema,
+  AnnotationListSnapshotAllPagesSchema,
 } from './wire/schemas';
 export type { OpenDocumentResponse } from './wire/schemas';
 export { wirePaths } from './wire/paths';
@@ -37,11 +43,138 @@ export type {
   WorkerLifecycleMessage,
   OpenWorkerRequest,
   MetadataReadWorkerRequest,
+  AnnotationsListRawAllWorkerRequest,
+  AnnotationsListRawPageWorkerRequest,
+  AnnotationsListFullPageWorkerRequest,
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,
 } from './wire/worker-protocol';
 
+// Identity
+export { isValidPageObjectNumber } from './identity/PageObjectNumber';
+export type { PageObjectNumber } from './identity/PageObjectNumber';
+export type { AnnotationStableId } from './identity/AnnotationStableId';
+export type { AnnotationRef } from './identity/AnnotationRef';
+export type { AnnotationIdentityQuality } from './identity/AnnotationIdentityQuality';
+
+// Revision
+export { revisionTokensEqual } from './revision/RevisionToken';
+export type { RevisionToken } from './revision/RevisionToken';
+export type { PageState } from './revision/PageState';
+
+// Annotation primitives
+export type {
+  Color,
+  Point,
+  QuadPoint,
+  Rect,
+  Size,
+  Rotation,
+  LineEnding,
+  AnnotationFlags,
+} from './annotation/primitives';
+export { NO_ANNOTATION_FLAGS } from './annotation/primitives';
+
+// Annotation base + subtype catalog
+export type { AnnotationBase } from './annotation/base';
+export type { AnnotationDraftBase } from './annotation/draft-base';
+export type { AnnotationPatchBase } from './annotation/patch-base';
+export {
+  AnnotationStableIdSchema,
+  AnnotationRefSchema,
+  RevisionTokenSchema,
+  AnnotationFlagsSchema,
+  ColorSchema,
+  PointSchema,
+  QuadPointSchema,
+  RectSchema,
+  LineEndingSchema,
+  AnnotationBaseShape,
+  AnnotationDraftBaseShape,
+  AnnotationPatchBaseShape,
+} from './annotation/base.schema';
+export {
+  ANNOTATION_SUBTYPES,
+  PdfAnnotationSubtypeCode,
+  PDF_CODE_TO_SUBTYPE,
+  subtypeFromCode,
+} from './annotation/subtype';
+export type { AnnotationSubtype } from './annotation/subtype';
+
+// Registry + per-kind exports
+export type {
+  AnnotationKindModule,
+  DTOOfKind,
+  DraftOfKind,
+  PatchOfKind,
+} from './annotation/registry';
+export {
+  ANNOTATION_KINDS,
+  KIND_BY_SUBTYPE,
+  AnnotationDTOSchema,
+  AnnotationDraftSchema,
+  AnnotationPatchSchema,
+  HighlightKind,
+  UnderlineKind,
+  SquigglyKind,
+  StrikeoutKind,
+  UnsupportedKind,
+  HighlightDTOSchema,
+  HighlightDraftSchema,
+  HighlightPatchSchema,
+  UnderlineDTOSchema,
+  UnderlineDraftSchema,
+  UnderlinePatchSchema,
+  SquigglyDTOSchema,
+  SquigglyDraftSchema,
+  SquigglyPatchSchema,
+  StrikeoutDTOSchema,
+  StrikeoutDraftSchema,
+  StrikeoutPatchSchema,
+  UnsupportedDTOSchema,
+  UnsupportedDraftSchema,
+  UnsupportedPatchSchema,
+} from './annotation/kinds';
+export type {
+  AnnotationKind,
+  AnnotationSubtypeOfKind,
+  AnnotationDTO,
+  AnnotationDraft,
+  AnnotationPatch,
+  HighlightAnnotationDTO,
+  HighlightDraft,
+  HighlightPatch,
+  UnderlineAnnotationDTO,
+  UnderlineDraft,
+  UnderlinePatch,
+  SquigglyAnnotationDTO,
+  SquigglyDraft,
+  SquigglyPatch,
+  StrikeoutAnnotationDTO,
+  StrikeoutDraft,
+  StrikeoutPatch,
+  UnsupportedAnnotationDTO,
+  UnsupportedDraft,
+  UnsupportedPatch,
+} from './annotation/kinds';
+
+// Annotation snapshots
+export type {
+  AnnotationListPageSnapshot,
+  AnnotationListSnapshotAllPages,
+} from './annotation/AnnotationListSnapshot';
+
+// Mutation results
+export type { AnnotationListMutationMeta } from './mutation/AnnotationListMutationMeta';
+export type { RefetchReason } from './mutation/RefetchReason';
+export type {
+  AnnotationCreateResult,
+  AnnotationUpdateResult,
+  AnnotationDeleteResult,
+} from './mutation/AnnotationMutationResults';
+
+// Conformance
 export { runMetadataConformance } from './conformance/runMetadataConformance';
 export type {
   ConformanceTestRunner,
@@ -49,3 +182,12 @@ export type {
   ConformanceFixture,
   ConformanceOptions,
 } from './conformance/runMetadataConformance';
+export { runAnnotationReadConformance } from './conformance/runAnnotationReadConformance';
+export type {
+  AnnotationReadConformanceFixture,
+  AnnotationConformanceOptions,
+} from './conformance/runAnnotationReadConformance';
+export {
+  diffAnnotationListSnapshot,
+  diffAnnotationListSnapshotAll,
+} from './conformance/diffAnnotationListSnapshot';

@@ -45,8 +45,14 @@ function createNativeMemory(addon: NativeAddon): PdfRuntimeMemory {
     writeU8String: (str) => addon.writeU8String(str) as Ptr,
     readU16String: (ptr) => addon.readU16String(ptr),
     writeU16String: (str) => addon.writeU16String(str) as Ptr,
-    peek: (ptr, kind: MemoryValueKind) => addon.peek(ptr, kind),
-    poke: (ptr, kind: MemoryValueKind, value) => addon.poke(ptr, kind, value),
+    peek: (ptr, kind: MemoryValueKind, byteOffset = 0) =>
+      addon.peek(byteOffset === 0 ? ptr : (((ptr as bigint) + BigInt(byteOffset)) as Ptr), kind),
+    poke: (ptr, kind: MemoryValueKind, value, byteOffset = 0) =>
+      addon.poke(
+        byteOffset === 0 ? ptr : (((ptr as bigint) + BigInt(byteOffset)) as Ptr),
+        kind,
+        value,
+      ),
   };
 }
 

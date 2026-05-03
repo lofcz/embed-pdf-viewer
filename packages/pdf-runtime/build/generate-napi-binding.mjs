@@ -19,28 +19,38 @@ mkdirSync(generatedDir, { recursive: true });
 
 const { functions } = JSON.parse(readFileSync(functionsPath, 'utf8'));
 
+/** Pull the native-side ABI kind for a slot. */
+const nativeKind = (meta) => meta.native.kind;
+
 function cppType(meta) {
-  if (meta.kind === 'bool') return 'bool';
-  if (meta.kind === 'f32') return 'float';
-  if (meta.kind === 'f64') return 'double';
-  if (meta.kind === 'i64') return 'int64_t';
-  if (meta.kind === 'void') return 'void';
-  if (meta.kind === 'pointer' || meta.kind === 'cstring' || meta.kind === 'utf16ptr') return 'void*';
+  const k = nativeKind(meta);
+  if (k === 'bool') return 'bool';
+  if (k === 'f32') return 'float';
+  if (k === 'f64') return 'double';
+  if (k === 'i64') return 'int64_t';
+  if (k === 'void') return 'void';
+  if (k === 'pointer' || k === 'cstring' || k === 'utf16ptr') return 'void*';
   return 'int32_t';
 }
 
 function readArg(param, index) {
   const name = `arg${index}`;
-  if (param.kind === 'bool') {
+  const k = nativeKind(param);
+  if (k === 'bool') {
     return `  bool ${name};\n  napi_get_value_bool(env, argv[${index}], &${name});`;
   }
-  if (param.kind === 'f32' || param.kind === 'f64') {
+  if (k === 'f32' || k === 'f64') {
     return `  double ${name};\n  napi_get_value_double(env, argv[${index}], &${name});`;
   }
-  if (param.kind === 'i64') {
+  if (k === 'i64' && param.ts === 'number') {
+    // size_t / ptrdiff_t on 64-bit native: accept JS Number directly.
+    return `  int64_t ${name};\n  napi_get_value_int64(env, argv[${index}], &${name});`;
+  }
+  if (k === 'i64') {
+    // genuine int64_t / uint64_t / long long: BigInt argument.
     return `  int64_t ${name};\n  napi_get_value_bigint_int64(env, argv[${index}], &${name}, &g_napi_lossless);`;
   }
-  if (param.kind === 'cstring' && param.tsType === 'string') {
+  if (k === 'cstring' && param.ts === 'string') {
     return (
       `  size_t ${name}_len = 0;\n` +
       `  napi_get_value_string_utf8(env, argv[${index}], nullptr, 0, &${name}_len);\n` +
@@ -49,7 +59,7 @@ function readArg(param, index) {
       `  auto ${name} = static_cast<void*>(${name}_buf.data());`
     );
   }
-  if (param.kind === 'pointer' || param.kind === 'cstring' || param.kind === 'utf16ptr') {
+  if (k === 'pointer' || k === 'cstring' || k === 'utf16ptr') {
     return `  int64_t ${name}_raw;\n  napi_get_value_bigint_int64(env, argv[${index}], &${name}_raw, &g_napi_lossless);\n  auto ${name} = reinterpret_cast<${cppType(param)}>(${name}_raw);`;
   }
   return `  int32_t ${name};\n  napi_get_value_int32(env, argv[${index}], &${name});`;
@@ -57,23 +67,28 @@ function readArg(param, index) {
 
 function callArg(param, index) {
   const name = `arg${index}`;
-  if (param.kind === 'f32') return `static_cast<float>(${name})`;
-  if (param.kind === 'i32') return name;
+  const k = nativeKind(param);
+  if (k === 'f32') return `static_cast<float>(${name})`;
   return name;
 }
 
 function returnValue(result) {
-  if (result.kind === 'void') return '  return nullptr;';
-  if (result.kind === 'bool') {
+  const k = nativeKind(result);
+  if (k === 'void') return '  return nullptr;';
+  if (k === 'bool') {
     return '  napi_value out;\n  napi_get_boolean(env, static_cast<bool>(result), &out);\n  return out;';
   }
-  if (result.kind === 'f32' || result.kind === 'f64') {
+  if (k === 'f32' || k === 'f64') {
     return '  napi_value out;\n  napi_create_double(env, static_cast<double>(result), &out);\n  return out;';
   }
-  if (result.kind === 'i64') {
+  if (k === 'i64' && result.ts === 'number') {
+    // size_t / ptrdiff_t return: hand back a JS Number.
+    return '  napi_value out;\n  napi_create_int64(env, static_cast<int64_t>(result), &out);\n  return out;';
+  }
+  if (k === 'i64') {
     return '  napi_value out;\n  napi_create_bigint_int64(env, static_cast<int64_t>(result), &out);\n  return out;';
   }
-  if (result.kind === 'pointer' || result.kind === 'cstring' || result.kind === 'utf16ptr') {
+  if (k === 'pointer' || k === 'cstring' || k === 'utf16ptr') {
     return '  napi_value out;\n  napi_create_bigint_int64(env, reinterpret_cast<int64_t>(result), &out);\n  return out;';
   }
   return '  napi_value out;\n  napi_create_int32(env, static_cast<int32_t>(result), &out);\n  return out;';
@@ -91,10 +106,10 @@ const wrappers = functions
     const argc = fn.params.length;
     const reads = fn.params.map(readArg).join('\n');
     const args = fn.params.map(callArg).join(', ');
-    const call =
-      fn.result.kind === 'void'
-        ? `  ${fn.name}(${args});\n${returnValue(fn.result)}`
-        : `  auto result = ${fn.name}(${args});\n${returnValue(fn.result)}`;
+    const isVoid = nativeKind(fn.result) === 'void';
+    const call = isVoid
+      ? `  ${fn.name}(${args});\n${returnValue(fn.result)}`
+      : `  auto result = ${fn.name}(${args});\n${returnValue(fn.result)}`;
     return `static napi_value Wrap_${fn.name}(napi_env env, napi_callback_info info) {\n  size_t argc = ${argc};\n  napi_value argv[${Math.max(argc, 1)}];\n  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n${reads}\n${call}\n}`;
   })
   .join('\n\n');

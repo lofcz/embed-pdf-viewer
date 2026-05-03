@@ -1,0 +1,42 @@
+import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { runAnnotationReadConformance, type ConformanceTestRunner } from '@embedpdf/engine-core';
+import { createLocalEngine } from '../src/index';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const fixturePath = resolve(
+  here,
+  '..',
+  '..',
+  '..',
+  'examples',
+  'pdf-runtime-demo',
+  'public',
+  'annotations.pdf',
+);
+
+const runner: ConformanceTestRunner = {
+  describe,
+  test,
+  beforeAll,
+  afterAll,
+  expect: expect as unknown as ConformanceTestRunner['expect'],
+};
+
+runAnnotationReadConformance(runner, {
+  label: 'engine-local (inline transport, wasm runtime)',
+  openKind: 'bytes',
+  fixture: {
+    id: 'annotations-pdf',
+    bytes: async () => new Uint8Array(await readFile(fixturePath)),
+    expected: { trapped: 'unknown' },
+    pageObjectNumber: 3,
+    expectedAnnotationCount: 5,
+    minHighlightCount: 4,
+    minUnsupportedCount: 1,
+    expectsWeakAnnotation: true,
+  },
+  makeEngine: () => createLocalEngine({ runtime: { prefer: 'wasm' } }),
+});

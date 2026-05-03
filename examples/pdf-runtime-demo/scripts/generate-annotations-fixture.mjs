@@ -1,0 +1,103 @@
+#!/usr/bin/env node
+/**
+ * Hand-rolls a tiny PDF fixture with the exact mix of annotation shapes
+ * the v3 read-path conformance tests need. Emits to public/annotations.pdf.
+ *
+ * Layout:
+ *   1 0 obj  Catalog -> Pages
+ *   2 0 obj  Pages tree (Kids [3 0 R], Count 1)
+ *   3 0 obj  Page with /Annots [4 0 R 5 0 R 6 0 R 7 0 R <<direct>>]
+ *   4 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
+ *   5 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
+ *   6 0 obj  Ink       (indirect)                 -> subtype = unsupported
+ *   7 0 obj  Highlight (indirect, with /NM)       -> ref.kind = objectNumber, nm != null
+ *   direct   Highlight (direct dict in /Annots)   -> ref.kind = index, identity = weak
+ *
+ * The direct-object annotation is the only way to get an
+ * `identityQuality === 'weak'` row, because PDFium reports object number 0
+ * for direct dicts.
+ */
+import { writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const outPath = resolve(here, '..', 'public', 'annotations.pdf');
+
+const objects = [];
+
+const addObject = (n, body) => {
+  objects[n] = body;
+};
+
+addObject(
+  1,
+  `<<\n/Type /Catalog\n/Pages 2 0 R\n>>`,
+);
+
+addObject(
+  2,
+  `<<\n/Type /Pages\n/Kids [3 0 R]\n/Count 1\n>>`,
+);
+
+const directAnnot = `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [100 100 200 120]\n/QuadPoints [100 120 200 120 100 100 200 100]\n/C [1 1 0]\n/CA 0.5\n/F 4\n/Contents (direct)\n>>`;
+
+addObject(
+  3,
+  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R ${directAnnot}]\n>>`,
+);
+
+addObject(
+  4,
+  `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [50 50 150 70]\n/QuadPoints [50 70 150 70 50 50 150 50]\n/C [1 1 0]\n/CA 0.5\n/F 4\n/Contents (highlight 1)\n/T (alice)\n/M (D:20240101000000Z)\n>>`,
+);
+
+addObject(
+  5,
+  `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [200 200 300 220]\n/QuadPoints [200 220 300 220 200 200 300 200]\n/C [1 0.8 0]\n/CA 0.7\n/F 4\n/Contents (highlight 2)\n>>`,
+);
+
+addObject(
+  6,
+  `<<\n/Type /Annot\n/Subtype /Ink\n/Rect [300 300 400 400]\n/InkList [[300 300 320 320 340 340 360 360 380 380]]\n/C [0 0 1]\n/F 4\n>>`,
+);
+
+addObject(
+  7,
+  `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [400 50 500 70]\n/QuadPoints [400 70 500 70 400 50 500 50]\n/C [0 1 0]\n/CA 1\n/F 4\n/NM (named-highlight-1)\n>>`,
+);
+
+const buf = [];
+const offsets = new Array(objects.length).fill(0);
+let cursor = 0;
+
+const append = (s) => {
+  const bytes = Buffer.from(s, 'latin1');
+  buf.push(bytes);
+  cursor += bytes.length;
+};
+
+append('%PDF-1.4\n');
+// Embed a binary marker so PDF readers detect the file as binary.
+buf.push(Buffer.from([0x25, 0xe2, 0xe3, 0xcf, 0xd3, 0x0a]));
+cursor += 6;
+
+for (let n = 1; n < objects.length; n++) {
+  if (objects[n] === undefined) continue;
+  offsets[n] = cursor;
+  append(`${n} 0 obj\n${objects[n]}\nendobj\n`);
+}
+
+const xrefStart = cursor;
+const realCount = objects.length;
+append(`xref\n0 ${realCount}\n`);
+append('0000000000 65535 f \n');
+for (let n = 1; n < realCount; n++) {
+  append(`${String(offsets[n]).padStart(10, '0')} 00000 n \n`);
+}
+
+append(`trailer\n<<\n/Size ${realCount}\n/Root 1 0 R\n>>\nstartxref\n${xrefStart}\n%%EOF\n`);
+
+const out = Buffer.concat(buf);
+await writeFile(outPath, out);
+console.log(`wrote ${out.length} bytes to ${outPath}`);

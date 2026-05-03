@@ -9,6 +9,7 @@ export type {
   PdfRuntimeModule,
   Ptr,
 } from './core/pdf-runtime-module';
+export { NULL_PTR } from './core/pdf-runtime-module';
 export type { PdfFunctions } from './core/pdf-functions.generated';
 export { packageNameForTarget, resolveRuntimeTarget, type RuntimeTarget } from './core/platform';
 export {

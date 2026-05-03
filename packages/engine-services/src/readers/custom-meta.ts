@@ -1,4 +1,5 @@
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
+import { NULL_PTR } from '@embedpdf/pdf-runtime';
 import { readMetaText } from './meta-text';
 
 /**
@@ -13,7 +14,7 @@ function readMetaKeyName(
   index: number,
   customOnly: boolean,
 ): string | null {
-  const len = fn.EPDF_GetMetaKeyName(docPtr, index, customOnly, 0n as Ptr, 0);
+  const len = fn.EPDF_GetMetaKeyName(docPtr, index, customOnly, NULL_PTR, 0);
   if (!len || len <= 0) return null;
   const buf = mem.alloc(len);
   try {

@@ -4,7 +4,7 @@ import type { Ptr } from './pdf-runtime-module';
 export interface PdfFunctions {
   EPDF_GetMetaKeyCount: (arg0: Ptr, arg1: boolean) => number;
   EPDF_GetMetaKeyName: (arg0: Ptr, arg1: number, arg2: boolean, arg3: Ptr, arg4: number) => number;
-  EPDF_GetMetaTrapped: (arg0: Ptr) => Ptr;
+  EPDF_GetMetaTrapped: (arg0: Ptr) => number;
   EPDF_GetPageRotationByIndex: (arg0: Ptr, arg1: number) => number;
   EPDF_GetPageSizeByIndexNormalized: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   EPDF_HasMetaText: (arg0: Ptr, arg1: string) => boolean;
@@ -18,13 +18,13 @@ export interface PdfFunctions {
     arg3: number,
     arg4: number,
     arg5: Ptr,
-  ) => bigint;
+  ) => number;
   EPDF_RemoveEncryption: (arg0: Ptr) => boolean;
   EPDF_RenderAnnotBitmap: (
     arg0: Ptr,
     arg1: Ptr,
     arg2: Ptr,
-    arg3: Ptr,
+    arg3: number,
     arg4: Ptr,
     arg5: number,
   ) => boolean;
@@ -32,13 +32,13 @@ export interface PdfFunctions {
     arg0: Ptr,
     arg1: Ptr,
     arg2: Ptr,
-    arg3: Ptr,
+    arg3: number,
     arg4: Ptr,
     arg5: number,
   ) => boolean;
   EPDF_SetEncryption: (arg0: Ptr, arg1: string, arg2: string, arg3: number) => boolean;
   EPDF_SetMetaText: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
-  EPDF_SetMetaTrapped: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDF_SetMetaTrapped: (arg0: Ptr, arg1: number) => boolean;
   EPDF_UnlockOwnerPermissions: (arg0: Ptr, arg1: string) => boolean;
   EPDFAction_CreateGoTo: (arg0: Ptr, arg1: Ptr) => Ptr;
   EPDFAction_CreateGoToNamed: (arg0: Ptr, arg1: string) => Ptr;
@@ -55,15 +55,15 @@ export interface PdfFunctions {
   EPDFAnnot_ExportMultipleAppearancesAsDocument: (arg0: Ptr, arg1: number) => Ptr;
   EPDFAnnot_Flatten: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_GenerateAppearance: (arg0: Ptr) => boolean;
-  EPDFAnnot_GenerateAppearanceWithBlend: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_GenerateAppearanceWithBlend: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_GenerateFormFieldAP: (arg0: Ptr) => boolean;
-  EPDFAnnot_GetAPMatrix: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
+  EPDFAnnot_GetAPMatrix: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   EPDFAnnot_GetAvailableAppearanceModes: (arg0: Ptr) => number;
-  EPDFAnnot_GetBlendMode: (arg0: Ptr) => Ptr;
-  EPDFAnnot_GetBorderDashPattern: (arg0: Ptr, arg1: number, arg2: number) => boolean;
+  EPDFAnnot_GetBlendMode: (arg0: Ptr) => number;
+  EPDFAnnot_GetBorderDashPattern: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   EPDFAnnot_GetBorderDashPatternCount: (arg0: Ptr) => number;
-  EPDFAnnot_GetBorderEffect: (arg0: Ptr, arg1: number) => boolean;
-  EPDFAnnot_GetBorderStyle: (arg0: Ptr, arg1: number) => Ptr;
+  EPDFAnnot_GetBorderEffect: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_GetBorderStyle: (arg0: Ptr, arg1: Ptr) => number;
   EPDFAnnot_GetButtonExportValue: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetCalloutLine: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetCalloutLineCount: (arg0: Ptr) => number;
@@ -71,42 +71,43 @@ export interface PdfFunctions {
   EPDFAnnot_GetDefaultAppearance: (
     arg0: Ptr,
     arg1: Ptr,
-    arg2: number,
+    arg2: Ptr,
     arg3: Ptr,
     arg4: Ptr,
     arg5: Ptr,
   ) => boolean;
-  EPDFAnnot_GetExtendedRotation: (arg0: Ptr, arg1: number) => boolean;
+  EPDFAnnot_GetExtendedRotation: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_GetFormFieldObjectNumber: (arg0: Ptr, arg1: Ptr) => number;
   EPDFAnnot_GetFormFieldRawValue: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => number;
   EPDFAnnot_GetIntent: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetLineEndings: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_GetMKColor: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
-  EPDFAnnot_GetName: (arg0: Ptr) => Ptr;
+  EPDFAnnot_GetName: (arg0: Ptr) => number;
+  EPDFAnnot_GetObjectNumber: (arg0: Ptr) => number;
   EPDFAnnot_GetOpacity: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_GetOverlayText: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetOverlayTextRepeat: (arg0: Ptr) => boolean;
   EPDFAnnot_GetRect: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_GetRectangleDifferences: (
     arg0: Ptr,
-    arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
+    arg1: Ptr,
+    arg2: Ptr,
+    arg3: Ptr,
+    arg4: Ptr,
   ) => boolean;
-  EPDFAnnot_GetReplyType: (arg0: Ptr) => Ptr;
+  EPDFAnnot_GetReplyType: (arg0: Ptr) => number;
   EPDFAnnot_GetRichContent: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
-  EPDFAnnot_GetRotate: (arg0: Ptr, arg1: number) => boolean;
-  EPDFAnnot_GetTextAlignment: (arg0: Ptr) => Ptr;
+  EPDFAnnot_GetRotate: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_GetTextAlignment: (arg0: Ptr) => number;
   EPDFAnnot_GetUnrotatedRect: (arg0: Ptr, arg1: Ptr) => boolean;
-  EPDFAnnot_GetVerticalAlignment: (arg0: Ptr) => Ptr;
-  EPDFAnnot_HasAppearanceStream: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_GetVerticalAlignment: (arg0: Ptr) => number;
+  EPDFAnnot_HasAppearanceStream: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetAction: (arg0: Ptr, arg1: Ptr) => boolean;
-  EPDFAnnot_SetAPMatrix: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
+  EPDFAnnot_SetAPMatrix: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   EPDFAnnot_SetAppearanceFromPage: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
-  EPDFAnnot_SetBorderDashPattern: (arg0: Ptr, arg1: number, arg2: number) => boolean;
+  EPDFAnnot_SetBorderDashPattern: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   EPDFAnnot_SetBorderEffect: (arg0: Ptr, arg1: number) => boolean;
-  EPDFAnnot_SetBorderStyle: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
+  EPDFAnnot_SetBorderStyle: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   EPDFAnnot_SetCalloutLine: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   EPDFAnnot_SetColor: (
     arg0: Ptr,
@@ -117,7 +118,7 @@ export interface PdfFunctions {
   ) => boolean;
   EPDFAnnot_SetDefaultAppearance: (
     arg0: Ptr,
-    arg1: Ptr,
+    arg1: number,
     arg2: number,
     arg3: number,
     arg4: number,
@@ -129,7 +130,7 @@ export interface PdfFunctions {
   EPDFAnnot_SetFormFieldValue: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_SetIntent: (arg0: Ptr, arg1: string) => boolean;
   EPDFAnnot_SetLine: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
-  EPDFAnnot_SetLineEndings: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
+  EPDFAnnot_SetLineEndings: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   EPDFAnnot_SetLinkedAnnot: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDFAnnot_SetMKColor: (
     arg0: Ptr,
@@ -138,7 +139,7 @@ export interface PdfFunctions {
     arg3: number,
     arg4: number,
   ) => boolean;
-  EPDFAnnot_SetName: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_SetName: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetNumberValue: (arg0: Ptr, arg1: string, arg2: number) => boolean;
   EPDFAnnot_SetOpacity: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetOverlayText: (arg0: Ptr, arg1: Ptr) => boolean;
@@ -150,11 +151,11 @@ export interface PdfFunctions {
     arg3: number,
     arg4: number,
   ) => boolean;
-  EPDFAnnot_SetReplyType: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_SetReplyType: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetRotate: (arg0: Ptr, arg1: number) => boolean;
-  EPDFAnnot_SetTextAlignment: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_SetTextAlignment: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetUnrotatedRect: (arg0: Ptr, arg1: Ptr) => boolean;
-  EPDFAnnot_SetVerticalAlignment: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_SetVerticalAlignment: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetVertices: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   EPDFAnnot_ShareFormField: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_UpdateAppearanceToRect: (arg0: Ptr, arg1: number) => boolean;
@@ -183,38 +184,41 @@ export interface PdfFunctions {
     arg0: Ptr,
     arg1: number,
     arg2: boolean,
-    arg3: Ptr,
+    arg3: number,
     arg4: boolean,
-    arg5: Ptr,
+    arg5: number,
     arg6: boolean,
-    arg7: Ptr,
+    arg7: number,
   ) => Ptr;
   EPDFDest_CreateView: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => Ptr;
   EPDFDest_CreateXYZ: (
     arg0: Ptr,
     arg1: boolean,
-    arg2: Ptr,
+    arg2: number,
     arg3: boolean,
-    arg4: Ptr,
+    arg4: number,
     arg5: boolean,
-    arg6: Ptr,
+    arg6: number,
   ) => Ptr;
-  EPDFImageObj_SetJpeg: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: bigint) => boolean;
-  EPDFImageObj_SetPng: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: bigint) => boolean;
+  EPDFDoc_LoadPageByObjectNumber: (arg0: Ptr, arg1: number) => Ptr;
+  EPDFImageObj_SetJpeg: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
+  EPDFImageObj_SetPng: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFNamedDest_Remove: (arg0: Ptr, arg1: string) => boolean;
   EPDFNamedDest_SetDest: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDFPage_ApplyRedactions: (arg0: Ptr) => boolean;
-  EPDFPage_CreateAnnot: (arg0: Ptr, arg1: Ptr) => Ptr;
+  EPDFPage_CreateAnnot: (arg0: Ptr, arg1: number) => Ptr;
   EPDFPage_CreateFormField: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr) => Ptr;
   EPDFPage_GetAnnotByName: (arg0: Ptr, arg1: Ptr) => Ptr;
+  EPDFPage_GetAnnotByObjectNumber: (arg0: Ptr, arg1: number) => Ptr;
   EPDFPage_GetAnnotCountRaw: (arg0: Ptr, arg1: number) => number;
   EPDFPage_GetAnnotRaw: (arg0: Ptr, arg1: number, arg2: number) => Ptr;
+  EPDFPage_GetObjectNumber: (arg0: Ptr) => number;
   EPDFPage_RemoveAnnotByName: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFPage_RemoveAnnotRaw: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   EPDFText_RedactInQuads: (
     arg0: Ptr,
     arg1: Ptr,
-    arg2: bigint,
+    arg2: number,
     arg3: boolean,
     arg4: boolean,
   ) => boolean;
@@ -268,7 +272,7 @@ export interface PdfFunctions {
   FPDF_ClosePage: (arg0: Ptr) => void;
   FPDF_CloseXObject: (arg0: Ptr) => void;
   FPDF_CopyViewerPreferences: (arg0: Ptr, arg1: Ptr) => boolean;
-  FPDF_CountNamedDests: (arg0: Ptr) => Ptr;
+  FPDF_CountNamedDests: (arg0: Ptr) => number;
   FPDF_CreateClipPath: (arg0: number, arg1: number, arg2: number, arg3: number) => Ptr;
   FPDF_CreateNewDocument: () => Ptr;
   FPDF_DestroyClipPath: (arg0: Ptr) => void;
@@ -282,8 +286,8 @@ export interface PdfFunctions {
     arg5: number,
     arg6: number,
     arg7: number,
-    arg8: number,
-    arg9: number,
+    arg8: Ptr,
+    arg9: Ptr,
   ) => boolean;
   FPDF_DocumentHasValidCrossReferenceTable: (arg0: Ptr) => boolean;
   FPDF_FFLDraw: (
@@ -300,11 +304,11 @@ export interface PdfFunctions {
   FPDF_FreeDefaultSystemFontInfo: (arg0: Ptr) => void;
   FPDF_GetDefaultSystemFontInfo: () => Ptr;
   FPDF_GetDefaultTTFMap: () => Ptr;
-  FPDF_GetDefaultTTFMapCount: () => bigint;
-  FPDF_GetDefaultTTFMapEntry: (arg0: bigint) => Ptr;
+  FPDF_GetDefaultTTFMapCount: () => number;
+  FPDF_GetDefaultTTFMapEntry: (arg0: number) => Ptr;
   FPDF_GetDocPermissions: (arg0: Ptr) => number;
   FPDF_GetDocUserPermissions: (arg0: Ptr) => number;
-  FPDF_GetFileIdentifier: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => number;
+  FPDF_GetFileIdentifier: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
   FPDF_GetFileVersion: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDF_GetFormType: (arg0: Ptr) => number;
   FPDF_GetLastError: () => number;
@@ -317,7 +321,7 @@ export interface PdfFunctions {
   FPDF_GetPageHeight: (arg0: Ptr) => number;
   FPDF_GetPageHeightF: (arg0: Ptr) => number;
   FPDF_GetPageLabel: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
-  FPDF_GetPageSizeByIndex: (arg0: Ptr, arg1: number, arg2: number, arg3: number) => number;
+  FPDF_GetPageSizeByIndex: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr) => number;
   FPDF_GetPageSizeByIndexF: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   FPDF_GetPageWidth: (arg0: Ptr) => number;
   FPDF_GetPageWidthF: (arg0: Ptr) => number;
@@ -338,8 +342,8 @@ export interface PdfFunctions {
     arg0: Ptr,
     arg1: number,
     arg2: number,
-    arg3: bigint,
-    arg4: bigint,
+    arg3: number,
+    arg4: number,
   ) => Ptr;
   FPDF_ImportPages: (arg0: Ptr, arg1: Ptr, arg2: string, arg3: number) => boolean;
   FPDF_ImportPagesByIndex: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number, arg4: number) => boolean;
@@ -348,7 +352,7 @@ export interface PdfFunctions {
   FPDF_LoadCustomDocument: (arg0: Ptr, arg1: string) => Ptr;
   FPDF_LoadDocument: (arg0: Ptr, arg1: string) => Ptr;
   FPDF_LoadMemDocument: (arg0: Ptr, arg1: number, arg2: string) => Ptr;
-  FPDF_LoadMemDocument64: (arg0: Ptr, arg1: bigint, arg2: string) => Ptr;
+  FPDF_LoadMemDocument64: (arg0: Ptr, arg1: number, arg2: string) => Ptr;
   FPDF_LoadPage: (arg0: Ptr, arg1: number) => Ptr;
   FPDF_LoadXFA: (arg0: Ptr) => boolean;
   FPDF_MovePages: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: number) => boolean;
@@ -409,15 +413,15 @@ export interface PdfFunctions {
     arg3: Ptr,
     arg4: number,
   ) => void;
-  FPDF_SaveAsCopy: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
-  FPDF_SaveWithVersion: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => boolean;
+  FPDF_SaveAsCopy: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
+  FPDF_SaveWithVersion: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: number) => boolean;
   FPDF_SetFormFieldHighlightAlpha: (arg0: Ptr, arg1: number) => void;
   FPDF_SetFormFieldHighlightColor: (arg0: Ptr, arg1: number, arg2: number) => void;
-  FPDF_SetSandBoxPolicy: (arg0: Ptr, arg1: boolean) => void;
+  FPDF_SetSandBoxPolicy: (arg0: number, arg1: boolean) => void;
   FPDF_SetSystemFontInfo: (arg0: Ptr) => void;
   FPDF_StructElement_Attr_CountChildren: (arg0: Ptr) => number;
   FPDF_StructElement_Attr_GetBlobValue: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr) => boolean;
-  FPDF_StructElement_Attr_GetBooleanValue: (arg0: Ptr, arg1: boolean) => boolean;
+  FPDF_StructElement_Attr_GetBooleanValue: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDF_StructElement_Attr_GetChildAtIndex: (arg0: Ptr, arg1: number) => Ptr;
   FPDF_StructElement_Attr_GetCount: (arg0: Ptr) => number;
   FPDF_StructElement_Attr_GetName: (
@@ -427,14 +431,14 @@ export interface PdfFunctions {
     arg3: number,
     arg4: Ptr,
   ) => boolean;
-  FPDF_StructElement_Attr_GetNumberValue: (arg0: Ptr, arg1: number) => boolean;
+  FPDF_StructElement_Attr_GetNumberValue: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDF_StructElement_Attr_GetStringValue: (
     arg0: Ptr,
     arg1: Ptr,
     arg2: number,
     arg3: Ptr,
   ) => boolean;
-  FPDF_StructElement_Attr_GetType: (arg0: Ptr) => Ptr;
+  FPDF_StructElement_Attr_GetType: (arg0: Ptr) => number;
   FPDF_StructElement_Attr_GetValue: (arg0: Ptr, arg1: string) => Ptr;
   FPDF_StructElement_CountChildren: (arg0: Ptr) => number;
   FPDF_StructElement_GetActualText: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
@@ -462,25 +466,25 @@ export interface PdfFunctions {
   FPDF_StructTree_CountChildren: (arg0: Ptr) => number;
   FPDF_StructTree_GetChildAtIndex: (arg0: Ptr, arg1: number) => Ptr;
   FPDF_StructTree_GetForPage: (arg0: Ptr) => Ptr;
-  FPDF_VIEWERREF_GetDuplex: (arg0: Ptr) => Ptr;
+  FPDF_VIEWERREF_GetDuplex: (arg0: Ptr) => number;
   FPDF_VIEWERREF_GetName: (arg0: Ptr, arg1: string, arg2: Ptr, arg3: number) => number;
   FPDF_VIEWERREF_GetNumCopies: (arg0: Ptr) => number;
   FPDF_VIEWERREF_GetPrintPageRange: (arg0: Ptr) => Ptr;
-  FPDF_VIEWERREF_GetPrintPageRangeCount: (arg0: Ptr) => bigint;
-  FPDF_VIEWERREF_GetPrintPageRangeElement: (arg0: Ptr, arg1: bigint) => number;
+  FPDF_VIEWERREF_GetPrintPageRangeCount: (arg0: Ptr) => number;
+  FPDF_VIEWERREF_GetPrintPageRangeElement: (arg0: Ptr, arg1: number) => number;
   FPDF_VIEWERREF_GetPrintScaling: (arg0: Ptr) => boolean;
   FPDFAction_GetDest: (arg0: Ptr, arg1: Ptr) => Ptr;
   FPDFAction_GetFilePath: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFAction_GetType: (arg0: Ptr) => number;
   FPDFAction_GetURIPath: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => number;
   FPDFAnnot_AddFileAttachment: (arg0: Ptr, arg1: Ptr) => Ptr;
-  FPDFAnnot_AddInkStroke: (arg0: Ptr, arg1: Ptr, arg2: bigint) => number;
+  FPDFAnnot_AddInkStroke: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFAnnot_AppendAttachmentPoints: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFAnnot_AppendObject: (arg0: Ptr, arg1: Ptr) => boolean;
-  FPDFAnnot_CountAttachmentPoints: (arg0: Ptr) => bigint;
-  FPDFAnnot_GetAP: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => number;
-  FPDFAnnot_GetAttachmentPoints: (arg0: Ptr, arg1: bigint, arg2: Ptr) => boolean;
-  FPDFAnnot_GetBorder: (arg0: Ptr, arg1: number, arg2: number, arg3: number) => boolean;
+  FPDFAnnot_CountAttachmentPoints: (arg0: Ptr) => number;
+  FPDFAnnot_GetAP: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
+  FPDFAnnot_GetAttachmentPoints: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  FPDFAnnot_GetBorder: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr) => boolean;
   FPDFAnnot_GetColor: (
     arg0: Ptr,
     arg1: number,
@@ -491,10 +495,10 @@ export interface PdfFunctions {
   ) => boolean;
   FPDFAnnot_GetFileAttachment: (arg0: Ptr) => Ptr;
   FPDFAnnot_GetFlags: (arg0: Ptr) => number;
-  FPDFAnnot_GetFocusableSubtypes: (arg0: Ptr, arg1: Ptr, arg2: bigint) => boolean;
+  FPDFAnnot_GetFocusableSubtypes: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   FPDFAnnot_GetFocusableSubtypesCount: (arg0: Ptr) => number;
   FPDFAnnot_GetFontColor: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
-  FPDFAnnot_GetFontSize: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
+  FPDFAnnot_GetFontSize: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   FPDFAnnot_GetFormAdditionalActionJavaScript: (
     arg0: Ptr,
     arg1: Ptr,
@@ -516,26 +520,26 @@ export interface PdfFunctions {
   FPDFAnnot_GetLine: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   FPDFAnnot_GetLink: (arg0: Ptr) => Ptr;
   FPDFAnnot_GetLinkedAnnot: (arg0: Ptr, arg1: string) => Ptr;
-  FPDFAnnot_GetNumberValue: (arg0: Ptr, arg1: string, arg2: number) => boolean;
+  FPDFAnnot_GetNumberValue: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   FPDFAnnot_GetObject: (arg0: Ptr, arg1: number) => Ptr;
   FPDFAnnot_GetObjectCount: (arg0: Ptr) => number;
   FPDFAnnot_GetOptionCount: (arg0: Ptr, arg1: Ptr) => number;
   FPDFAnnot_GetOptionLabel: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr, arg4: number) => number;
   FPDFAnnot_GetRect: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFAnnot_GetStringValue: (arg0: Ptr, arg1: string, arg2: Ptr, arg3: number) => number;
-  FPDFAnnot_GetSubtype: (arg0: Ptr) => Ptr;
-  FPDFAnnot_GetValueType: (arg0: Ptr, arg1: string) => Ptr;
+  FPDFAnnot_GetSubtype: (arg0: Ptr) => number;
+  FPDFAnnot_GetValueType: (arg0: Ptr, arg1: string) => number;
   FPDFAnnot_GetVertices: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFAnnot_HasAttachmentPoints: (arg0: Ptr) => boolean;
   FPDFAnnot_HasKey: (arg0: Ptr, arg1: string) => boolean;
   FPDFAnnot_IsChecked: (arg0: Ptr, arg1: Ptr) => boolean;
-  FPDFAnnot_IsObjectSupportedSubtype: (arg0: Ptr) => boolean;
+  FPDFAnnot_IsObjectSupportedSubtype: (arg0: number) => boolean;
   FPDFAnnot_IsOptionSelected: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
-  FPDFAnnot_IsSupportedSubtype: (arg0: Ptr) => boolean;
+  FPDFAnnot_IsSupportedSubtype: (arg0: number) => boolean;
   FPDFAnnot_RemoveInkList: (arg0: Ptr) => boolean;
   FPDFAnnot_RemoveObject: (arg0: Ptr, arg1: number) => boolean;
-  FPDFAnnot_SetAP: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
-  FPDFAnnot_SetAttachmentPoints: (arg0: Ptr, arg1: bigint, arg2: Ptr) => boolean;
+  FPDFAnnot_SetAP: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  FPDFAnnot_SetAttachmentPoints: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   FPDFAnnot_SetBorder: (arg0: Ptr, arg1: number, arg2: number, arg3: number) => boolean;
   FPDFAnnot_SetColor: (
     arg0: Ptr,
@@ -546,7 +550,7 @@ export interface PdfFunctions {
     arg5: number,
   ) => boolean;
   FPDFAnnot_SetFlags: (arg0: Ptr, arg1: number) => boolean;
-  FPDFAnnot_SetFocusableSubtypes: (arg0: Ptr, arg1: Ptr, arg2: bigint) => boolean;
+  FPDFAnnot_SetFocusableSubtypes: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   FPDFAnnot_SetFontColor: (
     arg0: Ptr,
     arg1: Ptr,
@@ -563,7 +567,7 @@ export interface PdfFunctions {
   FPDFAttachment_GetName: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFAttachment_GetStringValue: (arg0: Ptr, arg1: string, arg2: Ptr, arg3: number) => number;
   FPDFAttachment_GetSubtype: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
-  FPDFAttachment_GetValueType: (arg0: Ptr, arg1: string) => Ptr;
+  FPDFAttachment_GetValueType: (arg0: Ptr, arg1: string) => number;
   FPDFAttachment_HasKey: (arg0: Ptr, arg1: string) => boolean;
   FPDFAttachment_SetFile: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => boolean;
   FPDFAttachment_SetStringValue: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
@@ -584,7 +588,7 @@ export interface PdfFunctions {
     arg2: number,
     arg3: number,
     arg4: number,
-    arg5: Ptr,
+    arg5: number,
   ) => boolean;
   FPDFBitmap_GetBuffer: (arg0: Ptr) => Ptr;
   FPDFBitmap_GetFormat: (arg0: Ptr) => number;
@@ -607,9 +611,9 @@ export interface PdfFunctions {
   FPDFDest_GetDestPageIndex: (arg0: Ptr, arg1: Ptr) => number;
   FPDFDest_GetLocationInPage: (
     arg0: Ptr,
-    arg1: boolean,
-    arg2: boolean,
-    arg3: boolean,
+    arg1: Ptr,
+    arg2: Ptr,
+    arg3: Ptr,
     arg4: Ptr,
     arg5: Ptr,
     arg6: Ptr,
@@ -626,14 +630,14 @@ export interface PdfFunctions {
   FPDFDoc_GetPageMode: (arg0: Ptr) => number;
   FPDFDOC_InitFormFillEnvironment: (arg0: Ptr, arg1: Ptr) => Ptr;
   FPDFFont_Close: (arg0: Ptr) => void;
-  FPDFFont_GetAscent: (arg0: Ptr, arg1: number, arg2: number) => boolean;
-  FPDFFont_GetBaseFontName: (arg0: Ptr, arg1: Ptr, arg2: bigint) => bigint;
-  FPDFFont_GetDescent: (arg0: Ptr, arg1: number, arg2: number) => boolean;
-  FPDFFont_GetFamilyName: (arg0: Ptr, arg1: Ptr, arg2: bigint) => bigint;
+  FPDFFont_GetAscent: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  FPDFFont_GetBaseFontName: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
+  FPDFFont_GetDescent: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  FPDFFont_GetFamilyName: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFFont_GetFlags: (arg0: Ptr) => number;
-  FPDFFont_GetFontData: (arg0: Ptr, arg1: Ptr, arg2: bigint, arg3: bigint) => boolean;
+  FPDFFont_GetFontData: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr) => boolean;
   FPDFFont_GetGlyphPath: (arg0: Ptr, arg1: number, arg2: number) => Ptr;
-  FPDFFont_GetGlyphWidth: (arg0: Ptr, arg1: number, arg2: number, arg3: number) => boolean;
+  FPDFFont_GetGlyphWidth: (arg0: Ptr, arg1: number, arg2: number, arg3: Ptr) => boolean;
   FPDFFont_GetIsEmbedded: (arg0: Ptr) => number;
   FPDFFont_GetItalicAngle: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFFont_GetWeight: (arg0: Ptr) => number;
@@ -647,8 +651,8 @@ export interface PdfFunctions {
     arg0: Ptr,
     arg1: Ptr,
     arg2: Ptr,
-    arg3: bigint,
-    arg4: bigint,
+    arg3: number,
+    arg4: Ptr,
   ) => boolean;
   FPDFImageObj_GetImageDataDecoded: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFImageObj_GetImageDataRaw: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
@@ -687,17 +691,17 @@ export interface PdfFunctions {
     arg0: Ptr,
     arg1: number,
     arg2: number,
-    arg3: number,
-    arg4: number,
-    arg5: number,
-    arg6: number,
+    arg3: Ptr,
+    arg4: Ptr,
+    arg5: Ptr,
+    arg6: Ptr,
   ) => boolean;
   FPDFLink_GetTextRange: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr) => boolean;
   FPDFLink_GetURL: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
   FPDFLink_LoadWebLinks: (arg0: Ptr) => Ptr;
   FPDFPage_CloseAnnot: (arg0: Ptr) => void;
   FPDFPage_CountObjects: (arg0: Ptr) => number;
-  FPDFPage_CreateAnnot: (arg0: Ptr, arg1: Ptr) => Ptr;
+  FPDFPage_CreateAnnot: (arg0: Ptr, arg1: number) => Ptr;
   FPDFPage_Delete: (arg0: Ptr, arg1: number) => void;
   FPDFPage_Flatten: (arg0: Ptr, arg1: number) => number;
   FPDFPage_FormFieldZOrderAtPoint: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: number) => number;
@@ -705,51 +709,21 @@ export interface PdfFunctions {
   FPDFPage_GetAnnot: (arg0: Ptr, arg1: number) => Ptr;
   FPDFPage_GetAnnotCount: (arg0: Ptr) => number;
   FPDFPage_GetAnnotIndex: (arg0: Ptr, arg1: Ptr) => number;
-  FPDFPage_GetArtBox: (
-    arg0: Ptr,
-    arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-  ) => boolean;
-  FPDFPage_GetBleedBox: (
-    arg0: Ptr,
-    arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-  ) => boolean;
-  FPDFPage_GetCropBox: (
-    arg0: Ptr,
-    arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-  ) => boolean;
+  FPDFPage_GetArtBox: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
+  FPDFPage_GetBleedBox: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
+  FPDFPage_GetCropBox: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
   FPDFPage_GetDecodedThumbnailData: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
-  FPDFPage_GetMediaBox: (
-    arg0: Ptr,
-    arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-  ) => boolean;
+  FPDFPage_GetMediaBox: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
   FPDFPage_GetObject: (arg0: Ptr, arg1: number) => Ptr;
   FPDFPage_GetRawThumbnailData: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFPage_GetRotation: (arg0: Ptr) => number;
   FPDFPage_GetThumbnailAsBitmap: (arg0: Ptr) => Ptr;
-  FPDFPage_GetTrimBox: (
-    arg0: Ptr,
-    arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-  ) => boolean;
+  FPDFPage_GetTrimBox: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
   FPDFPage_HasFormFieldAtPoint: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: number) => number;
   FPDFPage_HasTransparency: (arg0: Ptr) => boolean;
   FPDFPage_InsertClipPath: (arg0: Ptr, arg1: Ptr) => void;
   FPDFPage_InsertObject: (arg0: Ptr, arg1: Ptr) => void;
-  FPDFPage_InsertObjectAtIndex: (arg0: Ptr, arg1: Ptr, arg2: bigint) => boolean;
+  FPDFPage_InsertObjectAtIndex: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   FPDFPage_New: (arg0: Ptr, arg1: number, arg2: number, arg3: number) => Ptr;
   FPDFPage_RemoveAnnot: (arg0: Ptr, arg1: number) => boolean;
   FPDFPage_RemoveObject: (arg0: Ptr, arg1: Ptr) => boolean;
@@ -775,19 +749,13 @@ export interface PdfFunctions {
   FPDFPageObj_CreateNewRect: (arg0: number, arg1: number, arg2: number, arg3: number) => Ptr;
   FPDFPageObj_CreateTextObj: (arg0: Ptr, arg1: Ptr, arg2: number) => Ptr;
   FPDFPageObj_Destroy: (arg0: Ptr) => void;
-  FPDFPageObj_GetBounds: (
-    arg0: Ptr,
-    arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-  ) => boolean;
+  FPDFPageObj_GetBounds: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
   FPDFPageObj_GetClipPath: (arg0: Ptr) => Ptr;
-  FPDFPageObj_GetDashArray: (arg0: Ptr, arg1: number, arg2: bigint) => boolean;
+  FPDFPageObj_GetDashArray: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   FPDFPageObj_GetDashCount: (arg0: Ptr) => number;
-  FPDFPageObj_GetDashPhase: (arg0: Ptr, arg1: number) => boolean;
+  FPDFPageObj_GetDashPhase: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFPageObj_GetFillColor: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
-  FPDFPageObj_GetIsActive: (arg0: Ptr, arg1: boolean) => boolean;
+  FPDFPageObj_GetIsActive: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFPageObj_GetLineCap: (arg0: Ptr) => number;
   FPDFPageObj_GetLineJoin: (arg0: Ptr) => number;
   FPDFPageObj_GetMark: (arg0: Ptr, arg1: number) => Ptr;
@@ -795,14 +763,14 @@ export interface PdfFunctions {
   FPDFPageObj_GetMatrix: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFPageObj_GetRotatedBounds: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFPageObj_GetStrokeColor: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
-  FPDFPageObj_GetStrokeWidth: (arg0: Ptr, arg1: number) => boolean;
+  FPDFPageObj_GetStrokeWidth: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFPageObj_GetType: (arg0: Ptr) => number;
   FPDFPageObj_HasTransparency: (arg0: Ptr) => boolean;
   FPDFPageObj_NewImageObj: (arg0: Ptr) => Ptr;
   FPDFPageObj_NewTextObj: (arg0: Ptr, arg1: string, arg2: number) => Ptr;
   FPDFPageObj_RemoveMark: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFPageObj_SetBlendMode: (arg0: Ptr, arg1: string) => void;
-  FPDFPageObj_SetDashArray: (arg0: Ptr, arg1: number, arg2: bigint, arg3: number) => boolean;
+  FPDFPageObj_SetDashArray: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: number) => boolean;
   FPDFPageObj_SetDashPhase: (arg0: Ptr, arg1: number) => boolean;
   FPDFPageObj_SetFillColor: (
     arg0: Ptr,
@@ -851,7 +819,7 @@ export interface PdfFunctions {
     arg3: number,
     arg4: Ptr,
   ) => boolean;
-  FPDFPageObjMark_GetParamFloatValue: (arg0: Ptr, arg1: string, arg2: number) => boolean;
+  FPDFPageObjMark_GetParamFloatValue: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   FPDFPageObjMark_GetParamIntValue: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   FPDFPageObjMark_GetParamKey: (
     arg0: Ptr,
@@ -867,7 +835,7 @@ export interface PdfFunctions {
     arg3: number,
     arg4: Ptr,
   ) => boolean;
-  FPDFPageObjMark_GetParamValueType: (arg0: Ptr, arg1: string) => Ptr;
+  FPDFPageObjMark_GetParamValueType: (arg0: Ptr, arg1: string) => number;
   FPDFPageObjMark_RemoveParam: (arg0: Ptr, arg1: Ptr, arg2: string) => boolean;
   FPDFPageObjMark_SetBlobParam: (
     arg0: Ptr,
@@ -909,13 +877,13 @@ export interface PdfFunctions {
   ) => boolean;
   FPDFPath_Close: (arg0: Ptr) => boolean;
   FPDFPath_CountSegments: (arg0: Ptr) => number;
-  FPDFPath_GetDrawMode: (arg0: Ptr, arg1: Ptr, arg2: boolean) => boolean;
+  FPDFPath_GetDrawMode: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   FPDFPath_GetPathSegment: (arg0: Ptr, arg1: number) => Ptr;
   FPDFPath_LineTo: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   FPDFPath_MoveTo: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   FPDFPath_SetDrawMode: (arg0: Ptr, arg1: number, arg2: boolean) => boolean;
   FPDFPathSegment_GetClose: (arg0: Ptr) => boolean;
-  FPDFPathSegment_GetPoint: (arg0: Ptr, arg1: number, arg2: number) => boolean;
+  FPDFPathSegment_GetPoint: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   FPDFPathSegment_GetType: (arg0: Ptr) => number;
   FPDFSignatureObj_GetByteRange: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   FPDFSignatureObj_GetContents: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
@@ -943,10 +911,10 @@ export interface PdfFunctions {
   FPDFText_GetCharBox: (
     arg0: Ptr,
     arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-    arg5: number,
+    arg2: Ptr,
+    arg3: Ptr,
+    arg4: Ptr,
+    arg5: Ptr,
   ) => boolean;
   FPDFText_GetCharIndexAtPos: (
     arg0: Ptr,
@@ -956,7 +924,7 @@ export interface PdfFunctions {
     arg4: number,
   ) => number;
   FPDFText_GetCharIndexFromTextIndex: (arg0: Ptr, arg1: number) => number;
-  FPDFText_GetCharOrigin: (arg0: Ptr, arg1: number, arg2: number, arg3: number) => boolean;
+  FPDFText_GetCharOrigin: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr) => boolean;
   FPDFText_GetFillColor: (
     arg0: Ptr,
     arg1: number,
@@ -973,10 +941,10 @@ export interface PdfFunctions {
   FPDFText_GetRect: (
     arg0: Ptr,
     arg1: number,
-    arg2: number,
-    arg3: number,
-    arg4: number,
-    arg5: number,
+    arg2: Ptr,
+    arg3: Ptr,
+    arg4: Ptr,
+    arg5: Ptr,
   ) => boolean;
   FPDFText_GetSchCount: (arg0: Ptr) => number;
   FPDFText_GetSchResultIndex: (arg0: Ptr) => number;
@@ -1006,17 +974,17 @@ export interface PdfFunctions {
   FPDFText_LoadFont: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: number, arg4: boolean) => Ptr;
   FPDFText_LoadPage: (arg0: Ptr) => Ptr;
   FPDFText_LoadStandardFont: (arg0: Ptr, arg1: string) => Ptr;
-  FPDFText_SetCharcodes: (arg0: Ptr, arg1: Ptr, arg2: bigint) => boolean;
+  FPDFText_SetCharcodes: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   FPDFText_SetText: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFTextObj_GetFont: (arg0: Ptr) => Ptr;
-  FPDFTextObj_GetFontSize: (arg0: Ptr, arg1: number) => boolean;
+  FPDFTextObj_GetFontSize: (arg0: Ptr, arg1: Ptr) => boolean;
   FPDFTextObj_GetRenderedBitmap: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => Ptr;
   FPDFTextObj_GetText: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => number;
-  FPDFTextObj_GetTextRenderMode: (arg0: Ptr) => Ptr;
-  FPDFTextObj_SetTextRenderMode: (arg0: Ptr, arg1: Ptr) => boolean;
+  FPDFTextObj_GetTextRenderMode: (arg0: Ptr) => number;
+  FPDFTextObj_SetTextRenderMode: (arg0: Ptr, arg1: number) => boolean;
 }
 
-export type PdfFunctionTsKind = 'Ptr' | 'number' | 'string' | 'boolean' | 'bigint';
+export type PdfFunctionTsKind = 'Ptr' | 'number' | 'string' | 'boolean' | 'bigint' | 'void';
 export type PdfFunctionAbiKind =
   | 'void'
   | 'bool'
@@ -1027,4132 +995,12868 @@ export type PdfFunctionAbiKind =
   | 'pointer'
   | 'cstring'
   | 'utf16ptr';
-export type PdfFunctionCwrapKind = 'number' | 'string' | 'boolean' | 'bigint';
-export interface PdfFunctionAbiValue {
-  readonly ts: PdfFunctionTsKind;
+export type PdfFunctionCwrapKind = 'number' | 'string' | 'boolean' | 'bigint' | null;
+export interface PdfFunctionAbiTarget {
   readonly kind: PdfFunctionAbiKind;
   readonly cwrap: PdfFunctionCwrapKind;
 }
+export interface PdfFunctionAbiSlot {
+  readonly ts: PdfFunctionTsKind;
+  readonly wasm: PdfFunctionAbiTarget;
+  readonly native: PdfFunctionAbiTarget;
+}
 export interface PdfFunctionSignature {
-  readonly params: readonly PdfFunctionAbiValue[];
-  readonly result: PdfFunctionAbiValue | null;
+  readonly params: readonly PdfFunctionAbiSlot[];
+  readonly result: PdfFunctionAbiSlot | null;
 }
 
 export const pdfFunctionSignatures = {
   EPDF_GetMetaKeyCount: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDF_GetMetaKeyName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDF_GetMetaTrapped: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDF_GetPageRotationByIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDF_GetPageSizeByIndexNormalized: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_HasMetaText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_IsEncrypted: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_IsOwnerUnlocked: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_LoadPageNormalized: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDF_PNG_EncodeRGBA: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDF_RemoveEncryption: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_RenderAnnotBitmap: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_RenderAnnotBitmapUnrotated: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_SetEncryption: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_SetMetaText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_SetMetaTrapped: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDF_UnlockOwnerPermissions: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAction_CreateGoTo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAction_CreateGoToNamed: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAction_CreateLaunch: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAction_CreateRemoteGoToByName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAction_CreateRemoteGoToDest: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAction_CreateURI: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAnnot_ApplyRedaction: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_ClearBorderEffect: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_ClearColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_ClearMKColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_ClearRectangleDifferences: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_ExportAppearanceAsDocument: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAnnot_ExportMultipleAppearancesAsDocument: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFAnnot_Flatten: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GenerateAppearance: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GenerateAppearanceWithBlend: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GenerateFormFieldAP: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetAPMatrix: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetAvailableAppearanceModes: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetBlendMode: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetBorderDashPattern: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetBorderDashPatternCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetBorderEffect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetBorderStyle: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetButtonExportValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetCalloutLine: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetCalloutLineCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetDefaultAppearance: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetExtendedRotation: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetFormFieldObjectNumber: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetFormFieldRawValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetIntent: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetLineEndings: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetMKColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetName: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFAnnot_GetObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetOpacity: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetOverlayText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetOverlayTextRepeat: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetRectangleDifferences: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetReplyType: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetRichContent: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetRotate: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetTextAlignment: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_GetUnrotatedRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_GetVerticalAlignment: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAnnot_HasAppearanceStream: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetAction: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetAPMatrix: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetAppearanceFromPage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetBorderDashPattern: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetBorderEffect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetBorderStyle: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetCalloutLine: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetDefaultAppearance: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetExtendedRotation: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetFormFieldName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetFormFieldOptions: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetFormFieldValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetIntent: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetLine: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetLineEndings: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetLinkedAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetMKColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetNumberValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetOpacity: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetOverlayText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetOverlayTextRepeat: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetRectangleDifferences: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetReplyType: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetRotate: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetTextAlignment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetUnrotatedRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetVerticalAlignment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_SetVertices: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_ShareFormField: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAnnot_UpdateAppearanceToRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAttachment_GetDescription: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFAttachment_GetIntegerValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAttachment_SetDescription: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFAttachment_SetSubtype: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFBookmark_AppendChild: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFBookmark_Clear: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFBookmark_ClearTarget: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFBookmark_Create: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFBookmark_Delete: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFBookmark_InsertAfter: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFBookmark_SetAction: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFBookmark_SetDest: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFBookmark_SetTitle: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFCatalog_GetLanguage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFDest_CreateRemoteView: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFDest_CreateRemoteXYZ: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFDest_CreateView: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFDest_CreateXYZ: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFDoc_LoadPageByObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFImageObj_SetJpeg: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFImageObj_SetPng: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFNamedDest_Remove: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFNamedDest_SetDest: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFPage_ApplyRedactions: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFPage_CreateAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFPage_CreateFormField: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFPage_GetAnnotByName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFPage_GetAnnotByObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   EPDFPage_GetAnnotCountRaw: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFPage_GetAnnotRaw: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFPage_GetObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   EPDFPage_RemoveAnnotByName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFPage_RemoveAnnotRaw: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFText_RedactInQuads: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   EPDFText_RedactInRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_CanRedo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_CanUndo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_DoDocumentAAction: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FORM_DoDocumentJSAction: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FORM_DoDocumentOpenAction: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FORM_DoPageAAction: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FORM_ForceToKillFocus: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_GetFocusedAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_GetFocusedText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FORM_GetSelectedText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FORM_IsIndexSelected: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnAfterLoadPage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
     result: null,
   },
   FORM_OnBeforeClosePage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
     result: null,
   },
   FORM_OnChar: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnFocus: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnKeyDown: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnKeyUp: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnLButtonDoubleClick: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnLButtonDown: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnLButtonUp: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnMouseMove: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnMouseWheel: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnRButtonDown: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_OnRButtonUp: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_Redo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_ReplaceAndKeepSelection: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
     result: null,
   },
   FORM_ReplaceSelection: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
     result: null,
   },
   FORM_SelectAllText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_SetFocusedAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_SetIndexSelected: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FORM_Undo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_AddInstalledFont: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
-  FPDF_CloseDocument: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
-  FPDF_ClosePage: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
-  FPDF_CloseXObject: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDF_CloseDocument: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
+  FPDF_ClosePage: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
+  FPDF_CloseXObject: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDF_CopyViewerPreferences: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_CountNamedDests: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_CreateClipPath: {
     params: [
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
-  FPDF_CreateNewDocument: { params: [], result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' } },
-  FPDF_DestroyClipPath: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDF_CreateNewDocument: {
+    params: [],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  FPDF_DestroyClipPath: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDF_DestroyLibrary: { params: [], result: null },
   FPDF_DeviceToPage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_DocumentHasValidCrossReferenceTable: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_FFLDraw: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDF_FreeDefaultSystemFontInfo: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDF_GetDefaultSystemFontInfo: {
     params: [],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
-  FPDF_GetDefaultTTFMap: { params: [], result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' } },
+  FPDF_GetDefaultTTFMap: {
+    params: [],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
   FPDF_GetDefaultTTFMapCount: {
     params: [],
-    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetDefaultTTFMapEntry: {
-    params: [{ ts: 'bigint', kind: 'i64', cwrap: 'bigint' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_GetDocPermissions: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetDocUserPermissions: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetFileIdentifier: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetFileVersion: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_GetFormType: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
-  FPDF_GetLastError: { params: [], result: { ts: 'number', kind: 'i32', cwrap: 'number' } },
+  FPDF_GetLastError: {
+    params: [],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
   FPDF_GetMetaText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetNamedDest: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_GetNamedDestByName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_GetPageAAction: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_GetPageBoundingBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_GetPageCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetPageHeight: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'f64', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'f64', cwrap: 'number' },
+      native: { kind: 'f64', cwrap: 'number' },
+    },
   },
   FPDF_GetPageHeightF: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'f32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'f32', cwrap: 'number' },
+      native: { kind: 'f32', cwrap: 'number' },
+    },
   },
   FPDF_GetPageLabel: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetPageSizeByIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetPageSizeByIndexF: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_GetPageWidth: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'f64', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'f64', cwrap: 'number' },
+      native: { kind: 'f64', cwrap: 'number' },
+    },
   },
   FPDF_GetPageWidthF: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'f32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'f32', cwrap: 'number' },
+      native: { kind: 'f32', cwrap: 'number' },
+    },
   },
   FPDF_GetSecurityHandlerRevision: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetSignatureCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetSignatureObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_GetTrailerEnds: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetXFAPacketContent: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_GetXFAPacketCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_GetXFAPacketName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_ImportNPagesToOne: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_ImportPages: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_ImportPagesByIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_InitLibrary: { params: [], result: null },
   FPDF_InitLibraryWithConfig: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDF_LoadCustomDocument: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_LoadDocument: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_LoadMemDocument: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_LoadMemDocument64: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_LoadPage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_LoadXFA: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_MovePages: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_NewFormObjectFromXObject: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_NewXObjectFromPage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_PageToDevice: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_RemoveFormFieldHighlight: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDF_RenderPage_Close: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDF_RenderPage_Continue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_RenderPageBitmap: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDF_RenderPageBitmap_Start: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_RenderPageBitmapWithColorScheme_Start: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_RenderPageBitmapWithMatrix: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDF_SaveAsCopy: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_SaveWithVersion: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_SetFormFieldHighlightAlpha: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDF_SetFormFieldHighlightColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDF_SetSandBoxPolicy: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
     result: null,
   },
   FPDF_SetSystemFontInfo: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDF_StructElement_Attr_CountChildren: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_Attr_GetBlobValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_StructElement_Attr_GetBooleanValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_StructElement_Attr_GetChildAtIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_StructElement_Attr_GetCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_Attr_GetName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_StructElement_Attr_GetNumberValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_StructElement_Attr_GetStringValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDF_StructElement_Attr_GetType: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_Attr_GetValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_StructElement_CountChildren: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetActualText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetAltText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetAttributeAtIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_StructElement_GetAttributeCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetChildAtIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_StructElement_GetChildMarkedContentID: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetID: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetLang: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetMarkedContentID: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetMarkedContentIdAtIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetMarkedContentIdCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetObjType: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetParent: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_StructElement_GetStringAttribute: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetTitle: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructElement_GetType: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructTree_Close: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDF_StructTree_CountChildren: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_StructTree_GetChildAtIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_StructTree_GetForPage: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_VIEWERREF_GetDuplex: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_VIEWERREF_GetName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_VIEWERREF_GetNumCopies: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_VIEWERREF_GetPrintPageRange: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDF_VIEWERREF_GetPrintPageRangeCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_VIEWERREF_GetPrintPageRangeElement: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDF_VIEWERREF_GetPrintScaling: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAction_GetDest: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAction_GetFilePath: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAction_GetType: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAction_GetURIPath: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_AddFileAttachment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAnnot_AddInkStroke: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_AppendAttachmentPoints: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_AppendObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_CountAttachmentPoints: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetAP: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetAttachmentPoints: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetBorder: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetFileAttachment: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAnnot_GetFlags: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFocusableSubtypes: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetFocusableSubtypesCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFontColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetFontSize: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetFormAdditionalActionJavaScript: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormControlCount: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormControlIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormFieldAlternateName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormFieldAtPoint: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAnnot_GetFormFieldExportValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormFieldFlags: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormFieldName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormFieldType: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetFormFieldValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetInkListCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetInkListPath: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetLine: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetLink: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAnnot_GetLinkedAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAnnot_GetNumberValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAnnot_GetObjectCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetOptionCount: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetOptionLabel: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_GetStringValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetSubtype: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetValueType: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_GetVertices: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAnnot_HasAttachmentPoints: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_HasKey: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_IsChecked: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_IsObjectSupportedSubtype: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_IsOptionSelected: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_IsSupportedSubtype: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_RemoveInkList: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_RemoveObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetAP: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetAttachmentPoints: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetBorder: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetFlags: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetFocusableSubtypes: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetFontColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetFormFieldFlags: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetStringValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_SetURI: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAnnot_UpdateObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAttachment_GetFile: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAttachment_GetName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAttachment_GetStringValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAttachment_GetSubtype: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAttachment_GetValueType: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAttachment_HasKey: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAttachment_SetFile: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAttachment_SetStringValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFAvail_Create: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
-  FPDFAvail_Destroy: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFAvail_Destroy: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDFAvail_GetDocument: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFAvail_GetFirstPageNum: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAvail_IsDocAvail: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAvail_IsFormAvail: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAvail_IsLinearized: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFAvail_IsPageAvail: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFBitmap_Create: {
     params: [
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFBitmap_CreateEx: {
     params: [
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
-  FPDFBitmap_Destroy: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFBitmap_Destroy: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDFBitmap_FillRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFBitmap_GetBuffer: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFBitmap_GetFormat: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFBitmap_GetHeight: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFBitmap_GetStride: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFBitmap_GetWidth: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFBookmark_Find: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFBookmark_GetAction: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFBookmark_GetCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFBookmark_GetDest: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFBookmark_GetFirstChild: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFBookmark_GetNextSibling: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFBookmark_GetTitle: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFCatalog_GetLanguage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFCatalog_IsTagged: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFCatalog_SetLanguage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFClipPath_CountPaths: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFClipPath_CountPathSegments: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFClipPath_GetPathSegment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFDest_GetDestPageIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFDest_GetLocationInPage: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFDest_GetView: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFDoc_AddAttachment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFDoc_CloseJavaScriptAction: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDFDoc_DeleteAttachment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFDOC_ExitFormFillEnvironment: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDFDoc_GetAttachment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFDoc_GetAttachmentCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFDoc_GetJavaScriptAction: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFDoc_GetJavaScriptActionCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFDoc_GetPageMode: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFDOC_InitFormFillEnvironment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
-  FPDFFont_Close: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFFont_Close: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDFFont_GetAscent: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFFont_GetBaseFontName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFFont_GetDescent: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFFont_GetFamilyName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFFont_GetFlags: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFFont_GetFontData: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFFont_GetGlyphPath: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFFont_GetGlyphWidth: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFFont_GetIsEmbedded: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFFont_GetItalicAngle: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFFont_GetWeight: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFFormObj_CountObjects: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFFormObj_GetObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFFormObj_RemoveObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFGlyphPath_CountGlyphSegments: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFGlyphPath_GetGlyphPathSegment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFImageObj_GetBitmap: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFImageObj_GetIccProfileDataDecoded: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFImageObj_GetImageDataDecoded: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFImageObj_GetImageDataRaw: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFImageObj_GetImageFilter: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFImageObj_GetImageFilterCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFImageObj_GetImageMetadata: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFImageObj_GetImagePixelSize: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFImageObj_GetRenderedBitmap: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFImageObj_LoadJpegFile: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFImageObj_LoadJpegFileInline: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFImageObj_SetBitmap: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFImageObj_SetMatrix: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFJavaScriptAction_GetName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFJavaScriptAction_GetScript: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFLink_CloseWebLinks: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
     result: null,
   },
   FPDFLink_CountQuadPoints: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFLink_CountRects: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFLink_CountWebLinks: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFLink_Enumerate: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFLink_GetAction: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFLink_GetAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFLink_GetAnnotRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFLink_GetDest: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFLink_GetLinkAtPoint: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFLink_GetLinkZOrderAtPoint: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFLink_GetQuadPoints: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFLink_GetRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFLink_GetTextRange: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFLink_GetURL: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFLink_LoadWebLinks: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
-  FPDFPage_CloseAnnot: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFPage_CloseAnnot: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDFPage_CountObjects: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_CreateAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPage_Delete: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_Flatten: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_FormFieldZOrderAtPoint: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_GenerateContent: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_GetAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPage_GetAnnotCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_GetAnnotIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_GetArtBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_GetBleedBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_GetCropBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_GetDecodedThumbnailData: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_GetMediaBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_GetObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPage_GetRawThumbnailData: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_GetRotation: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_GetThumbnailAsBitmap: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPage_GetTrimBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_HasFormFieldAtPoint: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPage_HasTransparency: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_InsertClipPath: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
     result: null,
   },
   FPDFPage_InsertObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
     result: null,
   },
   FPDFPage_InsertObjectAtIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_New: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPage_RemoveAnnot: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_RemoveObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPage_SetArtBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_SetBleedBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_SetCropBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_SetMediaBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_SetRotation: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_SetTrimBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_TransformAnnots: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPage_TransFormWithClip: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_AddMark: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPageObj_CountMarks: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObj_CreateNewPath: {
     params: [
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPageObj_CreateNewRect: {
     params: [
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPageObj_CreateTextObj: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
-  FPDFPageObj_Destroy: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFPageObj_Destroy: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDFPageObj_GetBounds: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetClipPath: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPageObj_GetDashArray: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetDashCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObj_GetDashPhase: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetFillColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetIsActive: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetLineCap: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObj_GetLineJoin: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObj_GetMark: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPageObj_GetMarkedContentID: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObj_GetMatrix: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetRotatedBounds: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetStrokeColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetStrokeWidth: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_GetType: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObj_HasTransparency: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_NewImageObj: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPageObj_NewTextObj: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPageObj_RemoveMark: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetBlendMode: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
     result: null,
   },
   FPDFPageObj_SetDashArray: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetDashPhase: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetFillColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetIsActive: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetLineCap: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetLineJoin: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetMatrix: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetStrokeColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_SetStrokeWidth: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObj_Transform: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPageObj_TransformClipPath: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
     result: null,
   },
   FPDFPageObj_TransformF: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_CountParams: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObjMark_GetName: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_GetParamBlobValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_GetParamFloatValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_GetParamIntValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_GetParamKey: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_GetParamStringValue: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_GetParamValueType: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPageObjMark_RemoveParam: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_SetBlobParam: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_SetFloatParam: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_SetIntParam: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPageObjMark_SetStringParam: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPath_BezierTo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPath_Close: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPath_CountSegments: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFPath_GetDrawMode: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPath_GetPathSegment: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFPath_LineTo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPath_MoveTo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPath_SetDrawMode: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPathSegment_GetClose: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPathSegment_GetPoint: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFPathSegment_GetType: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFSignatureObj_GetByteRange: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFSignatureObj_GetContents: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFSignatureObj_GetDocMDPPermission: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFSignatureObj_GetReason: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFSignatureObj_GetSubFilter: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFSignatureObj_GetTime: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'cstring', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
-  FPDFText_ClosePage: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFText_ClosePage: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDFText_CountChars: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_CountRects: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
-  FPDFText_FindClose: { params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }], result: null },
+  FPDFText_FindClose: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   FPDFText_FindNext: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_FindPrev: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_FindStart: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFText_GetBoundedText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetCharAngle: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'f32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'f32', cwrap: 'number' },
+      native: { kind: 'f32', cwrap: 'number' },
+    },
   },
   FPDFText_GetCharBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_GetCharIndexAtPos: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f64', cwrap: 'number' },
+        native: { kind: 'f64', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetCharIndexFromTextIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetCharOrigin: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_GetFillColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_GetFontInfo: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetFontSize: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'f64', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'f64', cwrap: 'number' },
+      native: { kind: 'f64', cwrap: 'number' },
+    },
   },
   FPDFText_GetFontWeight: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetLooseCharBox: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_GetMatrix: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_GetRect: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
-      { ts: 'number', kind: 'f64', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_GetSchCount: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetSchResultIndex: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetStrokeColor: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_GetText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetTextIndexFromCharIndex: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_GetTextObject: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFText_GetUnicode: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_HasUnicodeMapError: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_IsGenerated: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_IsHyphen: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFText_LoadCidType2Font: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFText_LoadFont: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
-      { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'cstring', cwrap: 'number' },
+        native: { kind: 'cstring', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFText_LoadPage: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFText_LoadStandardFont: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'string', kind: 'cstring', cwrap: 'string' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFText_SetCharcodes: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'bigint', kind: 'i64', cwrap: 'bigint' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFText_SetText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFTextObj_GetFont: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFTextObj_GetFontSize: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
   FPDFTextObj_GetRenderedBitmap: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'number', kind: 'f32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
   },
   FPDFTextObj_GetText: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'utf16ptr', cwrap: 'number' },
-      { ts: 'number', kind: 'i32', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'number', kind: 'i32', cwrap: 'number' },
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFTextObj_GetTextRenderMode: {
-    params: [{ ts: 'Ptr', kind: 'pointer', cwrap: 'number' }],
-    result: { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
   },
   FPDFTextObj_SetTextRenderMode: {
     params: [
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
-      { ts: 'Ptr', kind: 'pointer', cwrap: 'number' },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
     ],
-    result: { ts: 'boolean', kind: 'bool', cwrap: 'boolean' },
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
   },
 } as const;

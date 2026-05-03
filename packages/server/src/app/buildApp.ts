@@ -6,6 +6,7 @@ import { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { registerJwtAuth } from './jwt-plugin';
 import { registerDocumentRoutes } from '../routes/documents';
 import { registerMetadataRoutes } from '../routes/metadata';
+import { registerAnnotationRoutes } from '../routes/annotations';
 
 export interface BuildAppOptions {
   jwtSecret: string;
@@ -56,6 +57,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
 
   await registerDocumentRoutes(app, { pool, store });
   await registerMetadataRoutes(app, { pool, store });
+  await registerAnnotationRoutes(app, { pool, store });
 
   app.setErrorHandler((err, req, reply) => {
     if (EngineError.is(err)) {
@@ -93,6 +95,7 @@ function mapToHttp(code: string): number {
   switch (code) {
     case EngineErrorCode.InvalidArg:
     case EngineErrorCode.WireFormat:
+    case EngineErrorCode.InvalidReference:
       return 400;
     case EngineErrorCode.Unauthenticated:
       return 401;
@@ -107,6 +110,8 @@ function mapToHttp(code: string): number {
       return 422;
     case EngineErrorCode.Aborted:
       return 499;
+    case EngineErrorCode.NotImplemented:
+      return 501;
     default:
       return 500;
   }

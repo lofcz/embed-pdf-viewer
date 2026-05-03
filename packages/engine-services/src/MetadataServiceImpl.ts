@@ -53,8 +53,8 @@ export class MetadataServiceImpl {
       keywords,
       producer,
       creator,
-      creationDate: creationRaw ? pdfDateToIso(creationRaw) : null,
-      modificationDate: modRaw ? pdfDateToIso(modRaw) : null,
+      created: creationRaw ? pdfDateToIso(creationRaw) : null,
+      modified: modRaw ? pdfDateToIso(modRaw) : null,
       trapped,
       custom,
     };
