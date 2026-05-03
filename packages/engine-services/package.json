@@ -1,0 +1,56 @@
+{
+  "name": "@embedpdf/engine-services",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Engine v3 service implementations: synchronous, runtime-agnostic logic that runs identically inside the local WASM worker and the @embedpdf/server worker_thread.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "pnpm run clean && vite build",
+    "clean": "rimraf dist",
+    "lint": "eslint src --color",
+    "lint:fix": "eslint src --color --fix"
+  },
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "directory": "packages/engine-services"
+  },
+  "homepage": "https://www.embedpdf.com",
+  "bugs": {
+    "url": "https://github.com/embedpdf/embed-pdf-viewer/issues"
+  },
+  "keywords": [
+    "pdf",
+    "embedpdf",
+    "engine",
+    "engine-services"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@embedpdf/engine-core": "workspace:*",
+    "@embedpdf/pdf-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "@embedpdf/build": "workspace:*",
+    "rimraf": "^5.0.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

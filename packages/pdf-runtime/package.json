@@ -4,7 +4,7 @@
   "private": false,
   "description": "Low-level PDF execution runtime for EmbedPDF, backed by EmbedPDF's fork of PDFium and distributed as WASM and native platform packages.",
   "type": "module",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -58,6 +58,7 @@
   },
   "files": [
     "dist",
+    "LICENSE",
     "README.md"
   ],
   "dependencies": {

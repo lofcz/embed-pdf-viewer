@@ -1,0 +1,66 @@
+{
+  "name": "@embedpdf/server",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hostable EmbedPDF document engine server: Fastify-based HTTP/REST API in front of a Node worker_thread pool running native PDFium via @embedpdf/pdf-runtime. Uses the same engine-services code as the local browser engine.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./bin": {
+      "default": "./dist/bin/embedpdf-server.js"
+    }
+  },
+  "bin": {
+    "embedpdf-server": "./dist/bin/embedpdf-server.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "dev": "tsup --watch",
+    "start": "node dist/bin/embedpdf-server.js",
+    "lint": "eslint src --color",
+    "lint:fix": "eslint src --color --fix"
+  },
+  "files": [
+    "dist",
+    "LICENSE.md",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "directory": "packages/server"
+  },
+  "homepage": "https://www.embedpdf.com",
+  "bugs": {
+    "url": "https://github.com/embedpdf/embed-pdf-viewer/issues"
+  },
+  "keywords": [
+    "pdf",
+    "embedpdf",
+    "server",
+    "self-hosted"
+  ],
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@embedpdf/engine-core": "workspace:*",
+    "@embedpdf/engine-services": "workspace:*",
+    "@embedpdf/pdf-runtime": "workspace:*",
+    "fastify": "^5.0.0",
+    "@fastify/multipart": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "rimraf": "^5.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

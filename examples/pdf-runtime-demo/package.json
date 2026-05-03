@@ -6,10 +6,15 @@
   "scripts": {
     "dev": "vite",
     "node": "tsx src/node.ts",
-    "node:wasm": "PDF_RUNTIME_PREFER=wasm tsx src/node.ts"
+    "node:wasm": "PDF_RUNTIME_PREFER=wasm tsx src/node.ts",
+    "engine:node": "tsx src/engine-node.ts"
   },
   "dependencies": {
-    "@embedpdf/pdf-runtime": "workspace:*"
+    "@embedpdf/engine-cloud": "workspace:*",
+    "@embedpdf/engine-core": "workspace:*",
+    "@embedpdf/engine-local": "workspace:*",
+    "@embedpdf/pdf-runtime": "workspace:*",
+    "@embedpdf/server": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",
