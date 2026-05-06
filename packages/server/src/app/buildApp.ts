@@ -118,6 +118,7 @@ function mapToHttp(code: string): number {
     case EngineErrorCode.DocOpenFailed:
     case EngineErrorCode.DocPasswordRequired:
     case EngineErrorCode.DocPasswordIncorrect:
+    case EngineErrorCode.MalformedPdf:
       return 422;
     case EngineErrorCode.Aborted:
       return 499;

@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import {
   EngineErrorCode,
   EngineError,
+  wirePack,
   wirePaths,
   type WorkerJobId,
-  type WorkerRequest,
 } from '@embedpdf/engine-core';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
@@ -31,11 +31,8 @@ export async function registerMetadataRoutes(
     // forward it so the worker can short-circuit if the client gives up.
     const signal = abortSignalFromRequest(req);
 
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'metadata.read',
-      jobId,
-      docId: id,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'metadata.read' as const, jobId, docId: id });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'metadata.read') {
       reply.code(500);

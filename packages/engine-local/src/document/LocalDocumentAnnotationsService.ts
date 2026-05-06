@@ -2,6 +2,7 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  wirePack,
   type AnnotationListPageSnapshot,
   type AnnotationListSnapshotAllPages,
   type DocumentAnnotationsService,
@@ -36,7 +37,7 @@ export class LocalDocumentAnnotationsService implements DocumentAnnotationsServi
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({ kind: 'annotations.listRawAll', jobId, docId }),
+        buildPack: (jobId: JobId) => wirePack({ kind: 'annotations.listRawAll', jobId, docId }),
       },
       { priority: Priority.MEDIUM },
     );
@@ -61,12 +62,13 @@ export class LocalDocumentAnnotationsService implements DocumentAnnotationsServi
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'annotations.listRawPage',
-          jobId,
-          docId,
-          pageObjectNumber,
-        }),
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.listRawPage',
+            jobId,
+            docId,
+            pageObjectNumber,
+          }),
       },
       { priority: Priority.MEDIUM },
     );

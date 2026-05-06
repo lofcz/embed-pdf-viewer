@@ -2,6 +2,7 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  wirePack,
   type DocumentHandle,
   type Engine,
   type OpenInput,
@@ -57,14 +58,13 @@ export class LocalEngine implements Engine {
 
     const submission = queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'open',
-          jobId,
-          docId,
-          bytes: buffer,
-          password,
-        }),
-        transferables: [buffer],
+        // open() is the one current producer that actually carries a buffer.
+        // The buffer reference appears once in the payload and once in the
+        // transfer manifest — same object, marked for zero-copy move so the
+        // sender's `buffer.byteLength` becomes 0 after the transport hands
+        // it off to the worker.
+        buildPack: (jobId: JobId) =>
+          wirePack({ kind: 'open', jobId, docId, bytes: buffer, password }, [buffer]),
       },
       { priority: Priority.HIGH },
     );

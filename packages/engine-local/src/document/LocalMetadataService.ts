@@ -2,6 +2,7 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  wirePack,
   type DocumentMetadata,
   type MetadataService,
 } from '@embedpdf/engine-core';
@@ -29,7 +30,7 @@ export class LocalMetadataService implements MetadataService {
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({ kind: 'metadata.read', jobId, docId }),
+        buildPack: (jobId: JobId) => wirePack({ kind: 'metadata.read', jobId, docId }),
       },
       { priority: Priority.MEDIUM },
     );

@@ -13,14 +13,19 @@
  */
 import { createPdfRuntime } from '@embedpdf/pdf-runtime';
 import { WorkerHost } from '@embedpdf/engine-services';
-import type { WorkerRequest, WorkerResponse } from './protocol';
+import type { WirePack, WorkerResponse } from '@embedpdf/engine-core';
+import type { WorkerRequest } from './protocol';
 
 declare const self: DedicatedWorkerGlobalScope;
 
 (async () => {
   const runtime = await createPdfRuntime({ prefer: 'wasm' });
-  const host = new WorkerHost(runtime, (msg: WorkerResponse) => {
-    self.postMessage(msg);
+  // The host hands us a `WirePack<WorkerResponse>` — payload plus the
+  // transfer manifest the producing handler declared. We forward both
+  // straight to `postMessage`'s second argument so any declared buffers
+  // move zero-copy back to the main thread.
+  const host = new WorkerHost(runtime, (pack: WirePack<WorkerResponse>) => {
+    self.postMessage(pack.payload, pack.transfer as Transferable[]);
   });
 
   self.onmessage = (event: MessageEvent<WorkerRequest>) => {

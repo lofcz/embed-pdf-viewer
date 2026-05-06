@@ -45,6 +45,8 @@ export {
 } from './wire/schemas';
 export type { OpenDocumentResponse } from './wire/schemas';
 export { wirePaths } from './wire/paths';
+export { wirePack, EMPTY_TRANSFER } from './wire/WirePack';
+export type { WirePack } from './wire/WirePack';
 
 export type {
   WorkerJobId,

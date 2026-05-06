@@ -1,4 +1,4 @@
-import type { WorkerRequest, WorkerResponse } from '../worker/protocol';
+import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core';
 import type { Transport } from './Transport';
 
 interface InitReadyMsg {
@@ -32,12 +32,11 @@ export class BrowserWorkerTransport implements Transport {
     worker.addEventListener('message', this.onMessageBound);
   }
 
-  send(req: WorkerRequest, transferables?: Transferable[]): void {
-    if (transferables && transferables.length > 0) {
-      this.worker.postMessage(req, transferables);
-    } else {
-      this.worker.postMessage(req);
-    }
+  send(pack: WirePack<WorkerRequest>): void {
+    // Empty transfer array is a valid no-op for postMessage, so we don't
+    // need to branch — the producer's WirePack already encodes the
+    // "nothing to transfer" case as `transfer: []`.
+    this.worker.postMessage(pack.payload, pack.transfer as Transferable[]);
   }
 
   onMessage(handler: (msg: WorkerResponse) => void): () => void {

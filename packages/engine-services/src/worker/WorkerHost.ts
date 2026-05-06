@@ -1,8 +1,10 @@
 import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 import {
+  EMPTY_TRANSFER,
   EngineError,
   EngineErrorCode,
   serializeError,
+  wirePack,
   type AnnotationsCreateWorkerRequest,
   type AnnotationsDeleteWorkerRequest,
   type AnnotationsListFullPageWorkerRequest,
@@ -17,6 +19,7 @@ import {
   type PagesMoveWorkerRequest,
   type SerializedEngineError,
   type ShutdownWorkerRequest,
+  type WirePack,
   type WorkerJobId,
   type WorkerRequest,
   type WorkerResponse,
@@ -46,7 +49,15 @@ export class WorkerHost {
 
   constructor(
     private readonly runtime: PdfRuntimeModule,
-    private readonly post: (msg: WorkerResponse) => void,
+    /**
+     * Receives a fully-typed `WirePack<WorkerResponse>` (the envelope
+     * payload plus its transfer manifest). The wrapper (browser
+     * `worker-entry.ts`, Node `worker-entry.ts`, or `InlineTransport`)
+     * is responsible for actually invoking `postMessage(pack.payload,
+     * pack.transfer)` — the host doesn't know which environment it
+     * runs in.
+     */
+    private readonly post: (pack: WirePack<WorkerResponse>) => void,
   ) {
     ensureInitialized(this.runtime);
   }
@@ -60,47 +71,47 @@ export class WorkerHost {
     const ctrl = new AbortController();
     this.aborts.set(msg.jobId, ctrl);
 
-    let result: WorkerResultPayload;
+    let resultPack: WirePack<WorkerResultPayload>;
     try {
       switch (msg.kind) {
         case 'open':
-          result = this.handleOpen(msg, ctrl.signal);
+          resultPack = this.handleOpen(msg, ctrl.signal);
           break;
         case 'metadata.read':
-          result = this.handleMetadataRead(msg, ctrl.signal);
+          resultPack = this.handleMetadataRead(msg, ctrl.signal);
           break;
         case 'annotations.listRawAll':
-          result = this.handleAnnotationsListRawAll(msg, ctrl.signal);
+          resultPack = this.handleAnnotationsListRawAll(msg, ctrl.signal);
           break;
         case 'annotations.listRawPage':
-          result = this.handleAnnotationsListRawPage(msg, ctrl.signal);
+          resultPack = this.handleAnnotationsListRawPage(msg, ctrl.signal);
           break;
         case 'annotations.listFullPage':
-          result = this.handleAnnotationsListFullPage(msg, ctrl.signal);
+          resultPack = this.handleAnnotationsListFullPage(msg, ctrl.signal);
           break;
         case 'annotations.create':
-          result = this.handleAnnotationsCreate(msg, ctrl.signal);
+          resultPack = this.handleAnnotationsCreate(msg, ctrl.signal);
           break;
         case 'annotations.update':
-          result = this.handleAnnotationsUpdate(msg, ctrl.signal);
+          resultPack = this.handleAnnotationsUpdate(msg, ctrl.signal);
           break;
         case 'annotations.delete':
-          result = this.handleAnnotationsDelete(msg, ctrl.signal);
+          resultPack = this.handleAnnotationsDelete(msg, ctrl.signal);
           break;
         case 'annotations.move':
-          result = this.handleAnnotationsMove(msg, ctrl.signal);
+          resultPack = this.handleAnnotationsMove(msg, ctrl.signal);
           break;
         case 'pages.list':
-          result = this.handlePagesList(msg, ctrl.signal);
+          resultPack = this.handlePagesList(msg, ctrl.signal);
           break;
         case 'pages.move':
-          result = this.handlePagesMove(msg, ctrl.signal);
+          resultPack = this.handlePagesMove(msg, ctrl.signal);
           break;
         case 'close':
-          result = this.handleClose(msg);
+          resultPack = this.handleClose(msg);
           break;
         case 'shutdown':
-          result = this.handleShutdown(msg);
+          resultPack = this.handleShutdown(msg);
           break;
         default:
           throw new EngineError(
@@ -108,135 +119,151 @@ export class WorkerHost {
             `unknown request kind: ${(msg as WorkerRequest).kind}`,
           );
       }
-      this.post({ kind: 'resolve', jobId: msg.jobId, result });
+      // Lift the handler's transfer manifest onto the response envelope
+      // unchanged. The handler decided which buffers to move; the host
+      // just relays that decision through the `resolve` envelope.
+      this.post(
+        wirePack(
+          { kind: 'resolve', jobId: msg.jobId, result: resultPack.payload },
+          resultPack.transfer,
+        ),
+      );
     } catch (err) {
       const error: SerializedEngineError = serializeError(err);
-      this.post({ kind: 'reject', jobId: msg.jobId, error });
+      // Reject envelopes never carry binary; explicit EMPTY_TRANSFER
+      // documents that intent.
+      this.post(wirePack({ kind: 'reject', jobId: msg.jobId, error }, EMPTY_TRANSFER));
     } finally {
       this.aborts.delete(msg.jobId);
     }
   }
 
-  private handleOpen(req: OpenWorkerRequest, _signal: AbortSignal): WorkerResultPayload {
+  private handleOpen(req: OpenWorkerRequest, _signal: AbortSignal): WirePack<WorkerResultPayload> {
     if (this.sessions.has(req.docId)) {
       throw new EngineError(EngineErrorCode.InvalidArg, `document already open: ${req.docId}`);
     }
     const session = new DocumentSession(this.runtime);
     session.open(new Uint8Array(req.bytes), req.password);
     this.sessions.set(req.docId, session);
-    return { tag: 'open', docId: req.docId };
+    return wirePack({ tag: 'open', docId: req.docId });
   }
 
   private handleMetadataRead(
     req: MetadataReadWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const metadata = session.metadata().read(signal);
-    return { tag: 'metadata.read', metadata };
+    return wirePack({ tag: 'metadata.read', metadata });
   }
 
   private handleAnnotationsListRawAll(
     req: AnnotationsListRawAllWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const reader = new RawAnnotationReader(this.runtime, session);
     const snapshot = reader.listAll(signal);
-    return { tag: 'annotations.listRawAll', snapshot };
+    return wirePack({ tag: 'annotations.listRawAll', snapshot });
   }
 
   private handleAnnotationsListRawPage(
     req: AnnotationsListRawPageWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const reader = new RawAnnotationReader(this.runtime, session);
     const snapshot = reader.listOne(req.pageObjectNumber, signal);
-    return { tag: 'annotations.listRawPage', snapshot };
+    return wirePack({ tag: 'annotations.listRawPage', snapshot });
   }
 
   private handleAnnotationsListFullPage(
     req: AnnotationsListFullPageWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const reader = new FullAnnotationReader(this.runtime, session);
     const snapshot = reader.list(req.pageObjectNumber, signal);
-    return { tag: 'annotations.listFullPage', snapshot };
+    return wirePack({ tag: 'annotations.listFullPage', snapshot });
   }
 
   private handleAnnotationsCreate(
     req: AnnotationsCreateWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.create(req.pageObjectNumber, req.draft, signal);
-    return { tag: 'annotations.create', result };
+    return wirePack({ tag: 'annotations.create', result });
   }
 
   private handleAnnotationsUpdate(
     req: AnnotationsUpdateWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.update(req.ref, req.patch, signal);
-    return { tag: 'annotations.update', result };
+    return wirePack({ tag: 'annotations.update', result });
   }
 
   private handleAnnotationsDelete(
     req: AnnotationsDeleteWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.delete(req.ref, signal);
-    return { tag: 'annotations.delete', result };
+    return wirePack({ tag: 'annotations.delete', result });
   }
 
   private handleAnnotationsMove(
     req: AnnotationsMoveWorkerRequest,
     signal: AbortSignal,
-  ): WorkerResultPayload {
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumber, req.refs, req.toIndex, signal);
-    return { tag: 'annotations.move', result };
+    return wirePack({ tag: 'annotations.move', result });
   }
 
-  private handlePagesList(req: PagesListWorkerRequest, signal: AbortSignal): WorkerResultPayload {
+  private handlePagesList(
+    req: PagesListWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const mutator = new DocumentPagesMutator(this.runtime, session);
     const snapshot = mutator.list(signal);
-    return { tag: 'pages.list', snapshot };
+    return wirePack({ tag: 'pages.list', snapshot });
   }
 
-  private handlePagesMove(req: PagesMoveWorkerRequest, signal: AbortSignal): WorkerResultPayload {
+  private handlePagesMove(
+    req: PagesMoveWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req.docId);
     const mutator = new DocumentPagesMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumbers, req.destIndex, signal);
-    return { tag: 'pages.move', result };
+    return wirePack({ tag: 'pages.move', result });
   }
 
-  private handleClose(req: CloseWorkerRequest): WorkerResultPayload {
+  private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {
     const session = this.sessions.get(req.docId);
     if (session) {
       session.close();
       this.sessions.delete(req.docId);
     }
-    return { tag: 'close' };
+    return wirePack({ tag: 'close' });
   }
 
-  private handleShutdown(_req: ShutdownWorkerRequest): WorkerResultPayload {
+  private handleShutdown(_req: ShutdownWorkerRequest): WirePack<WorkerResultPayload> {
     if (!this.destroyed) {
       this.destroyed = true;
       for (const session of this.sessions.values()) session.close();
       this.sessions.clear();
       destroyLibrary(this.runtime);
     }
-    return { tag: 'shutdown' };
+    return wirePack({ tag: 'shutdown' });
   }
 
   private requireSession(docId: string): DocumentSession {

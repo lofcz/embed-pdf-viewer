@@ -3,10 +3,10 @@ import {
   EngineError,
   EngineErrorCode,
   PageMoveInputSchema,
+  wirePack,
   wirePaths,
   type PageMoveInput,
   type WorkerJobId,
-  type WorkerRequest,
 } from '@embedpdf/engine-core';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
@@ -47,11 +47,8 @@ export async function registerPagesRoutes(
     store.requireOwned(id, tenantId);
     const signal = abortSignalFromRequest(req);
 
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'pages.list',
-      jobId,
-      docId: id,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'pages.list' as const, jobId, docId: id });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'pages.list') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -70,13 +67,14 @@ export async function registerPagesRoutes(
       req.body,
       'request body',
     );
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'pages.move',
-      jobId,
-      docId: id,
-      pageObjectNumbers: input.pageObjectNumbers,
-      destIndex: input.destIndex,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'pages.move' as const,
+        jobId,
+        docId: id,
+        pageObjectNumbers: input.pageObjectNumbers,
+        destIndex: input.destIndex,
+      });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'pages.move') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);

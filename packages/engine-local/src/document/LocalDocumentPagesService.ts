@@ -2,6 +2,7 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  wirePack,
   type DocumentPagesService,
   type PageListSnapshot,
   type PageMoveResult,
@@ -39,7 +40,7 @@ export class LocalDocumentPagesService implements DocumentPagesService {
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({ kind: 'pages.list', jobId, docId }),
+        buildPack: (jobId: JobId) => wirePack({ kind: 'pages.list', jobId, docId }),
       },
       { priority: Priority.MEDIUM },
     );
@@ -64,13 +65,14 @@ export class LocalDocumentPagesService implements DocumentPagesService {
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'pages.move',
-          jobId,
-          docId,
-          pageObjectNumbers,
-          destIndex,
-        }),
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'pages.move',
+            jobId,
+            docId,
+            pageObjectNumbers,
+            destIndex,
+          }),
       },
       { priority: Priority.HIGH },
     );

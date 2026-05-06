@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { wirePaths } from '@embedpdf/engine-core';
+import { wirePaths, wirePack } from '@embedpdf/engine-core';
 import type { WorkerJobId } from '@embedpdf/engine-core';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
@@ -29,7 +29,20 @@ export async function registerDocumentRoutes(
     const docId =
       idField || `doc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
-    const result = await pool.open(docId, new Uint8Array(buf), password);
+    // Slice off a freestanding ArrayBuffer that owns just our PDF bytes.
+    // The slice gives us a buffer we can declare as transferable without
+    // worrying about Fastify/multipart still holding a view on the
+    // underlying pool memory; once we hand it to `wirePack(..., [buffer])`
+    // and then to the worker, that buffer is detached on the server side.
+    const buffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+
+    // The route is the only layer that holds the original Buffer, so it's
+    // the right place to declare the transfer. `wirePack(req, [buffer])`
+    // is the producer-local statement: "this message moves this buffer".
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'open' as const, jobId, docId, bytes: buffer, password }, [buffer]);
+
+    const result = await pool.runOpen(docId, build);
     if (result.tag !== 'open') {
       reply.code(500);
       return { error: 'unexpected response from worker' };

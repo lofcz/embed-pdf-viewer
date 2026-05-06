@@ -31,6 +31,22 @@ export const EngineErrorCode = {
    * gracefully.
    */
   NotImplemented: 'NotImplemented',
+  /**
+   * The PDF was loadable enough for PDFium to parse, but violates a
+   * structural invariant the engine relies on. Surfaced for the rare
+   * spec-violating PDF that ships a direct (non-indirect) page
+   * dictionary in the /Pages tree — see `EPDFPage_GetObjectNumber`
+   * returning `0`. PDFium creation paths (`FPDFPage_New`,
+   * `EPDFPage_CreateAnnot`) always produce indirect objects, so this
+   * error code is intentionally not used for engine-produced state;
+   * it specifically signals "this input file is broken in a way we
+   * cannot work around without compromising stable identity".
+   *
+   * Distinct from `DocOpenFailed` (PDFium refused to load the bytes
+   * at all) and `NotFound` (a well-formed page/annotation/etc. simply
+   * doesn't exist).
+   */
+  MalformedPdf: 'MalformedPdf',
 } as const;
 
 export type EngineErrorCode = (typeof EngineErrorCode)[keyof typeof EngineErrorCode];

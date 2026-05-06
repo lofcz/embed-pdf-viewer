@@ -5,6 +5,8 @@ import {
   EngineError,
   EngineErrorCode,
   deserializeError,
+  wirePack,
+  type WirePack,
   type WorkerJobId,
   type WorkerRequest,
   type WorkerResponse,
@@ -15,8 +17,6 @@ let _nextJobId = 1;
 function nextJobId(): WorkerJobId {
   return _nextJobId++;
 }
-
-const EMPTY_TRANSFER: readonly ArrayBuffer[] = Object.freeze([]);
 
 interface WorkerSlot {
   index: number;
@@ -106,11 +106,19 @@ export class WorkerThreadPool {
     return pool;
   }
 
-  /** Open a new document on the least-loaded worker. */
-  async open(
+  /**
+   * Open a new document on the least-loaded worker.
+   *
+   * The route is responsible for producing the `WirePack<OpenWorkerRequest>`
+   * — typically `wirePack(openReq, [bytes.buffer])` — because the route
+   * is the layer that already holds the `Buffer`/`Uint8Array` and knows
+   * which `ArrayBuffer` slice should move zero-copy to the worker. The
+   * pool no longer copies/slices the bytes; it just binds the docId to
+   * a worker slot and dispatches the pre-packed request.
+   */
+  async runOpen(
     docId: string,
-    bytes: Uint8Array,
-    password: string | null,
+    build: (jobId: WorkerJobId) => WirePack<WorkerRequest>,
     signal?: AbortSignal,
   ): Promise<WorkerResultPayload> {
     if (this.destroyed) throw new EngineError(EngineErrorCode.RuntimeUnavailable, 'pool destroyed');
@@ -120,18 +128,8 @@ export class WorkerThreadPool {
     const slot = this.pickLeastLoaded();
     slot.docIds.add(docId);
     this.docToSlot.set(docId, slot.index);
-
-    const buffer = bytes.buffer.slice(
-      bytes.byteOffset,
-      bytes.byteOffset + bytes.byteLength,
-    ) as ArrayBuffer;
     try {
-      return await this.dispatchToSlot(
-        slot,
-        (jobId): WorkerRequest => ({ kind: 'open', jobId, docId, bytes: buffer, password }),
-        [buffer] as readonly ArrayBuffer[],
-        signal,
-      );
+      return await this.dispatchToSlot(slot, build, signal);
     } catch (err) {
       slot.docIds.delete(docId);
       this.docToSlot.delete(docId);
@@ -142,7 +140,7 @@ export class WorkerThreadPool {
   /** Run a sticky call against the worker that owns the docId. */
   async run(
     docId: string,
-    build: (jobId: WorkerJobId) => WorkerRequest,
+    build: (jobId: WorkerJobId) => WirePack<WorkerRequest>,
     signal?: AbortSignal,
   ): Promise<WorkerResultPayload> {
     if (this.destroyed) throw new EngineError(EngineErrorCode.RuntimeUnavailable, 'pool destroyed');
@@ -151,7 +149,7 @@ export class WorkerThreadPool {
       throw new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${docId}`);
     }
     const slot = this.slots[idx]!;
-    return this.dispatchToSlot(slot, build, EMPTY_TRANSFER, signal);
+    return this.dispatchToSlot(slot, build, signal);
   }
 
   /** Close the document and release the sticky binding. */
@@ -163,8 +161,8 @@ export class WorkerThreadPool {
     try {
       const r = await this.dispatchToSlot(
         slot,
-        (jobId): WorkerRequest => ({ kind: 'close', jobId, docId }),
-        EMPTY_TRANSFER,
+        // close carries no buffers — pack with the shared empty transfer.
+        (jobId) => wirePack({ kind: 'close', jobId, docId }),
         signal,
       );
       return r;
@@ -216,12 +214,11 @@ export class WorkerThreadPool {
 
   private dispatchToSlot(
     slot: WorkerSlot,
-    build: (jobId: WorkerJobId) => WorkerRequest,
-    transferList: readonly ArrayBuffer[],
+    build: (jobId: WorkerJobId) => WirePack<WorkerRequest>,
     signal?: AbortSignal,
   ): Promise<WorkerResultPayload> {
     const jobId = nextJobId();
-    const req = build(jobId);
+    const pack = build(jobId);
     return new Promise<WorkerResultPayload>((resolve, reject) => {
       const handler = { resolve, reject, aborted: false, abortReason: undefined as unknown };
       slot.inFlight.set(jobId, handler);
@@ -244,9 +241,12 @@ export class WorkerThreadPool {
       }
 
       try {
-        // node:worker_threads accepts an array of Transferable-like values
-        // (ArrayBuffer, MessagePort) as the second argument.
-        slot.worker.postMessage(req, transferList as ArrayBuffer[]);
+        // `pack.transfer` is the producer's authoritative manifest. We
+        // narrow to `readonly ArrayBuffer[]` at the boundary because
+        // Node's `worker_threads.postMessage` typing accepts a transfer
+        // list of `ArrayBuffer | MessagePort`, and ArrayBuffer is the
+        // only kind we currently move across this seam.
+        slot.worker.postMessage(pack.payload, pack.transfer as readonly ArrayBuffer[]);
       } catch (err) {
         slot.inFlight.delete(jobId);
         reject(err);

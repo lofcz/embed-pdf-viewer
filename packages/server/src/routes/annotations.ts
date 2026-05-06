@@ -6,12 +6,12 @@ import {
   EngineError,
   EngineErrorCode,
   decodeStableIdKey,
+  wirePack,
   wirePaths,
   type AnnotationDraft,
   type AnnotationPatch,
   type AnnotationRef,
   type WorkerJobId,
-  type WorkerRequest,
 } from '@embedpdf/engine-core';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
@@ -53,11 +53,8 @@ export async function registerAnnotationRoutes(
     store.requireOwned(id, tenantId);
     const signal = abortSignalFromRequest(req);
 
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'annotations.listRawAll',
-      jobId,
-      docId: id,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'annotations.listRawAll' as const, jobId, docId: id });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.listRawAll') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -72,12 +69,13 @@ export async function registerAnnotationRoutes(
     store.requireOwned(id, tenantId);
     const signal = abortSignalFromRequest(req);
 
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'annotations.listRawPage',
-      jobId,
-      docId: id,
-      pageObjectNumber,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.listRawPage' as const,
+        jobId,
+        docId: id,
+        pageObjectNumber,
+      });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.listRawPage') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -92,12 +90,13 @@ export async function registerAnnotationRoutes(
     store.requireOwned(id, tenantId);
     const signal = abortSignalFromRequest(req);
 
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'annotations.listFullPage',
-      jobId,
-      docId: id,
-      pageObjectNumber,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.listFullPage' as const,
+        jobId,
+        docId: id,
+        pageObjectNumber,
+      });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.listFullPage') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -117,13 +116,14 @@ export async function registerAnnotationRoutes(
       req.body,
       'request body',
     );
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'annotations.create',
-      jobId,
-      docId: id,
-      pageObjectNumber,
-      draft,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.create' as const,
+        jobId,
+        docId: id,
+        pageObjectNumber,
+        draft,
+      });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.create') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -166,14 +166,15 @@ export async function registerAnnotationRoutes(
       return r;
     });
 
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'annotations.move',
-      jobId,
-      docId: id,
-      pageObjectNumber,
-      refs,
-      toIndex: rawToIndex,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.move' as const,
+        jobId,
+        docId: id,
+        pageObjectNumber,
+        refs,
+        toIndex: rawToIndex,
+      });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.move') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -208,12 +209,8 @@ export async function registerAnnotationRoutes(
         );
       }
       if (body && body.op === 'delete') {
-        const build = (jobId: WorkerJobId): WorkerRequest => ({
-          kind: 'annotations.delete',
-          jobId,
-          docId: id,
-          ref,
-        });
+        const build = (jobId: WorkerJobId) =>
+          wirePack({ kind: 'annotations.delete' as const, jobId, docId: id, ref });
         const result = await pool.run(id, build, signal);
         if (result.tag !== 'annotations.delete') {
           throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -225,13 +222,8 @@ export async function registerAnnotationRoutes(
         body?.patch,
         'body.patch',
       );
-      const build = (jobId: WorkerJobId): WorkerRequest => ({
-        kind: 'annotations.update',
-        jobId,
-        docId: id,
-        ref,
-        patch,
-      });
+      const build = (jobId: WorkerJobId) =>
+        wirePack({ kind: 'annotations.update' as const, jobId, docId: id, ref, patch });
       const result = await pool.run(id, build, signal);
       if (result.tag !== 'annotations.update') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -247,13 +239,8 @@ export async function registerAnnotationRoutes(
       body?.patch,
       'body.patch',
     );
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'annotations.update',
-      jobId,
-      docId: id,
-      ref,
-      patch,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'annotations.update' as const, jobId, docId: id, ref, patch });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.update') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
@@ -279,12 +266,8 @@ export async function registerAnnotationRoutes(
       );
     }
     const ref = refFromKey(annotKey, pageObjectNumber);
-    const build = (jobId: WorkerJobId): WorkerRequest => ({
-      kind: 'annotations.delete',
-      jobId,
-      docId: id,
-      ref,
-    });
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'annotations.delete' as const, jobId, docId: id, ref });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.delete') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);

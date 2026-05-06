@@ -1,6 +1,6 @@
 import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 import { WorkerHost } from '@embedpdf/engine-services';
-import type { WorkerRequest, WorkerResponse } from '../worker/protocol';
+import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core';
 import type { Transport } from './Transport';
 
 /**
@@ -19,14 +19,20 @@ export class InlineTransport implements Transport {
   private destroyed = false;
 
   constructor(runtime: PdfRuntimeModule) {
-    this.host = new WorkerHost(runtime, (msg) => this.deliver(msg));
+    // Inline transport has no thread boundary, so the response pack's
+    // `transfer` array is meaningless — we just forward the payload. The
+    // host still produces a WirePack for API parity with the worker entries.
+    this.host = new WorkerHost(runtime, (pack) => this.deliver(pack.payload));
   }
 
-  send(req: WorkerRequest, _transferables?: Transferable[]): void {
+  send(pack: WirePack<WorkerRequest>): void {
+    // No thread boundary => `pack.transfer` is a no-op here. We accept a
+    // WirePack for API parity with BrowserWorkerTransport so callers don't
+    // have to branch on transport type.
     if (this.destroyed) return;
     queueMicrotask(() => {
       if (this.destroyed) return;
-      this.host.receive(req);
+      this.host.receive(pack.payload);
     });
   }
 

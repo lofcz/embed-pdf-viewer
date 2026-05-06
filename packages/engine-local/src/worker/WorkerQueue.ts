@@ -4,17 +4,13 @@ import {
   EngineError,
   EngineErrorCode,
   deserializeError,
+  wirePack,
+  type WirePack,
 } from '@embedpdf/engine-core';
 import type { Transport } from '../transport/Transport';
 import { IndexedPriorityHeap, type HeapHandle } from './IndexedPriorityHeap';
 import { Priority } from './Priority';
-import type {
-  AbortRequest,
-  JobId,
-  WorkerRequest,
-  WorkerResponse,
-  WorkerResultPayload,
-} from './protocol';
+import type { JobId, WorkerRequest, WorkerResponse, WorkerResultPayload } from './protocol';
 
 let _nextJobId = 1;
 function nextJobId(): JobId {
@@ -24,8 +20,14 @@ function nextJobId(): JobId {
 interface PendingJob {
   jobId: JobId;
   priority: number;
-  buildRequest: (jobId: JobId) => WorkerRequest;
-  transferables?: Transferable[];
+  /**
+   * The producer's typed message + transfer manifest. Returning a
+   * `WirePack<WorkerRequest>` here (instead of a bare request plus a
+   * separate transferables array) means the producer declares both
+   * halves in one return statement; the queue and transport never have
+   * to guess which buffers should move zero-copy.
+   */
+  buildPack: (jobId: JobId) => WirePack<WorkerRequest>;
   resolve: (payload: WorkerResultPayload) => void;
   reject: (err: unknown) => void;
   handle: HeapHandle;
@@ -52,8 +54,13 @@ export interface EnqueueOptions {
 }
 
 export interface JobSpec {
-  buildRequest: (jobId: JobId) => WorkerRequest;
-  transferables?: Transferable[];
+  /**
+   * Producer-supplied factory: given a freshly allocated `jobId`, return
+   * the typed request plus its transfer manifest. For non-binary kinds
+   * use `wirePack(req)`; for kinds that move buffers use
+   * `wirePack(req, [buffer])`.
+   */
+  buildPack: (jobId: JobId) => WirePack<WorkerRequest>;
 }
 
 /**
@@ -99,8 +106,7 @@ export class WorkerQueue {
       this.pending.set(jobId, {
         jobId,
         priority,
-        buildRequest: spec.buildRequest,
-        transferables: spec.transferables,
+        buildPack: spec.buildPack,
         handle,
         resolve: (payload) => resolve(payload as R),
         reject,
@@ -118,8 +124,8 @@ export class WorkerQueue {
         if (inFlight) {
           inFlight.aborted = true;
           inFlight.abortReason = signal.reason;
-          const abortReq: AbortRequest = { kind: 'abort', jobId };
-          this.transport.send(abortReq);
+          // Abort messages never carry buffers — pack with EMPTY_TRANSFER.
+          this.transport.send(wirePack({ kind: 'abort', jobId }));
         }
       };
 
@@ -142,7 +148,7 @@ export class WorkerQueue {
       if (!pending) continue; // tombstoned by abort
       this.pending.delete(jobId);
 
-      const req = pending.buildRequest(jobId);
+      const pack = pending.buildPack(jobId);
       this.inFlight.set(jobId, {
         jobId,
         resolve: pending.resolve,
@@ -150,7 +156,7 @@ export class WorkerQueue {
         aborted: false,
         abortReason: undefined,
       });
-      this.transport.send(req, pending.transferables);
+      this.transport.send(pack);
     }
   }
 
@@ -196,7 +202,8 @@ export class WorkerQueue {
             resolveSettle();
           }
         });
-        this.transport.send({ kind: 'shutdown', jobId: id });
+        // Shutdown carries no buffers.
+        this.transport.send(wirePack({ kind: 'shutdown', jobId: id }));
       });
       await Promise.race([settle, new Promise<void>((r) => setTimeout(r, 50))]);
     } catch {

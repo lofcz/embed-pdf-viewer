@@ -10,7 +10,7 @@
 import { parentPort } from 'node:worker_threads';
 import { createPdfRuntime } from '@embedpdf/pdf-runtime';
 import { WorkerHost } from '@embedpdf/engine-services';
-import type { WorkerRequest, WorkerResponse } from '@embedpdf/engine-core';
+import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core';
 
 if (!parentPort) {
   throw new Error('worker-entry must be loaded as a worker_thread');
@@ -20,7 +20,16 @@ const port = parentPort;
 
 (async () => {
   const runtime = await createPdfRuntime({ prefer: 'native' });
-  const host = new WorkerHost(runtime, (msg: WorkerResponse) => port.postMessage(msg));
+  // Node's `worker_threads` accepts a `transferList` second argument
+  // (typed as `readonly TransferListItem[]`, which is structurally
+  // `ArrayBuffer | MessagePort | …`). The host's transfer manifest is
+  // typed against the broader DOM `Transferable` union, but the only
+  // actual values flowing through today are `ArrayBuffer`s; we cast at
+  // the boundary rather than cross-typing the whole engine-core surface
+  // to a Node-specific list.
+  const host = new WorkerHost(runtime, (pack: WirePack<WorkerResponse>) => {
+    port.postMessage(pack.payload, pack.transfer as readonly ArrayBuffer[]);
+  });
 
   port.on('message', (msg: WorkerRequest) => {
     host.receive(msg);

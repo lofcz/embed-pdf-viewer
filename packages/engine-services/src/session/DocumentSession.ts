@@ -94,9 +94,17 @@ export class DocumentSession {
       try {
         const pon = fn.EPDFPage_GetObjectNumber(pagePtr);
         if (!isValidPageObjectNumber(pon)) {
+          // Spec violation: ISO 32000-1 §7.7.3.3 requires every
+          // /Page to be referenced indirectly from the /Pages tree.
+          // PDFium's loader is permissive enough to surface direct
+          // page dicts from broken generators, but the engine's
+          // identity model requires a real indirect object number,
+          // so we refuse the document here with a clear, actionable
+          // error rather than silently routing through a weak
+          // identity path.
           throw new EngineError(
-            EngineErrorCode.NotFound,
-            `page at index ${i} has no valid PDF object number`,
+            EngineErrorCode.MalformedPdf,
+            `page at index ${i} is a direct (non-indirect) PDF object; the engine requires every page to have a stable indirect object number`,
             { details: { pageIndex: i, pon } },
           );
         }

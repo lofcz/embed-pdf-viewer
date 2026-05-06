@@ -1,5 +1,6 @@
 import {
   AbortablePromise,
+  wirePack,
   type DocumentAnnotationsService,
   type DocumentHandle,
   type DocumentPagesService,
@@ -55,7 +56,7 @@ export class LocalDocumentHandle implements DocumentHandle {
     const docId = this.id;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({ kind: 'close', jobId, docId }),
+        buildPack: (jobId: JobId) => wirePack({ kind: 'close', jobId, docId }),
       },
       { priority: Priority.HIGH },
     );

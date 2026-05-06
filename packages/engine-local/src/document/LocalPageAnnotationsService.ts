@@ -2,6 +2,7 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  wirePack,
   type AnnotationDraft,
   type AnnotationListPageSnapshot,
   type AnnotationPatch,
@@ -46,12 +47,13 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     const pon = this.pageObjectNumber;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'annotations.listFullPage',
-          jobId,
-          docId,
-          pageObjectNumber: pon,
-        }),
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.listFullPage',
+            jobId,
+            docId,
+            pageObjectNumber: pon,
+          }),
       },
       { priority: Priority.MEDIUM },
     );
@@ -77,13 +79,14 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     const pon = this.pageObjectNumber;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'annotations.create',
-          jobId,
-          docId,
-          pageObjectNumber: pon,
-          draft,
-        }),
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.create',
+            jobId,
+            docId,
+            pageObjectNumber: pon,
+            draft,
+          }),
       },
       { priority: Priority.HIGH },
     );
@@ -108,13 +111,14 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'annotations.update',
-          jobId,
-          docId,
-          ref,
-          patch,
-        }),
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.update',
+            jobId,
+            docId,
+            ref,
+            patch,
+          }),
       },
       { priority: Priority.HIGH },
     );
@@ -139,12 +143,13 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'annotations.delete',
-          jobId,
-          docId,
-          ref,
-        }),
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.delete',
+            jobId,
+            docId,
+            ref,
+          }),
       },
       { priority: Priority.HIGH },
     );
@@ -170,14 +175,15 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     const pon = this.pageObjectNumber;
     const submission = this.queue.enqueue<WorkerResultPayload>(
       {
-        buildRequest: (jobId: JobId) => ({
-          kind: 'annotations.move',
-          jobId,
-          docId,
-          pageObjectNumber: pon,
-          refs,
-          toIndex,
-        }),
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.move',
+            jobId,
+            docId,
+            pageObjectNumber: pon,
+            refs,
+            toIndex,
+          }),
       },
       { priority: Priority.HIGH },
     );
