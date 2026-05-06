@@ -5,12 +5,28 @@ import type {
 } from '@embedpdf/engine-core';
 
 /**
- * The kind of mutation that just happened on a page. `update` is
- * non-structural by definition: indices and the annotation array on the
- * page are unchanged, so weak (`kind: 'index'`) refs the client may be
- * holding stay valid. `create`, `delete`, and `move` are all structural
- * — they alter the page's /Annots index space and so invalidate any weak
- * `kind: 'index'` references the client may be holding.
+ * The kind of mutation that just happened on a page.
+ *
+ * Index-space behaviour drives whether weak (`kind: 'index'`) refs
+ * the client may be holding stay valid:
+ *
+ *   - `update` does not touch the /Annots array at all.
+ *   - `create` is append-only — the new annotation lands at
+ *     `index = previousCount`, so no existing index ever shifts.
+ *     The array grows, but every pre-existing weak ref still points
+ *     at the same physical annotation.
+ *   - `delete` removes an entry and shifts every later index down by
+ *     one. Pre-existing weak refs at or after the removed index are
+ *     now off-by-one and stale.
+ *   - `move` detaches a contiguous block and re-inserts it, rewriting
+ *     indices on both ends of the gap. Existing weak refs across that
+ *     range are stale.
+ *
+ * So the doctrine for `MutationKind` is: only `delete` and `move`
+ * actually invalidate weak refs. `update` and `create` leave them
+ * alone. (A future explicit-position `createAt(index)` API would
+ * shift indices >= toIndex and would join the structural cohort —
+ * see `MutationKind` extension note in `compute()` below.)
  */
 export type MutationKind = 'create' | 'update' | 'delete' | 'move';
 
@@ -19,10 +35,10 @@ export type MutationKind = 'create' | 'update' | 'delete' | 'move';
  *
  *   `pageStateBefore` is captured BEFORE the mutation. Its
  *   `hasAnyWeakAnnotations` flag drives the locked rule:
- *     structural mutation × any weak annotation on the page  ⇒  refetch.
+ *     index-shifting mutation × any weak annotation on the page  ⇒  refetch.
  *
  *   `pageStateAfter` is captured AFTER the mutation. It carries the
- *   bumped revision token (for structural ops) and the recomputed
+ *   bumped revision token (for index-shifting ops) and the recomputed
  *   `hasAnyWeakAnnotations` flag (for any op that might have changed
  *   it, e.g. opportunistic /NM stamping during update).
  *
@@ -40,28 +56,45 @@ export interface ImpactInputs {
  * Static helper: turn a mutation outcome into the side-effect envelope
  * every result type carries on its `meta` field.
  *
- * The rules — locked with the user, do not change without re-reading the
- * doc comment on `AnnotationListMutationMeta`:
+ * The rules — locked with the user, do not change without re-reading
+ * the doc comment on `AnnotationListMutationMeta` and the
+ * `MutationKind` definition above:
  *
- *   1. `update` is never structural. Indices on the page do not move,
- *      so weak refs the client may be holding stay valid. Opportunistic
- *      /NM stamping during an update is also non-structural — it does
- *      not change the annotation's position, only its identity quality.
- *      `weakRefsInvalidated = false`, `shouldRefetch = null`.
+ *   1. `update` and `create` are non-invalidating.
  *
- *   2. `create`, `delete`, and `move` are structural. They DO move indices:
- *        - `create` appends a new annotation, growing the array.
+ *      - `update` doesn't touch the /Annots array; indices on the page
+ *        do not move, so weak refs the client may be holding stay
+ *        valid. Opportunistic /NM stamping during an update is also
+ *        non-structural — it changes the annotation's identity quality
+ *        but not its position.
+ *
+ *      - `create` is append-only. The new annotation goes at
+ *        `index = previousCount`, so no existing index shifts and no
+ *        pre-existing weak ref ever becomes stale. We treat `create`
+ *        the same as `update` for impact purposes: no revision bump,
+ *        `weakRefsInvalidated = false`, `shouldRefetch = null`.
+ *
+ *        The "revisions exist solely for weak-ref authentication"
+ *        doctrine (see `pages.move()`'s identical reasoning) means we
+ *        deliberately do NOT bump on `create` — bumping a revision
+ *        that nobody's weak ref depends on would erode the invariant
+ *        and turn revisions into a generic "something changed" signal.
+ *
+ *   2. `delete` and `move` ARE index-shifting. They genuinely move
+ *      pre-existing indices:
  *        - `delete` removes an annotation, shifting every later index
  *          down by one.
  *        - `move` detaches a contiguous block and re-inserts it
  *          elsewhere, rewriting indices on both ends of the gap.
- *      But that only matters if the page actually had any weak refs
- *      *before* the mutation — if every annotation already had a durable
- *      identity, no client could possibly be holding a stale index, and
- *      we keep `shouldRefetch = null`. (`move` opportunistically stamps
- *      /NM on weak refs in the batch BEFORE the move, so the
- *      annotations actually being moved end up durable on the way out;
- *      but other weak annotations on the page still need a refetch.)
+ *      They invalidate weak refs iff the page actually had any weak
+ *      refs *before* the mutation — if every annotation already had a
+ *      durable identity, no client could possibly be holding a stale
+ *      index, and we keep `shouldRefetch = null`.
+ *
+ *      (`move` opportunistically stamps /NM on weak refs in the batch
+ *      BEFORE the move, so the annotations actually being moved end up
+ *      durable on the way out; but other weak annotations on the page
+ *      still need a refetch.)
  *
  *   3. When rule (2) fires, the reason is always `'weakRefsInvalidated'`.
  *      `'pageRebuilt'` and `'externalChange'` are reserved for higher-
@@ -69,12 +102,17 @@ export interface ImpactInputs {
  *      that rebuilds /Annots, watch-based refresh). Page **reorder**
  *      explicitly does NOT bump per-page revisions and does NOT emit
  *      `pageRebuilt` — see `DocumentPagesMutator`.
+ *
+ *   Future note: when an explicit-position `createAt(index)` API
+ *   ships, add `'createAt'` to `MutationKind` and slot it into rule
+ *   (2) — it shifts every index >= toIndex and is structural in the
+ *   same way `delete` and `move` are.
  */
 export class ImpactComputer {
   static compute(inputs: ImpactInputs): AnnotationListMutationMeta {
     const { mutation, pageStateBefore, pageStateAfter, changed } = inputs;
 
-    if (mutation === 'update') {
+    if (mutation === 'update' || mutation === 'create') {
       return {
         pageState: pageStateAfter,
         changed,
@@ -83,7 +121,7 @@ export class ImpactComputer {
       };
     }
 
-    // create / delete / move: structural.
+    // delete / move: index-shifting.
     const hadWeakBefore = pageStateBefore.hasAnyWeakAnnotations;
     return {
       pageState: pageStateAfter,

@@ -73,8 +73,14 @@ export class DocumentAnnotationMutator {
 
     const pool = this.session.pagePool();
     const pagePtr = pool.acquire(pageObjectNumber);
-    let bumpRequested = false;
     try {
+      // `create` is append-only: PDFium drops the new annotation at
+      // `index = previousCount`, so no existing index ever shifts. Per
+      // the locked rule in `ImpactComputer`, that means create is
+      // non-invalidating — no per-page revision bump, no weak-ref
+      // staleness signal. The DTO is read against the page's current
+      // revision (which both pre-existing and freshly-created
+      // annotations share, since nothing bumped it).
       const pageStateBefore = this.session.pageState(pageObjectNumber);
       throwIfAborted(signal);
 
@@ -85,10 +91,6 @@ export class DocumentAnnotationMutator {
           `EPDFPage_CreateAnnot returned NULL for subtype '${draft.subtype}'`,
         );
       }
-      // Past this point the page now contains a new annotation. Even if a
-      // later step (write/readback) throws, the structural change has
-      // happened — make sure the revision gets bumped in `finally`.
-      bumpRequested = true;
 
       let dto;
       let newObjNum: number;
@@ -113,11 +115,14 @@ export class DocumentAnnotationMutator {
           );
         }
 
-        // Bump revision now (structural). Read the DTO with the bumped
-        // revision so the result is internally consistent.
-        const bumpedRev = this.session.bumpRevision(pageObjectNumber);
-        bumpRequested = false; // consumed
-        dto = readAnnotationFromPtr(fn, mem, annotPtr, pageObjectNumber, newIndex, bumpedRev);
+        dto = readAnnotationFromPtr(
+          fn,
+          mem,
+          annotPtr,
+          pageObjectNumber,
+          newIndex,
+          pageStateBefore.revision,
+        );
       } finally {
         fn.FPDFPage_CloseAnnot(annotPtr);
       }
@@ -132,9 +137,6 @@ export class DocumentAnnotationMutator {
 
       return { created: dto, meta };
     } finally {
-      // Make sure a partial-success structural mutation still bumps the
-      // revision so the next read sees a fresh generation.
-      if (bumpRequested) this.session.bumpRevision(pageObjectNumber);
       pool.release(pageObjectNumber);
     }
   }

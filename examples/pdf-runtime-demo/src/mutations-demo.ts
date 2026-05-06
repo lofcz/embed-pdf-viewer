@@ -52,12 +52,18 @@ export async function runMutationsDemo(
     const page = doc.page(pageObjectNumber);
     const before = await page.annotations.list();
 
-    // 1) Update a weak annotation FIRST. Update is non-structural so
-    //    it leaves the revision generation alone, which means subsequent
-    //    index refs are still valid. Doing create first would bump the
-    //    revision and invalidate `weak.ref`. This exercises the
-    //    opportunistic UUID v4 /NM stamp; the resulting ref will be
-    //    `kind: 'nm'`.
+    // 1) Update a weak annotation FIRST. Update is non-invalidating
+    //    (no revision bump, no index shift), so any index refs we
+    //    captured stay valid for the rest of the demo. We exercise
+    //    update first specifically to demonstrate the opportunistic
+    //    UUID v4 /NM stamp on a weak annotation; the resulting ref
+    //    will be upgraded to `kind: 'nm'`.
+    //
+    //    (Note: `create` is also non-invalidating now — append-only,
+    //    no revision bump — so the historical concern about "create
+    //    invalidates `weak.ref`" no longer applies. We still keep the
+    //    update-first ordering for narrative clarity in the demo
+    //    output.)
     const weak = before.annotations.find((a) => a.identityQuality === 'weak');
     let updated: AnnotationUpdateResult | null = null;
     if (
@@ -93,8 +99,8 @@ export async function runMutationsDemo(
     });
 
     // 3) Single-annotation move: move B to position 0. This exercises
-    //    `move([ref], toIndex)` as the single-as-batch case. One
-    //    revision bump, just like a multi-move.
+    //    `move([ref], toIndex)` as the single-as-batch case. Move is
+    //    index-shifting, so this DOES bump the per-page revision.
     const movedSingle = await page.annotations.move([createdB.created.ref], 0);
 
     // 4) Multi-block move: move [A, B] to position 0 in caller order.

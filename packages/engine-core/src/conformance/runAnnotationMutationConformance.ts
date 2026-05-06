@@ -57,13 +57,17 @@ const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
  * @embedpdf/server) implementations must pass identically.
  *
  * The locked rules being verified here:
- *   - `create` is structural and revisions bump.
+ *   - `create` is append-only: PDFium drops the new annotation at
+ *     `index = previousCount`, so no existing index shifts. Treated
+ *     as non-invalidating — revisions do NOT bump and weak refs
+ *     captured before the create remain valid.
  *   - `update` is non-structural; revisions do NOT bump.
  *   - Opportunistic /NM stamp upgrades a weak annotation's ref to
  *     `kind: 'nm'` on update; an already-durable annotation's /NM is
  *     NEVER touched.
- *   - `delete` is structural; weak deletes return `deleted: null`;
- *     `shouldRefetch` is set iff the page had weak refs before.
+ *   - `delete` and `move` are the only index-shifting ops. They bump
+ *     the per-page revision and, on a page that had weak refs before
+ *     the mutation, surface `shouldRefetch: 'weakRefsInvalidated'`.
  *   - Abort propagates as `AbortError` even before the worker
  *     responds.
  */
@@ -86,7 +90,7 @@ export function runAnnotationMutationConformance(
       if (engine) await engine.destroy();
     });
 
-    test('create returns a durable annotation and bumps revision (structural)', async () => {
+    test('create appends without shifting indices and leaves weak refs valid', async () => {
       const doc = await openFixture(engine, opts);
       try {
         const page = doc.page(fix.pageObjectNumber);
@@ -109,25 +113,22 @@ export function runAnnotationMutationConformance(
         expect(result.created.subtype).toBe('highlight');
         expect(result.created.ref.kind).toBe('objectNumber');
 
-        // Structural mutation.
+        // Locked rule: create is append-only, so the page revision does
+        // NOT bump and no weak refs become stale — regardless of whether
+        // the page had pre-existing weak annotations.
         expect(result.meta.pageState.revision.generation).toBe(
-          before.pageState.revision.generation + 1,
+          before.pageState.revision.generation,
         );
+        expect(result.meta.shouldRefetch).toBe(null);
+        expect(result.meta.weakRefsInvalidated).toBe(false);
         expect(result.meta.changed.length).toBe(1);
 
-        // Locked rule: shouldRefetch is non-null iff the page had any weak
-        // refs *before* the mutation.
-        if (before.pageState.hasAnyWeakAnnotations) {
-          expect(result.meta.shouldRefetch?.reason).toBe('weakRefsInvalidated');
-          expect(result.meta.weakRefsInvalidated).toBe(true);
-        } else {
-          expect(result.meta.shouldRefetch).toBe(null);
-          expect(result.meta.weakRefsInvalidated).toBe(false);
-        }
-
-        // The annotation is actually on the page now.
+        // The annotation is actually on the page now, at the END of the
+        // /Annots array. This is the invariant that justifies the
+        // non-invalidating impact: every prior index is preserved.
         const after = await page.annotations.list();
         expect(after.annotations.length).toBe(beforeCount + 1);
+        expect(result.created.index).toBe(beforeCount);
       } finally {
         await doc.close();
       }
@@ -308,14 +309,17 @@ export function runAnnotationMutationConformance(
         const weak = before.annotations.find((a) => a.identityQuality === 'weak');
         if (!weak || weak.ref.kind !== 'index') return;
 
-        // Force the revision out of date by minting a structural
-        // mutation, then trying to update against the stale ref.
-        const draft: HighlightDraft = {
+        // Force the revision out of date by minting an *index-shifting*
+        // mutation, then trying to update against the stale ref. We
+        // deliberately use a throwaway create+delete pair (delete is
+        // the rev-bumping op now — create is append-only and does NOT
+        // bump revisions, so it can't be used here).
+        const throwaway = await page.annotations.create({
           subtype: 'highlight',
-          contents: 'rev-bump',
+          contents: 'rev-bump-throwaway',
           quadPoints: quad,
-        };
-        await page.annotations.create(draft);
+        });
+        await page.annotations.delete(throwaway.created.ref);
 
         const patch = subtypeAwarePatch(weak.subtype, 'should-fail');
         if (!patch) return;
@@ -511,12 +515,15 @@ export function runAnnotationMutationConformance(
           revision: list.pageState.revision,
         };
 
-        // Bump the revision by an unrelated structural mutation.
-        await page.annotations.create({
+        // Bump the revision by an unrelated index-shifting mutation.
+        // create is append-only and no longer bumps revisions, so we
+        // use a throwaway create+delete pair (the delete does the bump).
+        const throwaway = await page.annotations.create({
           subtype: 'highlight',
-          contents: 'bump',
+          contents: 'bump-throwaway',
           quadPoints: quad,
         });
+        await page.annotations.delete(throwaway.created.ref);
 
         let caught: unknown;
         try {

@@ -195,9 +195,12 @@ export function runPageReorderConformance(
         };
         const created = await hostPage.annotations.create(draft);
 
-        // Capture the *post-create* page state (revision is bumped by
-        // the create, not the move) and an index ref bound to that
-        // revision.
+        // Capture the *post-create* page state. Neither create
+        // (append-only, non-invalidating) nor pages.move bumps the
+        // host page's revision, so the revision we capture here is
+        // the same one a fresh `list()` would return after the move.
+        // We bind the index ref to that revision and use it as a
+        // weak ref across the page reorder.
         const afterCreate = await hostPage.annotations.list();
         const targetIndex = afterCreate.annotations.findIndex(
           (a) =>
