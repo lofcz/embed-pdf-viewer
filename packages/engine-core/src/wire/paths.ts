@@ -43,4 +43,29 @@ export const wirePaths = {
    */
   annotationByKey: (docId: string, pageObjectNumber: number, key: string) =>
     `/v1/documents/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations/${encodeURIComponent(key)}`,
+
+  /**
+   * GET: list every page in display order. Returns `PageListSnapshot`.
+   * Cheap (no pagePtr is acquired); intended for a UI page-thumbnails
+   * pane to learn current order + per-page revision.
+   */
+  pagesList: (docId: string) => `/v1/documents/${encodeURIComponent(docId)}/pages`,
+
+  /**
+   * POST: reorder pages. Body is `PageMoveInput`, response is
+   * `PageMoveResult`. Page identity is the indirect `pageObjectNumber`
+   * (never the index), so multiple reorder requests can be queued
+   * without index-drift hazards. No per-page revision is bumped.
+   */
+  pagesMove: (docId: string) => `/v1/documents/${encodeURIComponent(docId)}/pages/move`,
+
+  /**
+   * POST: batch annotation reorder within a single page. Body is
+   * `{ refs: AnnotationRef[]; toIndex: number }`, response is
+   * `AnnotationMoveResult`. Single-annotation move is just `refs.length === 1`.
+   * The page is addressed by indirect `pageObjectNumber`; refs may mix
+   * stable ids (`objectNumber`/`nm`) with weak `index` refs.
+   */
+  pageAnnotationsMove: (docId: string, pageObjectNumber: number) =>
+    `/v1/documents/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations/move`,
 } as const;

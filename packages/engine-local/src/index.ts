@@ -22,6 +22,7 @@ export { Priority } from './worker/Priority';
 export type { WorkerRequest, WorkerResponse } from './worker/protocol';
 export { LocalDocumentHandle } from './document/LocalDocumentHandle';
 export { LocalDocumentAnnotationsService } from './document/LocalDocumentAnnotationsService';
+export { LocalDocumentPagesService } from './document/LocalDocumentPagesService';
 export { LocalPageHandle } from './document/LocalPageHandle';
 export { LocalPageAnnotationsService } from './document/LocalPageAnnotationsService';
 

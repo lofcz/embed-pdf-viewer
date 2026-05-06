@@ -213,7 +213,10 @@ export interface PdfFunctions {
   EPDFPage_GetAnnotCountRaw: (arg0: Ptr, arg1: number) => number;
   EPDFPage_GetAnnotRaw: (arg0: Ptr, arg1: number, arg2: number) => Ptr;
   EPDFPage_GetObjectNumber: (arg0: Ptr) => number;
+  EPDFPage_MoveAnnots: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: number) => boolean;
+  EPDFPage_RemoveAnnot: (arg0: Ptr, arg1: number) => boolean;
   EPDFPage_RemoveAnnotByName: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFPage_RemoveAnnotByObjectNumber: (arg0: Ptr, arg1: number) => boolean;
   EPDFPage_RemoveAnnotRaw: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   EPDFText_RedactInQuads: (
     arg0: Ptr,
@@ -3882,6 +3885,54 @@ export const pdfFunctionSignatures = {
       native: { kind: 'i32', cwrap: 'number' },
     },
   },
+  EPDFPage_MoveAnnots: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFPage_RemoveAnnot: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
   EPDFPage_RemoveAnnotByName: {
     params: [
       {
@@ -3893,6 +3944,25 @@ export const pdfFunctionSignatures = {
         ts: 'Ptr',
         wasm: { kind: 'pointer', cwrap: 'number' },
         native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFPage_RemoveAnnotByObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
       },
     ],
     result: {

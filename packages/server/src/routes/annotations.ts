@@ -16,18 +16,7 @@ import {
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { requireTenant } from '../app/jwt-plugin';
-
-/**
- * Minimal structural view of zod's `safeParse` return so we don't need
- * `zod` as a direct dep of @embedpdf/server. The schemas come through
- * @embedpdf/engine-core fully typed; we just need a shape we can narrow.
- */
-type SafeParseLike<T> =
-  | { success: true; data: T }
-  | { success: false; error: { issues: Array<{ message: string }> } };
-interface SchemaLike<T> {
-  safeParse(raw: unknown): SafeParseLike<T>;
-}
+import { abortSignalFromRequest, parseOrInvalidArg, type SchemaLike } from './_helpers';
 
 export interface AnnotationRouteDeps {
   pool: WorkerThreadPool;
@@ -137,6 +126,56 @@ export async function registerAnnotationRoutes(
     });
     const result = await pool.run(id, build, signal);
     if (result.tag !== 'annotations.create') {
+      throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
+    }
+    return result.result;
+  });
+
+  // POST /annotations/move: batch reorder. Registered as a static
+  // segment so Fastify resolves it before `:annotKey` (which only
+  // applies to PATCH/DELETE anyway, but kept explicit for clarity).
+  app.post(`${wirePaths.documents}/:id/pages/:pon/annotations/move`, async (req, _reply) => {
+    const tenantId = requireTenant(req);
+    const { id, pon } = req.params as { id: string; pon: string };
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    store.requireOwned(id, tenantId);
+    const signal = abortSignalFromRequest(req);
+
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const rawRefs = body?.refs;
+    const rawToIndex = body?.toIndex;
+    if (!Array.isArray(rawRefs)) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `body.refs: expected non-empty array of AnnotationRef`,
+      );
+    }
+    if (typeof rawToIndex !== 'number' || !Number.isInteger(rawToIndex)) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `body.toIndex: expected non-negative integer`,
+      );
+    }
+    const refs: AnnotationRef[] = rawRefs.map((raw, i) => {
+      const r = parseOrInvalidArg<AnnotationRef>(
+        AnnotationRefSchema as unknown as SchemaLike<AnnotationRef>,
+        raw,
+        `body.refs[${i}]`,
+      );
+      assertRefMatchesPage(r, pageObjectNumber);
+      return r;
+    });
+
+    const build = (jobId: WorkerJobId): WorkerRequest => ({
+      kind: 'annotations.move',
+      jobId,
+      docId: id,
+      pageObjectNumber,
+      refs,
+      toIndex: rawToIndex,
+    });
+    const result = await pool.run(id, build, signal);
+    if (result.tag !== 'annotations.move') {
       throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
     }
     return result.result;
@@ -263,42 +302,6 @@ function parsePageObjectNumber(raw: string): number {
     );
   }
   return n;
-}
-
-function abortSignalFromRequest(req: {
-  raw: {
-    on(event: 'close', cb: () => void): void;
-    readonly complete: boolean;
-    readonly aborted?: boolean;
-  };
-}): AbortSignal {
-  const ctrl = new AbortController();
-  // For body-bearing requests (POST/PATCH), Fastify finishes consuming
-  // the request stream before our handler runs; node emits 'close' on
-  // the IncomingMessage immediately after that. We only treat 'close'
-  // as a client disconnect when the request did NOT finish reading
-  // (`complete === false`) — otherwise the abort fires on every
-  // request regardless of whether the client is still listening.
-  if (req.raw.aborted) {
-    ctrl.abort();
-    return ctrl.signal;
-  }
-  req.raw.on('close', () => {
-    if (!req.raw.complete) ctrl.abort();
-  });
-  return ctrl.signal;
-}
-
-function parseOrInvalidArg<T>(schema: SchemaLike<T>, raw: unknown, where: string): T {
-  const result = schema.safeParse(raw);
-  if (!result.success) {
-    throw new EngineError(
-      EngineErrorCode.InvalidArg,
-      `${where}: ${result.error.issues.map((i) => i.message).join('; ')}`,
-      { details: { issues: result.error.issues } },
-    );
-  }
-  return result.data;
 }
 
 function refFromKey(annotKey: string, pageObjectNumber: number): AnnotationRef {

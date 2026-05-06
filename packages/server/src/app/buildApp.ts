@@ -7,6 +7,7 @@ import { registerJwtAuth } from './jwt-plugin';
 import { registerDocumentRoutes } from '../routes/documents';
 import { registerMetadataRoutes } from '../routes/metadata';
 import { registerAnnotationRoutes } from '../routes/annotations';
+import { registerPagesRoutes } from '../routes/pages';
 
 export interface BuildAppOptions {
   jwtSecret: string;
@@ -57,6 +58,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
 
   await registerDocumentRoutes(app, { pool, store });
   await registerMetadataRoutes(app, { pool, store });
+  await registerPagesRoutes(app, { pool, store });
   await registerAnnotationRoutes(app, { pool, store });
 
   app.setErrorHandler((err, req, reply) => {

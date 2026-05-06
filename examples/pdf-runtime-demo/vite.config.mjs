@@ -10,6 +10,7 @@ export default defineConfig({
         engine: resolve(import.meta.dirname, 'engine.html'),
         annotations: resolve(import.meta.dirname, 'annotations.html'),
         mutations: resolve(import.meta.dirname, 'mutations.html'),
+        pages: resolve(import.meta.dirname, 'pages.html'),
       },
     },
   },

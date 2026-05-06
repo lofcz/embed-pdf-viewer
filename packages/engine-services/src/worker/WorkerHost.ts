@@ -8,10 +8,13 @@ import {
   type AnnotationsListFullPageWorkerRequest,
   type AnnotationsListRawAllWorkerRequest,
   type AnnotationsListRawPageWorkerRequest,
+  type AnnotationsMoveWorkerRequest,
   type AnnotationsUpdateWorkerRequest,
   type CloseWorkerRequest,
   type MetadataReadWorkerRequest,
   type OpenWorkerRequest,
+  type PagesListWorkerRequest,
+  type PagesMoveWorkerRequest,
   type SerializedEngineError,
   type ShutdownWorkerRequest,
   type WorkerJobId,
@@ -24,6 +27,7 @@ import { ensureInitialized, destroyLibrary } from '../runtime-bootstrap';
 import { RawAnnotationReader } from '../readers/annotations/RawAnnotationReader';
 import { FullAnnotationReader } from '../readers/annotations/FullAnnotationReader';
 import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
+import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
 
 /**
  * The piece that runs "inside the worker": owns runtime, manages document
@@ -82,6 +86,15 @@ export class WorkerHost {
           break;
         case 'annotations.delete':
           result = this.handleAnnotationsDelete(msg, ctrl.signal);
+          break;
+        case 'annotations.move':
+          result = this.handleAnnotationsMove(msg, ctrl.signal);
+          break;
+        case 'pages.list':
+          result = this.handlePagesList(msg, ctrl.signal);
+          break;
+        case 'pages.move':
+          result = this.handlePagesMove(msg, ctrl.signal);
           break;
         case 'close':
           result = this.handleClose(msg);
@@ -181,6 +194,30 @@ export class WorkerHost {
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.delete(req.ref, signal);
     return { tag: 'annotations.delete', result };
+  }
+
+  private handleAnnotationsMove(
+    req: AnnotationsMoveWorkerRequest,
+    signal: AbortSignal,
+  ): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const mutator = new DocumentAnnotationMutator(this.runtime, session);
+    const result = mutator.move(req.pageObjectNumber, req.refs, req.toIndex, signal);
+    return { tag: 'annotations.move', result };
+  }
+
+  private handlePagesList(req: PagesListWorkerRequest, signal: AbortSignal): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const mutator = new DocumentPagesMutator(this.runtime, session);
+    const snapshot = mutator.list(signal);
+    return { tag: 'pages.list', snapshot };
+  }
+
+  private handlePagesMove(req: PagesMoveWorkerRequest, signal: AbortSignal): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const mutator = new DocumentPagesMutator(this.runtime, session);
+    const result = mutator.move(req.pageObjectNumbers, req.destIndex, signal);
+    return { tag: 'pages.move', result };
   }
 
   private handleClose(req: CloseWorkerRequest): WorkerResultPayload {

@@ -68,5 +68,8 @@ export { ImpactComputer } from './mutation/ImpactComputer';
 export type { MutationKind, ImpactInputs } from './mutation/ImpactComputer';
 export { DocumentAnnotationMutator } from './mutation/DocumentAnnotationMutator';
 
+// Pages
+export { DocumentPagesMutator } from './pages/DocumentPagesMutator';
+
 // Util
 export { generateUuid } from './util/uuid';

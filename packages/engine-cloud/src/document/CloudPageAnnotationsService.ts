@@ -3,6 +3,7 @@ import {
   AnnotationCreateResultSchema,
   AnnotationDeleteResultSchema,
   AnnotationListPageSnapshotSchema,
+  AnnotationMoveResultSchema,
   AnnotationUpdateResultSchema,
   EngineError,
   EngineErrorCode,
@@ -14,6 +15,7 @@ import {
   type AnnotationRef,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
+  type AnnotationMoveResult,
   type AnnotationUpdateResult,
   type PageAnnotationsService,
   type PageObjectNumber,
@@ -143,6 +145,35 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
     const path = wirePaths.annotationByKey(this.docId, ref.pageObjectNumber, stableKey);
     return AbortablePromise.run<AnnotationDeleteResult>(async (signal) =>
       this.http.deleteJson(path, (raw) => AnnotationDeleteResultSchema.parse(raw), signal),
+    );
+  }
+
+  move(refs: AnnotationRef[], toIndex: number): AbortablePromise<AnnotationMoveResult> {
+    if (this.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
+      );
+    }
+    // The page is part of the URL; the worker validates per-ref consistency
+    // again, but rejecting up front gives a cleaner error from the client side.
+    for (const r of refs) {
+      if (r.pageObjectNumber !== this.pageObjectNumber) {
+        return AbortablePromise.rejectReason(
+          new EngineError(
+            EngineErrorCode.InvalidArg,
+            `move ref points at page ${r.pageObjectNumber}; service is bound to page ${this.pageObjectNumber}`,
+          ),
+        );
+      }
+    }
+    const path = wirePaths.pageAnnotationsMove(this.docId, this.pageObjectNumber);
+    return AbortablePromise.run<AnnotationMoveResult>(async (signal) =>
+      this.http.postJson(
+        path,
+        { refs, toIndex },
+        (raw) => AnnotationMoveResultSchema.parse(raw),
+        signal,
+      ),
     );
   }
 }

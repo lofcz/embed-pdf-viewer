@@ -8,9 +8,11 @@ import type {
  * The kind of mutation that just happened on a page. `update` is
  * non-structural by definition: indices and the annotation array on the
  * page are unchanged, so weak (`kind: 'index'`) refs the client may be
- * holding stay valid. `create` and `delete` are both structural.
+ * holding stay valid. `create`, `delete`, and `move` are all structural
+ * — they alter the page's /Annots index space and so invalidate any weak
+ * `kind: 'index'` references the client may be holding.
  */
-export type MutationKind = 'create' | 'update' | 'delete';
+export type MutationKind = 'create' | 'update' | 'delete' | 'move';
 
 /**
  * Inputs that decide whether a mutation should make a client refetch.
@@ -47,19 +49,26 @@ export interface ImpactInputs {
  *      not change the annotation's position, only its identity quality.
  *      `weakRefsInvalidated = false`, `shouldRefetch = null`.
  *
- *   2. `create` and `delete` are structural. They DO move indices:
+ *   2. `create`, `delete`, and `move` are structural. They DO move indices:
  *        - `create` appends a new annotation, growing the array.
  *        - `delete` removes an annotation, shifting every later index
  *          down by one.
+ *        - `move` detaches a contiguous block and re-inserts it
+ *          elsewhere, rewriting indices on both ends of the gap.
  *      But that only matters if the page actually had any weak refs
  *      *before* the mutation — if every annotation already had a durable
  *      identity, no client could possibly be holding a stale index, and
- *      we keep `shouldRefetch = null`.
+ *      we keep `shouldRefetch = null`. (`move` opportunistically stamps
+ *      /NM on weak refs in the batch BEFORE the move, so the
+ *      annotations actually being moved end up durable on the way out;
+ *      but other weak annotations on the page still need a refetch.)
  *
  *   3. When rule (2) fires, the reason is always `'weakRefsInvalidated'`.
  *      `'pageRebuilt'` and `'externalChange'` are reserved for higher-
- *      level signals the engine doesn't emit yet (page reorders, watch-
- *      based refresh).
+ *      level signals the engine doesn't emit yet (insert/delete-page
+ *      that rebuilds /Annots, watch-based refresh). Page **reorder**
+ *      explicitly does NOT bump per-page revisions and does NOT emit
+ *      `pageRebuilt` — see `DocumentPagesMutator`.
  */
 export class ImpactComputer {
   static compute(inputs: ImpactInputs): AnnotationListMutationMeta {
@@ -74,7 +83,7 @@ export class ImpactComputer {
       };
     }
 
-    // create / delete: structural.
+    // create / delete / move: structural.
     const hadWeakBefore = pageStateBefore.hasAnyWeakAnnotations;
     return {
       pageState: pageStateAfter,

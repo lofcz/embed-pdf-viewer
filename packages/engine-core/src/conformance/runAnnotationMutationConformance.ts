@@ -11,6 +11,7 @@ import { EngineErrorCode } from '../errors/EngineErrorCode';
 import {
   AnnotationCreateResultSchema,
   AnnotationDeleteResultSchema,
+  AnnotationMoveResultSchema,
   AnnotationUpdateResultSchema,
 } from '../wire/schemas';
 import type { AnnotationDraft, AnnotationPatch, HighlightDraft } from '../annotation/kinds';
@@ -325,6 +326,266 @@ export function runAnnotationMutationConformance(
           caught = err;
         }
         expect(EngineError.is(caught, EngineErrorCode.InvalidReference)).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────────────
+    //  move() — batch contiguous-block reorder. Locked invariants:
+    //  - `move([ref], toIndex)` is the single-annotation case; same
+    //    primitive as multi-move.
+    //  - One revision bump per batch, regardless of `refs.length`.
+    //  - Caller-supplied order is preserved at the destination.
+    //  - Weak refs in the batch are upgraded to durable /NM BEFORE the
+    //    move; the moved DTOs come out durable and `meta.changed` lists
+    //    stable ids.
+    //  - Stale revision, out-of-range, duplicate, and abort all reject.
+    // ─────────────────────────────────────────────────────────────────
+
+    test('move single durable annotation reorders within the page (single-as-batch)', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+
+        // Seed two durable annotations we can predict ordering for.
+        const aDraft: HighlightDraft = {
+          subtype: 'highlight',
+          contents: 'move-a',
+          quadPoints: quad,
+        };
+        const bDraft: HighlightDraft = {
+          subtype: 'highlight',
+          contents: 'move-b',
+          quadPoints: quad,
+        };
+        const a = await page.annotations.create(aDraft);
+        const b = await page.annotations.create(bDraft);
+        const list = await page.annotations.list();
+        const beforeRev = list.pageState.revision.generation;
+
+        // Find current indices of a and b.
+        const aIdx = list.annotations.findIndex(
+          (x) =>
+            x.ref.kind === 'objectNumber' &&
+            a.created.ref.kind === 'objectNumber' &&
+            x.ref.annotObjectNumber === a.created.ref.annotObjectNumber,
+        );
+        const bIdx = list.annotations.findIndex(
+          (x) =>
+            x.ref.kind === 'objectNumber' &&
+            b.created.ref.kind === 'objectNumber' &&
+            x.ref.annotObjectNumber === b.created.ref.annotObjectNumber,
+        );
+        expect(aIdx >= 0 && bIdx >= 0).toBe(true);
+        expect(aIdx < bIdx).toBe(true);
+
+        // Move A to B's slot. Post-removal index space: A was removed,
+        // so B's position becomes bIdx - 1. Targeting bIdx puts A AFTER
+        // B's original position. Use `bIdx` as toIndex => A lands right
+        // after B in the new order.
+        const result = await page.annotations.move([a.created.ref], bIdx);
+        expect(AnnotationMoveResultSchema.safeParse(result).success).toBe(true);
+        expect(result.moved.length).toBe(1);
+
+        // Single revision bump per batch.
+        expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+
+        // The moved DTO sits at toIndex.
+        if (result.moved[0].ref.kind === 'objectNumber') {
+          const movedObjNum = result.moved[0].ref.annotObjectNumber;
+          if (a.created.ref.kind === 'objectNumber') {
+            expect(movedObjNum).toBe(a.created.ref.annotObjectNumber);
+          }
+        }
+
+        // Verify the page now has A at its new position.
+        const after = await page.annotations.list();
+        expect(after.annotations.length).toBe(list.annotations.length);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('move multi-block preserves caller-supplied order at the destination', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+
+        // Seed three durable annotations.
+        const ids = await Promise.all(
+          ['multi-1', 'multi-2', 'multi-3'].map((label) =>
+            page.annotations.create({
+              subtype: 'highlight',
+              contents: label,
+              quadPoints: quad,
+            }),
+          ),
+        );
+
+        const list = await page.annotations.list();
+        const beforeRev = list.pageState.revision.generation;
+
+        // Move the three to position 0 in caller order [3, 1, 2].
+        const callerOrder = [ids[2].created.ref, ids[0].created.ref, ids[1].created.ref];
+        const result = await page.annotations.move(callerOrder, 0);
+
+        // One revision bump even though three annotations moved.
+        expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+        expect(result.moved.length).toBe(3);
+        expect(result.meta.changed.length).toBe(3);
+
+        // Caller-supplied order preserved at the destination. Indices
+        // 0, 1, 2 of the page now hold the moved DTOs in that order.
+        const expectedOrder = [ids[2].created.ref, ids[0].created.ref, ids[1].created.ref].map(
+          (r) => (r.kind === 'objectNumber' ? r.annotObjectNumber : null),
+        );
+
+        const movedObjNums = result.moved.map((d) =>
+          d.ref.kind === 'objectNumber' ? d.ref.annotObjectNumber : null,
+        );
+        for (let i = 0; i < expectedOrder.length; i++) {
+          expect(movedObjNums[i]).toBe(expectedOrder[i]);
+        }
+      } finally {
+        await doc.close();
+      }
+    });
+
+    if (fix.expectsWeakAnnotation) {
+      test('move on a weak annotation upgrades it to durable /NM (one rev bump for batch)', async () => {
+        const doc = await openFixture(engine, opts);
+        try {
+          const page = doc.page(fix.pageObjectNumber);
+          const before = await page.annotations.list();
+          const weak = before.annotations.find((a) => a.identityQuality === 'weak');
+          if (!weak || weak.ref.kind !== 'index') return;
+          const beforeRev = before.pageState.revision.generation;
+
+          // Move the weak annotation to position 0 (or somewhere
+          // non-trivial). The engine must stamp a fresh /NM BEFORE the
+          // move so the result is durable.
+          const target = weak.ref.index === 0 ? 1 : 0;
+          const result = await page.annotations.move([weak.ref], target);
+
+          expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+          expect(result.moved.length).toBe(1);
+          expect(result.moved[0].identityQuality).toBe('durable');
+          expect(
+            result.moved[0].ref.kind === 'nm' || result.moved[0].ref.kind === 'objectNumber',
+          ).toBe(true);
+
+          // meta.changed is a stable id, never a weak ref.
+          expect(result.meta.changed.length).toBe(1);
+          expect(
+            result.meta.changed[0].kind === 'nm' || result.meta.changed[0].kind === 'objectNumber',
+          ).toBe(true);
+        } finally {
+          await doc.close();
+        }
+      });
+    }
+
+    test('move with a stale index revision rejects (locked rev-token guard)', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const a = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'stale-a',
+          quadPoints: quad,
+        });
+        const list = await page.annotations.list();
+        const aIdx = list.annotations.findIndex(
+          (x) =>
+            x.ref.kind === 'objectNumber' &&
+            a.created.ref.kind === 'objectNumber' &&
+            x.ref.annotObjectNumber === a.created.ref.annotObjectNumber,
+        );
+        if (aIdx < 0) return;
+
+        const staleIndexRef: AnnotationRef = {
+          kind: 'index',
+          pageObjectNumber: fix.pageObjectNumber,
+          index: aIdx,
+          revision: list.pageState.revision,
+        };
+
+        // Bump the revision by an unrelated structural mutation.
+        await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'bump',
+          quadPoints: quad,
+        });
+
+        let caught: unknown;
+        try {
+          await page.annotations.move([staleIndexRef], 0);
+        } catch (err) {
+          caught = err;
+        }
+        expect(EngineError.is(caught, EngineErrorCode.InvalidReference)).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('move with out-of-range toIndex rejects with InvalidArg', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const a = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'oor-a',
+          quadPoints: quad,
+        });
+        const list = await page.annotations.list();
+        const farTooBig = list.annotations.length + 100;
+        let caught: unknown;
+        try {
+          await page.annotations.move([a.created.ref], farTooBig);
+        } catch (err) {
+          caught = err;
+        }
+        expect(EngineError.is(caught, EngineErrorCode.InvalidArg)).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('move with duplicate refs rejects with InvalidArg', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const a = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'dup-a',
+          quadPoints: quad,
+        });
+        let caught: unknown;
+        try {
+          await page.annotations.move([a.created.ref, a.created.ref], 0);
+        } catch (err) {
+          caught = err;
+        }
+        expect(EngineError.is(caught, EngineErrorCode.InvalidArg)).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('abort on move rejects with AbortError', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const a = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'abort-a',
+          quadPoints: quad,
+        });
+        const p = page.annotations.move([a.created.ref], 0);
+        p.abort('test');
+        await expect(p).rejects.toBeInstanceOf(AbortError);
       } finally {
         await doc.close();
       }

@@ -62,27 +62,51 @@ try {
   // the engine-stamped UUIDs (they're random by design) or session ids.
   const errs: string[] = [];
   diffNum(
-    'create.meta.generation',
-    localResult.created.meta.pageState.revision.generation,
-    cloudResult.created.meta.pageState.revision.generation,
+    'createA.meta.generation',
+    localResult.createdA.meta.pageState.revision.generation,
+    cloudResult.createdA.meta.pageState.revision.generation,
     errs,
   );
   diffNum(
-    'delete.meta.generation',
-    localResult.deleted.meta.pageState.revision.generation,
-    cloudResult.deleted.meta.pageState.revision.generation,
+    'createB.meta.generation',
+    localResult.createdB.meta.pageState.revision.generation,
+    cloudResult.createdB.meta.pageState.revision.generation,
+    errs,
+  );
+  diffNum(
+    'moveSingle.meta.generation',
+    localResult.movedSingle.meta.pageState.revision.generation,
+    cloudResult.movedSingle.meta.pageState.revision.generation,
+    errs,
+  );
+  diffNum(
+    'moveBatch.meta.generation',
+    localResult.movedBatch.meta.pageState.revision.generation,
+    cloudResult.movedBatch.meta.pageState.revision.generation,
+    errs,
+  );
+  diffNum(
+    'deleteA.meta.generation',
+    localResult.deletedA.meta.pageState.revision.generation,
+    cloudResult.deletedA.meta.pageState.revision.generation,
+    errs,
+  );
+  diffNum(
+    'deleteB.meta.generation',
+    localResult.deletedB.meta.pageState.revision.generation,
+    cloudResult.deletedB.meta.pageState.revision.generation,
     errs,
   );
   diffStr(
-    'create.meta.shouldRefetch',
-    localResult.created.meta.shouldRefetch?.reason ?? null,
-    cloudResult.created.meta.shouldRefetch?.reason ?? null,
+    'createA.meta.shouldRefetch',
+    localResult.createdA.meta.shouldRefetch?.reason ?? null,
+    cloudResult.createdA.meta.shouldRefetch?.reason ?? null,
     errs,
   );
   diffStr(
-    'delete.meta.shouldRefetch',
-    localResult.deleted.meta.shouldRefetch?.reason ?? null,
-    cloudResult.deleted.meta.shouldRefetch?.reason ?? null,
+    'moveBatch.meta.shouldRefetch',
+    localResult.movedBatch.meta.shouldRefetch?.reason ?? null,
+    cloudResult.movedBatch.meta.shouldRefetch?.reason ?? null,
     errs,
   );
   diffStr(
@@ -95,6 +119,12 @@ try {
     'updated.ref.kind',
     localResult.updated?.updated.ref.kind ?? '<skipped>',
     cloudResult.updated?.updated.ref.kind ?? '<skipped>',
+    errs,
+  );
+  diffNum(
+    'moveBatch.moved.length',
+    localResult.movedBatch.moved.length,
+    cloudResult.movedBatch.moved.length,
     errs,
   );
 

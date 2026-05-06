@@ -8,6 +8,7 @@ import {
   type AnnotationRef,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
+  type AnnotationMoveResult,
   type AnnotationUpdateResult,
   type PageAnnotationsService,
   type PageObjectNumber,
@@ -153,6 +154,39 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       else signal.addEventListener('abort', onAbort, { once: true });
       const payload = await submission;
       if (payload.tag !== 'annotations.delete') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
+    });
+  }
+
+  move(refs: AnnotationRef[], toIndex: number): AbortablePromise<AnnotationMoveResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    const docId = this.docId;
+    const pon = this.pageObjectNumber;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildRequest: (jobId: JobId) => ({
+          kind: 'annotations.move',
+          jobId,
+          docId,
+          pageObjectNumber: pon,
+          refs,
+          toIndex,
+        }),
+      },
+      { priority: Priority.HIGH },
+    );
+    return AbortablePromise.run<AnnotationMoveResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'annotations.move') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
       return payload.result;

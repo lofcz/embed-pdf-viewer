@@ -9,6 +9,7 @@ import {
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { requireTenant } from '../app/jwt-plugin';
+import { abortSignalFromRequest } from './_helpers';
 
 export interface MetadataRouteDeps {
   pool: WorkerThreadPool;
@@ -42,12 +43,4 @@ export async function registerMetadataRoutes(
     }
     return result.metadata;
   });
-}
-
-function abortSignalFromRequest(req: {
-  raw: { on(event: 'close', cb: () => void): void };
-}): AbortSignal {
-  const ctrl = new AbortController();
-  req.raw.on('close', () => ctrl.abort());
-  return ctrl.signal;
 }

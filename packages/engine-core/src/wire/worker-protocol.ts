@@ -4,14 +4,17 @@ import type {
 } from '../annotation/AnnotationListSnapshot';
 import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
+  AnnotationMoveResult,
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
+import type { PageMoveResult } from '../mutation/PageMoveResult';
 
 /**
  * Wire protocol used between an Engine-side queue and any Worker host
@@ -81,6 +84,34 @@ export interface AnnotationsDeleteWorkerRequest {
   ref: AnnotationRef;
 }
 
+/**
+ * Batch annotation reorder. Refs are resolved on the worker BEFORE the
+ * move so the impact computation has a single before-state and one
+ * revision bump per batch.
+ */
+export interface AnnotationsMoveWorkerRequest {
+  kind: 'annotations.move';
+  jobId: WorkerJobId;
+  docId: string;
+  pageObjectNumber: PageObjectNumber;
+  refs: AnnotationRef[];
+  toIndex: number;
+}
+
+export interface PagesListWorkerRequest {
+  kind: 'pages.list';
+  jobId: WorkerJobId;
+  docId: string;
+}
+
+export interface PagesMoveWorkerRequest {
+  kind: 'pages.move';
+  jobId: WorkerJobId;
+  docId: string;
+  pageObjectNumbers: PageObjectNumber[];
+  destIndex: number;
+}
+
 export interface CloseWorkerRequest {
   kind: 'close';
   jobId: WorkerJobId;
@@ -106,6 +137,9 @@ export type WorkerRequest =
   | AnnotationsCreateWorkerRequest
   | AnnotationsUpdateWorkerRequest
   | AnnotationsDeleteWorkerRequest
+  | AnnotationsMoveWorkerRequest
+  | PagesListWorkerRequest
+  | PagesMoveWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -119,6 +153,9 @@ export type WorkerResultPayload =
   | { tag: 'annotations.create'; result: AnnotationCreateResult }
   | { tag: 'annotations.update'; result: AnnotationUpdateResult }
   | { tag: 'annotations.delete'; result: AnnotationDeleteResult }
+  | { tag: 'annotations.move'; result: AnnotationMoveResult }
+  | { tag: 'pages.list'; snapshot: PageListSnapshot }
+  | { tag: 'pages.move'; result: PageMoveResult }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

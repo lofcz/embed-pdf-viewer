@@ -159,6 +159,20 @@ export class DocumentSession {
       .map(([, r]) => r);
   }
 
+  /**
+   * Drop the cached `pageIndex <-> pageObjectNumber` mapping and force a
+   * fresh enumeration on next access. Called by `DocumentPagesMutator`
+   * after `FPDF_MovePages` shuffles page positions; we keep
+   * `weakFlags` and per-page revision counters intact, both of which are
+   * keyed by durable `pageObjectNumber` and survive a page reorder.
+   */
+  refreshPageRegistry(): void {
+    this.recordsByIndex.clear();
+    this.recordsByObjectNumber.clear();
+    this.fullyEnumerated = false;
+    this.ensureFullPageRegistry();
+  }
+
   /** Per-page state envelope used by every read/mutation result. */
   pageState(pageObjectNumber: PageObjectNumber): PageState {
     const record = this.recordByObjectNumber(pageObjectNumber);

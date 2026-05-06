@@ -2,27 +2,31 @@ import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
   AnnotationListPageSnapshot,
+  AnnotationMoveResult,
   AnnotationUpdateResult,
   Engine,
   HighlightDraft,
 } from '@embedpdf/engine-core';
 
 /**
- * Engine-agnostic mutation walkthrough. Drives one `create`, one
- * `update` (touching a weak annotation when present, to exercise the
- * opportunistic /NM stamp), and one `delete` (of the just-created
- * annotation, so the fixture is left as we found it). Returns the four
- * observable side-effects so the node + browser entries can render
- * exactly the same payload.
+ * Engine-agnostic mutation walkthrough. Drives `update` (weak →
+ * /NM-stamped), `create`, two `move` operations (single-as-batch and
+ * multi-block contiguous reorder), and finally `delete` to leave the
+ * fixture as we found it. Returns the observable side-effects so the
+ * node + browser entries can render exactly the same payload.
  */
 export interface MutationsDemoResult {
   label: string;
   docId: string;
   elapsedMs: number;
   before: AnnotationListPageSnapshot;
-  created: AnnotationCreateResult;
+  createdA: AnnotationCreateResult;
+  createdB: AnnotationCreateResult;
   updated: AnnotationUpdateResult | null;
-  deleted: AnnotationDeleteResult;
+  movedSingle: AnnotationMoveResult;
+  movedBatch: AnnotationMoveResult;
+  deletedA: AnnotationDeleteResult;
+  deletedB: AnnotationDeleteResult;
   after: AnnotationListPageSnapshot;
 }
 
@@ -69,19 +73,40 @@ export async function runMutationsDemo(
       });
     }
 
-    // 2) Create a new highlight. Always durable (engine uses
+    // 2) Create two new highlights. Always durable (engine uses
     //    EPDFPage_CreateAnnot, which produces an indirect object).
-    const created = await page.annotations.create({
+    const createdA = await page.annotations.create({
       subtype: 'highlight',
-      contents: 'mutation demo: created',
+      contents: 'mutation demo: A',
       author: 'mutations-demo',
       color: { r: 30, g: 144, b: 255 },
       opacity: 0.4,
       quadPoints: QUAD,
     });
+    const createdB = await page.annotations.create({
+      subtype: 'highlight',
+      contents: 'mutation demo: B',
+      author: 'mutations-demo',
+      color: { r: 255, g: 99, b: 71 },
+      opacity: 0.4,
+      quadPoints: QUAD,
+    });
 
-    // 3) Delete the annotation we created so the fixture is unchanged.
-    const deleted = await page.annotations.delete(created.created.ref);
+    // 3) Single-annotation move: move B to position 0. This exercises
+    //    `move([ref], toIndex)` as the single-as-batch case. One
+    //    revision bump, just like a multi-move.
+    const movedSingle = await page.annotations.move([createdB.created.ref], 0);
+
+    // 4) Multi-block move: move [A, B] to position 0 in caller order.
+    //    Verifies that caller-supplied order is preserved at the
+    //    destination, ONE revision bump per batch.
+    const movedBatch = await page.annotations.move([createdA.created.ref, createdB.created.ref], 0);
+
+    // 5) Delete both annotations we created so the fixture is unchanged.
+    //    Use the still-stable durable refs (objectNumber survives
+    //    arbitrary moves; that's the whole point of stable identity).
+    const deletedA = await page.annotations.delete(createdA.created.ref);
+    const deletedB = await page.annotations.delete(createdB.created.ref);
 
     const after = await page.annotations.list();
 
@@ -90,9 +115,13 @@ export async function runMutationsDemo(
       docId: doc.id,
       elapsedMs: Date.now() - started,
       before,
-      created,
+      createdA,
+      createdB,
       updated,
-      deleted,
+      movedSingle,
+      movedBatch,
+      deletedA,
+      deletedB,
       after,
     };
   } finally {
@@ -116,11 +145,6 @@ export function summarizeMutations(result: MutationsDemoResult) {
       hasWeak: result.before.pageState.hasAnyWeakAnnotations,
       count: result.before.annotations.length,
     },
-    create: {
-      ref: refSummary(result.created.created.ref),
-      identityQuality: result.created.created.identityQuality,
-      meta: metaSummary(result.created.meta),
-    },
     update: result.updated
       ? {
           inputRefKind: 'index',
@@ -130,9 +154,31 @@ export function summarizeMutations(result: MutationsDemoResult) {
           meta: metaSummary(result.updated.meta),
         }
       : { skipped: 'no weak annotation on the page' },
-    delete: {
-      deleted: result.deleted.deleted,
-      meta: metaSummary(result.deleted.meta),
+    createA: {
+      ref: refSummary(result.createdA.created.ref),
+      identityQuality: result.createdA.created.identityQuality,
+      meta: metaSummary(result.createdA.meta),
+    },
+    createB: {
+      ref: refSummary(result.createdB.created.ref),
+      identityQuality: result.createdB.created.identityQuality,
+      meta: metaSummary(result.createdB.meta),
+    },
+    moveSingle: {
+      moved: result.movedSingle.moved.map((d) => refSummary(d.ref)),
+      meta: metaSummary(result.movedSingle.meta),
+    },
+    moveBatch: {
+      moved: result.movedBatch.moved.map((d) => refSummary(d.ref)),
+      meta: metaSummary(result.movedBatch.meta),
+    },
+    deleteA: {
+      deleted: result.deletedA.deleted,
+      meta: metaSummary(result.deletedA.meta),
+    },
+    deleteB: {
+      deleted: result.deletedB.deleted,
+      meta: metaSummary(result.deletedB.meta),
     },
     after: {
       generation: result.after.pageState.revision.generation,

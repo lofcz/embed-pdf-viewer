@@ -15,10 +15,12 @@ export type { DocumentHandle } from './engine/DocumentHandle';
 export type { MetadataService } from './engine/MetadataService';
 export type { PageHandle } from './engine/PageHandle';
 export type { DocumentAnnotationsService } from './engine/DocumentAnnotationsService';
+export type { DocumentPagesService } from './engine/DocumentPagesService';
 export type { PageAnnotationsService } from './engine/PageAnnotationsService';
 
 export type { OpenInput, OpenInputBytes, OpenInputPreuploaded, OpenOptions } from './dto/OpenInput';
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
+export type { PageListSnapshot } from './dto/PageListSnapshot';
 
 export { EngineError, serializeError, deserializeError } from './errors/EngineError';
 export type { SerializedEngineError, EngineErrorOptions } from './errors/EngineError';
@@ -36,6 +38,10 @@ export {
   AnnotationCreateResultSchema,
   AnnotationUpdateResultSchema,
   AnnotationDeleteResultSchema,
+  AnnotationMoveResultSchema,
+  PageListSnapshotSchema,
+  PageMoveInputSchema,
+  PageMoveResultSchema,
 } from './wire/schemas';
 export type { OpenDocumentResponse } from './wire/schemas';
 export { wirePaths } from './wire/paths';
@@ -54,6 +60,9 @@ export type {
   AnnotationsCreateWorkerRequest,
   AnnotationsUpdateWorkerRequest,
   AnnotationsDeleteWorkerRequest,
+  AnnotationsMoveWorkerRequest,
+  PagesListWorkerRequest,
+  PagesMoveWorkerRequest,
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,
@@ -181,7 +190,10 @@ export type {
   AnnotationCreateResult,
   AnnotationUpdateResult,
   AnnotationDeleteResult,
+  AnnotationMoveResult,
 } from './mutation/AnnotationMutationResults';
+export type { PageMoveInput } from './mutation/PageMoveInput';
+export type { PageMoveResult } from './mutation/PageMoveResult';
 
 // Conformance
 export { runMetadataConformance } from './conformance/runMetadataConformance';
@@ -201,6 +213,11 @@ export type {
   AnnotationMutationConformanceFixture,
   AnnotationMutationConformanceOptions,
 } from './conformance/runAnnotationMutationConformance';
+export { runPageReorderConformance } from './conformance/runPageReorderConformance';
+export type {
+  PageReorderConformanceFixture,
+  PageReorderConformanceOptions,
+} from './conformance/runPageReorderConformance';
 export {
   diffAnnotationListSnapshot,
   diffAnnotationListSnapshotAll,

@@ -2,6 +2,7 @@ import {
   AbortablePromise,
   type DocumentAnnotationsService,
   type DocumentHandle,
+  type DocumentPagesService,
   type MetadataService,
   type PageHandle,
   type PageObjectNumber,
@@ -11,11 +12,13 @@ import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
 import { LocalMetadataService } from './LocalMetadataService';
 import { LocalDocumentAnnotationsService } from './LocalDocumentAnnotationsService';
+import { LocalDocumentPagesService } from './LocalDocumentPagesService';
 import { LocalPageHandle } from './LocalPageHandle';
 
 export class LocalDocumentHandle implements DocumentHandle {
   readonly metadata: MetadataService;
   readonly annotations: DocumentAnnotationsService;
+  readonly pages: DocumentPagesService;
   private closed = false;
 
   constructor(
@@ -25,6 +28,7 @@ export class LocalDocumentHandle implements DocumentHandle {
     const view = { isClosed: () => this.closed };
     this.metadata = new LocalMetadataService(id, queue, view);
     this.annotations = new LocalDocumentAnnotationsService(id, queue, view);
+    this.pages = new LocalDocumentPagesService(id, queue, view);
   }
 
   /**

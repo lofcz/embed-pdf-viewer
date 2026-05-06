@@ -5,8 +5,10 @@ import {
   KIND_BY_SUBTYPE,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
+  type AnnotationDTO,
   type AnnotationDraft,
   type AnnotationListMutationMeta,
+  type AnnotationMoveResult,
   type AnnotationPatch,
   type AnnotationRef,
   type AnnotationStableId,
@@ -149,15 +151,11 @@ export class DocumentAnnotationMutator {
 
       const pageStateBefore = this.session.pageState(ref.pageObjectNumber);
 
-      // Opportunistic /NM stamp for weak annotations. /NM is monotonic per
-      // annotation: already-durable annotations are never touched.
-      const existingObjNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);
-      const existingNm = readAnnotString(fn, mem, annotPtr, 'NM');
-      const isWeak = existingObjNum <= 0 && (existingNm === null || existingNm.length === 0);
-      if (isWeak) {
-        const minted = generateUuid();
-        writeAnnotationNm(fn, mem, annotPtr, minted);
-      }
+      // Opportunistic /NM stamp for weak annotations + capture the
+      // resulting stable id for `meta.changed`. Same monotonic /NM
+      // rule that `move()` uses; sharing the helper guarantees the
+      // two paths cannot drift in their identity bookkeeping.
+      const stableId = this.captureOrStampStableId(annotPtr);
 
       // Apply caller-supplied subtype-specific writes.
       applyPatch(fn, mem, annotPtr, patch);
@@ -186,7 +184,7 @@ export class DocumentAnnotationMutator {
         mutation: 'update',
         pageStateBefore,
         pageStateAfter,
-        changed: [stableIdFromDTO(dto.ref, existingObjNum, dto.nm)],
+        changed: [stableId],
       });
       return { updated: dto, meta };
     } finally {
@@ -299,6 +297,206 @@ export class DocumentAnnotationMutator {
   }
 
   /**
+   * Batch reorder of a contiguous block of annotations within a single
+   * page's /Annots array. Symmetric with `pages.move()` for pages.
+   *
+   * Semantics (locked with the user, mirrors `EPDFPage_MoveAnnots`):
+   *   - Each ref in `refs` is resolved to its current /Annots index.
+   *     The block is detached, then re-inserted at `toIndex` in the
+   *     post-removal index space, preserving caller-supplied order.
+   *   - Single-annotation case is `move([ref], toIndex)`. There is no
+   *     separate single-move path; one batch primitive serves both.
+   *   - Atomic from the caller's perspective:
+   *       * one revision bump per batch, regardless of `refs.length`.
+   *       * one `AnnotationListMutationMeta` envelope.
+   *       * if `EPDFPage_MoveAnnots` rejects (returns false) the page is
+   *         untouched and we throw `InvalidArg` without bumping.
+   *   - Identity strengthening: each weak ref in the batch (no
+   *     `objectNumber`, no `/NM`) is opportunistically stamped with a
+   *     fresh engine-generated UUID v4 BEFORE the move. So
+   *     `meta.changed` always lists durable stable ids, and the moved
+   *     DTOs come out durable. Same monotonic `/NM` rule as `update()`.
+   *
+   * Validation rules applied here BEFORE calling the helper, so callers
+   * get clean errors instead of an opaque `false` return code:
+   *   - `refs.length >= 1`.
+   *   - All refs target the page identified by `pageObjectNumber`.
+   *   - `toIndex >= 0` and `toIndex <= count - refs.length` (count is
+   *     captured AFTER ref resolution, so the helper sees the same view).
+   *   - Resolved indices have no duplicates.
+   *
+   * The `EPDFPage_MoveAnnots` helper itself enforces the same rules; the
+   * up-front validation is purely for a usable error surface.
+   */
+  move(
+    pageObjectNumber: PageObjectNumber,
+    refs: AnnotationRef[],
+    toIndex: number,
+    signal: AbortSignal,
+  ): AnnotationMoveResult {
+    throwIfAborted(signal);
+    if (refs.length === 0) {
+      throw new EngineError(EngineErrorCode.InvalidArg, 'move requires at least one ref');
+    }
+    if (toIndex < 0 || !Number.isInteger(toIndex)) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `move toIndex must be a non-negative integer (got ${toIndex})`,
+      );
+    }
+    for (const r of refs) {
+      if (r.pageObjectNumber !== pageObjectNumber) {
+        throw new EngineError(
+          EngineErrorCode.InvalidArg,
+          `move refs must all target page ${pageObjectNumber}; got ref on page ${r.pageObjectNumber}`,
+        );
+      }
+    }
+
+    const { fn, mem } = this.runtime;
+    const pool = this.session.pagePool();
+    const pagePtr = pool.acquire(pageObjectNumber);
+    let bumpRequested = false;
+
+    try {
+      const pageStateBefore = this.session.pageState(pageObjectNumber);
+      throwIfAborted(signal);
+
+      // 1. Resolve every ref in caller order. For each: capture its
+      //    current /Annots index and its (possibly newly-stamped)
+      //    stable id. We close each annotPtr right after probing — the
+      //    move helper takes the page-level pointer, and we'll re-open
+      //    annotPtrs later by *new* index for the readback.
+      const fromIndices: number[] = new Array(refs.length);
+      const stableIds: AnnotationStableId[] = new Array(refs.length);
+      for (let i = 0; i < refs.length; i++) {
+        throwIfAborted(signal);
+        const annotPtr = this.resolveAnnotPtr(pagePtr, refs[i]);
+        try {
+          const idx = fn.FPDFPage_GetAnnotIndex(pagePtr, annotPtr);
+          if (idx < 0) {
+            throw new EngineError(
+              EngineErrorCode.Unknown,
+              `FPDFPage_GetAnnotIndex returned ${idx} during move resolution`,
+            );
+          }
+          fromIndices[i] = idx;
+          stableIds[i] = this.captureOrStampStableId(annotPtr);
+        } finally {
+          fn.FPDFPage_CloseAnnot(annotPtr);
+        }
+      }
+
+      // 2. Reject duplicate source indices up front. Two refs that
+      //    resolve to the same index would violate the helper's
+      //    invariant (and would also be a confused caller).
+      const seen = new Set<number>();
+      for (const idx of fromIndices) {
+        if (seen.has(idx)) {
+          throw new EngineError(
+            EngineErrorCode.InvalidArg,
+            `move refs resolve to duplicate /Annots index ${idx}`,
+          );
+        }
+        seen.add(idx);
+      }
+
+      // 3. Range-check toIndex against the post-removal count, matching
+      //    the helper's contract.
+      const count = fn.FPDFPage_GetAnnotCount(pagePtr);
+      const postRemovalCount = count - fromIndices.length;
+      if (toIndex > postRemovalCount) {
+        throw new EngineError(
+          EngineErrorCode.InvalidArg,
+          `move toIndex ${toIndex} out of range; post-removal count is ${postRemovalCount}`,
+        );
+      }
+
+      // 4. Marshal fromIndices into an i32 array in runtime memory and
+      //    invoke the helper. From this call onward a structural change
+      //    may have happened; finally-bump on any failure.
+      const arrBytes = 4 * fromIndices.length;
+      const arrPtr = mem.alloc(arrBytes);
+      let ok: boolean;
+      try {
+        for (let i = 0; i < fromIndices.length; i++) {
+          mem.poke(arrPtr, 'i32', fromIndices[i], 4 * i);
+        }
+        bumpRequested = true;
+        ok = fn.EPDFPage_MoveAnnots(pagePtr, arrPtr, fromIndices.length, toIndex);
+      } finally {
+        mem.free(arrPtr);
+      }
+
+      if (!ok) {
+        // The helper validates atomically: a `false` return means it
+        // rejected the request and made no changes. Cancel the pending
+        // bump and surface a clean error.
+        bumpRequested = false;
+        throw new EngineError(
+          EngineErrorCode.InvalidArg,
+          `EPDFPage_MoveAnnots rejected the request (toIndex=${toIndex}, fromIndices=[${fromIndices.join(
+            ',',
+          )}])`,
+        );
+      }
+
+      // 5. Single revision bump for the whole batch. Read back DTOs
+      //    against the bumped revision so they are internally consistent.
+      const bumpedRev = this.session.bumpRevision(pageObjectNumber);
+      bumpRequested = false;
+
+      const moved: AnnotationDTO[] = new Array(fromIndices.length);
+      for (let i = 0; i < fromIndices.length; i++) {
+        throwIfAborted(signal);
+        const newIdx = toIndex + i;
+        const annotPtr = fn.FPDFPage_GetAnnot(pagePtr, newIdx);
+        if (!annotPtr) {
+          throw new EngineError(
+            EngineErrorCode.Unknown,
+            `failed to re-read moved annotation at index ${newIdx}`,
+          );
+        }
+        try {
+          moved[i] = readAnnotationFromPtr(fn, mem, annotPtr, pageObjectNumber, newIdx, bumpedRev);
+        } finally {
+          fn.FPDFPage_CloseAnnot(annotPtr);
+        }
+      }
+
+      const pageStateAfter = this.session.pageState(pageObjectNumber);
+      const meta: AnnotationListMutationMeta = ImpactComputer.compute({
+        mutation: 'move',
+        pageStateBefore,
+        pageStateAfter,
+        changed: stableIds,
+      });
+      return { moved, meta };
+    } finally {
+      if (bumpRequested) this.session.bumpRevision(pageObjectNumber);
+      pool.release(pageObjectNumber);
+    }
+  }
+
+  /**
+   * Read an annotation's stable id, opportunistically stamping a fresh
+   * engine-generated UUID v4 as `/NM` if it is currently weak (no
+   * objectNumber, no /NM). Same monotonic `/NM` rule as `update()`:
+   * already-durable annotations are NEVER touched. Caller owns the
+   * lifecycle of `annotPtr`.
+   */
+  private captureOrStampStableId(annotPtr: Ptr): AnnotationStableId {
+    const { fn, mem } = this.runtime;
+    const objNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);
+    if (objNum > 0) return { kind: 'objectNumber', value: objNum };
+    const nm = readAnnotString(fn, mem, annotPtr, 'NM');
+    if (nm !== null && nm.length > 0) return { kind: 'nm', value: nm };
+    const minted = generateUuid();
+    writeAnnotationNm(fn, mem, annotPtr, minted);
+    return { kind: 'nm', value: minted };
+  }
+
+  /**
    * Inline counterpart to `AnnotationIdentityResolver.resolve` that does
    * NOT acquire its own pagePtr (we already hold one) and does NOT close
    * the annotPtr (the caller owns the lifetime). Mirrors the resolution
@@ -345,37 +543,4 @@ export class DocumentAnnotationMutator {
       }
     }
   }
-}
-
-/**
- * Pick the best stable id for the `meta.changed` entry of an updated
- * annotation. After the opportunistic stamp the DTO ref is already the
- * strongest available; we just translate it into the wire-stable
- * `AnnotationStableId` shape. The `existingObjNum` and `nm` arguments are
- * a defensive fallback for the (unreachable) case where the DTO ref is
- * `kind: 'index'` despite the annotation being durable.
- */
-function stableIdFromDTO(
-  ref:
-    | { kind: 'objectNumber'; annotObjectNumber: number }
-    | { kind: 'nm'; nm: string }
-    | { kind: 'index' },
-  existingObjNum: number,
-  nm: string | null,
-): AnnotationStableId {
-  if (ref.kind === 'objectNumber') {
-    return { kind: 'objectNumber', value: ref.annotObjectNumber };
-  }
-  if (ref.kind === 'nm') {
-    return { kind: 'nm', value: ref.nm };
-  }
-  if (existingObjNum > 0) return { kind: 'objectNumber', value: existingObjNum };
-  if (nm !== null && nm.length > 0) return { kind: 'nm', value: nm };
-  // Genuinely unreachable: an updated annotation has at minimum its
-  // engine-stamped /NM. We throw rather than return a sentinel so any
-  // future regression is caught loudly in tests.
-  throw new EngineError(
-    EngineErrorCode.Unknown,
-    'updated annotation has no durable identity after update',
-  );
 }

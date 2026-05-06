@@ -51,3 +51,32 @@ export interface AnnotationDeleteResult {
   deleted: AnnotationStableId | null;
   meta: AnnotationListMutationMeta;
 }
+
+/**
+ * Batch annotation move (contiguous-block semantics; symmetric with
+ * `pages.move`). The single-annotation case is `move([ref], toIndex)`.
+ *
+ * Note on identity: any weak ref in the batch is opportunistically
+ * upgraded to `kind: 'nm'` with an engine-stamped UUID v4 BEFORE the
+ * move happens, mirroring `update()`. So `moved[i].ref` may be stronger
+ * than the corresponding input ref. Each `moved[i].index` reflects the
+ * post-move index, which is exactly `toIndex + i`.
+ *
+ * Move is structural for the per-page index space — bumps the page
+ * revision once per batch, and `meta.shouldRefetch` is set iff
+ * `pageStateBefore.hasAnyWeakAnnotations` (same rule as create/delete).
+ */
+export interface AnnotationMoveResult {
+  /**
+   * The moved annotations in their **new order**. `length === refs.length`.
+   * `moved[i]` is the post-move DTO of `refs[i]`, and lives at index
+   * `toIndex + i` in the page's /Annots array.
+   */
+  moved: AnnotationDTO[];
+  /**
+   * One structural envelope per batch. ONE revision bump, one impact
+   * computation, regardless of `refs.length`. `meta.changed` lists the
+   * stable IDs of every moved annotation, in caller order.
+   */
+  meta: AnnotationListMutationMeta;
+}

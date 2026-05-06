@@ -12,10 +12,14 @@ import type { PageState } from '../revision/PageState';
 import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
+  AnnotationMoveResult,
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
 import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
 import type { RefetchReason } from '../mutation/RefetchReason';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageMoveInput } from '../mutation/PageMoveInput';
+import type { PageMoveResult } from '../mutation/PageMoveResult';
 
 export const DocumentMetadataSchema: z.ZodType<DocumentMetadata> = z.object({
   title: z.string().nullable(),
@@ -106,4 +110,41 @@ export const AnnotationUpdateResultSchema: z.ZodType<AnnotationUpdateResult> = z
 export const AnnotationDeleteResultSchema: z.ZodType<AnnotationDeleteResult> = z.object({
   deleted: AnnotationStableIdSchema.nullable(),
   meta: AnnotationListMutationMetaSchema,
+});
+
+/**
+ * Batch annotation move (contiguous-block, symmetric with `pages.move`).
+ * `moved` is in caller order; each `moved[i]` lives at index `toIndex + i`
+ * after the move. ONE structural envelope per batch.
+ */
+export const AnnotationMoveResultSchema: z.ZodType<AnnotationMoveResult> = z.object({
+  moved: z.array(AnnotationDTOSchema),
+  meta: AnnotationListMutationMetaSchema,
+});
+
+/**
+ * Snapshot of every page in display order. Pages are addressed by
+ * `pageObjectNumber` everywhere except this read; the per-element
+ * `pageIndex` is for rendering and is intentionally not an identity.
+ */
+export const PageListSnapshotSchema: z.ZodType<PageListSnapshot> = z.object({
+  pages: z.array(PageStateSchema),
+});
+
+/**
+ * Page reorder input. Pages are always addressed by `pageObjectNumber`;
+ * `destIndex` is the insertion point in the post-removal index space.
+ */
+export const PageMoveInputSchema: z.ZodType<PageMoveInput> = z.object({
+  pageObjectNumbers: z.array(z.number().int().positive()),
+  destIndex: z.number().int().nonnegative(),
+});
+
+/**
+ * Page reorder result. No revision is bumped (no doc-level revision exists,
+ * and per-page revisions intentionally survive a page reorder). The full
+ * post-move order is returned so callers can swap their snapshot directly.
+ */
+export const PageMoveResultSchema: z.ZodType<PageMoveResult> = z.object({
+  pageOrder: z.array(PageStateSchema),
 });
