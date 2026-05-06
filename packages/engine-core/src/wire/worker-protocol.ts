@@ -2,9 +2,16 @@ import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
 } from '../annotation/AnnotationListSnapshot';
+import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { SerializedEngineError } from '../errors/EngineError';
+import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
+import type {
+  AnnotationCreateResult,
+  AnnotationDeleteResult,
+  AnnotationUpdateResult,
+} from '../mutation/AnnotationMutationResults';
 
 /**
  * Wire protocol used between an Engine-side queue and any Worker host
@@ -51,6 +58,29 @@ export interface AnnotationsListFullPageWorkerRequest {
   pageObjectNumber: PageObjectNumber;
 }
 
+export interface AnnotationsCreateWorkerRequest {
+  kind: 'annotations.create';
+  jobId: WorkerJobId;
+  docId: string;
+  pageObjectNumber: PageObjectNumber;
+  draft: AnnotationDraft;
+}
+
+export interface AnnotationsUpdateWorkerRequest {
+  kind: 'annotations.update';
+  jobId: WorkerJobId;
+  docId: string;
+  ref: AnnotationRef;
+  patch: AnnotationPatch;
+}
+
+export interface AnnotationsDeleteWorkerRequest {
+  kind: 'annotations.delete';
+  jobId: WorkerJobId;
+  docId: string;
+  ref: AnnotationRef;
+}
+
 export interface CloseWorkerRequest {
   kind: 'close';
   jobId: WorkerJobId;
@@ -73,6 +103,9 @@ export type WorkerRequest =
   | AnnotationsListRawAllWorkerRequest
   | AnnotationsListRawPageWorkerRequest
   | AnnotationsListFullPageWorkerRequest
+  | AnnotationsCreateWorkerRequest
+  | AnnotationsUpdateWorkerRequest
+  | AnnotationsDeleteWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -83,6 +116,9 @@ export type WorkerResultPayload =
   | { tag: 'annotations.listRawAll'; snapshot: AnnotationListSnapshotAllPages }
   | { tag: 'annotations.listRawPage'; snapshot: AnnotationListPageSnapshot }
   | { tag: 'annotations.listFullPage'; snapshot: AnnotationListPageSnapshot }
+  | { tag: 'annotations.create'; result: AnnotationCreateResult }
+  | { tag: 'annotations.update'; result: AnnotationUpdateResult }
+  | { tag: 'annotations.delete'; result: AnnotationDeleteResult }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

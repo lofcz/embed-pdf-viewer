@@ -31,6 +31,11 @@ export {
   PageStateSchema,
   AnnotationListPageSnapshotSchema,
   AnnotationListSnapshotAllPagesSchema,
+  RefetchReasonSchema,
+  AnnotationListMutationMetaSchema,
+  AnnotationCreateResultSchema,
+  AnnotationUpdateResultSchema,
+  AnnotationDeleteResultSchema,
 } from './wire/schemas';
 export type { OpenDocumentResponse } from './wire/schemas';
 export { wirePaths } from './wire/paths';
@@ -46,6 +51,9 @@ export type {
   AnnotationsListRawAllWorkerRequest,
   AnnotationsListRawPageWorkerRequest,
   AnnotationsListFullPageWorkerRequest,
+  AnnotationsCreateWorkerRequest,
+  AnnotationsUpdateWorkerRequest,
+  AnnotationsDeleteWorkerRequest,
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,
@@ -55,6 +63,7 @@ export type {
 export { isValidPageObjectNumber } from './identity/PageObjectNumber';
 export type { PageObjectNumber } from './identity/PageObjectNumber';
 export type { AnnotationStableId } from './identity/AnnotationStableId';
+export { encodeStableIdKey, decodeStableIdKey } from './identity/AnnotationStableId';
 export type { AnnotationRef } from './identity/AnnotationRef';
 export type { AnnotationIdentityQuality } from './identity/AnnotationIdentityQuality';
 
@@ -187,6 +196,11 @@ export type {
   AnnotationReadConformanceFixture,
   AnnotationConformanceOptions,
 } from './conformance/runAnnotationReadConformance';
+export { runAnnotationMutationConformance } from './conformance/runAnnotationMutationConformance';
+export type {
+  AnnotationMutationConformanceFixture,
+  AnnotationMutationConformanceOptions,
+} from './conformance/runAnnotationMutationConformance';
 export {
   diffAnnotationListSnapshot,
   diffAnnotationListSnapshotAll,

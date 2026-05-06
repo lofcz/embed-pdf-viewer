@@ -22,9 +22,10 @@ interface DocClosedView {
 
 /**
  * Page-scoped annotation service. `list()` is the slow path (acquires a
- * pagePtr server-side). Mutation methods are typed but throw
- * `EngineError(NotImplemented)` until the next slice; the public
- * signatures are stable so consumers can be written against them today.
+ * pagePtr server-side). Mutation methods are wired to the in-process
+ * worker; the worker host runs `DocumentAnnotationMutator` synchronously
+ * inside the same PDFium runtime instance the read path uses, so create
+ * sees its own writes immediately.
  */
 export class LocalPageAnnotationsService implements PageAnnotationsService {
   constructor(
@@ -65,30 +66,96 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     });
   }
 
-  create(_draft: AnnotationDraft): AbortablePromise<AnnotationCreateResult> {
-    return AbortablePromise.rejectReason(
-      new EngineError(
-        EngineErrorCode.NotImplemented,
-        'annotation create is not implemented in this engine slice',
-      ),
+  create(draft: AnnotationDraft): AbortablePromise<AnnotationCreateResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    const docId = this.docId;
+    const pon = this.pageObjectNumber;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildRequest: (jobId: JobId) => ({
+          kind: 'annotations.create',
+          jobId,
+          docId,
+          pageObjectNumber: pon,
+          draft,
+        }),
+      },
+      { priority: Priority.HIGH },
     );
+    return AbortablePromise.run<AnnotationCreateResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'annotations.create') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
+    });
   }
 
-  update(_ref: AnnotationRef, _patch: AnnotationPatch): AbortablePromise<AnnotationUpdateResult> {
-    return AbortablePromise.rejectReason(
-      new EngineError(
-        EngineErrorCode.NotImplemented,
-        'annotation update is not implemented in this engine slice',
-      ),
+  update(ref: AnnotationRef, patch: AnnotationPatch): AbortablePromise<AnnotationUpdateResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    const docId = this.docId;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildRequest: (jobId: JobId) => ({
+          kind: 'annotations.update',
+          jobId,
+          docId,
+          ref,
+          patch,
+        }),
+      },
+      { priority: Priority.HIGH },
     );
+    return AbortablePromise.run<AnnotationUpdateResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'annotations.update') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
+    });
   }
 
-  delete(_ref: AnnotationRef): AbortablePromise<AnnotationDeleteResult> {
-    return AbortablePromise.rejectReason(
-      new EngineError(
-        EngineErrorCode.NotImplemented,
-        'annotation delete is not implemented in this engine slice',
-      ),
+  delete(ref: AnnotationRef): AbortablePromise<AnnotationDeleteResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    const docId = this.docId;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildRequest: (jobId: JobId) => ({
+          kind: 'annotations.delete',
+          jobId,
+          docId,
+          ref,
+        }),
+      },
+      { priority: Priority.HIGH },
     );
+    return AbortablePromise.run<AnnotationDeleteResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'annotations.delete') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
+    });
   }
 }

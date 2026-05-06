@@ -62,9 +62,18 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
   app.setErrorHandler((err, req, reply) => {
     if (EngineError.is(err)) {
       const code = mapToHttp(err.code);
-      reply
-        .code(code)
-        .send({ error: { code: err.code, message: err.message, details: err.details } });
+      // The `name: 'EngineError'` discriminator is required by
+      // EngineErrorPayloadSchema on the client side; without it the
+      // typed code/message/details get dropped and clients see a
+      // status-only InvalidArg fallback.
+      reply.code(code).send({
+        error: {
+          name: 'EngineError',
+          code: err.code,
+          message: err.message,
+          details: err.details,
+        },
+      });
       return;
     }
     const e = err as Error & { code?: string };

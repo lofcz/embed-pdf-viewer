@@ -8,7 +8,8 @@
     "node": "tsx src/node.ts",
     "node:wasm": "PDF_RUNTIME_PREFER=wasm tsx src/node.ts",
     "engine:node": "tsx src/engine-node.ts",
-    "engine:annotations": "tsx src/annotations-node.ts"
+    "engine:annotations": "tsx src/annotations-node.ts",
+    "engine:mutations": "tsx src/mutations-node.ts"
   },
   "dependencies": {
     "@embedpdf/engine-cloud": "workspace:*",

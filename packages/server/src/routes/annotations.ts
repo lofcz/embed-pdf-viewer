@@ -1,8 +1,15 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  AnnotationDraftSchema,
+  AnnotationPatchSchema,
+  AnnotationRefSchema,
   EngineError,
   EngineErrorCode,
+  decodeStableIdKey,
   wirePaths,
+  type AnnotationDraft,
+  type AnnotationPatch,
+  type AnnotationRef,
   type WorkerJobId,
   type WorkerRequest,
 } from '@embedpdf/engine-core';
@@ -10,20 +17,40 @@ import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { requireTenant } from '../app/jwt-plugin';
 
+/**
+ * Minimal structural view of zod's `safeParse` return so we don't need
+ * `zod` as a direct dep of @embedpdf/server. The schemas come through
+ * @embedpdf/engine-core fully typed; we just need a shape we can narrow.
+ */
+type SafeParseLike<T> =
+  | { success: true; data: T }
+  | { success: false; error: { issues: Array<{ message: string }> } };
+interface SchemaLike<T> {
+  safeParse(raw: unknown): SafeParseLike<T>;
+}
+
 export interface AnnotationRouteDeps {
   pool: WorkerThreadPool;
   store: InMemoryDocumentStore;
 }
 
 /**
- * Annotation routes for the v3 alpha slice. Reads are wired:
- *   GET  /v1/documents/:id/annotations                                   - listRawAll
- *   GET  /v1/documents/:id/pages/:pon/annotations/raw                    - listRaw
- *   GET  /v1/documents/:id/pages/:pon/annotations                        - listFull
+ * Annotation routes for the v3 mutations slice. Read paths (GET) are
+ * unchanged from the previous slice; create/update/delete are now wired
+ * to the worker pool and emit the same `AnnotationCreateResult` /
+ * `AnnotationUpdateResult` / `AnnotationDeleteResult` shapes the local
+ * engine produces.
  *
- * Mutation routes are typed but return 501 NotImplemented; clients can
- * detect and degrade. They lock the wire shape so subsequent slices can
- * implement them without breaking changes.
+ * Identity routing:
+ *   POST   /v1/documents/:id/pages/:pon/annotations                  body=AnnotationDraft
+ *   PATCH  /v1/documents/:id/pages/:pon/annotations/:annotKey        body={ patch }                 (annotKey = obj:N | nm:VAL)
+ *   PATCH  /v1/documents/:id/pages/:pon/annotations/index            body={ ref, patch }            (kind: 'index' update)
+ *   PATCH  /v1/documents/:id/pages/:pon/annotations/index            body={ ref, op: 'delete' }     (kind: 'index' delete)
+ *   DELETE /v1/documents/:id/pages/:pon/annotations/:annotKey                                       (annotKey = obj:N | nm:VAL)
+ *
+ * The `index` PATCH variant exists because index refs cannot be encoded
+ * as a URL-safe stable id; they need a fresh `RevisionToken` to validate
+ * liveness, which travels in the body.
  */
 export async function registerAnnotationRoutes(
   app: FastifyInstance,
@@ -89,25 +116,141 @@ export async function registerAnnotationRoutes(
     return result.snapshot;
   });
 
-  // Mutation surface: return 501 with EngineError(NotImplemented). The
-  // global error handler maps NotImplemented -> 501.
-  const notImplemented = () => {
-    throw new EngineError(
-      EngineErrorCode.NotImplemented,
-      'annotation mutations are not implemented in this engine slice',
+  app.post(`${wirePaths.documents}/:id/pages/:pon/annotations`, async (req, _reply) => {
+    const tenantId = requireTenant(req);
+    const { id, pon } = req.params as { id: string; pon: string };
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    store.requireOwned(id, tenantId);
+    const signal = abortSignalFromRequest(req);
+
+    const draft = parseOrInvalidArg<AnnotationDraft>(
+      AnnotationDraftSchema as unknown as SchemaLike<AnnotationDraft>,
+      req.body,
+      'request body',
     );
-  };
-  app.post(`${wirePaths.documents}/:id/pages/:pon/annotations`, async (req) => {
-    requireTenant(req);
-    notImplemented();
+    const build = (jobId: WorkerJobId): WorkerRequest => ({
+      kind: 'annotations.create',
+      jobId,
+      docId: id,
+      pageObjectNumber,
+      draft,
+    });
+    const result = await pool.run(id, build, signal);
+    if (result.tag !== 'annotations.create') {
+      throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
+    }
+    return result.result;
   });
-  app.patch(`${wirePaths.documents}/:id/pages/:pon/annotations/:annotKey`, async (req) => {
-    requireTenant(req);
-    notImplemented();
+
+  app.patch(`${wirePaths.documents}/:id/pages/:pon/annotations/:annotKey`, async (req, _reply) => {
+    const tenantId = requireTenant(req);
+    const { id, pon, annotKey } = req.params as {
+      id: string;
+      pon: string;
+      annotKey: string;
+    };
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    store.requireOwned(id, tenantId);
+    const signal = abortSignalFromRequest(req);
+
+    if (annotKey === 'index') {
+      // Body is either an update ({ ref, patch }) or a delete ({ ref, op: 'delete' }).
+      const body = req.body as Record<string, unknown> | null | undefined;
+      const ref = parseOrInvalidArg<AnnotationRef>(
+        AnnotationRefSchema as unknown as SchemaLike<AnnotationRef>,
+        body?.ref,
+        'body.ref',
+      );
+      assertRefMatchesPage(ref, pageObjectNumber);
+      if (ref.kind !== 'index') {
+        throw new EngineError(
+          EngineErrorCode.InvalidArg,
+          `annotKey 'index' requires ref.kind === 'index', got '${ref.kind}'`,
+        );
+      }
+      if (body && body.op === 'delete') {
+        const build = (jobId: WorkerJobId): WorkerRequest => ({
+          kind: 'annotations.delete',
+          jobId,
+          docId: id,
+          ref,
+        });
+        const result = await pool.run(id, build, signal);
+        if (result.tag !== 'annotations.delete') {
+          throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
+        }
+        return result.result;
+      }
+      const patch = parseOrInvalidArg<AnnotationPatch>(
+        AnnotationPatchSchema as unknown as SchemaLike<AnnotationPatch>,
+        body?.patch,
+        'body.patch',
+      );
+      const build = (jobId: WorkerJobId): WorkerRequest => ({
+        kind: 'annotations.update',
+        jobId,
+        docId: id,
+        ref,
+        patch,
+      });
+      const result = await pool.run(id, build, signal);
+      if (result.tag !== 'annotations.update') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
+      }
+      return result.result;
+    }
+
+    // Stable-id PATCH: body is { patch }.
+    const ref = refFromKey(annotKey, pageObjectNumber);
+    const body = req.body as Record<string, unknown> | null | undefined;
+    const patch = parseOrInvalidArg<AnnotationPatch>(
+      AnnotationPatchSchema as unknown as SchemaLike<AnnotationPatch>,
+      body?.patch,
+      'body.patch',
+    );
+    const build = (jobId: WorkerJobId): WorkerRequest => ({
+      kind: 'annotations.update',
+      jobId,
+      docId: id,
+      ref,
+      patch,
+    });
+    const result = await pool.run(id, build, signal);
+    if (result.tag !== 'annotations.update') {
+      throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
+    }
+    return result.result;
   });
-  app.delete(`${wirePaths.documents}/:id/pages/:pon/annotations/:annotKey`, async (req) => {
-    requireTenant(req);
-    notImplemented();
+
+  app.delete(`${wirePaths.documents}/:id/pages/:pon/annotations/:annotKey`, async (req, _reply) => {
+    const tenantId = requireTenant(req);
+    const { id, pon, annotKey } = req.params as {
+      id: string;
+      pon: string;
+      annotKey: string;
+    };
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    store.requireOwned(id, tenantId);
+    const signal = abortSignalFromRequest(req);
+
+    if (annotKey === 'index') {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `cannot DELETE by index; use PATCH with { ref, op: 'delete' } so the revision token can be validated`,
+      );
+    }
+    const ref = refFromKey(annotKey, pageObjectNumber);
+    const build = (jobId: WorkerJobId): WorkerRequest => ({
+      kind: 'annotations.delete',
+      jobId,
+      docId: id,
+      ref,
+    });
+    const result = await pool.run(id, build, signal);
+    if (result.tag !== 'annotations.delete') {
+      throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload: ${result.tag}`);
+    }
+    return result.result;
   });
 }
 
@@ -123,9 +266,60 @@ function parsePageObjectNumber(raw: string): number {
 }
 
 function abortSignalFromRequest(req: {
-  raw: { on(event: 'close', cb: () => void): void };
+  raw: {
+    on(event: 'close', cb: () => void): void;
+    readonly complete: boolean;
+    readonly aborted?: boolean;
+  };
 }): AbortSignal {
   const ctrl = new AbortController();
-  req.raw.on('close', () => ctrl.abort());
+  // For body-bearing requests (POST/PATCH), Fastify finishes consuming
+  // the request stream before our handler runs; node emits 'close' on
+  // the IncomingMessage immediately after that. We only treat 'close'
+  // as a client disconnect when the request did NOT finish reading
+  // (`complete === false`) — otherwise the abort fires on every
+  // request regardless of whether the client is still listening.
+  if (req.raw.aborted) {
+    ctrl.abort();
+    return ctrl.signal;
+  }
+  req.raw.on('close', () => {
+    if (!req.raw.complete) ctrl.abort();
+  });
   return ctrl.signal;
+}
+
+function parseOrInvalidArg<T>(schema: SchemaLike<T>, raw: unknown, where: string): T {
+  const result = schema.safeParse(raw);
+  if (!result.success) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `${where}: ${result.error.issues.map((i) => i.message).join('; ')}`,
+      { details: { issues: result.error.issues } },
+    );
+  }
+  return result.data;
+}
+
+function refFromKey(annotKey: string, pageObjectNumber: number): AnnotationRef {
+  const stableId = decodeStableIdKey(annotKey);
+  if (!stableId) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `annotKey '${annotKey}' is not a valid stable-id key (expected 'obj:N' or 'nm:VALUE')`,
+    );
+  }
+  if (stableId.kind === 'objectNumber') {
+    return { kind: 'objectNumber', pageObjectNumber, annotObjectNumber: stableId.value };
+  }
+  return { kind: 'nm', pageObjectNumber, nm: stableId.value };
+}
+
+function assertRefMatchesPage(ref: AnnotationRef, pageObjectNumber: number): void {
+  if (ref.pageObjectNumber !== pageObjectNumber) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `ref.pageObjectNumber ${ref.pageObjectNumber} != path :pon ${pageObjectNumber}`,
+    );
+  }
 }

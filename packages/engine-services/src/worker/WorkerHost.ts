@@ -3,9 +3,12 @@ import {
   EngineError,
   EngineErrorCode,
   serializeError,
+  type AnnotationsCreateWorkerRequest,
+  type AnnotationsDeleteWorkerRequest,
   type AnnotationsListFullPageWorkerRequest,
   type AnnotationsListRawAllWorkerRequest,
   type AnnotationsListRawPageWorkerRequest,
+  type AnnotationsUpdateWorkerRequest,
   type CloseWorkerRequest,
   type MetadataReadWorkerRequest,
   type OpenWorkerRequest,
@@ -20,6 +23,7 @@ import { DocumentSession } from '../session/DocumentSession';
 import { ensureInitialized, destroyLibrary } from '../runtime-bootstrap';
 import { RawAnnotationReader } from '../readers/annotations/RawAnnotationReader';
 import { FullAnnotationReader } from '../readers/annotations/FullAnnotationReader';
+import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
 
 /**
  * The piece that runs "inside the worker": owns runtime, manages document
@@ -69,6 +73,15 @@ export class WorkerHost {
           break;
         case 'annotations.listFullPage':
           result = this.handleAnnotationsListFullPage(msg, ctrl.signal);
+          break;
+        case 'annotations.create':
+          result = this.handleAnnotationsCreate(msg, ctrl.signal);
+          break;
+        case 'annotations.update':
+          result = this.handleAnnotationsUpdate(msg, ctrl.signal);
+          break;
+        case 'annotations.delete':
+          result = this.handleAnnotationsDelete(msg, ctrl.signal);
           break;
         case 'close':
           result = this.handleClose(msg);
@@ -138,6 +151,36 @@ export class WorkerHost {
     const reader = new FullAnnotationReader(this.runtime, session);
     const snapshot = reader.list(req.pageObjectNumber, signal);
     return { tag: 'annotations.listFullPage', snapshot };
+  }
+
+  private handleAnnotationsCreate(
+    req: AnnotationsCreateWorkerRequest,
+    signal: AbortSignal,
+  ): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const mutator = new DocumentAnnotationMutator(this.runtime, session);
+    const result = mutator.create(req.pageObjectNumber, req.draft, signal);
+    return { tag: 'annotations.create', result };
+  }
+
+  private handleAnnotationsUpdate(
+    req: AnnotationsUpdateWorkerRequest,
+    signal: AbortSignal,
+  ): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const mutator = new DocumentAnnotationMutator(this.runtime, session);
+    const result = mutator.update(req.ref, req.patch, signal);
+    return { tag: 'annotations.update', result };
+  }
+
+  private handleAnnotationsDelete(
+    req: AnnotationsDeleteWorkerRequest,
+    signal: AbortSignal,
+  ): WorkerResultPayload {
+    const session = this.requireSession(req.docId);
+    const mutator = new DocumentAnnotationMutator(this.runtime, session);
+    const result = mutator.delete(req.ref, signal);
+    return { tag: 'annotations.delete', result };
   }
 
   private handleClose(req: CloseWorkerRequest): WorkerResultPayload {

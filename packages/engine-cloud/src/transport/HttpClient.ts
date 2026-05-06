@@ -44,10 +44,50 @@ export class HttpClient {
     return await this.parseJsonResponse(res, parser);
   }
 
+  async postJson<T>(
+    path: string,
+    body: unknown,
+    parser: (raw: unknown) => T,
+    signal: AbortSignal,
+  ): Promise<T> {
+    const res = await this.requestJson(path, 'POST', body, signal);
+    return await this.parseJsonResponse(res, parser);
+  }
+
+  async patchJson<T>(
+    path: string,
+    body: unknown,
+    parser: (raw: unknown) => T,
+    signal: AbortSignal,
+  ): Promise<T> {
+    const res = await this.requestJson(path, 'PATCH', body, signal);
+    return await this.parseJsonResponse(res, parser);
+  }
+
+  async deleteJson<T>(path: string, parser: (raw: unknown) => T, signal: AbortSignal): Promise<T> {
+    const res = await this.request(path, { method: 'DELETE', signal });
+    return await this.parseJsonResponse(res, parser);
+  }
+
   async deleteEmpty(path: string, signal: AbortSignal): Promise<void> {
     const res = await this.request(path, { method: 'DELETE', signal });
     if (res.status === 204) return;
     if (!res.ok) await this.throwFromBody(res);
+  }
+
+  private requestJson(
+    path: string,
+    method: 'POST' | 'PATCH' | 'PUT',
+    body: unknown,
+    signal: AbortSignal,
+  ): Promise<Response> {
+    const headers = new Headers({ 'Content-Type': 'application/json' });
+    return this.request(path, {
+      method,
+      body: JSON.stringify(body ?? {}),
+      headers,
+      signal,
+    });
   }
 
   private async request(path: string, init: RequestInit): Promise<Response> {

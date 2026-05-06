@@ -1,0 +1,101 @@
+import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
+import { NULL_PTR } from '@embedpdf/pdf-runtime';
+import type { AnnotationDraftBase, AnnotationPatchBase } from '@embedpdf/engine-core';
+
+/**
+ * Write the annotation-wide author-metadata fields shared by every Draft
+ * (contents/author/nm). The kind-specific writer calls this BEFORE its
+ * own field writes; order doesn't actually matter at the PDF level, but
+ * keeping the base first makes the writers symmetric with the readers.
+ *
+ * `nm` is written verbatim if the caller supplied one. The mutator
+ * decides whether to opportunistically stamp a UUID v4 on a weak
+ * annotation; the writer does not.
+ */
+export function applyAnnotationBaseDraft(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  draft: AnnotationDraftBase,
+): void {
+  if (draft.contents !== undefined) {
+    writeStringOrClear(fn, mem, annotPtr, 'Contents', draft.contents);
+  }
+  if (draft.author !== undefined) {
+    writeStringOrClear(fn, mem, annotPtr, 'T', draft.author);
+  }
+  if (draft.nm !== undefined && draft.nm.length > 0) {
+    writeString(fn, mem, annotPtr, 'NM', draft.nm);
+  }
+}
+
+/**
+ * Write the annotation-wide author-metadata fields shared by every Patch.
+ * Note: `nm` is intentionally absent from `AnnotationPatchBase` — /NM is
+ * monotonic per annotation and cannot be renamed via update. The mutator
+ * may still stamp /NM opportunistically when patching a weak annotation;
+ * it does so directly, not through this function.
+ *
+ * Three-state semantics on string|null fields:
+ *   undefined -> don't touch the dict
+ *   null      -> remove the entry
+ *   "..."     -> set the entry to that value
+ */
+export function applyAnnotationBasePatch(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  patch: AnnotationPatchBase,
+): void {
+  if (patch.contents !== undefined) {
+    writeStringOrClear(fn, mem, annotPtr, 'Contents', patch.contents);
+  }
+  if (patch.author !== undefined) {
+    writeStringOrClear(fn, mem, annotPtr, 'T', patch.author);
+  }
+}
+
+/**
+ * Stamp /NM on an annotation that didn't have one. Used by the mutator
+ * (not by the writers proper) to upgrade a weak annotation to durable
+ * identity during update. Idempotent and silent if the value is empty.
+ */
+export function writeAnnotationNm(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  nm: string,
+): void {
+  if (nm.length === 0) return;
+  writeString(fn, mem, annotPtr, 'NM', nm);
+}
+
+function writeString(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  key: string,
+  value: string,
+): void {
+  const ptr = mem.writeU16String(value);
+  try {
+    fn.FPDFAnnot_SetStringValue(annotPtr, key, ptr);
+  } finally {
+    mem.free(ptr);
+  }
+}
+
+function writeStringOrClear(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  key: string,
+  value: string | null,
+): void {
+  if (value === null) {
+    // PDFium accepts a NULL string-value pointer as "clear the entry".
+    fn.FPDFAnnot_SetStringValue(annotPtr, key, NULL_PTR);
+    return;
+  }
+  writeString(fn, mem, annotPtr, key, value);
+}

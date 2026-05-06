@@ -26,4 +26,21 @@ export const wirePaths = {
    */
   annotationsFullPage: (docId: string, pageObjectNumber: number) =>
     `/v1/documents/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations`,
+
+  /**
+   * POST: create an annotation on a page. Body is `AnnotationDraft`,
+   * response is `AnnotationCreateResult`. Same path as the full-page
+   * read; the verb disambiguates.
+   */
+  pageAnnotationsCreate: (docId: string, pageObjectNumber: number) =>
+    `/v1/documents/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations`,
+
+  /**
+   * PATCH/DELETE: target a single annotation by stable id. The `key`
+   * segment encodes the durable identity as `obj:<n>` or `nm:<value>`
+   * (see `encodeStableIdKey`); index-only refs are sent as `index:<n>:<rev>`
+   * with a revision token suffix for liveness.
+   */
+  annotationByKey: (docId: string, pageObjectNumber: number, key: string) =>
+    `/v1/documents/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations/${encodeURIComponent(key)}`,
 } as const;

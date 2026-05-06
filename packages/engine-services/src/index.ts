@@ -30,6 +30,7 @@ export { FullAnnotationReader } from './readers/annotations/FullAnnotationReader
 export { readAnnotationBase } from './readers/annotations/base';
 export { readAnnotationIdentity } from './readers/annotations/identity';
 export type { AnnotationIdentity } from './readers/annotations/identity';
+export { readAnnotationFromPtr } from './readers/annotations/read-one';
 export {
   readAnnotString,
   readAnnotRect,
@@ -48,3 +49,24 @@ export {
 export { readUnsupported } from './readers/annotations/unsupported';
 export { pickReader } from './readers/annotations/registry';
 export type { AnnotationReader } from './readers/annotations/registry';
+
+// Annotation writers
+export { applyDraft, applyPatch } from './writers/annotations/registry';
+export {
+  applyAnnotationBaseDraft,
+  applyAnnotationBasePatch,
+  writeAnnotationNm,
+} from './writers/annotations/base';
+export {
+  applyTextMarkupDraft,
+  applyTextMarkupPatch,
+  isTextMarkupSubtype,
+} from './writers/annotations/text-markup';
+
+// Mutation
+export { ImpactComputer } from './mutation/ImpactComputer';
+export type { MutationKind, ImpactInputs } from './mutation/ImpactComputer';
+export { DocumentAnnotationMutator } from './mutation/DocumentAnnotationMutator';
+
+// Util
+export { generateUuid } from './util/uuid';

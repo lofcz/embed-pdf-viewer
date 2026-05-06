@@ -7,8 +7,15 @@ import { AnnotationDTOSchema } from '../annotation/kinds';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
-import { RevisionTokenSchema } from '../annotation/base.schema';
+import { AnnotationStableIdSchema, RevisionTokenSchema } from '../annotation/base.schema';
 import type { PageState } from '../revision/PageState';
+import type {
+  AnnotationCreateResult,
+  AnnotationDeleteResult,
+  AnnotationUpdateResult,
+} from '../mutation/AnnotationMutationResults';
+import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
+import type { RefetchReason } from '../mutation/RefetchReason';
 
 export const DocumentMetadataSchema: z.ZodType<DocumentMetadata> = z.object({
   title: z.string().nullable(),
@@ -56,3 +63,47 @@ export const AnnotationListSnapshotAllPagesSchema: z.ZodType<AnnotationListSnaps
   z.object({
     pages: z.array(AnnotationListPageSnapshotSchema),
   });
+
+/**
+ * Reasons a mutation tells the client its old snapshot is stale. Wire-stable;
+ * extend with care (forward-compat clients accept only known values).
+ */
+export const RefetchReasonSchema: z.ZodType<RefetchReason> = z.enum([
+  'weakRefsInvalidated',
+  'externalChange',
+  'pageRebuilt',
+]);
+
+/**
+ * Per-page side-effect envelope every annotation mutation returns. Mirrors
+ * `AnnotationListMutationMeta`. The `shouldRefetch` field is `null` when the
+ * client's existing index-based references remain valid; non-null only when
+ * the engine knows for sure the snapshot is stale.
+ */
+export const AnnotationListMutationMetaSchema: z.ZodType<AnnotationListMutationMeta> = z.object({
+  pageState: PageStateSchema,
+  changed: z.array(AnnotationStableIdSchema),
+  weakRefsInvalidated: z.boolean(),
+  shouldRefetch: z.object({ reason: RefetchReasonSchema }).nullable(),
+});
+
+export const AnnotationCreateResultSchema: z.ZodType<AnnotationCreateResult> = z.object({
+  created: AnnotationDTOSchema,
+  meta: AnnotationListMutationMetaSchema,
+});
+
+export const AnnotationUpdateResultSchema: z.ZodType<AnnotationUpdateResult> = z.object({
+  updated: AnnotationDTOSchema,
+  meta: AnnotationListMutationMetaSchema,
+});
+
+/**
+ * `deleted` is nullable: a weak annotation (no /NM, no indirect object
+ * number) has no durable id to report after removal. Cloud server and local
+ * worker both emit `null` in that case so callers don't have to special-case
+ * a sentinel.
+ */
+export const AnnotationDeleteResultSchema: z.ZodType<AnnotationDeleteResult> = z.object({
+  deleted: AnnotationStableIdSchema.nullable(),
+  meta: AnnotationListMutationMetaSchema,
+});
