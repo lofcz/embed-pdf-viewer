@@ -67,7 +67,8 @@ ensure_emsdk() {
 build_one_target() {
   local target="$1"
   echo "=== building $target ==="
-  "$SRC/scripts/embedpdf-runtime/build-target.sh" "$target"
+  PDF_RUNTIME_SYNC="${PDF_RUNTIME_SYNC:-local}" \
+    "$SRC/scripts/embedpdf-runtime/build-target.sh" "$target"
   local artifact
   artifact="$("$SRC/scripts/embedpdf-runtime/package-target.sh" "$target" | tail -n1)"
   "$ROOT/scripts/runtime-use-local.sh" "$target" "$artifact"

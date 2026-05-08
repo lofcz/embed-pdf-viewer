@@ -52,6 +52,9 @@
     "lint": "eslint src --color",
     "lint:fix": "eslint src --color --fix",
     "runtime:use-local": "bash ./scripts/runtime-use-local.sh",
+    "test:pdfium": "bash ./scripts/test-pdfium.sh",
+    "test:pdfium:unit": "PDFIUM_TEST_SUITE=unit bash ./scripts/test-pdfium.sh",
+    "test:pdfium:embedder": "PDFIUM_TEST_SUITE=embedder bash ./scripts/test-pdfium.sh",
     "test:parity": "node --test ./test/*.test.mjs",
     "verify:packages": "bash ./scripts/verify-packages.sh",
     "dev": "bash ./scripts/dev.sh"
