@@ -1,6 +1,10 @@
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
-import type { PageObjectNumber, PageState, RevisionToken } from '@embedpdf/engine-core';
-import { EngineError, EngineErrorCode, isValidPageObjectNumber } from '@embedpdf/engine-core';
+import type { PageObjectNumber, PageState, RevisionToken } from '@embedpdf/engine-core/runtime';
+import {
+  EngineError,
+  EngineErrorCode,
+  isValidPageObjectNumber,
+} from '@embedpdf/engine-core/runtime';
 import { MetadataServiceImpl } from '../MetadataServiceImpl';
 import type { PageRecord } from './PageRecord';
 import { PagePtrPool } from './PagePtrPool';

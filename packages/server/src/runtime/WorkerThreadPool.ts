@@ -11,7 +11,7 @@ import {
   type WorkerRequest,
   type WorkerResponse,
   type WorkerResultPayload,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 
 let _nextJobId = 1;
 function nextJobId(): WorkerJobId {

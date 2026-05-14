@@ -24,7 +24,7 @@ import {
   type WorkerRequest,
   type WorkerResponse,
   type WorkerResultPayload,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import { DocumentSession } from '../session/DocumentSession';
 import { ensureInitialized, destroyLibrary } from '../runtime-bootstrap';
 import { RawAnnotationReader } from '../readers/annotations/RawAnnotationReader';

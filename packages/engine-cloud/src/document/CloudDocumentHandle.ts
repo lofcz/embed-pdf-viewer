@@ -2,13 +2,13 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
-  wirePaths,
   type DocumentAnnotationsService,
   type DocumentHandle,
   type DocumentPagesService,
   type PageHandle,
   type PageObjectNumber,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import { wirePaths } from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudMetadataService } from './CloudMetadataService';
 import { CloudDocumentAnnotationsService } from './CloudDocumentAnnotationsService';

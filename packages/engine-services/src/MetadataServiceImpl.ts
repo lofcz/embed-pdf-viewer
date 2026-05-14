@@ -1,5 +1,5 @@
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
-import type { DocumentMetadata } from '@embedpdf/engine-core';
+import type { DocumentMetadata } from '@embedpdf/engine-core/runtime';
 import { throwIfAborted } from './abort';
 import { readMetaText } from './readers/meta-text';
 import { readTrapped } from './readers/trapped';

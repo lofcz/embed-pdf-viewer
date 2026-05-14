@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import {
   runAnnotationMutationConformance,
   type ConformanceTestRunner,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/conformance';
 import { createLocalEngine } from '../src/index';
 
 const here = dirname(fileURLToPath(import.meta.url));

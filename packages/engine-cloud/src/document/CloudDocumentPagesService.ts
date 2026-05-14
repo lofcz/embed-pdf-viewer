@@ -2,14 +2,16 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
-  PageListSnapshotSchema,
-  PageMoveResultSchema,
-  wirePaths,
   type DocumentPagesService,
   type PageListSnapshot,
   type PageMoveResult,
   type PageObjectNumber,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import {
+  PageListSnapshotSchema,
+  PageMoveResultSchema,
+  wirePaths,
+} from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
 
 /**

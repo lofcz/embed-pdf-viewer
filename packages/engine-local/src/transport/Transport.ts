@@ -1,4 +1,4 @@
-import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core';
+import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core/runtime';
 
 /**
  * The pluggable boundary between the WorkerQueue (lives on the main thread)

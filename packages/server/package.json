@@ -24,7 +24,8 @@
     "dev": "tsup --watch",
     "start": "node dist/bin/embedpdf-server.js",
     "lint": "eslint src --color",
-    "lint:fix": "eslint src --color --fix"
+    "lint:fix": "eslint src --color --fix",
+    "test": "vitest run"
   },
   "files": [
     "dist",
@@ -48,17 +49,27 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
+    "@embedpdf/cloud-api": "workspace:*",
     "@embedpdf/engine-core": "workspace:*",
     "@embedpdf/engine-services": "workspace:*",
     "@embedpdf/pdf-runtime": "workspace:*",
+    "@fastify/multipart": "^9.0.0",
+    "better-sqlite3": "^12.10.0",
     "fastify": "^5.0.0",
-    "@fastify/multipart": "^9.0.0"
+    "kysely": "^0.29.0"
   },
   "devDependencies": {
+    "@embedpdf/cloud-admin": "workspace:^",
+    "@smithy/util-stream": "^4.6.1",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "latest",
+    "aws-sdk-client-mock": "^4.1.0",
     "rimraf": "^5.0.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.0"
   },
   "publishConfig": {
     "access": "public"

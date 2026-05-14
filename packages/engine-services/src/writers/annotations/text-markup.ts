@@ -12,7 +12,7 @@ import {
   type StrikeoutPatch,
   type UnderlineDraft,
   type UnderlinePatch,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './base';
 
 const FPDFANNOT_COLORTYPE_Color = 0;

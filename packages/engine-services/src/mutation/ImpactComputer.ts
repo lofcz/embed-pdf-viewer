@@ -2,7 +2,7 @@ import type {
   AnnotationListMutationMeta,
   AnnotationStableId,
   PageState,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 
 /**
  * The kind of mutation that just happened on a page.

@@ -1,4 +1,4 @@
-import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core';
+import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core/runtime';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudPageAnnotationsService } from './CloudPageAnnotationsService';
 

@@ -1,18 +1,20 @@
 import type { FastifyInstance } from 'fastify';
 import {
-  AnnotationDraftSchema,
-  AnnotationPatchSchema,
-  AnnotationRefSchema,
   EngineError,
   EngineErrorCode,
   decodeStableIdKey,
   wirePack,
-  wirePaths,
   type AnnotationDraft,
   type AnnotationPatch,
   type AnnotationRef,
   type WorkerJobId,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import {
+  AnnotationDraftSchema,
+  AnnotationPatchSchema,
+  AnnotationRefSchema,
+  wirePaths,
+} from '@embedpdf/engine-core/wire';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { requireTenant } from '../app/jwt-plugin';

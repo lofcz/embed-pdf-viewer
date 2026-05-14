@@ -2,6 +2,7 @@
 import type { Ptr } from './pdf-runtime-module';
 
 export interface PdfFunctions {
+  EPDF_FreeBuffer: (arg0: Ptr) => void;
   EPDF_GetMetaKeyCount: (arg0: Ptr, arg1: boolean) => number;
   EPDF_GetMetaKeyName: (arg0: Ptr, arg1: number, arg2: boolean, arg3: Ptr, arg4: number) => number;
   EPDF_GetMetaTrapped: (arg0: Ptr) => number;
@@ -10,6 +11,7 @@ export interface PdfFunctions {
   EPDF_HasMetaText: (arg0: Ptr, arg1: string) => boolean;
   EPDF_IsEncrypted: (arg0: Ptr) => boolean;
   EPDF_IsOwnerUnlocked: (arg0: Ptr) => boolean;
+  EPDF_LoadBaseDocument: (arg0: Ptr, arg1: string) => Ptr;
   EPDF_LoadPageNormalized: (arg0: Ptr, arg1: number, arg2: Ptr) => Ptr;
   EPDF_PNG_EncodeRGBA: (
     arg0: Ptr,
@@ -19,6 +21,7 @@ export interface PdfFunctions {
     arg4: number,
     arg5: Ptr,
   ) => number;
+  EPDF_ReleaseBaseDocument: (arg0: Ptr) => void;
   EPDF_RemoveEncryption: (arg0: Ptr) => boolean;
   EPDF_RenderAnnotBitmap: (
     arg0: Ptr,
@@ -36,6 +39,13 @@ export interface PdfFunctions {
     arg4: Ptr,
     arg5: number,
   ) => boolean;
+  EPDF_SaveDocumentToOwnedBuffer: (arg0: Ptr, arg1: number, arg2: Ptr) => Ptr;
+  EPDF_SaveDocumentToOwnedBufferWithVersion: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: Ptr,
+    arg3: number,
+  ) => Ptr;
   EPDF_SetEncryption: (arg0: Ptr, arg1: string, arg2: string, arg3: number) => boolean;
   EPDF_SetMetaText: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDF_SetMetaTrapped: (arg0: Ptr, arg1: number) => boolean;
@@ -203,6 +213,14 @@ export interface PdfFunctions {
   EPDFDoc_LoadPageByObjectNumber: (arg0: Ptr, arg1: number) => Ptr;
   EPDFImageObj_SetJpeg: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFImageObj_SetPng: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
+  EPDFLayer_GetBaseDocument: (arg0: Ptr) => Ptr;
+  EPDFLayer_GetPromotedObjectCount: (arg0: Ptr) => number;
+  EPDFLayer_IsObjectPromoted: (arg0: Ptr, arg1: number) => boolean;
+  EPDFLayer_OpenLayer: (arg0: Ptr, arg1: Ptr, arg2: string, arg3: Ptr) => Ptr;
+  EPDFLayer_OpenLayerArtifact: (arg0: Ptr, arg1: Ptr, arg2: string, arg3: Ptr) => Ptr;
+  EPDFLayer_SaveDelta: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
+  EPDFLayer_SaveDeltaToOwnedBuffer: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => Ptr;
+  EPDFLayer_SaveLayerArtifactToOwnedBuffer: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => Ptr;
   EPDFNamedDest_Remove: (arg0: Ptr, arg1: string) => boolean;
   EPDFNamedDest_SetDest: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDFPage_ApplyRedactions: (arg0: Ptr) => boolean;
@@ -1014,6 +1032,16 @@ export interface PdfFunctionSignature {
 }
 
 export const pdfFunctionSignatures = {
+  EPDF_FreeBuffer: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
   EPDF_GetMetaKeyCount: {
     params: [
       {
@@ -1171,6 +1199,25 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
+  EPDF_LoadBaseDocument: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
   EPDF_LoadPageNormalized: {
     params: [
       {
@@ -1233,6 +1280,16 @@ export const pdfFunctionSignatures = {
       wasm: { kind: 'i32', cwrap: 'number' },
       native: { kind: 'i32', cwrap: 'number' },
     },
+  },
+  EPDF_ReleaseBaseDocument: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
   },
   EPDF_RemoveEncryption: {
     params: [
@@ -1324,6 +1381,59 @@ export const pdfFunctionSignatures = {
       ts: 'boolean',
       wasm: { kind: 'bool', cwrap: 'boolean' },
       native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDF_SaveDocumentToOwnedBuffer: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDF_SaveDocumentToOwnedBufferWithVersion: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
     },
   },
   EPDF_SetEncryption: {
@@ -3683,6 +3793,183 @@ export const pdfFunctionSignatures = {
       ts: 'boolean',
       wasm: { kind: 'bool', cwrap: 'boolean' },
       native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFLayer_GetBaseDocument: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFLayer_GetPromotedObjectCount: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFLayer_IsObjectPromoted: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFLayer_OpenLayer: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFLayer_OpenLayerArtifact: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFLayer_SaveDelta: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFLayer_SaveDeltaToOwnedBuffer: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFLayer_SaveLayerArtifactToOwnedBuffer: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
     },
   },
   EPDFNamedDest_Remove: {

@@ -1,4 +1,4 @@
-import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core';
+import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core/runtime';
 import { LocalPageAnnotationsService } from './LocalPageAnnotationsService';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 

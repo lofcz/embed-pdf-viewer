@@ -1,6 +1,6 @@
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
-import type { PageObjectNumber } from '@embedpdf/engine-core';
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core';
+import type { PageObjectNumber } from '@embedpdf/engine-core/runtime';
+import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 
 /**
  * Manages pagePtr lifetime for a single open `DocumentSession`.

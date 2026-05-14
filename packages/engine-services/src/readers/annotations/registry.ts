@@ -1,6 +1,10 @@
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
-import type { AnnotationBase, AnnotationDTO, AnnotationSubtype } from '@embedpdf/engine-core';
-import { subtypeFromCode } from '@embedpdf/engine-core';
+import type {
+  AnnotationBase,
+  AnnotationDTO,
+  AnnotationSubtype,
+} from '@embedpdf/engine-core/runtime';
+import { subtypeFromCode } from '@embedpdf/engine-core/runtime';
 import { readHighlight, readSquiggly, readStrikeout, readUnderline } from './text-markup';
 import { readUnsupported } from './unsupported';
 

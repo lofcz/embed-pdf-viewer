@@ -7,7 +7,7 @@ import {
   type Engine,
   type OpenInput,
   type OpenOptions,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import type { Transport } from './transport/Transport';
 import { WorkerQueue } from './worker/WorkerQueue';
 import { Priority } from './worker/Priority';

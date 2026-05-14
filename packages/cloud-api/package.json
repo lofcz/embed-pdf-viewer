@@ -1,0 +1,55 @@
+{
+  "name": "@embedpdf/cloud-api",
+  "version": "0.0.0",
+  "private": false,
+  "description": "Shared EmbedPDF cloud HTTP contracts and zod schemas.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "clean": "rimraf dist",
+    "dev": "tsup --watch",
+    "lint": "eslint src --color",
+    "lint:fix": "eslint src --color --fix"
+  },
+  "files": [
+    "dist",
+    "LICENSE.md",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "directory": "packages/cloud-api"
+  },
+  "homepage": "https://www.embedpdf.com",
+  "bugs": {
+    "url": "https://github.com/embedpdf/embed-pdf-viewer/issues"
+  },
+  "keywords": [
+    "pdf",
+    "embedpdf",
+    "cloud-api",
+    "contracts"
+  ],
+  "license": "Apache-2.0",
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "rimraf": "^5.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

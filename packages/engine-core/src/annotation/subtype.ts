@@ -101,6 +101,34 @@ export const PDF_CODE_TO_SUBTYPE: Readonly<Record<number, AnnotationSubtype>> = 
   [PdfAnnotationSubtypeCode.REDACT]: 'redact',
 });
 
+/**
+ * Reverse map for write paths that need to turn a wire subtype back into the
+ * PDFium integer code without importing the zod-backed annotation registry.
+ */
+export const PDF_SUBTYPE_TO_CODE: Readonly<Record<AnnotationSubtype, PdfAnnotationSubtypeCode>> =
+  Object.freeze({
+    text: PdfAnnotationSubtypeCode.TEXT,
+    link: PdfAnnotationSubtypeCode.LINK,
+    'free-text': PdfAnnotationSubtypeCode.FREETEXT,
+    line: PdfAnnotationSubtypeCode.LINE,
+    square: PdfAnnotationSubtypeCode.SQUARE,
+    circle: PdfAnnotationSubtypeCode.CIRCLE,
+    polygon: PdfAnnotationSubtypeCode.POLYGON,
+    polyline: PdfAnnotationSubtypeCode.POLYLINE,
+    highlight: PdfAnnotationSubtypeCode.HIGHLIGHT,
+    underline: PdfAnnotationSubtypeCode.UNDERLINE,
+    squiggly: PdfAnnotationSubtypeCode.SQUIGGLY,
+    strikeout: PdfAnnotationSubtypeCode.STRIKEOUT,
+    stamp: PdfAnnotationSubtypeCode.STAMP,
+    caret: PdfAnnotationSubtypeCode.CARET,
+    ink: PdfAnnotationSubtypeCode.INK,
+    popup: PdfAnnotationSubtypeCode.POPUP,
+    'file-attachment': PdfAnnotationSubtypeCode.FILEATTACHMENT,
+    redact: PdfAnnotationSubtypeCode.REDACT,
+    widget: PdfAnnotationSubtypeCode.WIDGET,
+    unsupported: PdfAnnotationSubtypeCode.UNKNOWN,
+  });
+
 export function subtypeFromCode(code: number): AnnotationSubtype {
   return PDF_CODE_TO_SUBTYPE[code] ?? 'unsupported';
 }

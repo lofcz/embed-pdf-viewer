@@ -1,4 +1,4 @@
-import { AbortError } from '@embedpdf/engine-core';
+import { AbortError } from '@embedpdf/engine-core/runtime';
 
 /**
  * Throw if the AbortSignal has been aborted. Service code peppers calls to

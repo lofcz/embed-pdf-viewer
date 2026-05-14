@@ -1,7 +1,7 @@
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import { NULL_PTR } from '@embedpdf/pdf-runtime';
-import type { AnnotationRef } from '@embedpdf/engine-core';
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core';
+import type { AnnotationRef } from '@embedpdf/engine-core/runtime';
+import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import type { DocumentSession } from './DocumentSession';
 
 /**

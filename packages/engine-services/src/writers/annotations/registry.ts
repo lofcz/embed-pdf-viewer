@@ -4,7 +4,7 @@ import {
   EngineErrorCode,
   type AnnotationDraft,
   type AnnotationPatch,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import {
   applyTextMarkupDraft,
   applyTextMarkupPatch,

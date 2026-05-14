@@ -10,7 +10,7 @@
 import { parentPort } from 'node:worker_threads';
 import { createPdfRuntime } from '@embedpdf/pdf-runtime';
 import { WorkerHost } from '@embedpdf/engine-services';
-import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core';
+import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core/runtime';
 
 if (!parentPort) {
   throw new Error('worker-entry must be loaded as a worker_thread');

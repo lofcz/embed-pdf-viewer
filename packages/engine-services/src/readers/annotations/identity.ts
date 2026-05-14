@@ -4,7 +4,7 @@ import type {
   AnnotationRef,
   PageObjectNumber,
   RevisionToken,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import { readAnnotString } from './util';
 
 export interface AnnotationIdentity {

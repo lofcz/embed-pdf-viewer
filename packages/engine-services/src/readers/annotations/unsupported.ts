@@ -1,5 +1,5 @@
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
-import type { AnnotationBase, UnsupportedAnnotationDTO } from '@embedpdf/engine-core';
+import type { AnnotationBase, UnsupportedAnnotationDTO } from '@embedpdf/engine-core/runtime';
 import { readAnnotString } from './util';
 
 /**

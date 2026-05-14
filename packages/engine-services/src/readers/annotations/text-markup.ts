@@ -7,7 +7,7 @@ import type {
   SquigglyAnnotationDTO,
   StrikeoutAnnotationDTO,
   UnderlineAnnotationDTO,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import { readAnnotColor, readAnnotNumber, readQuadPoints } from './util';
 
 const DEFAULT_HIGHLIGHT_COLOR: Color = { r: 255, g: 255, b: 0 };

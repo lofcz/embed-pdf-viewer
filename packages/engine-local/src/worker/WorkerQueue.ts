@@ -6,7 +6,7 @@ import {
   deserializeError,
   wirePack,
   type WirePack,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import type { Transport } from '../transport/Transport';
 import { IndexedPriorityHeap, type HeapHandle } from './IndexedPriorityHeap';
 import { Priority } from './Priority';

@@ -2,9 +2,9 @@ import {
   AbortError,
   EngineError,
   EngineErrorCode,
-  EngineErrorPayloadSchema,
   type SerializedEngineError,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import { EngineErrorPayloadSchema } from '@embedpdf/engine-core/wire';
 
 export interface HttpClientOptions {
   baseUrl: string;

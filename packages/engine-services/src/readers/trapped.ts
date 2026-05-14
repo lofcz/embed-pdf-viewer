@@ -1,5 +1,5 @@
 import type { PdfFunctions, Ptr } from '@embedpdf/pdf-runtime';
-import type { DocumentMetadataTrapped } from '@embedpdf/engine-core';
+import type { DocumentMetadataTrapped } from '@embedpdf/engine-core/runtime';
 
 // PDFium /Trapped values:
 //   0 = NotSet, 1 = True, 2 = False, 3 = Unknown.

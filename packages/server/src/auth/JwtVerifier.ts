@@ -5,7 +5,25 @@ export interface JwtClaims {
   tenant_id: string;
   iat: number;
   exp: number;
+  /**
+   * Optional admin scopes. Presence + non-empty array marks this as
+   * an admin-class token usable on `/v1/admin/...` routes. Empty or
+   * missing => engine-only token.
+   */
+  admin_scope?: ReadonlyArray<AdminScope>;
+  /**
+   * Optional opaque token id; required for revocation. Phase 1 does
+   * not maintain a revocation table; Phase 2 adds `revoked_jtis`.
+   */
+  jti?: string;
 }
+
+/**
+ * The scope strings recognised by the admin routes. Phase 1 admin
+ * tokens with `*` get full access; finer-grained scopes will be
+ * enforced in Phase 2+.
+ */
+export type AdminScope = '*' | 'docs.create' | 'docs.read' | 'docs.delete' | 'tokens.mint';
 
 export type JwtClaimsExtras = Record<string, unknown>;
 
@@ -56,8 +74,30 @@ export class JwtVerifier {
       const now = Math.floor(Date.now() / 1000);
       if (now > claims.exp + this.skew) throw new Error('jwt expired');
     }
+    if (claims.admin_scope !== undefined) {
+      if (!Array.isArray(claims.admin_scope)) {
+        throw new Error('jwt admin_scope must be an array');
+      }
+      for (const s of claims.admin_scope) {
+        if (typeof s !== 'string') throw new Error('jwt admin_scope must contain strings');
+      }
+    }
     return claims;
   }
+}
+
+/**
+ * Returns true if `claims` carries at least one of `wanted` (or `*`).
+ * Empty/missing `admin_scope` -> false (engine-only token).
+ */
+export function hasAdminScope(claims: JwtClaims, wanted: ReadonlyArray<AdminScope>): boolean {
+  const have = claims.admin_scope;
+  if (!have || have.length === 0) return false;
+  if (have.includes('*')) return true;
+  for (const w of wanted) {
+    if (have.includes(w)) return true;
+  }
+  return false;
 }
 
 /**
@@ -68,6 +108,10 @@ export interface SignDevTokenInput {
   sub: string;
   tenant_id: string;
   ttlSeconds?: number;
+  /** Attach an admin scope to mint a tenant-admin token. */
+  admin_scope?: ReadonlyArray<AdminScope>;
+  /** Stable token id for revocation tests. */
+  jti?: string;
   extras?: JwtClaimsExtras;
 }
 
@@ -79,6 +123,8 @@ export function signDevToken(secret: string, input: SignDevTokenInput): string {
     exp: now + ttl,
     sub: input.sub,
     tenant_id: input.tenant_id,
+    ...(input.admin_scope ? { admin_scope: input.admin_scope } : {}),
+    ...(input.jti ? { jti: input.jti } : {}),
     ...(input.extras ?? {}),
   };
   const payloadB64 = base64url(JSON.stringify(fullClaims));

@@ -2,12 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import {
   EngineError,
   EngineErrorCode,
-  PageMoveInputSchema,
   wirePack,
-  wirePaths,
   type PageMoveInput,
   type WorkerJobId,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import { PageMoveInputSchema, wirePaths } from '@embedpdf/engine-core/wire';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { requireTenant } from '../app/jwt-plugin';

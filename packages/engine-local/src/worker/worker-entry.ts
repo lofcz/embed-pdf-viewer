@@ -13,7 +13,7 @@
  */
 import { createPdfRuntime } from '@embedpdf/pdf-runtime';
 import { WorkerHost } from '@embedpdf/engine-services';
-import type { WirePack, WorkerResponse } from '@embedpdf/engine-core';
+import type { WirePack, WorkerResponse } from '@embedpdf/engine-core/runtime';
 import type { WorkerRequest } from './protocol';
 
 declare const self: DedicatedWorkerGlobalScope;

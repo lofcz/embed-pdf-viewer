@@ -2,13 +2,12 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
-  OpenDocumentResponseSchema,
-  wirePaths,
   type DocumentHandle,
   type Engine,
   type OpenInput,
   type OpenOptions,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import { OpenDocumentResponseSchema, wirePaths } from '@embedpdf/engine-core/wire';
 import { HttpClient, type HttpClientOptions } from './transport/HttpClient';
 import { CloudDocumentHandle } from './document/CloudDocumentHandle';
 

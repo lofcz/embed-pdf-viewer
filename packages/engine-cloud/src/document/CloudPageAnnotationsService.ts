@@ -1,14 +1,8 @@
 import {
   AbortablePromise,
-  AnnotationCreateResultSchema,
-  AnnotationDeleteResultSchema,
-  AnnotationListPageSnapshotSchema,
-  AnnotationMoveResultSchema,
-  AnnotationUpdateResultSchema,
   EngineError,
   EngineErrorCode,
   encodeStableIdKey,
-  wirePaths,
   type AnnotationDraft,
   type AnnotationListPageSnapshot,
   type AnnotationPatch,
@@ -19,7 +13,15 @@ import {
   type AnnotationUpdateResult,
   type PageAnnotationsService,
   type PageObjectNumber,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import {
+  AnnotationCreateResultSchema,
+  AnnotationDeleteResultSchema,
+  AnnotationListPageSnapshotSchema,
+  AnnotationMoveResultSchema,
+  AnnotationUpdateResultSchema,
+  wirePaths,
+} from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
 
 /**

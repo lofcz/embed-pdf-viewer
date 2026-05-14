@@ -1,0 +1,141 @@
+/**
+ * Pluggable object-store interface for @embedpdf/server.
+ *
+ * Phase 1 ships `FsObjectStore` + `S3ObjectStore`; GCS / Azure land in
+ * Phase 7. Every adapter exposes the same key shape (`StorageKeys`)
+ * and the same operation set, so `rclone sync` migrates verbatim
+ * between backends.
+ *
+ * Note: `materializeLocal` is intentionally absent from Phase 1.
+ * It belongs to the engine read path (Phase 3) and adds non-trivial
+ * disk-cache machinery. Phase 1 only cares about admin writes / reads
+ * for verification.
+ */
+
+import type { Readable } from 'node:stream';
+
+/**
+ * The bytes payload for a one-shot upload. We accept either a
+ * fully-buffered `Uint8Array` (Phase 1 admin pathway: customer
+ * POSTs the PDF directly through origin) or a Node `Readable`
+ * (future: streaming sources without materializing in RAM).
+ */
+export type ObjectBody = Uint8Array | Readable;
+
+export interface PresignUploadOpts {
+  /** Required by S3 SigV4. We declare exactly what the client will PUT. */
+  contentLength: number;
+  /** Always `application/pdf` for our pathway. */
+  contentType: string;
+  /**
+   * Optional client-supplied MD5 hash, base64-encoded (S3 `Content-MD5`).
+   * Provides at-the-edge integrity. We don't rely on it for security;
+   * the SHA-256 verify-on-commit is the source of truth.
+   */
+  contentMd5Base64?: string;
+}
+
+export interface PresignedUpload {
+  /** The URL the client PUTs to. */
+  url: string;
+  /**
+   * Headers the client MUST include verbatim on the PUT, in the order
+   * given. S3 includes `Host` and any signed metadata headers.
+   */
+  headers: Record<string, string>;
+  /** HTTP method to use. Always `PUT` for our flows. */
+  method: 'PUT';
+  /** Absolute epoch ms when the presigned URL stops working. */
+  expiresAt: number;
+}
+
+export interface PresignedDownload {
+  url: string;
+  /** Absolute epoch ms when the download URL stops working. */
+  expiresAt: number;
+}
+
+export interface ObjectStat {
+  size: number;
+  /**
+   * Strong identifier set by the backend on PUT. For S3 this is the
+   * ETag (sans quotes); for FS it's the SHA-256 we compute as we
+   * write. Used as a coarse change detector, NOT as a cryptographic
+   * hash for our base PDF dedup; that comes from
+   * `getSha256`/server-side verification on commit.
+   */
+  etag: string;
+}
+
+/**
+ * The minimum operations a storage backend must support for Phase 1.
+ *
+ * Adapter expectations:
+ *   - All keys are tenant-rooted; the caller (admin routes) is
+ *     responsible for using `StorageKeys` to enforce isolation.
+ *   - `put` and `delete` are idempotent: putting the same key twice
+ *     overwrites; deleting a missing key is a no-op (returns false).
+ *   - `deletePrefix` MUST recurse, return only after every child is
+ *     gone, and tolerate concurrent deletes. Backends that can't
+ *     deliver atomicity (S3) should at least be eventually consistent
+ *     once they return.
+ */
+export interface ObjectStore {
+  /** Strong-consistency existence check. */
+  exists(key: string): Promise<boolean>;
+
+  /** Strong-consistency stat. Returns null if the key doesn't exist. */
+  stat(key: string): Promise<ObjectStat | null>;
+
+  /**
+   * Direct origin-mediated upload. Used by:
+   *   - FS adapter (where there's no presigned PUT to issue)
+   *   - Customers behind strict egress policies that can't talk to S3
+   * Returns the SHA-256 hex digest of the bytes that were written.
+   * Implementations stream-hash if `body` is a `Readable`.
+   */
+  put(key: string, body: ObjectBody, opts: { contentLength: number }): Promise<{ sha256: string }>;
+
+  /**
+   * One-shot full download. Returns `null` for missing keys. Phase 1
+   * only uses this for the admin /download verification endpoint;
+   * Phase 3 will add `materializeLocal` for engine reads.
+   */
+  get(key: string): Promise<Uint8Array | null>;
+
+  /**
+   * Compute SHA-256 over the stored object without loading it all
+   * into memory. Used by `commit` to verify the customer-claimed sha
+   * against the bytes that landed in storage. May be a no-op for
+   * adapters that hash on PUT and return the digest via `stat.etag`.
+   */
+  getSha256(key: string): Promise<string | null>;
+
+  /** Return null if presigned uploads aren't supported (FsObjectStore). */
+  presignUpload(
+    key: string,
+    ttlSec: number,
+    opts: PresignUploadOpts,
+  ): Promise<PresignedUpload | null>;
+
+  /** Return null if presigned downloads aren't supported. */
+  presignDownload(key: string, ttlSec: number): Promise<PresignedDownload | null>;
+
+  delete(key: string): Promise<boolean>;
+  /** Recursive prefix delete. Used by `documents.delete` cascade. */
+  deletePrefix(prefix: string): Promise<{ deleted: number }>;
+}
+
+/**
+ * Diagnostic label every adapter exposes for log/metric tagging. Not
+ * part of the operational interface; just a constant.
+ */
+export interface ObjectStoreInfo {
+  kind: 'fs' | 's3' | 'gcs' | 'azure';
+  /** Identifying string for diagnostics. `bucket name` / `root path`. */
+  location: string;
+}
+
+export interface ObjectStoreWithInfo extends ObjectStore {
+  readonly info: ObjectStoreInfo;
+}

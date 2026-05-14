@@ -1,15 +1,17 @@
 import {
   AbortablePromise,
-  AnnotationListPageSnapshotSchema,
-  AnnotationListSnapshotAllPagesSchema,
   EngineError,
   EngineErrorCode,
-  wirePaths,
   type AnnotationListPageSnapshot,
   type AnnotationListSnapshotAllPages,
   type DocumentAnnotationsService,
   type PageObjectNumber,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import {
+  AnnotationListPageSnapshotSchema,
+  AnnotationListSnapshotAllPagesSchema,
+  wirePaths,
+} from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
 
 export class CloudDocumentAnnotationsService implements DocumentAnnotationsService {

@@ -1,4 +1,4 @@
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core';
+import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 
 /**
  * Shared route helpers. Lives next to the route files (prefixed with

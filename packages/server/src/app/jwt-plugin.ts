@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { JwtVerifier, type JwtClaims } from '../auth/JwtVerifier';
+import { JwtVerifier, hasAdminScope, type AdminScope, type JwtClaims } from '../auth/JwtVerifier';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -45,4 +45,32 @@ export function requireTenant(req: FastifyRequest): string {
   const t = req.tenant;
   if (!t) throw new Error('tenant not attached to request (auth bypass?)');
   return t.id;
+}
+
+/**
+ * Admin-route preHandler: asserts the request carries an admin-class
+ * token with at least one of `wanted` scopes. Throws a typed error
+ * (`AdminForbidden`) which the error handler maps to 403.
+ */
+export function requireAdmin(
+  req: FastifyRequest,
+  wanted: ReadonlyArray<AdminScope>,
+): { tenantId: string; sub: string } {
+  const t = req.tenant;
+  if (!t) {
+    const err = new Error('admin token required') as Error & { code: string; status: number };
+    err.code = 'AdminUnauthenticated';
+    err.status = 401;
+    throw err;
+  }
+  if (!hasAdminScope(t.claims, wanted)) {
+    const err = new Error(`admin scope required: one of [${wanted.join(', ')}]`) as Error & {
+      code: string;
+      status: number;
+    };
+    err.code = 'AdminForbidden';
+    err.status = 403;
+    throw err;
+  }
+  return { tenantId: t.id, sub: t.sub };
 }

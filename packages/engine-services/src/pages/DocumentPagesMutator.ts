@@ -6,7 +6,7 @@ import {
   type PageMoveResult,
   type PageObjectNumber,
   type PageState,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import { throwIfAborted } from '../abort';
 import type { DocumentSession } from '../session/DocumentSession';
 

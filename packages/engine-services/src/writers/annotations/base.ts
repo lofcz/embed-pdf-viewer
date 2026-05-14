@@ -1,6 +1,6 @@
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 import { NULL_PTR } from '@embedpdf/pdf-runtime';
-import type { AnnotationDraftBase, AnnotationPatchBase } from '@embedpdf/engine-core';
+import type { AnnotationDraftBase, AnnotationPatchBase } from '@embedpdf/engine-core/runtime';
 
 /**
  * Write the annotation-wide author-metadata fields shared by every Draft

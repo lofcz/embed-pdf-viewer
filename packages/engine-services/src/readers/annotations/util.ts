@@ -1,7 +1,7 @@
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 import { NULL_PTR } from '@embedpdf/pdf-runtime';
-import type { AnnotationFlags, Color, QuadPoint, Rect } from '@embedpdf/engine-core';
-import { NO_ANNOTATION_FLAGS } from '@embedpdf/engine-core';
+import type { AnnotationFlags, Color, QuadPoint, Rect } from '@embedpdf/engine-core/runtime';
+import { NO_ANNOTATION_FLAGS } from '@embedpdf/engine-core/runtime';
 
 /**
  * Reads a UTF-16 string entry from an annotation dictionary. Returns

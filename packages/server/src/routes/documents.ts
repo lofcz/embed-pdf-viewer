@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
-import { wirePaths, wirePack } from '@embedpdf/engine-core';
-import type { WorkerJobId } from '@embedpdf/engine-core';
+import { wirePack, type WorkerJobId } from '@embedpdf/engine-core/runtime';
+import { wirePaths } from '@embedpdf/engine-core/wire';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { requireTenant } from '../app/jwt-plugin';

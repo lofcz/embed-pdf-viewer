@@ -3,7 +3,7 @@ import type {
   AnnotationDTO,
   AnnotationListPageSnapshot,
   PageObjectNumber,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import type { DocumentSession } from '../../session/DocumentSession';
 import { throwIfAborted } from '../../abort';
 import { readAnnotationBase } from './base';

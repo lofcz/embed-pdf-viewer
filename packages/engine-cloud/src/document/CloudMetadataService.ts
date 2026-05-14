@@ -1,12 +1,11 @@
 import {
   AbortablePromise,
-  DocumentMetadataSchema,
   EngineError,
   EngineErrorCode,
-  wirePaths,
   type DocumentMetadata,
   type MetadataService,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import { DocumentMetadataSchema, wirePaths } from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
 
 export class CloudMetadataService implements MetadataService {

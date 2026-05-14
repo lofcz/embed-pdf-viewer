@@ -1,5 +1,5 @@
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
-import type { AnnotationDTO, PageObjectNumber, RevisionToken } from '@embedpdf/engine-core';
+import type { AnnotationDTO, PageObjectNumber, RevisionToken } from '@embedpdf/engine-core/runtime';
 import { readAnnotationBase } from './base';
 import { pickReader } from './registry';
 

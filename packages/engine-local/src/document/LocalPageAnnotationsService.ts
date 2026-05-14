@@ -13,7 +13,7 @@ import {
   type AnnotationUpdateResult,
   type PageAnnotationsService,
   type PageObjectNumber,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';

@@ -16,4 +16,9 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   external: [/^@embedpdf\//, 'fastify', '@fastify/multipart'],
+  // `.sql` migrations are imported as string constants. The text
+  // loader inlines them at build time so the bundle has no runtime
+  // filesystem dependency on the original .sql files. The shim in
+  // src/types/sql.d.ts gives TypeScript the matching `default: string`.
+  loader: { '.sql': 'text' },
 });

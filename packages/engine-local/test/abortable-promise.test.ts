@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { AbortablePromise, AbortError } from '@embedpdf/engine-core';
+import { AbortablePromise, AbortError } from '@embedpdf/engine-core/runtime';
 
 describe('AbortablePromise', () => {
   test('resolves like a normal promise', async () => {

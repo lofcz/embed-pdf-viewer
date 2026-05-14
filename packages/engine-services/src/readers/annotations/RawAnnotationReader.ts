@@ -4,8 +4,8 @@ import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
   PageObjectNumber,
-} from '@embedpdf/engine-core';
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import type { DocumentSession } from '../../session/DocumentSession';
 import { throwIfAborted } from '../../abort';
 import { readAnnotationBase } from './base';

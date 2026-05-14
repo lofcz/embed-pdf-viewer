@@ -2,7 +2,7 @@ import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import {
   EngineError,
   EngineErrorCode,
-  KIND_BY_SUBTYPE,
+  PDF_SUBTYPE_TO_CODE,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
   type AnnotationDTO,
@@ -14,7 +14,7 @@ import {
   type AnnotationStableId,
   type AnnotationUpdateResult,
   type PageObjectNumber,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
 import { throwIfAborted } from '../abort';
 import { readAnnotString } from '../readers/annotations/util';
 import { readAnnotationFromPtr } from '../readers/annotations/read-one';
@@ -65,11 +65,7 @@ export class DocumentAnnotationMutator {
   ): AnnotationCreateResult {
     throwIfAborted(signal);
     const { fn, mem } = this.runtime;
-    // KIND_BY_SUBTYPE is keyed by every AnnotationKind, but
-    // AnnotationDraft is the closed union of *writable* subtypes
-    // (text-markup today; `unsupported` has Draft = never), so the
-    // lookup is always defined for a valid draft.
-    const subtypeCode = KIND_BY_SUBTYPE[draft.subtype].pdfSubtypeCode;
+    const subtypeCode = PDF_SUBTYPE_TO_CODE[draft.subtype];
 
     const pool = this.session.pagePool();
     const pagePtr = pool.acquire(pageObjectNumber);

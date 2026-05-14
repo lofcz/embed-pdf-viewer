@@ -14,4 +14,4 @@ export type {
   CloseWorkerRequest as CloseRequest,
   AbortWorkerRequest as AbortRequest,
   ShutdownWorkerRequest as ShutdownRequest,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';

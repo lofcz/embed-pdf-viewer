@@ -1,4 +1,4 @@
-import type { PageObjectNumber } from '@embedpdf/engine-core';
+import type { PageObjectNumber } from '@embedpdf/engine-core/runtime';
 
 /**
  * Record of one page within a `DocumentSession`. Built lazily by

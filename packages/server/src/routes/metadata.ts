@@ -3,9 +3,9 @@ import {
   EngineErrorCode,
   EngineError,
   wirePack,
-  wirePaths,
   type WorkerJobId,
-} from '@embedpdf/engine-core';
+} from '@embedpdf/engine-core/runtime';
+import { wirePaths } from '@embedpdf/engine-core/wire';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { requireTenant } from '../app/jwt-plugin';

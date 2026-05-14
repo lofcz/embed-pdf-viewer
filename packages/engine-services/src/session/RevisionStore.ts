@@ -1,5 +1,5 @@
-import type { PageObjectNumber, RevisionToken } from '@embedpdf/engine-core';
-import { EngineError, EngineErrorCode, revisionTokensEqual } from '@embedpdf/engine-core';
+import type { PageObjectNumber, RevisionToken } from '@embedpdf/engine-core/runtime';
+import { EngineError, EngineErrorCode, revisionTokensEqual } from '@embedpdf/engine-core/runtime';
 
 /**
  * Per-page generation counter. Backs `RevisionToken` so weak
