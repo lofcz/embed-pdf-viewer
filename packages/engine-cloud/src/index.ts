@@ -16,6 +16,8 @@ export { CloudPageHandle } from './document/CloudPageHandle';
 export { CloudPageAnnotationsService } from './document/CloudPageAnnotationsService';
 export { HttpClient } from './transport/HttpClient';
 export type { HttpClientOptions } from './transport/HttpClient';
+export { decodeUnverifiedClaims } from './transport/decodeUnverifiedClaims';
+export type { UnverifiedClaims } from './transport/decodeUnverifiedClaims';
 
 import { CloudEngine, type CloudEngineOptions } from './CloudEngine';
 

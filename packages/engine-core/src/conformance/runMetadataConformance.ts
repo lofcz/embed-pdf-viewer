@@ -48,8 +48,8 @@ export interface ConformanceOptions {
   makeEngine: () => Promise<Engine> | Engine;
   /** Sample fixture for the happy-path metadata read. */
   fixture: ConformanceFixture;
-  /** Engine 'kind' for opening: 'bytes' for local, 'preuploaded' for cloud. */
-  openKind: 'bytes' | 'preuploaded';
+  /** Engine 'kind' for opening: 'bytes' for local, 'id' for cloud. */
+  openKind: 'bytes' | 'id';
 }
 
 /**
@@ -128,5 +128,5 @@ async function openFixture(engine: Engine, opts: ConformanceOptions) {
     const bytes = await opts.fixture.bytes();
     return engine.open({ kind: 'bytes', id: opts.fixture.id, bytes });
   }
-  return engine.open({ kind: 'preuploaded', id: opts.fixture.cloudId ?? opts.fixture.id });
+  return engine.open({ kind: 'id', id: opts.fixture.cloudId ?? opts.fixture.id });
 }

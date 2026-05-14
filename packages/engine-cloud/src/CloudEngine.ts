@@ -7,9 +7,14 @@ import {
   type OpenInput,
   type OpenOptions,
 } from '@embedpdf/engine-core/runtime';
-import { OpenDocumentResponseSchema, wirePaths } from '@embedpdf/engine-core/wire';
+import {
+  DocumentHeadSchema,
+  OpenDocumentResponseSchema,
+  wirePaths,
+} from '@embedpdf/engine-core/wire';
 import { HttpClient, type HttpClientOptions } from './transport/HttpClient';
 import { CloudDocumentHandle } from './document/CloudDocumentHandle';
+import { decodeUnverifiedClaims } from './transport/decodeUnverifiedClaims';
 
 export interface CloudEngineOptions extends HttpClientOptions {}
 
@@ -34,10 +39,50 @@ export class CloudEngine implements Engine {
       );
     }
 
-    if (input.kind === 'preuploaded') {
-      return AbortablePromise.resolveValue<DocumentHandle>(
-        new CloudDocumentHandle(this.http, input.id),
-      );
+    if (input.kind === 'token') {
+      // Open by doc-scoped JWT. We never verify the token SDK-side
+      // (server is the verifier of record); we just decode the
+      // unsigned payload to learn `doc_id`, then route to /head with
+      // the per-open bearer. The resulting handle owns its own
+      // scoped HttpClient — every subsequent RPC carries this
+      // token, NOT the engine-level one, so one engine can hold
+      // many handles each with a different bearer.
+      const tokenSource = input.token;
+      return AbortablePromise.run<DocumentHandle>(async (signal) => {
+        const docHttp = this.http.withToken(tokenSource);
+        const token = await docHttp.currentToken();
+        const claims = decodeUnverifiedClaims(token);
+        const docId = claims.doc_id;
+        if (typeof docId !== 'string' || docId.length === 0) {
+          throw new EngineError(
+            EngineErrorCode.InvalidArg,
+            'cloud engine: token has no doc_id claim — mint a doc-scoped JWT',
+          );
+        }
+        const head = await docHttp.getJson(
+          wirePaths.docHead(docId),
+          (raw) => DocumentHeadSchema.parse(raw),
+          signal,
+        );
+        return new CloudDocumentHandle(docHttp, head.id);
+      });
+    }
+
+    if (input.kind === 'id') {
+      // Open by docId using the engine-level token (typical: a
+      // tenant JWT). The caller can override per-open by setting
+      // `input.token`; the resulting handle then carries that
+      // override for all of its RPCs.
+      const id = input.id;
+      const docHttp = input.token ? this.http.withToken(input.token) : this.http;
+      return AbortablePromise.run<DocumentHandle>(async (signal) => {
+        const head = await docHttp.getJson(
+          wirePaths.docHead(id),
+          (raw) => DocumentHeadSchema.parse(raw),
+          signal,
+        );
+        return new CloudDocumentHandle(docHttp, head.id);
+      });
     }
 
     if (input.kind !== 'bytes') {
@@ -49,6 +94,11 @@ export class CloudEngine implements Engine {
       );
     }
 
+    // Legacy `kind: 'bytes'` upload path. Hits the pre-Phase-3
+    // `POST /v1/documents` route and creates a doc record on the
+    // fly. Phase 5 replaces this with the admin lifecycle (init +
+    // commit) plus a subsequent token-open; at that point this
+    // branch is deleted from the cloud engine.
     const password = options?.password ?? input.password ?? null;
     const id = input.id;
     const bytes = input.bytes;

@@ -7,7 +7,14 @@
  * handles, AbortablePromise, worker protocol, wire schemas, and conformance.
  */
 
-export type { OpenInput, OpenInputBytes, OpenInputPreuploaded, OpenOptions } from './dto/OpenInput';
+export type {
+  OpenInput,
+  OpenInputBytes,
+  OpenInputById,
+  OpenInputToken,
+  OpenOptions,
+  TokenSource,
+} from './dto/OpenInput';
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
 

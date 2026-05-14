@@ -80,7 +80,7 @@ export function runAdminE2e(dialect: AdminE2eDialectFixture): void {
     return signDevToken(SECRET, {
       sub: `admin-${tenantId}`,
       tenant_id: tenantId,
-      admin_scope: opts.scope ?? ['*'],
+      scope: opts.scope ?? ['*'],
     });
   }
 
@@ -267,7 +267,7 @@ export function runAdminE2e(dialect: AdminE2eDialectFixture): void {
       const readOnly = signDevToken(SECRET, {
         sub: 'reader',
         tenant_id: 'tenant-ro',
-        admin_scope: ['docs.read'],
+        scope: ['docs.read'],
       });
       const admin = createCloudAdmin({ baseUrl: fx.baseUrl, tenantToken: readOnly });
 

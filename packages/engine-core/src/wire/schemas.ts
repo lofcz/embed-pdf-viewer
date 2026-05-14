@@ -39,6 +39,22 @@ export const OpenDocumentResponseSchema = z.object({
 });
 export type OpenDocumentResponse = z.infer<typeof OpenDocumentResponseSchema>;
 
+/**
+ * Wire shape of `GET /v1/docs/:docId/head`. Mirrors the server-side
+ * `DocumentHead` interface; the schema is the source of truth so
+ * older SDKs talking to newer servers degrade gracefully (extra
+ * fields are accepted and ignored).
+ */
+export const DocumentHeadSchema = z.object({
+  id: z.string(),
+  baseSha: z.string(),
+  pageCount: z.number().int().nonnegative(),
+  storageSizeBytes: z.number().int().nonnegative(),
+  docStructureVersion: z.number().int().positive(),
+  state: z.enum(['pending', 'ready', 'failed', 'deleting']),
+});
+export type DocumentHead = z.infer<typeof DocumentHeadSchema>;
+
 const engineErrorCodeValues = Object.values(EngineErrorCode) as [
   EngineErrorCode,
   ...EngineErrorCode[],

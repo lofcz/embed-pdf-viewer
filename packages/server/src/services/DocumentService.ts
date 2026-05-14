@@ -1,0 +1,240 @@
+import { readFile } from 'node:fs/promises';
+import {
+  EngineError,
+  EngineErrorCode,
+  wirePack,
+  type PageListSnapshot,
+  type WorkerJobId,
+} from '@embedpdf/engine-core/runtime';
+import type { DocumentsRepo, DocumentRow } from '../db/repos/documents.repo';
+import type { BaseFileCache, LocalFileHandle } from '../storage/BaseFileCache';
+import { StorageKeys } from '../storage/keys';
+import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
+
+/**
+ * Public head shape returned by `GET /v1/docs/:docId/head`.
+ *
+ * The structure version is the Phase 4 cache-busting integer that
+ * the front door includes in versioned URLs. Phase 3 always reports
+ * `1` — we don't bump versions yet because mutations aren't wired
+ * (Phase 5). The shape is locked here so Phase 4 can drop the
+ * versioning logic in without renegotiating the client contract.
+ */
+export interface DocumentHead {
+  id: string;
+  baseSha: string;
+  pageCount: number;
+  storageSizeBytes: number;
+  /** Cache-busting integer; bumped on every structural mutation. */
+  docStructureVersion: number;
+  /** Lifecycle state, exposed so the SDK can render "deleting" / "failed" UI. */
+  state: DocumentRow['state'];
+}
+
+export interface DocumentManifest {
+  docStructureVersion: number;
+  baseSha: string;
+  pages: PageListSnapshot;
+}
+
+export interface DocumentServiceOptions {
+  documents: DocumentsRepo;
+  cache: BaseFileCache;
+  pool: WorkerThreadPool;
+}
+
+export interface OpenContext {
+  tenantId: string;
+  sub: string;
+}
+
+/**
+ * Orchestrates a doc-scoped request from the moment the SDK calls
+ * `/head` until the worker holds the PDFium document open.
+ *
+ * Pipeline for a cold-cache open:
+ *   1. Lookup `documents` row, verify tenant ownership + `ready` state.
+ *   2. Acquire a refcounted file handle from `BaseFileCache`.
+ *      Concurrent acquirers of the same `base_sha` share one
+ *      materialisation; concurrent acquirers of the same `docId` share
+ *      one `WorkerThreadPool.runOpen` via this service's own
+ *      singleflight map.
+ *   3. Read the materialised bytes into a fresh `ArrayBuffer` and
+ *      transfer (zero-copy) into the worker via `pool.runOpen` with
+ *      sticky-by-baseSha routing.
+ *   4. Release the cache handle. The worker now owns the bytes; the
+ *      file on disk stays in the cache (subject to LRU) so the next
+ *      cold open on a sibling slot is also fast.
+ *   5. Cache the head data so warm `/head` is a single Map lookup.
+ *
+ * Eviction model: when the pool evicts a `docId` from a worker slot
+ * (slot-cap LRU), `onPoolEvict(evt)` flushes the head cache. The next
+ * request lazily re-opens.
+ */
+export class DocumentService {
+  private readonly documents: DocumentsRepo;
+  private readonly cache: BaseFileCache;
+  private readonly pool: WorkerThreadPool;
+  private readonly heads = new Map<string, DocumentHead>();
+  private readonly opens = new Map<string, Promise<DocumentHead>>();
+
+  constructor(opts: DocumentServiceOptions) {
+    this.documents = opts.documents;
+    this.cache = opts.cache;
+    this.pool = opts.pool;
+  }
+
+  /**
+   * Idempotent open. Returns a `DocumentHead` for `docId`. Triggers a
+   * cache fetch + worker open on the first call; subsequent calls
+   * for the same docId resolve from the in-memory head cache.
+   *
+   * Concurrent first-callers share one open via singleflight.
+   */
+  async openOnPool(ctx: OpenContext, docId: string): Promise<DocumentHead> {
+    const cached = this.heads.get(docId);
+    if (cached) return cached;
+    const inflight = this.opens.get(docId);
+    if (inflight) return inflight;
+    const promise = this.doOpen(ctx, docId);
+    this.opens.set(docId, promise);
+    try {
+      const head = await promise;
+      this.heads.set(docId, head);
+      return head;
+    } finally {
+      this.opens.delete(docId);
+    }
+  }
+
+  private async doOpen(ctx: OpenContext, docId: string): Promise<DocumentHead> {
+    const row = await this.documents.requireOwned(docId, ctx.tenantId);
+    if (row.state === 'pending') {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `document is still pending upload: ${docId}`,
+      );
+    }
+    if (row.state === 'failed') {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `document failed at commit: ${docId} (${row.failureReason ?? 'unknown'})`,
+      );
+    }
+    if (row.state === 'deleting') {
+      throw new EngineError(EngineErrorCode.NotFound, `document is being deleted: ${docId}`);
+    }
+    if (row.state !== 'ready') {
+      throw new EngineError(EngineErrorCode.DocOpenFailed, `document not ready: ${row.state}`);
+    }
+    if (!row.baseSha) {
+      // Bug-class assertion: a `ready` doc must have a base_sha (the
+      // commit path sets both atomically). If we see this, the DB row
+      // is corrupted — fail loudly so it shows up in audit.
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `document is ready but has no base_sha: ${docId}`,
+      );
+    }
+
+    const handle: LocalFileHandle = await this.cache.acquire({
+      sha: row.baseSha,
+      key: StorageKeys.basePdf(row.tenantId, row.id),
+    });
+    try {
+      // Buffer.allocUnsafeSlow creates a non-pooled buffer; its
+      // underlying ArrayBuffer is exclusive to us, so we can declare
+      // the transfer without worrying about Node reusing the slab.
+      const bytes = await readFile(handle.path);
+      const buffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer;
+      const baseSha = row.baseSha;
+      const build = (jobId: WorkerJobId) =>
+        wirePack({ kind: 'open' as const, jobId, docId, bytes: buffer, password: null }, [buffer]);
+      const result = await this.pool.runOpen(docId, baseSha, build);
+      if (result.tag !== 'open') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected open payload: ${result.tag}`);
+      }
+      const head: DocumentHead = {
+        id: docId,
+        baseSha,
+        pageCount: row.pageCount ?? 0,
+        storageSizeBytes: row.storageSizeBytes ?? 0,
+        // Phase 3: structure versions land in Phase 4. Hard-coded `1`
+        // until the `layer_pages` table + ImpactComputer wiring lands.
+        docStructureVersion: 1,
+        state: row.state,
+      };
+      return head;
+    } finally {
+      // The worker has the bytes; we don't need the disk file pinned
+      // anymore. BaseFileCache can LRU-evict whenever it pleases.
+      handle.release();
+    }
+  }
+
+  /**
+   * Page list manifest for the open document. Triggers an open if
+   * not already cached. The manifest is the smallest piece of data
+   * the SDK needs to render the page list / progressively request
+   * page renders.
+   */
+  async getManifest(ctx: OpenContext, docId: string): Promise<DocumentManifest> {
+    const head = await this.openOnPool(ctx, docId);
+    const build = (jobId: WorkerJobId) => wirePack({ kind: 'pages.list' as const, jobId, docId });
+    const result = await this.pool.run(docId, build);
+    if (result.tag !== 'pages.list') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected manifest payload: ${result.tag}`,
+      );
+    }
+    return {
+      docStructureVersion: head.docStructureVersion,
+      baseSha: head.baseSha,
+      pages: result.snapshot,
+    };
+  }
+
+  /**
+   * Pre-warm hook for the `/v1/warm` route. Forces the materialise +
+   * worker open before the first user request lands, so the user's
+   * first call is the warm path (~microseconds).
+   */
+  async warm(ctx: OpenContext, docId: string): Promise<DocumentHead> {
+    return this.openOnPool(ctx, docId);
+  }
+
+  /**
+   * Pool-eviction callback. Wired into `WorkerThreadPool.onEvict`;
+   * when the pool drops a doc from a slot, the cached head is no
+   * longer authoritative (the next request must trigger a re-open).
+   */
+  onPoolEvict(evt: { docId: string }): void {
+    this.heads.delete(evt.docId);
+  }
+
+  /**
+   * Explicit close: tear down the worker-side handle and drop the
+   * head cache. Currently unused on the route side — Phase 3 leaves
+   * close to the pool's eviction policy — but exposed for tests and
+   * for future graceful-shutdown flows.
+   */
+  async close(docId: string): Promise<void> {
+    this.heads.delete(docId);
+    try {
+      await this.pool.close(docId);
+    } catch {
+      // close is best-effort; pool may not know about this docId
+      // anymore (already evicted), in which case it returns null and
+      // we treat that as success.
+    }
+  }
+
+  /** Diagnostic snapshot for tests + ops dashboards. */
+  stats(): { openHeads: number; inflightOpens: number } {
+    return { openHeads: this.heads.size, inflightOpens: this.opens.size };
+  }
+}

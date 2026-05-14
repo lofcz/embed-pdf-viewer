@@ -66,14 +66,14 @@ describe('Hs256Verifier', () => {
     await expect(v.verify(tok)).rejects.toThrow(/revoked/);
   });
 
-  test('rejects a token whose admin_scope is not an array', async () => {
+  test('rejects a token whose scope is not an array', async () => {
     const v = new Hs256Verifier({ secret });
     const tok = signDevToken(secret, {
       sub: 'alice',
       tenant_id: TENANT,
-      extras: { admin_scope: 'not-an-array' },
+      extras: { scope: 'not-an-array' },
     });
-    await expect(v.verify(tok)).rejects.toThrow(/admin_scope must be an array/);
+    await expect(v.verify(tok)).rejects.toThrow(/scope must be an array/);
   });
 });
 

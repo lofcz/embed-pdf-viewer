@@ -6,7 +6,7 @@ import {
   type AdminDocumentCommitRequest,
   type AdminDocumentInitRequest,
 } from '@embedpdf/cloud-api';
-import { requireAdmin } from '../../app/jwt-plugin';
+import { requireScope } from '../../app/jwt-plugin';
 import type { DocumentLifecycleService } from '../../services/DocumentLifecycleService';
 
 export interface AdminDocumentsRouteDeps {
@@ -44,7 +44,7 @@ export async function registerAdminDocumentsRoutes(
   const directUrlForDoc = (docId: string): string => adminWirePaths.documentUploadDirect(docId);
 
   app.post(adminWirePaths.documentsInit, async (req, reply) => {
-    const ctx = requireAdmin(req, ['docs.create']);
+    const ctx = requireScope(req, ['docs.create']);
     const body = parseInitBody(req);
 
     const result = await lifecycle.init({
@@ -81,7 +81,7 @@ export async function registerAdminDocumentsRoutes(
   });
 
   app.post(`${adminWirePaths.documents}/:id/commit`, async (req, reply) => {
-    const ctx = requireAdmin(req, ['docs.create']);
+    const ctx = requireScope(req, ['docs.create']);
     const { id } = req.params as { id: string };
     const body = parseCommitBody(req);
 
@@ -95,7 +95,7 @@ export async function registerAdminDocumentsRoutes(
   });
 
   app.post(`${adminWirePaths.documents}/:id/upload-direct`, async (req, reply) => {
-    const ctx = requireAdmin(req, ['docs.create']);
+    const ctx = requireScope(req, ['docs.create']);
     const { id } = req.params as { id: string };
 
     const lenHeader = req.headers['content-length'];
@@ -144,7 +144,7 @@ export async function registerAdminDocumentsRoutes(
   });
 
   app.get(adminWirePaths.documents, async (req, reply) => {
-    const ctx = requireAdmin(req, ['docs.read']);
+    const ctx = requireScope(req, ['docs.read']);
     const q = req.query as { limit?: string } | undefined;
     const limit = q?.limit ? Number.parseInt(q.limit, 10) : 100;
     const docs = await lifecycle.list(ctx.tenantId, {
@@ -154,14 +154,14 @@ export async function registerAdminDocumentsRoutes(
   });
 
   app.get(`${adminWirePaths.documents}/:id`, async (req, reply) => {
-    const ctx = requireAdmin(req, ['docs.read']);
+    const ctx = requireScope(req, ['docs.read']);
     const { id } = req.params as { id: string };
     const doc = await lifecycle.get(ctx.tenantId, id);
     return reply.send({ document: docPublic(doc) });
   });
 
   app.get(`${adminWirePaths.documents}/:id/download`, async (req, reply) => {
-    const ctx = requireAdmin(req, ['docs.read']);
+    const ctx = requireScope(req, ['docs.read']);
     const { id } = req.params as { id: string };
     const bytes = await lifecycle.download(ctx.tenantId, id);
     return reply
@@ -171,7 +171,7 @@ export async function registerAdminDocumentsRoutes(
   });
 
   app.delete(`${adminWirePaths.documents}/:id`, async (req, reply) => {
-    const ctx = requireAdmin(req, ['docs.delete']);
+    const ctx = requireScope(req, ['docs.delete']);
     const { id } = req.params as { id: string };
     await lifecycle.delete(ctx.tenantId, id);
     return reply.code(204).send();

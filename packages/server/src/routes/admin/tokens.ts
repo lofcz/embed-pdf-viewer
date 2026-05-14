@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { RevokedJtisGuard } from '../../auth/RevokedJtisGuard';
-import { requireAdmin } from '../../app/jwt-plugin';
+import { requireScope } from '../../app/jwt-plugin';
 
 export interface AdminTokensRoutesDeps {
   guard: RevokedJtisGuard;
@@ -34,7 +34,7 @@ export async function registerAdminTokensRoutes(
   app.post<{ Params: { jti: string }; Body: RevokeBody | undefined }>(
     '/v1/admin/tokens/:jti/revoke',
     async (req, reply) => {
-      const ctx = requireAdmin(req, ['tokens.mint']);
+      const ctx = requireScope(req, ['tokens.mint']);
       const jti = req.params.jti;
       if (!jti || jti.length > 256) {
         return reply.code(400).send({ error: { code: 'BadInput', message: 'invalid jti' } });

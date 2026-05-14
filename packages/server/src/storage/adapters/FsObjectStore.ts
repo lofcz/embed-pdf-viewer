@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   mkdir,
   readFile,
@@ -11,10 +11,12 @@ import {
   rmdir,
 } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
-import { createWriteStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type {
+  MaterializeOpts,
+  MaterializeResult,
   ObjectBody,
   ObjectStat,
   ObjectStoreWithInfo,
@@ -155,6 +157,53 @@ export class FsObjectStore implements ObjectStoreWithInfo {
       return true;
     } catch (err) {
       if (isENOENT(err)) return false;
+      throw err;
+    }
+  }
+
+  async materializeLocal(
+    key: string,
+    destPath: string,
+    opts: MaterializeOpts,
+  ): Promise<MaterializeResult> {
+    const src = this.absolute(key);
+    await mkdir(dirname(destPath), { recursive: true });
+    const partial = `${destPath}.partial.${randomBytes(6).toString('hex')}`;
+    let size = 0;
+    const hash = createHash('sha256');
+    try {
+      const reader = createReadStream(src);
+      const writer = createWriteStream(partial);
+      reader.on('data', (chunk: string | Buffer) => {
+        const buf = typeof chunk === 'string' ? Buffer.from(chunk) : chunk;
+        size += buf.byteLength;
+        hash.update(buf);
+      });
+      // node's `pipeline` propagates abort via destroy(); the AbortSignal
+      // is plumbed through the underlying streams below for correctness.
+      if (opts.signal) {
+        if (opts.signal.aborted) {
+          reader.destroy();
+          throw new Error('materializeLocal aborted');
+        }
+        const onAbort = () => {
+          reader.destroy(new Error('materializeLocal aborted'));
+        };
+        opts.signal.addEventListener('abort', onAbort, { once: true });
+      }
+      await pipeline(reader, writer);
+      const sha = hash.digest('hex');
+      if (sha !== opts.expectedSha) {
+        await safeUnlink(partial);
+        throw new Error(
+          `FsObjectStore.materializeLocal: sha mismatch for ${key} ` +
+            `(expected ${opts.expectedSha}, got ${sha})`,
+        );
+      }
+      await rename(partial, destPath);
+      return { path: destPath, size, sha256: sha };
+    } catch (err) {
+      await safeUnlink(partial);
       throw err;
     }
   }

@@ -119,7 +119,7 @@ describe('POST /v1/admin/tokens/:jti/revoke (E2E)', () => {
     const tok = signDevToken(SECRET, {
       sub: 'user-1',
       tenant_id: 'tenant-rev',
-      admin_scope: ['*'],
+      scope: ['*'],
       jti: 'jti-to-revoke',
       ttlSeconds: 3600,
     });
@@ -166,7 +166,7 @@ describe('POST /v1/admin/tokens/:jti/revoke (E2E)', () => {
     const tok = signDevToken(SECRET, {
       sub: 'reader',
       tenant_id: 'tenant-rev',
-      admin_scope: ['docs.read'],
+      scope: ['docs.read'],
       jti: 'jti-reader',
     });
     const res = await fetch(`${baseUrl}/v1/admin/tokens/whatever/revoke`, {

@@ -15,17 +15,17 @@ import {
 // private export name that may change between minor versions.
 type ImportedKey = Awaited<ReturnType<typeof importSPKI>>;
 
-export interface JwtClaims {
+/**
+ * Fields every token carries regardless of class. The class-specific
+ * fields (`scope`, `doc_id`, `layer_name`) live on the subtypes
+ * below; the union `JwtClaims` ties them together with compile-time
+ * mutual exclusion (`?: never`).
+ */
+export interface BaseClaims {
   sub: string;
   tenant_id: string;
   iat: number;
   exp: number;
-  /**
-   * Optional admin scopes. Presence + non-empty array marks this as
-   * an admin-class token usable on `/v1/admin/...` routes. Empty or
-   * missing => engine-only token.
-   */
-  admin_scope?: ReadonlyArray<AdminScope>;
   /**
    * Optional opaque token id. Required for revocation; verifiers
    * configured with a `RevokedJtisGuard` reject any token whose
@@ -34,7 +34,90 @@ export interface JwtClaims {
   jti?: string;
 }
 
-export type AdminScope = '*' | 'docs.create' | 'docs.read' | 'docs.delete' | 'tokens.mint';
+/**
+ * Tenant-scoped token. Represents an authenticated principal of one
+ * tenant: a regular end-user (`scope: ['docs.read']`), a tenant
+ * admin (`scope: ['*']`), or anything in between. The `scope` field
+ * names the tenant-level operations the bearer is authorised for;
+ * the token is implicitly tied to a tenant by `tenant_id` and
+ * grants access to any document in that tenant matching its scope.
+ *
+ * MUST NOT carry `doc_id` / `layer_name` — those belong to the
+ * `DocUserClaims` audience. Class is determined by the presence of
+ * `doc_id` and the `?: never` discriminator makes the union
+ * exhaustive at compile time.
+ *
+ * Note: "platform admin" (the SaaS operator who can create tenants)
+ * is a different audience entirely and is not represented here.
+ */
+export interface TenantClaims extends BaseClaims {
+  /**
+   * Operations the bearer is authorised for on the tenant. Empty
+   * array means authenticated-but-no-permissions and is rejected by
+   * every scope-checking route guard.
+   */
+  scope: ReadonlyArray<TenantScope>;
+  doc_id?: never;
+  layer_name?: never;
+}
+
+/**
+ * Doc-scoped end-user token. Minted by the customer's backend on
+ * behalf of an end user (short-lived; typically minutes), carried in
+ * the browser by `@embedpdf/engine-cloud`. Pinned to one document so
+ * an exfiltrated token can't be replayed against other docs.
+ *
+ * Carries its own `scope` of doc-level operations (`doc.read`,
+ * `doc.annotate`, `doc.edit-pages`, ...). This is a different
+ * namespace from `TenantScope` — the verifier preserves whatever
+ * strings are in the wire payload; route guards enforce that the
+ * scope value-set matches the audience the route serves.
+ */
+export interface DocUserClaims extends BaseClaims {
+  doc_id: string;
+  /** Doc-level operations this token can perform on `doc_id`. */
+  scope: ReadonlyArray<DocScope>;
+  /** Phase 5: pin a specific layer. Optional. */
+  layer_name?: string;
+}
+
+/**
+ * The verified-and-typed claims object. A `JwtClaims` is *always*
+ * exactly one of tenant / doc — class is determined by the presence
+ * of `doc_id`. Both classes carry a `scope` field, but the value
+ * type differs (TenantScope vs DocScope); TypeScript narrows it
+ * correctly after a class-guard call (`isTenantClaims` /
+ * `isDocUserClaims`).
+ *
+ * Route helpers narrow with `isDocUserClaims(claims)` /
+ * `isTenantClaims(claims)` rather than reading fields directly.
+ */
+export type JwtClaims = TenantClaims | DocUserClaims;
+
+/**
+ * Operations a tenant principal can be authorised for. `*` is a
+ * superset wildcard. New scopes go here and have to be plumbed
+ * through `requireScope` at every tenant route guard.
+ */
+export type TenantScope = '*' | 'docs.create' | 'docs.read' | 'docs.delete' | 'tokens.mint';
+
+/**
+ * Operations a doc-scoped principal can perform on the document
+ * named by their `doc_id` claim. A tenant token with `docs.read`
+ * (or `*`) implicitly satisfies every `DocScope` for any doc in
+ * the tenant — the tenant owns the doc, so they can do anything to
+ * it.
+ *
+ * `*` is the doc-level superset wildcard. New scopes go here and
+ * have to be plumbed through `requireDocAccess` at every doc route.
+ */
+export type DocScope =
+  | '*'
+  | 'doc.read'
+  | 'doc.annotate'
+  | 'doc.edit-pages'
+  | 'doc.download'
+  | 'doc.save';
 
 export type JwtClaimsExtras = Record<string, unknown>;
 
@@ -172,7 +255,10 @@ export class Hs256Verifier implements JwtVerifier {
     if (got.length !== want.length || !timingSafeEqual(got, want)) {
       throw new Error('invalid jwt signature');
     }
-    const claims = decodeClaims(payloadB64);
+    // Single canonical coercion path for every verifier: this is
+    // where the token-class mutex check (Layer 2) lives.
+    const rawPayload = decodePayloadJson(payloadB64);
+    const claims = coerceClaims(rawPayload);
     validateClaims(claims, this.profile, this.skew);
     await checkRevocation(claims, this.revocation);
     return claims;
@@ -378,19 +464,35 @@ async function checkRevocation(
   }
 }
 
-function decodeClaims(payloadB64: string): JwtClaims {
-  let claims: JwtClaims;
+function decodePayloadJson(payloadB64: string): JWTPayload {
+  let payload: unknown;
   try {
-    claims = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8')) as JwtClaims;
+    payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
   } catch {
     throw new Error('malformed jwt payload');
   }
-  if (typeof claims !== 'object' || claims === null) {
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     throw new Error('jwt payload must be an object');
   }
-  return claims;
+  return payload as JWTPayload;
 }
 
+/**
+ * Parse a JWT payload into our typed claim object.
+ *
+ * Token-class commitment lives here: the class is determined purely
+ * by the presence of `doc_id`. Both classes legitimately carry a
+ * `scope` array (in different namespaces); the array contents are
+ * preserved as-is and validated for type/shape, not values. Closed-
+ * enum enforcement happens at the route-guard layer where we know
+ * which scope set is in effect.
+ *
+ * Defense-in-depth: even with no parse-time mutex, an obviously
+ * misshapen token (`{ doc_id, scope: ['docs.create'] }`) cannot
+ * cause privilege escalation. The token is tagged as `DocUserClaims`;
+ * tenant-route guards reject anything that isn't `TenantClaims`,
+ * and doc-route guards only honour `DocScope` values.
+ */
 function coerceClaims(payload: JWTPayload): JwtClaims {
   if (typeof payload !== 'object' || payload === null) {
     throw new Error('jwt payload must be an object');
@@ -399,23 +501,67 @@ function coerceClaims(payload: JWTPayload): JwtClaims {
   const tenant_id = (payload as { tenant_id?: unknown }).tenant_id;
   if (typeof sub !== 'string') throw new Error('jwt missing sub');
   if (typeof tenant_id !== 'string' || !tenant_id) throw new Error('jwt missing tenant_id');
-  const claims: JwtClaims = {
+  const base: BaseClaims = {
     sub,
     tenant_id,
     iat: typeof payload.iat === 'number' ? payload.iat : 0,
     exp: typeof payload.exp === 'number' ? payload.exp : 0,
   };
-  const adminScope = (payload as { admin_scope?: unknown }).admin_scope;
-  if (Array.isArray(adminScope)) {
-    for (const s of adminScope) {
-      if (typeof s !== 'string') throw new Error('jwt admin_scope must contain strings');
+  if (typeof payload.jti === 'string') base.jti = payload.jti;
+
+  // Pull and validate the class-specific fields without committing
+  // to a subtype yet. The `scope` array is stored as `string[]`
+  // here; the route guard's `hasTenantScope` / `hasDocScope` checks
+  // do the value-set narrowing.
+  const scopeRaw = (payload as { scope?: unknown }).scope;
+  let scope: ReadonlyArray<string> | undefined;
+  if (Array.isArray(scopeRaw)) {
+    for (const s of scopeRaw) {
+      if (typeof s !== 'string') throw new Error('jwt scope must contain strings');
     }
-    claims.admin_scope = adminScope as ReadonlyArray<AdminScope>;
-  } else if (adminScope !== undefined) {
-    throw new Error('jwt admin_scope must be an array');
+    scope = scopeRaw as ReadonlyArray<string>;
+  } else if (scopeRaw !== undefined) {
+    throw new Error('jwt scope must be an array');
   }
-  if (typeof payload.jti === 'string') claims.jti = payload.jti;
-  return claims;
+
+  const docIdRaw = (payload as { doc_id?: unknown }).doc_id;
+  let docId: string | undefined;
+  if (typeof docIdRaw === 'string') {
+    if (docIdRaw.length === 0) throw new Error('jwt doc_id must be a non-empty string');
+    docId = docIdRaw;
+  } else if (docIdRaw !== undefined) {
+    throw new Error('jwt doc_id must be a non-empty string');
+  }
+
+  const layerNameRaw = (payload as { layer_name?: unknown }).layer_name;
+  let layerName: string | undefined;
+  if (typeof layerNameRaw === 'string') {
+    if (layerNameRaw.length === 0) throw new Error('jwt layer_name must be a non-empty string');
+    layerName = layerNameRaw;
+  } else if (layerNameRaw !== undefined) {
+    throw new Error('jwt layer_name must be a non-empty string');
+  }
+
+  if (layerName !== undefined && docId === undefined) {
+    // `layer_name` only makes sense on a doc-scoped token. Without
+    // a `doc_id` it has nothing to scope to and is almost certainly
+    // a misconfigured token.
+    throw new Error('jwt layer_name requires doc_id');
+  }
+
+  if (docId !== undefined) {
+    // Doc-scoped class. We tolerate a missing `scope` field on the
+    // wire and synthesize `[]`; the route guard then rejects it.
+    const docScope = (scope ?? []) as ReadonlyArray<DocScope>;
+    const out: DocUserClaims = layerName
+      ? { ...base, doc_id: docId, scope: docScope, layer_name: layerName }
+      : { ...base, doc_id: docId, scope: docScope };
+    return out;
+  }
+  // Tenant token.
+  const tenantScope = (scope ?? []) as ReadonlyArray<TenantScope>;
+  const out: TenantClaims = { ...base, scope: tenantScope };
+  return out;
 }
 
 function validateClaims(claims: JwtClaims, profile: JwtAudienceProfile, skew: number): void {
@@ -425,14 +571,6 @@ function validateClaims(claims: JwtClaims, profile: JwtAudienceProfile, skew: nu
   if (typeof claims.exp === 'number') {
     const now = Math.floor(Date.now() / 1000);
     if (now > claims.exp + skew) throw new Error('jwt expired');
-  }
-  if (claims.admin_scope !== undefined) {
-    if (!Array.isArray(claims.admin_scope)) {
-      throw new Error('jwt admin_scope must be an array');
-    }
-    for (const s of claims.admin_scope) {
-      if (typeof s !== 'string') throw new Error('jwt admin_scope must contain strings');
-    }
   }
   if (profile.issuer !== undefined) {
     const exp = profile.issuer;
@@ -450,12 +588,46 @@ function validateClaims(claims: JwtClaims, profile: JwtAudienceProfile, skew: nu
 }
 
 /**
- * Returns true if `claims` carries at least one of `wanted` (or `*`).
- * Empty/missing `admin_scope` -> false (engine-only token).
+ * Type guard for tenant-class tokens. The `?: never` discriminator
+ * on the union means the absence of `doc_id` is sufficient to
+ * commit to the tenant branch.
  */
-export function hasAdminScope(claims: JwtClaims, wanted: ReadonlyArray<AdminScope>): boolean {
-  const have = claims.admin_scope;
-  if (!have || have.length === 0) return false;
+export function isTenantClaims(claims: JwtClaims): claims is TenantClaims {
+  return typeof (claims as { doc_id?: unknown }).doc_id !== 'string';
+}
+
+/** Type guard for doc-scoped tokens. */
+export function isDocUserClaims(claims: JwtClaims): claims is DocUserClaims {
+  return typeof (claims as { doc_id?: unknown }).doc_id === 'string';
+}
+
+/**
+ * Returns true if `claims` is a tenant token carrying at least one
+ * of `wanted` (or the `*` wildcard). Doc-scoped tokens always
+ * return false; their `scope` field lives in a different namespace
+ * (`DocScope`) and is checked by `hasDocScope`.
+ */
+export function hasTenantScope(claims: JwtClaims, wanted: ReadonlyArray<TenantScope>): boolean {
+  if (!isTenantClaims(claims)) return false;
+  return arraysIntersectWithStar(claims.scope, wanted);
+}
+
+/**
+ * Returns true if `claims` is a doc-scoped token carrying at least
+ * one of `wanted` (or the `*` wildcard). Tenant tokens always
+ * return false here — they're checked separately by `hasTenantScope`
+ * and authorise doc access via the route guard's tenant-branch.
+ */
+export function hasDocScope(claims: JwtClaims, wanted: ReadonlyArray<DocScope>): boolean {
+  if (!isDocUserClaims(claims)) return false;
+  return arraysIntersectWithStar(claims.scope, wanted);
+}
+
+function arraysIntersectWithStar(
+  have: ReadonlyArray<string>,
+  wanted: ReadonlyArray<string>,
+): boolean {
+  if (have.length === 0) return false;
   if (have.includes('*')) return true;
   for (const w of wanted) {
     if (have.includes(w)) return true;
@@ -464,27 +636,50 @@ export function hasAdminScope(claims: JwtClaims, wanted: ReadonlyArray<AdminScop
 }
 
 /**
- * Mint an HS256 token. Test/dev-only helper. Real cloud control plane uses
- * a different signer and rotates keys via JWKS.
+ * Mint an HS256 token. Test/dev-only helper. Real cloud control
+ * plane uses a different signer and rotates keys via JWKS.
+ *
+ * The class of the resulting token is determined by `doc_id`:
+ * absent → `TenantClaims` (scope interpreted as `TenantScope[]`),
+ * present → `DocUserClaims` (scope interpreted as `DocScope[]`).
+ *
+ * Scope is typed loosely as `string[]` because the two scope
+ * namespaces overlap on `*` but otherwise differ; callers pass
+ * whichever scope set matches their intended class, and the route
+ * guards do the value-set narrowing.
  */
 export interface SignDevTokenInput {
   sub: string;
   tenant_id: string;
   ttlSeconds?: number;
-  admin_scope?: ReadonlyArray<AdminScope>;
+  /**
+   * Operations the token is authorised for. Interpreted as
+   * `TenantScope[]` when `doc_id` is absent, `DocScope[]` when
+   * present.
+   */
+  scope?: ReadonlyArray<TenantScope | DocScope | string>;
+  /** Doc-user token. Present iff the token is doc-scoped. */
+  doc_id?: string;
+  /** Optional layer pin; only valid with `doc_id`. */
+  layer_name?: string;
   jti?: string;
   extras?: JwtClaimsExtras;
 }
 
 export function signDevToken(secret: string, input: SignDevTokenInput): string {
+  if (input.layer_name && !input.doc_id) {
+    throw new Error('signDevToken: layer_name requires doc_id');
+  }
   const now = Math.floor(Date.now() / 1000);
   const ttl = input.ttlSeconds ?? 3600;
-  const fullClaims: JwtClaims & JwtClaimsExtras = {
+  const fullClaims: Record<string, unknown> = {
     iat: now,
     exp: now + ttl,
     sub: input.sub,
     tenant_id: input.tenant_id,
-    ...(input.admin_scope ? { admin_scope: input.admin_scope } : {}),
+    ...(input.scope ? { scope: input.scope } : {}),
+    ...(input.doc_id ? { doc_id: input.doc_id } : {}),
+    ...(input.layer_name ? { layer_name: input.layer_name } : {}),
     ...(input.jti ? { jti: input.jti } : {}),
     ...(input.extras ?? {}),
   };

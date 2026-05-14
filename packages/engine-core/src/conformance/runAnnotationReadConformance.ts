@@ -202,7 +202,7 @@ async function openFixture(engine: Engine, opts: AnnotationConformanceOptions) {
     const bytes = await opts.fixture.bytes();
     return engine.open({ kind: 'bytes', id: opts.fixture.id, bytes });
   }
-  return engine.open({ kind: 'preuploaded', id: opts.fixture.cloudId ?? opts.fixture.id });
+  return engine.open({ kind: 'id', id: opts.fixture.cloudId ?? opts.fixture.id });
 }
 
 function emptyFlags() {

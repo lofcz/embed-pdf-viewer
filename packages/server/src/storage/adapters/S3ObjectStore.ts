@@ -1,5 +1,7 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { Readable } from 'node:stream';
+import { open, mkdir, rename, unlink } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import {
   S3Client,
   HeadObjectCommand,
@@ -12,6 +14,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type {
+  MaterializeOpts,
+  MaterializeResult,
   ObjectBody,
   ObjectStat,
   ObjectStoreWithInfo,
@@ -188,6 +192,101 @@ export class S3ObjectStore implements ObjectStoreWithInfo {
     }
   }
 
+  async materializeLocal(
+    key: string,
+    destPath: string,
+    opts: MaterializeOpts,
+  ): Promise<MaterializeResult> {
+    // 1. HEAD to learn the total size up front. Without this we'd
+    //    either issue blind ranges (and re-issue past EOF) or fall
+    //    back to a single-stream GET (single-threaded, slow).
+    const head = await this.client.send(new HeadObjectCommand({ Bucket: this.bucket, Key: key }));
+    const size = head.ContentLength;
+    if (typeof size !== 'number') {
+      throw new Error(`S3ObjectStore.materializeLocal: HEAD did not return ContentLength`);
+    }
+
+    const concurrency = Math.max(1, opts.concurrency ?? 8);
+    // No floor — callers (BaseFileCache, tests) own the throughput
+    // trade-off. Production default is 16 MiB; tests can pass much
+    // smaller values to exercise the fan-out path.
+    const chunk = Math.max(1, opts.chunkSizeBytes ?? 16 * 1024 * 1024);
+    await mkdir(dirname(destPath), { recursive: true });
+    const partial = `${destPath}.partial.${randomBytes(6).toString('hex')}`;
+
+    // Sized ranges: [start, end] inclusive per S3 spec. A 0-byte
+    // object would produce a single empty range; we short-circuit
+    // that case.
+    const ranges: Array<{ start: number; end: number }> = [];
+    if (size === 0) {
+      ranges.push({ start: 0, end: -1 });
+    } else {
+      for (let off = 0; off < size; off += chunk) {
+        ranges.push({ start: off, end: Math.min(off + chunk - 1, size - 1) });
+      }
+    }
+
+    const fh = await open(partial, 'w');
+    try {
+      let nextRange = 0;
+      const worker = async (): Promise<void> => {
+        while (true) {
+          if (opts.signal?.aborted) throw new Error('materializeLocal aborted');
+          const idx = nextRange++;
+          if (idx >= ranges.length) return;
+          const r = ranges[idx]!;
+          if (r.end < r.start) continue; // empty file edge case
+          const got = await this.client.send(
+            new GetObjectCommand({
+              Bucket: this.bucket,
+              Key: key,
+              Range: `bytes=${r.start}-${r.end}`,
+            }),
+          );
+          if (!got.Body) throw new Error(`S3 GET ${key} bytes=${r.start}- returned no body`);
+          // Stream the chunk to its file offset. We never buffer the
+          // whole chunk in memory; pwrite each Buffer slice.
+          let offset = r.start;
+          for await (const piece of got.Body as Readable) {
+            const buf = piece instanceof Buffer ? piece : Buffer.from(piece);
+            await fh.write(buf, 0, buf.byteLength, offset);
+            offset += buf.byteLength;
+          }
+        }
+      };
+      const workers = Array.from({ length: Math.min(concurrency, ranges.length) }, () => worker());
+      await Promise.all(workers);
+
+      // Trust the SHA we stored on PUT when possible — saves a full
+      // re-read for 1GB files. Fall back to a streaming verify when
+      // the object lacks our metadata (presigned-PUT-by-other-tool).
+      const meta = head.Metadata ?? {};
+      let materialisedSha = meta['x-embedpdf-sha256'];
+      if (!materialisedSha) {
+        materialisedSha = await streamingSha256(fh.createReadStream());
+      }
+      if (materialisedSha !== opts.expectedSha) {
+        await fh.close();
+        await safeUnlink(partial);
+        throw new Error(
+          `S3ObjectStore.materializeLocal: sha mismatch for ${key} ` +
+            `(expected ${opts.expectedSha}, got ${materialisedSha})`,
+        );
+      }
+      await fh.close();
+      await rename(partial, destPath);
+      return { path: destPath, size, sha256: materialisedSha };
+    } catch (err) {
+      try {
+        await fh.close();
+      } catch {
+        // ignore
+      }
+      await safeUnlink(partial);
+      throw err;
+    }
+  }
+
   async deletePrefix(prefix: string): Promise<{ deleted: number }> {
     let deleted = 0;
     let continuationToken: string | undefined;
@@ -240,4 +339,21 @@ function isS3NotFound(err: unknown): boolean {
   if (e.name === 'NotFound' || e.name === 'NoSuchKey') return true;
   if (e.$metadata?.httpStatusCode === 404) return true;
   return false;
+}
+
+async function streamingSha256(stream: Readable): Promise<string> {
+  const h = createHash('sha256');
+  for await (const chunk of stream) {
+    h.update(chunk instanceof Buffer ? chunk : Buffer.from(chunk));
+  }
+  return h.digest('hex');
+}
+
+async function safeUnlink(path: string): Promise<void> {
+  try {
+    await unlink(path);
+  } catch (err) {
+    const code = (err as { code?: string } | null)?.code;
+    if (code !== 'ENOENT') throw err;
+  }
 }

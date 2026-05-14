@@ -68,4 +68,29 @@ export const wirePaths = {
    */
   pageAnnotationsMove: (docId: string, pageObjectNumber: number) =>
     `/v1/documents/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations/move`,
+
+  // ---- Phase 3 doc-scoped routes ----
+
+  /**
+   * GET: open the document referenced by the doc-scoped JWT and
+   * return its `DocumentHead`. The server materialises the base
+   * PDF into its file cache and binds it to a worker the first
+   * time this is hit.
+   */
+  docHead: (docId: string) => `/v1/docs/${encodeURIComponent(docId)}/head`,
+
+  /**
+   * GET: list every page in display order at a specific structure
+   * version `D`. Returns `DocumentManifest`. A request whose `D`
+   * mismatches the current version returns 404 — the SDK should
+   * refetch `/head` to learn the new version.
+   */
+  docManifest: (docId: string, structureVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/v${structureVersion}/manifest`,
+
+  /**
+   * POST: pre-warm the doc cache + worker open before any user
+   * request lands. Body is `{ docId }`. Doc-scoped token required.
+   */
+  docWarm: '/v1/warm',
 } as const;

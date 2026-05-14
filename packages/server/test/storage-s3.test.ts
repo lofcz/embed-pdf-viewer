@@ -1,5 +1,8 @@
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { sdkStreamMixin } from '@smithy/util-stream';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
@@ -152,6 +155,75 @@ describe('S3ObjectStore', () => {
     s3Mock.reset();
     s3Mock.on(DeleteObjectCommand).rejects(makeNotFound());
     expect(await store.delete('k')).toBe(false);
+  });
+
+  test('materializeLocal fans out parallel range GETs and writes pwrite-style', async () => {
+    const store = newStore();
+    const total = 5 * 1024;
+    const bytes = randomBytes(total);
+    const chunk = 1024;
+    const sha = sha256Hex(bytes);
+
+    s3Mock.on(HeadObjectCommand).resolves({
+      ContentLength: total,
+      ETag: '"abc"',
+      Metadata: { 'x-embedpdf-sha256': sha },
+    });
+    // Each Range GET hands back its slice. The mock dispatches by
+    // Range header so it doesn't matter which order the chunks fire.
+    s3Mock.on(GetObjectCommand).callsFake((input: { Range?: string }) => {
+      const m = /^bytes=(\d+)-(\d+)$/.exec(input.Range ?? '');
+      if (!m) throw new Error(`unexpected range: ${input.Range}`);
+      const start = parseInt(m[1]!, 10);
+      const end = parseInt(m[2]!, 10);
+      const slice = bytes.slice(start, end + 1);
+      return { Body: sdkStreamMixin(Readable.from([Buffer.from(slice)])) };
+    });
+
+    const dir = await mkdtemp(join(tmpdir(), 's3-mat-'));
+    try {
+      const dest = join(dir, 'out.pdf');
+      const r = await store.materializeLocal('k', dest, {
+        expectedSha: sha,
+        chunkSizeBytes: chunk,
+        concurrency: 4,
+      });
+      expect(r.size).toBe(total);
+      expect(r.sha256).toBe(sha);
+      const got = await readFile(dest);
+      expect(got).toEqual(Buffer.from(bytes));
+
+      const getCalls = s3Mock.commandCalls(GetObjectCommand).length;
+      expect(getCalls).toBe(Math.ceil(total / chunk));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('materializeLocal aborts cleanly when sha does not match', async () => {
+    const store = newStore();
+    const total = 2048;
+    const bytes = randomBytes(total);
+
+    s3Mock.on(HeadObjectCommand).resolves({
+      ContentLength: total,
+      ETag: '"x"',
+      Metadata: { 'x-embedpdf-sha256': 'b'.repeat(64) }, // wrong sha
+    });
+    s3Mock.on(GetObjectCommand).resolves({
+      Body: sdkStreamMixin(Readable.from([Buffer.from(bytes)])),
+    });
+
+    const dir = await mkdtemp(join(tmpdir(), 's3-mat-'));
+    try {
+      const dest = join(dir, 'bad.pdf');
+      await expect(
+        store.materializeLocal('k', dest, { expectedSha: sha256Hex(bytes) }),
+      ).rejects.toThrow(/sha mismatch/);
+      await expect(stat(dest)).rejects.toMatchObject({ code: 'ENOENT' });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   test('keys derived from StorageKeys make round-trip plausible', async () => {

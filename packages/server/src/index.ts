@@ -12,9 +12,15 @@ export {
   AsymmetricVerifier,
   JwksVerifier,
   signDevToken,
-  hasAdminScope,
+  hasTenantScope,
+  hasDocScope,
+  isTenantClaims,
+  isDocUserClaims,
 } from './auth/JwtVerifier';
 export type {
+  BaseClaims,
+  DocUserClaims,
+  TenantClaims,
   JwtClaims,
   JwtVerifier,
   JwtVerifierConfig,
@@ -22,8 +28,11 @@ export type {
   JwksCacheStore,
   RevocationCheck,
   SignDevTokenInput,
-  AdminScope,
+  TenantScope,
+  DocScope,
 } from './auth/JwtVerifier';
+export { requireTenant, requireScope, requireDocAccess } from './app/jwt-plugin';
+export type { DocAccessMode } from './app/jwt-plugin';
 export { RevokedJtisGuard } from './auth/RevokedJtisGuard';
 export type { RevokedJtisGuardOptions } from './auth/RevokedJtisGuard';
 export { DbJwksCacheStore } from './auth/JwksCacheStore';
@@ -83,6 +92,22 @@ export type {
   CommitResult,
   UploadDirectInput,
 } from './services/DocumentLifecycleService';
+
+// Phase 3 — document open + worker integration.
+export { BaseFileCache, fileSha256 } from './storage/BaseFileCache';
+export type {
+  BaseFileCacheOptions,
+  BaseFileCacheEvent,
+  LocalFileHandle,
+} from './storage/BaseFileCache';
+export type { MaterializeOpts, MaterializeResult } from './storage/ObjectStore';
+export { DocumentService } from './services/DocumentService';
+export type {
+  DocumentServiceOptions,
+  DocumentHead,
+  DocumentManifest,
+  OpenContext,
+} from './services/DocumentService';
 
 /**
  * Stable URL of the bundled worker_thread entry. Resolves to:

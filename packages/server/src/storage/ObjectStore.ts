@@ -1,15 +1,15 @@
 /**
  * Pluggable object-store interface for @embedpdf/server.
  *
- * Phase 1 ships `FsObjectStore` + `S3ObjectStore`; GCS / Azure land in
- * Phase 7. Every adapter exposes the same key shape (`StorageKeys`)
- * and the same operation set, so `rclone sync` migrates verbatim
- * between backends.
+ * Phase 1 shipped `FsObjectStore` + `S3ObjectStore`; GCS / Azure land
+ * in Phase 7. Every adapter exposes the same key shape
+ * (`StorageKeys`) and the same operation set, so `rclone sync`
+ * migrates verbatim between backends.
  *
- * Note: `materializeLocal` is intentionally absent from Phase 1.
- * It belongs to the engine read path (Phase 3) and adds non-trivial
- * disk-cache machinery. Phase 1 only cares about admin writes / reads
- * for verification.
+ * Phase 3 adds `materializeLocal`: copy a remote object to a local
+ * path so PDFium can `pread()` it (or load it into memory). The
+ * `BaseFileCache` calls this once per (sha, worker host) tuple, then
+ * relies on the OS page cache for hot data.
  */
 
 import type { Readable } from 'node:stream';
@@ -124,6 +124,56 @@ export interface ObjectStore {
   delete(key: string): Promise<boolean>;
   /** Recursive prefix delete. Used by `documents.delete` cascade. */
   deletePrefix(prefix: string): Promise<{ deleted: number }>;
+
+  /**
+   * Phase 3 — copy a remote object to a local file path so the
+   * worker can pread it. The implementation is allowed to use
+   * whichever fan-out strategy gives best throughput (parallel range
+   * GET for S3, hard-link or stream-copy for FS).
+   *
+   * Atomicity contract:
+   *   - Writes go to `${destPath}.partial.<random>` first; an atomic
+   *     `rename` produces the final `destPath` only after the entire
+   *     payload landed without error.
+   *   - On any failure the partial file is removed; callers see the
+   *     thrown error and never an incomplete file.
+   *
+   * Returns the size and SHA-256 of the materialised bytes. If the
+   * adapter stores the SHA in object metadata (S3) we trust that and
+   * skip a redundant rehash; otherwise we hash during materialise.
+   * `expectedSha` is verified at the end; mismatch throws.
+   */
+  materializeLocal(
+    key: string,
+    destPath: string,
+    opts: MaterializeOpts,
+  ): Promise<MaterializeResult>;
+}
+
+export interface MaterializeOpts {
+  /**
+   * SHA-256 hex of the object as recorded at commit time. Verified
+   * against the materialised file; mismatch throws (we never deliver
+   * corrupted bytes to PDFium).
+   */
+  expectedSha: string;
+  /**
+   * Override the parallelism level. Sensible default per-adapter (eg
+   * 8 concurrent range GETs for S3, 1 stream-copy for FS).
+   */
+  concurrency?: number;
+  /** Per-range chunk size in bytes (S3 only). Defaults to 16 MiB. */
+  chunkSizeBytes?: number;
+  /** Cooperative cancellation. */
+  signal?: AbortSignal;
+}
+
+export interface MaterializeResult {
+  /** Absolute path of the freshly written local file. */
+  path: string;
+  size: number;
+  /** SHA-256 hex of the materialised bytes; always re-verified. */
+  sha256: string;
 }
 
 /**

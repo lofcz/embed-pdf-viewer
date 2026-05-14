@@ -9,24 +9,57 @@ import { EngineErrorPayloadSchema } from '@embedpdf/engine-core/wire';
 export interface HttpClientOptions {
   baseUrl: string;
   /**
-   * Bearer token. Either a string or a function that returns a fresh token
-   * on every call (so callers can rotate without re-creating the engine).
+   * Optional bearer token. Either a string or a function that
+   * returns a fresh token on every call (so callers can rotate
+   * without re-creating the engine). When absent, requests go out
+   * without an `Authorization` header — useful for the public-share
+   * scenario where the doc-scoped token is provided per-`open` and
+   * the engine itself has no engine-level credentials.
    */
-  token: string | (() => string | Promise<string>);
+  token?: string | (() => string | Promise<string>);
   /** Replace the global fetch (e.g. in Node tests with undici). */
   fetch?: typeof globalThis.fetch;
 }
 
 export class HttpClient {
   private readonly baseUrl: string;
-  private readonly tokenFn: () => string | Promise<string>;
+  private readonly tokenFn: (() => string | Promise<string>) | null;
   private readonly fetchFn: typeof globalThis.fetch;
 
   constructor(opts: HttpClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     const token = opts.token;
-    this.tokenFn = typeof token === 'function' ? token : () => token;
+    this.tokenFn = token === undefined ? null : typeof token === 'function' ? token : () => token;
     this.fetchFn = opts.fetch ?? globalThis.fetch.bind(globalThis);
+  }
+
+  /**
+   * Return a clone of this client bound to a different bearer. Used
+   * by `CloudEngine.open` to mint a per-handle client carrying the
+   * per-open token, so each opened document's RPCs go out under
+   * the right authorization without disturbing the engine-level
+   * token.
+   */
+  withToken(token: string | (() => string | Promise<string>)): HttpClient {
+    return new HttpClient({
+      baseUrl: this.baseUrl,
+      token,
+      fetch: this.fetchFn,
+    });
+  }
+
+  /**
+   * Resolve the current bearer token. Awaits the user-supplied
+   * token factory if it returns a promise. Used by the cloud
+   * engine to read doc-scoped claims **without** verifying — the
+   * server is the verifier of record. Throws when no token is
+   * configured.
+   */
+  async currentToken(): Promise<string> {
+    if (!this.tokenFn) {
+      throw new EngineError(EngineErrorCode.InvalidArg, 'http client has no token configured');
+    }
+    return await this.tokenFn();
   }
 
   async getJson<T>(path: string, parser: (raw: unknown) => T, signal: AbortSignal): Promise<T> {
@@ -91,10 +124,12 @@ export class HttpClient {
   }
 
   private async request(path: string, init: RequestInit): Promise<Response> {
-    const token = await this.tokenFn();
     const url = `${this.baseUrl}${path}`;
     const headers = new Headers(init.headers ?? {});
-    headers.set('Authorization', `Bearer ${token}`);
+    if (this.tokenFn) {
+      const token = await this.tokenFn();
+      headers.set('Authorization', `Bearer ${token}`);
+    }
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
     try {
       return await this.fetchFn(url, { ...init, headers });

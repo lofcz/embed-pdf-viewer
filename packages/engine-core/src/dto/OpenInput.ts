@@ -1,3 +1,17 @@
+/**
+ * Per-call token source. Either a literal JWT or a factory that
+ * returns a fresh one (used by the cloud SDK to support tokens that
+ * the caller fetches lazily / rotates without restarting the
+ * engine).
+ */
+export type TokenSource = string | (() => string | Promise<string>);
+
+/**
+ * Local-engine open input. The caller hands the engine the full
+ * PDF bytes and a stable id that doubles as the engine-side docId.
+ * Rejected by `@embedpdf/engine-cloud` (use `'id'` or `'token'`
+ * instead).
+ */
 export interface OpenInputBytes {
   kind: 'bytes';
   /** Caller-supplied stable id; doubles as docId at the engine boundary. */
@@ -6,14 +20,57 @@ export interface OpenInputBytes {
   password?: string | null;
 }
 
-export interface OpenInputPreuploaded {
-  kind: 'preuploaded';
+/**
+ * Cloud-engine: open a document the caller already knows the id of.
+ * The engine pings `GET /v1/docs/:id/head`, authenticating with
+ * either the engine-level token (typical: a tenant JWT) or a
+ * per-call override.
+ *
+ * Use this when your frontend has a tenant session (e.g. minted at
+ * login by your auth backend) and just needs to open one of many
+ * documents the tenant owns.
+ *
+ * Rejected by `@embedpdf/engine-local`.
+ */
+export interface OpenInputById {
+  kind: 'id';
   /** docId of a document already known to the cloud server. */
   id: string;
+  /**
+   * Optional per-open token override. Without this, the cloud engine
+   * uses the token supplied at construction time. Most callers leave
+   * this empty.
+   */
+  token?: TokenSource;
   password?: string | null;
 }
 
-export type OpenInput = OpenInputBytes | OpenInputPreuploaded;
+/**
+ * Cloud-engine: open the document referenced by the supplied
+ * doc-scoped JWT's `doc_id` claim. The SDK decodes the unverified
+ * payload to learn the routing key, then calls
+ * `GET /v1/docs/:docId/head`. The returned handle is bound to this
+ * token; subsequent operations on it carry that bearer.
+ *
+ * Use this for share-link / embed-link UX where the bearer of the
+ * token is authorised for exactly one document (e.g. a third-party
+ * reviewer the customer has shared a single doc with).
+ *
+ * Rejected by `@embedpdf/engine-local`.
+ */
+export interface OpenInputToken {
+  kind: 'token';
+  /**
+   * Doc-scoped JWT carrying the document's identity in its `doc_id`
+   * claim. Each `open({ kind: 'token', token })` is independent —
+   * one cloud engine can open many docs concurrently, each with
+   * its own per-doc token.
+   */
+  token: TokenSource;
+  password?: string | null;
+}
+
+export type OpenInput = OpenInputBytes | OpenInputById | OpenInputToken;
 
 export interface OpenOptions {
   password?: string | null;

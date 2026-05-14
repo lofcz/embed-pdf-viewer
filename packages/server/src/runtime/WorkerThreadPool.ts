@@ -33,6 +33,21 @@ interface WorkerSlot {
   >;
   /** docIds currently bound to this worker. Used for sticky routing. */
   docIds: Set<string>;
+  /**
+   * Per-slot LRU of docId access. Re-bumped on every `run`/`runOpen`;
+   * consulted by slot eviction when we must drop a doc to stay under
+   * `maxDocsPerSlot`. Insertion-order Map = LRU.
+   */
+  lru: Map<string, number>;
+  /**
+   * Refcount of docs by their `base_sha`. Drives sticky-by-base_sha
+   * routing: we prefer slots that already serve a given base, so the
+   * OS page cache and any in-process structures (eg the worker-side
+   * PDFium document handle for the same bytes) get reused.
+   */
+  baseShas: Map<string, number>;
+  /** docId -> base_sha for the docs bound to this slot. */
+  docToBaseSha: Map<string, string>;
 }
 
 export interface WorkerThreadPoolOptions {
@@ -44,27 +59,58 @@ export interface WorkerThreadPoolOptions {
    * default is provided by the package entry (see src/index.ts).
    */
   workerEntry: URL | string;
+  /**
+   * Hard cap on the number of docs a single worker may serve before
+   * it starts evicting its LRU doc. Without this, a single slot can
+   * accumulate hundreds of bound docIds (per-doc PDFium handle +
+   * worker-side state) and run out of memory. Defaults to a
+   * generous 64; 0 disables eviction.
+   */
+  maxDocsPerSlot?: number;
+  /**
+   * Notified whenever the pool evicts a docId to stay under
+   * `maxDocsPerSlot`. Lets the orchestrator (`DocumentService`)
+   * invalidate any cached handles for the evicted doc so the next
+   * request lazily re-opens.
+   */
+  onEvict?: (evt: { docId: string; baseSha: string; slot: number }) => void;
 }
 
 /**
- * worker_thread pool with sticky-by-docId routing.
+ * worker_thread pool with two routing dimensions:
  *
- * - open(docId) picks the least-loaded worker and binds the docId to it
- * - subsequent calls referencing that docId always go to the same worker
- * - close(docId) releases the binding
+ *   1. **Sticky-by-docId** — once a doc is opened on slot N, every
+ *      subsequent `run(docId)` call is dispatched to slot N. The
+ *      PDFium document handle lives on that worker, so we'd otherwise
+ *      need to re-parse the PDF on every call.
  *
- * Mirrors the WorkerQueue contract from engine-local on the cancellation
- * side: aborts during in-flight calls are best-effort, and the pool
- * still rejects with AbortError once the response arrives if the caller
- * aborted before it landed.
+ *   2. **Sticky-by-base_sha** (Phase 3) — when opening a *new* doc,
+ *      we prefer a slot that already serves a doc with the same
+ *      `base_sha`. Reuses OS page cache + any worker-local caches
+ *      keyed by the base bytes. The "same handbook across 1000
+ *      employees" case lands on a handful of slots, not all of them.
+ *
+ * Slot eviction kicks in when a slot reaches `maxDocsPerSlot`: the
+ * LRU doc on the slot is closed (worker is told to drop it) and the
+ * bindings are released. The eviction callback lets the orchestrator
+ * forget any cached handles.
+ *
+ * Cancellation: aborts during in-flight calls are best-effort; once
+ * an abort fires the pool still rejects with AbortError when the
+ * worker eventually replies.
  */
 export class WorkerThreadPool {
   private readonly slots: WorkerSlot[] = [];
   private readonly docToSlot = new Map<string, number>();
+  private readonly maxDocsPerSlot: number;
+  private readonly onEvict:
+    | ((evt: { docId: string; baseSha: string; slot: number }) => void)
+    | undefined;
+  private accessTick = 0;
   private destroyed = false;
 
   static async create(opts: WorkerThreadPoolOptions): Promise<WorkerThreadPool> {
-    const pool = new WorkerThreadPool();
+    const pool = new WorkerThreadPool(opts);
     const size = Math.max(1, opts.size ?? Math.min(2, Math.max(1, cpus().length)));
     const entry = opts.workerEntry;
 
@@ -76,6 +122,9 @@ export class WorkerThreadPool {
         ready: waitForReady(worker),
         inFlight: new Map(),
         docIds: new Set(),
+        lru: new Map(),
+        baseShas: new Map(),
+        docToBaseSha: new Map(),
       };
       worker.on(
         'message',
@@ -106,8 +155,19 @@ export class WorkerThreadPool {
     return pool;
   }
 
+  private constructor(opts?: WorkerThreadPoolOptions) {
+    this.maxDocsPerSlot = opts?.maxDocsPerSlot ?? 64;
+    this.onEvict = opts?.onEvict;
+  }
+
   /**
-   * Open a new document on the least-loaded worker.
+   * Open a new document. The slot is chosen via two-tier routing:
+   *
+   *   1. Sticky-by-base_sha: if `baseSha` is supplied and a slot
+   *      already serves a doc with that base, pick the least-loaded
+   *      among those slots.
+   *   2. Otherwise: least-loaded slot overall (round-robin
+   *      tiebreaker, lowest-index wins).
    *
    * The route is responsible for producing the `WirePack<OpenWorkerRequest>`
    * — typically `wirePack(openReq, [bytes.buffer])` — because the route
@@ -115,24 +175,50 @@ export class WorkerThreadPool {
    * which `ArrayBuffer` slice should move zero-copy to the worker. The
    * pool no longer copies/slices the bytes; it just binds the docId to
    * a worker slot and dispatches the pre-packed request.
+   *
+   * Legacy callers that pass `runOpen(docId, build, signal)` (3 args)
+   * still work — they default to the no-baseSha branch and routing
+   * collapses to "least loaded overall".
    */
   async runOpen(
     docId: string,
-    build: (jobId: WorkerJobId) => WirePack<WorkerRequest>,
-    signal?: AbortSignal,
+    baseShaOrBuild: string | ((jobId: WorkerJobId) => WirePack<WorkerRequest>),
+    buildOrSignal?: ((jobId: WorkerJobId) => WirePack<WorkerRequest>) | AbortSignal,
+    maybeSignal?: AbortSignal,
   ): Promise<WorkerResultPayload> {
     if (this.destroyed) throw new EngineError(EngineErrorCode.RuntimeUnavailable, 'pool destroyed');
+    let baseSha: string | undefined;
+    let build: (jobId: WorkerJobId) => WirePack<WorkerRequest>;
+    let signal: AbortSignal | undefined;
+    if (typeof baseShaOrBuild === 'string') {
+      baseSha = baseShaOrBuild;
+      build = buildOrSignal as (jobId: WorkerJobId) => WirePack<WorkerRequest>;
+      signal = maybeSignal;
+    } else {
+      build = baseShaOrBuild;
+      signal = buildOrSignal as AbortSignal | undefined;
+    }
     if (this.docToSlot.has(docId)) {
       throw new EngineError(EngineErrorCode.InvalidArg, `docId already open: ${docId}`);
     }
-    const slot = this.pickLeastLoaded();
+    const slot = baseSha ? this.pickSlotForBase(baseSha) : this.pickLeastLoaded();
+    // Capacity check BEFORE binding the new doc — eviction may close
+    // a doc on this slot, which we want to settle before the new
+    // openassignment lands.
+    if (this.maxDocsPerSlot > 0 && slot.docIds.size >= this.maxDocsPerSlot) {
+      await this.evictLruOn(slot);
+    }
     slot.docIds.add(docId);
+    slot.lru.set(docId, ++this.accessTick);
     this.docToSlot.set(docId, slot.index);
+    if (baseSha) {
+      slot.baseShas.set(baseSha, (slot.baseShas.get(baseSha) ?? 0) + 1);
+      slot.docToBaseSha.set(docId, baseSha);
+    }
     try {
       return await this.dispatchToSlot(slot, build, signal);
     } catch (err) {
-      slot.docIds.delete(docId);
-      this.docToSlot.delete(docId);
+      this.releaseBinding(slot, docId);
       throw err;
     }
   }
@@ -149,6 +235,7 @@ export class WorkerThreadPool {
       throw new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${docId}`);
     }
     const slot = this.slots[idx]!;
+    slot.lru.set(docId, ++this.accessTick);
     return this.dispatchToSlot(slot, build, signal);
   }
 
@@ -167,9 +254,76 @@ export class WorkerThreadPool {
       );
       return r;
     } finally {
-      slot.docIds.delete(docId);
-      this.docToSlot.delete(docId);
+      this.releaseBinding(slot, docId);
     }
+  }
+
+  /**
+   * Diagnostic snapshot for tests + production introspection. Reveals
+   * which docIds and base_shas each slot serves; routes never depend
+   * on this shape.
+   */
+  inspect(): Array<{ slot: number; docIds: string[]; baseShas: string[] }> {
+    return this.slots.map((s) => ({
+      slot: s.index,
+      docIds: [...s.docIds],
+      baseShas: [...s.baseShas.keys()],
+    }));
+  }
+
+  private releaseBinding(slot: WorkerSlot, docId: string): void {
+    slot.docIds.delete(docId);
+    slot.lru.delete(docId);
+    const baseSha = slot.docToBaseSha.get(docId);
+    if (baseSha) {
+      const next = (slot.baseShas.get(baseSha) ?? 1) - 1;
+      if (next <= 0) slot.baseShas.delete(baseSha);
+      else slot.baseShas.set(baseSha, next);
+      slot.docToBaseSha.delete(docId);
+    }
+    this.docToSlot.delete(docId);
+  }
+
+  /**
+   * Send a close request to the worker for the LRU doc on `slot` and
+   * release its bindings. The user-facing `onEvict` hook fires after
+   * the worker confirms the close so orchestrators can drop their
+   * cached handles in lockstep.
+   */
+  private async evictLruOn(slot: WorkerSlot): Promise<void> {
+    let oldest: { docId: string; tick: number } | null = null;
+    for (const [docId, tick] of slot.lru) {
+      if (!oldest || tick < oldest.tick) oldest = { docId, tick };
+    }
+    if (!oldest) return;
+    const evicted = oldest.docId;
+    const baseSha = slot.docToBaseSha.get(evicted) ?? '';
+    try {
+      await this.dispatchToSlot(slot, (jobId) =>
+        wirePack({ kind: 'close', jobId, docId: evicted }),
+      );
+    } catch {
+      // Worker-side close errors are best-effort during eviction; we
+      // still release local bindings so the slot can accept the new
+      // open. A future `run(evicted)` would correctly DocNotOpen.
+    }
+    this.releaseBinding(slot, evicted);
+    this.onEvict?.({ docId: evicted, baseSha, slot: slot.index });
+  }
+
+  private pickSlotForBase(baseSha: string): WorkerSlot {
+    // Tier 1: any slot already serving this base. Pick the least
+    // loaded among them; this distributes the M-employees case
+    // across the affinity set.
+    const affinitySet = this.slots.filter((s) => s.baseShas.has(baseSha));
+    if (affinitySet.length > 0) {
+      let best = affinitySet[0]!;
+      for (const s of affinitySet) if (s.docIds.size < best.docIds.size) best = s;
+      return best;
+    }
+    // Tier 2: no slot has this base yet — fall back to overall
+    // least-loaded so we spread the materialisation cost evenly.
+    return this.pickLeastLoaded();
   }
 
   async destroy(): Promise<void> {

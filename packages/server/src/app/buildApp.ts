@@ -4,11 +4,13 @@ import type { Kysely } from 'kysely';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
+import { BaseFileCache } from '../storage/BaseFileCache';
 import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
 import type { Database as Schema } from '../db/schema';
 import { DocumentsRepo } from '../db/repos/documents.repo';
 import { TenantsRepo } from '../db/repos/tenants.repo';
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
+import { DocumentService } from '../services/DocumentService';
 import { validate as validateMigrations, type MigrationSource } from '../db/migrator/runner';
 import { RevokedJtisGuard } from '../auth/RevokedJtisGuard';
 import { DbJwksCacheStore } from '../auth/JwksCacheStore';
@@ -18,6 +20,7 @@ import { registerDocumentRoutes } from '../routes/documents';
 import { registerMetadataRoutes } from '../routes/metadata';
 import { registerAnnotationRoutes } from '../routes/annotations';
 import { registerPagesRoutes } from '../routes/pages';
+import { registerDocsRoutes } from '../routes/docs';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
 import { registerAdminTokensRoutes } from '../routes/admin/tokens';
 
@@ -84,6 +87,21 @@ export interface BuildAppOptions {
   /** Max age of a `pending` doc before it's considered abandoned. */
   pendingTtlMs?: number;
   /**
+   * Phase 3 — when supplied (with `db`, `objectStore`, and a worker
+   * pool), enables the doc-scoped `/v1/docs/...` routes via the
+   * `DocumentService` orchestrator. The required pieces are:
+   *
+   *   - `cacheRoot`        absolute path the BaseFileCache uses
+   *   - `cacheMaxBytes`    disk budget (default 4 GiB)
+   *   - `maxDocsPerSlot`   worker pool slot capacity (default 64)
+   *
+   * Disable by leaving `cacheRoot` unset; the legacy upload-then-open
+   * routes (`/v1/documents/...`) still work without it.
+   */
+  cacheRoot?: string;
+  cacheMaxBytes?: number;
+  maxDocsPerSlot?: number;
+  /**
    * Migration set this build expects to be applied. When supplied
    * (alongside `db`), buildApp runs `validate()` at boot and refuses
    * to start if the DB has drift (checksum mismatch on an applied
@@ -107,6 +125,10 @@ export interface AppBundle {
   lifecycle?: DocumentLifecycleService;
   /** Present only when `enableRevocation: true` with a `db`. */
   revokedJtisGuard?: RevokedJtisGuard;
+  /** Phase 3 — present only when `cacheRoot` is set (+ pool + db). */
+  documentService?: DocumentService;
+  /** Phase 3 — the base-file cache backing `documentService`. */
+  baseFileCache?: BaseFileCache;
   shutdown: () => Promise<void>;
 }
 
@@ -178,10 +200,22 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
   }
   await registerJwtAuth(app, { verifier: verifierConfig });
 
+  // `documentService` is allocated below, but the pool's onEvict
+  // hook needs to reference it. Use a forward-binding closure:
+  // `evictForward` defers to whatever lives in `documentService` at
+  // call time. Without this, we'd need to construct the pool twice
+  // or expose a mutable setter on the service — both worse.
+  let documentService: DocumentService | undefined;
+  const evictForward = (evt: { docId: string; baseSha: string; slot: number }): void => {
+    documentService?.onPoolEvict(evt);
+  };
+
   const pool: WorkerThreadPool | undefined = opts.workerEntry
     ? await WorkerThreadPool.create({
         size: opts.poolSize,
         workerEntry: opts.workerEntry,
+        maxDocsPerSlot: opts.maxDocsPerSlot,
+        onEvict: evictForward,
       })
     : undefined;
   const store = new InMemoryDocumentStore();
@@ -213,6 +247,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
 
   let lifecycle: DocumentLifecycleService | undefined;
   let sweeperTimer: NodeJS.Timeout | undefined;
+  let baseFileCache: BaseFileCache | undefined;
   if (opts.db && opts.objectStore) {
     lifecycle = new DocumentLifecycleService({
       documents: new DocumentsRepo(opts.db),
@@ -223,6 +258,28 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     await registerAdminDocumentsRoutes(app, { lifecycle });
     if (revokedJtisGuard) {
       await registerAdminTokensRoutes(app, { guard: revokedJtisGuard });
+    }
+
+    // Phase 3: wire the doc-scoped routes when the operator has
+    // chosen a cache root. Requires the worker pool — admin-only
+    // deploys (no `workerEntry`) keep the legacy admin surface and
+    // skip the cloud open surface entirely.
+    if (opts.cacheRoot && pool) {
+      baseFileCache = new BaseFileCache({
+        root: opts.cacheRoot,
+        maxBytes: opts.cacheMaxBytes ?? 4 * 1024 * 1024 * 1024,
+        store: opts.objectStore,
+      });
+      // One-shot boot sweep: a crash during a prior materialise can
+      // leave `.partial.*` files behind. Better to clean them up
+      // here than to surface bogus disk-usage stats to ops.
+      await baseFileCache.sweepPartials();
+      documentService = new DocumentService({
+        documents: new DocumentsRepo(opts.db),
+        cache: baseFileCache,
+        pool,
+      });
+      await registerDocsRoutes(app, { service: documentService });
     }
 
     const sweepIntervalMs = opts.sweepIntervalMs ?? 60_000;
@@ -277,10 +334,20 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       await app.close();
     } finally {
       if (pool) await pool.destroy();
+      if (baseFileCache) await baseFileCache.destroy();
     }
   };
 
-  return { app, pool, store, lifecycle, revokedJtisGuard, shutdown };
+  return {
+    app,
+    pool,
+    store,
+    lifecycle,
+    revokedJtisGuard,
+    documentService,
+    baseFileCache,
+    shutdown,
+  };
 }
 
 function mapToHttp(code: string): number {

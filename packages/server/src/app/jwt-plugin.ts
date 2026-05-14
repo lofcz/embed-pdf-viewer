@@ -1,11 +1,15 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   createJwtVerifier,
-  hasAdminScope,
-  type AdminScope,
+  hasDocScope,
+  hasTenantScope,
+  isDocUserClaims,
+  isTenantClaims,
+  type DocScope,
   type JwtClaims,
   type JwtVerifier,
   type JwtVerifierConfig,
+  type TenantScope,
 } from '../auth/JwtVerifier';
 
 declare module 'fastify' {
@@ -67,29 +71,111 @@ export function requireTenant(req: FastifyRequest): string {
 }
 
 /**
- * Admin-route preHandler: asserts the request carries an admin-class
- * token with at least one of `wanted` scopes. Throws a typed error
- * (`AdminForbidden`) which the error handler maps to 403.
+ * Tenant-route preHandler: asserts the request carries a tenant
+ * token holding at least one of `wanted` scopes (or `*`). Throws a
+ * typed error (`Forbidden`) the error handler maps to 403.
+ *
+ * Doc-scoped tokens are rejected — they live in a different scope
+ * namespace and have no business reaching tenant-wide operations.
  */
-export function requireAdmin(
+export function requireScope(
   req: FastifyRequest,
-  wanted: ReadonlyArray<AdminScope>,
+  wanted: ReadonlyArray<TenantScope>,
 ): { tenantId: string; sub: string } {
   const t = req.tenant;
   if (!t) {
-    const err = new Error('admin token required') as Error & { code: string; status: number };
-    err.code = 'AdminUnauthenticated';
+    const err = new Error('tenant token required') as Error & { code: string; status: number };
+    err.code = 'Unauthenticated';
     err.status = 401;
     throw err;
   }
-  if (!hasAdminScope(t.claims, wanted)) {
-    const err = new Error(`admin scope required: one of [${wanted.join(', ')}]`) as Error & {
+  if (isDocUserClaims(t.claims)) {
+    const err = new Error('doc-scoped token cannot access tenant routes') as Error & {
       code: string;
       status: number;
     };
-    err.code = 'AdminForbidden';
+    err.code = 'Forbidden';
+    err.status = 403;
+    throw err;
+  }
+  if (!isTenantClaims(t.claims) || !hasTenantScope(t.claims, wanted)) {
+    const err = new Error(`tenant scope required: one of [${wanted.join(', ')}]`) as Error & {
+      code: string;
+      status: number;
+    };
+    err.code = 'Forbidden';
     err.status = 403;
     throw err;
   }
   return { tenantId: t.id, sub: t.sub };
+}
+
+export type DocAccessMode = 'doc' | 'tenant';
+
+/**
+ * Doc-route preHandler: asserts the request carries a token
+ * authorised to perform at least one of `needed` doc-scopes on the
+ * URL's `docId`. Two legal paths:
+ *
+ *   1. **Doc-scoped token**: `doc_id` claim matches the URL, AND
+ *      the token's `DocScope[]` contains one of `needed` (or `*`).
+ *   2. **Tenant token**: `scope` contains `docs.read` (or `*`).
+ *      The doc-tenant binding is enforced one layer down by
+ *      `DocumentsRepo.requireOwned(docId, tenantId)` — the service
+ *      layer refuses to load a doc that doesn't belong to the
+ *      token's tenant.
+ *
+ * Returns the resolved tenant context plus a `mode` flag for audit
+ * logging (so we can see whether a request reached a doc via the
+ * tight doc-scope path or the wider tenant-scope path).
+ */
+export function requireDocAccess(
+  req: FastifyRequest,
+  docId: string,
+  needed: ReadonlyArray<DocScope>,
+): { tenantId: string; sub: string; mode: DocAccessMode } {
+  const t = req.tenant;
+  if (!t) {
+    const err = new Error('doc-access token required') as Error & { code: string; status: number };
+    err.code = 'Unauthenticated';
+    err.status = 401;
+    throw err;
+  }
+
+  if (isDocUserClaims(t.claims)) {
+    if (t.claims.doc_id !== docId) {
+      const err = new Error('token grants access to a different document') as Error & {
+        code: string;
+        status: number;
+      };
+      err.code = 'Forbidden';
+      err.status = 403;
+      throw err;
+    }
+    if (!hasDocScope(t.claims, needed)) {
+      const err = new Error(`doc scope required: one of [${needed.join(', ')}]`) as Error & {
+        code: string;
+        status: number;
+      };
+      err.code = 'Forbidden';
+      err.status = 403;
+      throw err;
+    }
+    return { tenantId: t.id, sub: t.sub, mode: 'doc' };
+  }
+
+  // TenantClaims path. The tenant owns every doc in their tenant
+  // and the service-layer requireOwned enforces the doc-tenant
+  // match, so we only need to know the bearer is authorised for
+  // tenant-level doc reads.
+  if (!hasTenantScope(t.claims, ['*', 'docs.read'])) {
+    const err = new Error('tenant scope required: one of [*, docs.read]') as Error & {
+      code: string;
+      status: number;
+    };
+    err.code = 'Forbidden';
+    err.status = 403;
+    throw err;
+  }
+  return { tenantId: t.id, sub: t.sub, mode: 'tenant' };
 }
