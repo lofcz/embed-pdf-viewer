@@ -30,11 +30,21 @@ import type { HttpClient } from '../transport/HttpClient';
  * down to `fetch` and validates the JSON response with the wire-stable
  * Zod schema.
  *
- * The PATCH/DELETE routes address an annotation by stable id encoded
- * via `encodeStableIdKey`. Index refs cannot be encoded as a stable
- * id (no durable identity), so they travel as a JSON body on a PATCH
- * to a different sub-path. The server resolves the ref the same way
- * the local mutator does.
+ * Phase 4 note on URL versions: the server now publishes the
+ * versioned annotation read at `/pages/:pon/v:A/annotations` (see
+ * `wirePaths.docPageAnnotations`), and it is fully exercised by the
+ * server's `doc-versioned-reads.test.ts`. The cloud SDK still uses
+ * the un-versioned legacy path here because the mutation conformance
+ * harness (`runAnnotationMutationConformance`) opens with `kind:
+ * 'bytes'`, which seeds docs into the legacy `InMemoryDocumentStore`
+ * — that store is invisible to `DocumentService.getManifest`. Phase 5
+ * removes the legacy bytes-open + InMemoryDocumentStore in the same
+ * patch that makes this service swap to `docPageAnnotations` with
+ * the same `getJsonWithRefresh` pattern used by `CloudPageTextService`.
+ *
+ * The PATCH/DELETE/POST mutation routes already stay un-versioned —
+ * HTTP semantics exempt them from cache, so versioning would be
+ * ceremony with no payoff.
  */
 export class CloudPageAnnotationsService implements PageAnnotationsService {
   constructor(

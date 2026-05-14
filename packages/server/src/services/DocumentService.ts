@@ -3,9 +3,9 @@ import {
   EngineError,
   EngineErrorCode,
   wirePack,
-  type PageListSnapshot,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
+import type { ManifestPage } from '@embedpdf/engine-core/wire';
 import type { DocumentsRepo, DocumentRow } from '../db/repos/documents.repo';
 import type { BaseFileCache, LocalFileHandle } from '../storage/BaseFileCache';
 import { StorageKeys } from '../storage/keys';
@@ -14,27 +14,37 @@ import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 /**
  * Public head shape returned by `GET /v1/docs/:docId/head`.
  *
- * The structure version is the Phase 4 cache-busting integer that
- * the front door includes in versioned URLs. Phase 3 always reports
- * `1` — we don't bump versions yet because mutations aren't wired
- * (Phase 5). The shape is locked here so Phase 4 can drop the
- * versioning logic in without renegotiating the client contract.
+ * `docVersion` is the single monotonic integer per document — bumps
+ * on ANY mutation that could change the manifest's content (page
+ * list, per-page content, per-page annotations, per-page weak-flag).
+ * That makes `/v:D/manifest` content-addressed and CDN-cacheable for
+ * a year. Phase 4 hard-codes it to `1`; Phase 5's mutation handler
+ * is what actually bumps it.
  */
 export interface DocumentHead {
   id: string;
   baseSha: string;
   pageCount: number;
   storageSizeBytes: number;
-  /** Cache-busting integer; bumped on every structural mutation. */
-  docStructureVersion: number;
+  /** Cache-busting integer; bumps on EVERY content-changing mutation. */
+  docVersion: number;
   /** Lifecycle state, exposed so the SDK can render "deleting" / "failed" UI. */
   state: DocumentRow['state'];
 }
 
+/**
+ * Versioned manifest. Each page reports the cache-busting integers
+ * that drive `/pages/:pon/v:P/text` and `/pages/:pon/v:A/annotations`,
+ * so the SDK can build leaf URLs without further round-trips.
+ *
+ * Hard-coded `(contentVersion: 1, annotationVersion: 1,
+ * hasWeakAnnotations: false)` in Phase 4 — Phase 5 swaps the
+ * one-liner for a `LayerPagesRepo.find(docId)` lookup.
+ */
 export interface DocumentManifest {
-  docStructureVersion: number;
+  docVersion: number;
   baseSha: string;
-  pages: PageListSnapshot;
+  pages: ManifestPage[];
 }
 
 export interface DocumentServiceOptions {
@@ -162,9 +172,11 @@ export class DocumentService {
         baseSha,
         pageCount: row.pageCount ?? 0,
         storageSizeBytes: row.storageSizeBytes ?? 0,
-        // Phase 3: structure versions land in Phase 4. Hard-coded `1`
-        // until the `layer_pages` table + ImpactComputer wiring lands.
-        docStructureVersion: 1,
+        // Phase 4: docVersion is hard-coded to 1. Phase 5's mutation
+        // handler bumps `documents.doc_version` in the same DB
+        // transaction as each mutation, alongside the per-page
+        // `layer_pages.{content,annotation}_version` bumps.
+        docVersion: 1,
         state: row.state,
       };
       return head;
@@ -191,10 +203,19 @@ export class DocumentService {
         `unexpected manifest payload: ${result.tag}`,
       );
     }
+    // Phase 4: per-page versions are all `1` and `hasWeakAnnotations`
+    // is `false` for every page. Phase 5 swaps this `.map` for a
+    // single `layerPages.find(docId)` lookup keyed by pon.
+    const pages: ManifestPage[] = result.snapshot.pages.map((page) => ({
+      ...page,
+      contentVersion: 1,
+      annotationVersion: 1,
+      hasWeakAnnotations: page.hasAnyWeakAnnotations,
+    }));
     return {
-      docStructureVersion: head.docStructureVersion,
+      docVersion: head.docVersion,
       baseSha: head.baseSha,
-      pages: result.snapshot,
+      pages,
     };
   }
 

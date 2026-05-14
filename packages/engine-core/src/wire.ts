@@ -9,10 +9,13 @@ export {
   DocumentMetadataSchema,
   OpenDocumentResponseSchema,
   DocumentHeadSchema,
+  DocumentManifestSchema,
+  ManifestPageSchema,
   EngineErrorPayloadSchema,
   PageStateSchema,
   AnnotationListPageSnapshotSchema,
   AnnotationListSnapshotAllPagesSchema,
+  PageTextSnapshotSchema,
   RefetchReasonSchema,
   AnnotationListMutationMetaSchema,
   AnnotationCreateResultSchema,
@@ -23,7 +26,12 @@ export {
   PageMoveInputSchema,
   PageMoveResultSchema,
 } from './wire/schemas';
-export type { OpenDocumentResponse, DocumentHead } from './wire/schemas';
+export type {
+  OpenDocumentResponse,
+  DocumentHead,
+  DocumentManifest,
+  ManifestPage,
+} from './wire/schemas';
 export { wirePaths } from './wire/paths';
 
 export {

@@ -20,6 +20,11 @@ export type {
   PageReorderConformanceFixture,
   PageReorderConformanceOptions,
 } from './conformance/runPageReorderConformance';
+export { runPageTextConformance } from './conformance/runPageTextConformance';
+export type {
+  PageTextConformanceFixture,
+  PageTextConformanceOptions,
+} from './conformance/runPageTextConformance';
 export {
   diffAnnotationListSnapshot,
   diffAnnotationListSnapshotAll,

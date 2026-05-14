@@ -49,11 +49,10 @@ parentPort.on('message', (msg) => {
       const pages = [];
       for (let i = 0; i < meta.pageCount; i++) {
         pages.push({
-          index: i,
           pageObjectNumber: i + 1,
-          widthPt: 612,
-          heightPt: 792,
-          rotation: 0,
+          pageIndex: i,
+          revision: { docSessionId: 'stub-session', pageObjectNumber: i + 1, generation: 0 },
+          hasAnyWeakAnnotations: false,
         });
       }
       parentPort.postMessage({
@@ -61,7 +60,91 @@ parentPort.on('message', (msg) => {
         jobId: msg.jobId,
         result: {
           tag: 'pages.list',
-          snapshot: { pages, revision: { token: 'stub' } },
+          snapshot: { pages },
+        },
+      });
+      return;
+    }
+    case 'pages.text': {
+      const meta = openDocs.get(msg.docId);
+      if (!meta) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: { name: 'EngineError', message: `not open: ${msg.docId}`, code: 'DocNotOpen' },
+        });
+        return;
+      }
+      const pon = msg.pageObjectNumber;
+      if (pon < 1 || pon > meta.pageCount) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: {
+            name: 'EngineError',
+            message: `no page with object number ${pon}`,
+            code: 'NotFound',
+          },
+        });
+        return;
+      }
+      const text = `stub text for ${msg.docId} page ${pon}`;
+      parentPort.postMessage({
+        kind: 'resolve',
+        jobId: msg.jobId,
+        result: {
+          tag: 'pages.text',
+          snapshot: {
+            pageState: {
+              pageObjectNumber: pon,
+              pageIndex: pon - 1,
+              revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
+              hasAnyWeakAnnotations: false,
+            },
+            text,
+            charCount: text.length,
+          },
+        },
+      });
+      return;
+    }
+    case 'annotations.listFullPage': {
+      const meta = openDocs.get(msg.docId);
+      if (!meta) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: { name: 'EngineError', message: `not open: ${msg.docId}`, code: 'DocNotOpen' },
+        });
+        return;
+      }
+      const pon = msg.pageObjectNumber;
+      if (pon < 1 || pon > meta.pageCount) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: {
+            name: 'EngineError',
+            message: `no page with object number ${pon}`,
+            code: 'NotFound',
+          },
+        });
+        return;
+      }
+      parentPort.postMessage({
+        kind: 'resolve',
+        jobId: msg.jobId,
+        result: {
+          tag: 'annotations.listFullPage',
+          snapshot: {
+            pageState: {
+              pageObjectNumber: pon,
+              pageIndex: pon - 1,
+              revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
+              hasAnyWeakAnnotations: false,
+            },
+            annotations: [],
+          },
         },
       });
       return;

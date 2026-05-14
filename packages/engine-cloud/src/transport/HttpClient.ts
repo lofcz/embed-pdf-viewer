@@ -67,6 +67,36 @@ export class HttpClient {
     return await this.parseJsonResponse(res, parser);
   }
 
+  /**
+   * GET a versioned URL with transparent stale-version recovery. If
+   * the server returns 404 (the well-known "this version is gone"
+   * signal for content-addressed reads), call `onStaleVersion` (which
+   * the caller wires to a manifest refresh), then re-resolve `buildPath`
+   * and retry the GET exactly once. Any non-404 error propagates.
+   *
+   * The retry budget is hard-capped at 1: after a refresh, if the
+   * server's idea of the current version is still ahead of the
+   * client's view, the second request fails normally — this matches
+   * the CDN cache invariant ("a versioned URL's bytes are immutable
+   * for its lifetime").
+   */
+  async getJsonWithRefresh<T>(
+    buildPath: (signal: AbortSignal) => Promise<string>,
+    parser: (raw: unknown) => T,
+    onStaleVersion: (signal: AbortSignal) => Promise<void>,
+    signal: AbortSignal,
+  ): Promise<T> {
+    const initialPath = await buildPath(signal);
+    try {
+      return await this.getJson(initialPath, parser, signal);
+    } catch (err) {
+      if (!EngineError.is(err, EngineErrorCode.NotFound)) throw err;
+      await onStaleVersion(signal);
+      const retryPath = await buildPath(signal);
+      return await this.getJson(retryPath, parser, signal);
+    }
+  }
+
   async postMultipartJson<T>(
     path: string,
     body: FormData,

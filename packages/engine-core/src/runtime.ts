@@ -19,6 +19,7 @@ export type { PageHandle } from './engine/PageHandle';
 export type { DocumentAnnotationsService } from './engine/DocumentAnnotationsService';
 export type { DocumentPagesService } from './engine/DocumentPagesService';
 export type { PageAnnotationsService } from './engine/PageAnnotationsService';
+export type { PageTextService } from './engine/PageTextService';
 
 export { wirePack, EMPTY_TRANSFER } from './wire/WirePack';
 export type { WirePack } from './wire/WirePack';
@@ -40,6 +41,7 @@ export type {
   AnnotationsMoveWorkerRequest,
   PagesListWorkerRequest,
   PagesMoveWorkerRequest,
+  PagesTextWorkerRequest,
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,

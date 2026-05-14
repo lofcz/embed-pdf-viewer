@@ -5,6 +5,7 @@ import type {
 import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
@@ -104,6 +105,19 @@ export interface PagesListWorkerRequest {
   docId: string;
 }
 
+/**
+ * Per-page plain-text extraction. Acquires a pagePtr and runs PDFium's
+ * `FPDFText_LoadPage` → `FPDFText_GetText` chain. Identical to
+ * `annotations.listFullPage` in shape; both are slow-path per-page
+ * reads keyed by indirect object number.
+ */
+export interface PagesTextWorkerRequest {
+  kind: 'pages.text';
+  jobId: WorkerJobId;
+  docId: string;
+  pageObjectNumber: PageObjectNumber;
+}
+
 export interface PagesMoveWorkerRequest {
   kind: 'pages.move';
   jobId: WorkerJobId;
@@ -140,6 +154,7 @@ export type WorkerRequest =
   | AnnotationsMoveWorkerRequest
   | PagesListWorkerRequest
   | PagesMoveWorkerRequest
+  | PagesTextWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -156,6 +171,7 @@ export type WorkerResultPayload =
   | { tag: 'annotations.move'; result: AnnotationMoveResult }
   | { tag: 'pages.list'; snapshot: PageListSnapshot }
   | { tag: 'pages.move'; result: PageMoveResult }
+  | { tag: 'pages.text'; snapshot: PageTextSnapshot }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

@@ -279,7 +279,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         cache: baseFileCache,
         pool,
       });
-      await registerDocsRoutes(app, { service: documentService });
+      await registerDocsRoutes(app, { service: documentService, pool });
     }
 
     const sweepIntervalMs = opts.sweepIntervalMs ?? 60_000;

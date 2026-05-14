@@ -17,6 +17,7 @@ import {
   type OpenWorkerRequest,
   type PagesListWorkerRequest,
   type PagesMoveWorkerRequest,
+  type PagesTextWorkerRequest,
   type SerializedEngineError,
   type ShutdownWorkerRequest,
   type WirePack,
@@ -29,6 +30,7 @@ import { DocumentSession } from '../session/DocumentSession';
 import { ensureInitialized, destroyLibrary } from '../runtime-bootstrap';
 import { RawAnnotationReader } from '../readers/annotations/RawAnnotationReader';
 import { FullAnnotationReader } from '../readers/annotations/FullAnnotationReader';
+import { PageTextReader } from '../readers/text/PageTextReader';
 import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
 import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
 
@@ -106,6 +108,9 @@ export class WorkerHost {
           break;
         case 'pages.move':
           resultPack = this.handlePagesMove(msg, ctrl.signal);
+          break;
+        case 'pages.text':
+          resultPack = this.handlePagesText(msg, ctrl.signal);
           break;
         case 'close':
           resultPack = this.handleClose(msg);
@@ -245,6 +250,16 @@ export class WorkerHost {
     const mutator = new DocumentPagesMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumbers, req.destIndex, signal);
     return wirePack({ tag: 'pages.move', result });
+  }
+
+  private handlePagesText(
+    req: PagesTextWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req.docId);
+    const reader = new PageTextReader(this.runtime, session);
+    const snapshot = reader.read(req.pageObjectNumber, signal);
+    return wirePack({ tag: 'pages.text', snapshot });
   }
 
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {

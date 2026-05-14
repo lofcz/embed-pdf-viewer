@@ -18,6 +18,7 @@ import type {
 import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
 import type { RefetchReason } from '../mutation/RefetchReason';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 
@@ -44,13 +45,20 @@ export type OpenDocumentResponse = z.infer<typeof OpenDocumentResponseSchema>;
  * `DocumentHead` interface; the schema is the source of truth so
  * older SDKs talking to newer servers degrade gracefully (extra
  * fields are accepted and ignored).
+ *
+ * `docVersion` is the single monotonic integer per doc; it bumps on
+ * ANY mutation that could change the manifest's content (page list,
+ * per-page content, per-page annotations, per-page weak-flag), which
+ * makes `/v:D/manifest` fully content-addressed and cache-friendly.
+ * Phase 4 hard-codes it to `1`; Phase 5's mutation handler is what
+ * actually bumps it.
  */
 export const DocumentHeadSchema = z.object({
   id: z.string(),
   baseSha: z.string(),
   pageCount: z.number().int().nonnegative(),
   storageSizeBytes: z.number().int().nonnegative(),
-  docStructureVersion: z.number().int().positive(),
+  docVersion: z.number().int().positive(),
   state: z.enum(['pending', 'ready', 'failed', 'deleting']),
 });
 export type DocumentHead = z.infer<typeof DocumentHeadSchema>;
@@ -74,6 +82,42 @@ export const PageStateSchema: z.ZodType<PageState> = z.object({
   hasAnyWeakAnnotations: z.boolean(),
 });
 
+/**
+ * Per-page envelope inside `DocumentManifest`. Carries the full
+ * `PageState` plus the cache-busting integers the SDK embeds in
+ * leaf URLs (`/pages/:pon/v:P/text`, `/pages/:pon/v:A/annotations`).
+ *
+ * `contentVersion` bumps when the page's content stream changes
+ * (text, page reorder doesn't, the pon is durable). `annotationVersion`
+ * bumps when /Annots gains/loses entries or when a tracked annotation
+ * mutates. `hasWeakAnnotations` is hoisted from `PageState` so the
+ * SDK can decide whether to display a "stale-on-reorder" badge
+ * without re-fetching the page.
+ *
+ * Phase 4 hard-codes all three to (1, 1, false); Phase 5's
+ * `layer_pages` table drives the real values.
+ */
+export const ManifestPageSchema = PageStateSchema.and(
+  z.object({
+    contentVersion: z.number().int().positive(),
+    annotationVersion: z.number().int().positive(),
+    hasWeakAnnotations: z.boolean(),
+  }),
+);
+export type ManifestPage = z.infer<typeof ManifestPageSchema>;
+
+/**
+ * Wire shape of `GET /v1/docs/:docId/v:D/manifest`. Content-addressed
+ * by `docVersion`; safe to cache with `Cache-Control: public,
+ * max-age=31536000, immutable`.
+ */
+export const DocumentManifestSchema = z.object({
+  docVersion: z.number().int().positive(),
+  baseSha: z.string(),
+  pages: z.array(ManifestPageSchema),
+});
+export type DocumentManifest = z.infer<typeof DocumentManifestSchema>;
+
 export const AnnotationListPageSnapshotSchema: z.ZodType<AnnotationListPageSnapshot> = z.object({
   pageState: PageStateSchema,
   annotations: z.array(AnnotationDTOSchema),
@@ -83,6 +127,19 @@ export const AnnotationListSnapshotAllPagesSchema: z.ZodType<AnnotationListSnaps
   z.object({
     pages: z.array(AnnotationListPageSnapshotSchema),
   });
+
+/**
+ * Wire shape of `GET /v1/docs/:docId/pages/:pon/v:P/text` and the
+ * `pages.text` worker result. Carries the same `pageState` envelope
+ * every page-scoped read returns, plus the full plain-text extraction
+ * in display order and PDFium's char-count (which may exceed
+ * `text.length / 1` when astral-plane characters are present).
+ */
+export const PageTextSnapshotSchema: z.ZodType<PageTextSnapshot> = z.object({
+  pageState: PageStateSchema,
+  text: z.string(),
+  charCount: z.number().int().nonnegative(),
+});
 
 /**
  * Reasons a mutation tells the client its old snapshot is stale. Wire-stable;

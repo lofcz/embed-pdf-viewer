@@ -17,6 +17,7 @@ export type {
 } from './dto/OpenInput';
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
+export type { PageTextSnapshot } from './dto/PageTextSnapshot';
 
 export { EngineError, serializeError, deserializeError } from './errors/EngineError';
 export type { SerializedEngineError, EngineErrorOptions } from './errors/EngineError';

@@ -1,0 +1,58 @@
+import {
+  AbortablePromise,
+  EngineError,
+  EngineErrorCode,
+  type PageObjectNumber,
+  type PageTextService,
+  type PageTextSnapshot,
+} from '@embedpdf/engine-core/runtime';
+import { PageTextSnapshotSchema, wirePaths } from '@embedpdf/engine-core/wire';
+import type { HttpClient } from '../transport/HttpClient';
+import type { ManifestAccessor } from './CloudDocumentHandle';
+
+/**
+ * Cloud-side per-page text service. `read()` fetches the
+ * content-addressed URL `/v1/docs/:id/pages/:pon/v:P/text`, where
+ * `:P` is the page's current `contentVersion` from the cached
+ * manifest. On a 404 (stale version) the SDK transparently refreshes
+ * `/head` + `/v:D/manifest`, rebuilds the URL with the fresh `:P`,
+ * and retries exactly once.
+ */
+export class CloudPageTextService implements PageTextService {
+  constructor(
+    private readonly http: HttpClient,
+    private readonly docId: string,
+    private readonly pageObjectNumber: PageObjectNumber,
+    private readonly isClosed: () => boolean,
+    private readonly manifest: ManifestAccessor,
+  ) {}
+
+  read(): AbortablePromise<PageTextSnapshot> {
+    if (this.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
+      );
+    }
+    return AbortablePromise.run<PageTextSnapshot>(async (signal) => {
+      const buildPath = async (s: AbortSignal): Promise<string> => {
+        const manifest = await this.manifest.get(s);
+        const page = manifest.pages.find((p) => p.pageObjectNumber === this.pageObjectNumber);
+        if (!page) {
+          throw new EngineError(
+            EngineErrorCode.NotFound,
+            `no page with object number ${this.pageObjectNumber} in document ${this.docId}`,
+          );
+        }
+        return wirePaths.docPageText(this.docId, this.pageObjectNumber, page.contentVersion);
+      };
+      return this.http.getJsonWithRefresh(
+        buildPath,
+        (raw) => PageTextSnapshotSchema.parse(raw),
+        async (s) => {
+          await this.manifest.refresh(s);
+        },
+        signal,
+      );
+    });
+  }
+}

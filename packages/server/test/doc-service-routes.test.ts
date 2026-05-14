@@ -184,7 +184,7 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
       id: docId,
       baseSha: seed.sha,
       pageCount: 7,
-      docStructureVersion: 1,
+      docVersion: 1,
       state: 'ready',
     });
   });
@@ -300,7 +300,7 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/v:D/manifest', () => {
     await tearDown(fx);
   });
 
-  test('returns the page list for the current structure version', async () => {
+  test('returns the page list for the current doc version', async () => {
     const tenantId = 'tenant-m';
     const docId = 'docmmm111';
     await seedDocument(fx, tenantId, docId, { pageCount: 4 });
@@ -309,9 +309,21 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/v:D/manifest', () => {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { docStructureVersion: number; pages: { pages: unknown[] } };
-    expect(body.docStructureVersion).toBe(1);
-    expect(body.pages.pages).toHaveLength(4);
+    const body = (await res.json()) as {
+      docVersion: number;
+      pages: Array<{
+        contentVersion: number;
+        annotationVersion: number;
+        hasWeakAnnotations: boolean;
+      }>;
+    };
+    expect(body.docVersion).toBe(1);
+    expect(body.pages).toHaveLength(4);
+    for (const page of body.pages) {
+      expect(page.contentVersion).toBe(1);
+      expect(page.annotationVersion).toBe(1);
+      expect(page.hasWeakAnnotations).toBe(false);
+    }
   });
 
   test('returns 404 when the requested structure version is stale', async () => {

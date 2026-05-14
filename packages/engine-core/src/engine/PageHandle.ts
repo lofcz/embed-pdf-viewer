@@ -1,5 +1,6 @@
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PageAnnotationsService } from './PageAnnotationsService';
+import type { PageTextService } from './PageTextService';
 
 /**
  * Page-scoped handle returned by `DocumentHandle.page(pageObjectNumber)`.
@@ -15,4 +16,5 @@ export interface PageHandle {
    */
   readonly pageIndex: number;
   readonly annotations: PageAnnotationsService;
+  readonly text: PageTextService;
 }

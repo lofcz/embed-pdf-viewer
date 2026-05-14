@@ -80,13 +80,33 @@ export const wirePaths = {
   docHead: (docId: string) => `/v1/docs/${encodeURIComponent(docId)}/head`,
 
   /**
-   * GET: list every page in display order at a specific structure
-   * version `D`. Returns `DocumentManifest`. A request whose `D`
-   * mismatches the current version returns 404 — the SDK should
-   * refetch `/head` to learn the new version.
+   * GET: full document manifest at a specific `docVersion`. Content-
+   * addressed: the URL bytes are immutable for the lifetime of the
+   * version, so CDNs may cache `public, max-age=31536000, immutable`.
+   * A request whose `docVersion` mismatches the current version
+   * returns 404 — the SDK refetches `/head` to learn the new
+   * version, then re-requests the manifest at the new URL.
    */
-  docManifest: (docId: string, structureVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/v${structureVersion}/manifest`,
+  docManifest: (docId: string, docVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/v${docVersion}/manifest`,
+
+  /**
+   * GET: full plain-text extraction for a single page at a specific
+   * `contentVersion`. Content-addressed; CDN may cache forever.
+   * Stale-version requests return 404 and the SDK's transparent
+   * retry walks `/head` → `/v:D/manifest` to learn the new
+   * `contentVersion`.
+   */
+  docPageText: (docId: string, pageObjectNumber: number, contentVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${contentVersion}/text`,
+
+  /**
+   * GET: full annotation list for a single page at a specific
+   * `annotationVersion`. Same cache-control rules and 404-retry
+   * semantics as `docPageText`.
+   */
+  docPageAnnotations: (docId: string, pageObjectNumber: number, annotationVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${annotationVersion}/annotations`,
 
   /**
    * POST: pre-warm the doc cache + worker open before any user
