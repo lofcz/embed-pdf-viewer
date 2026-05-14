@@ -1,5 +1,12 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { JwtVerifier, hasAdminScope, type AdminScope, type JwtClaims } from '../auth/JwtVerifier';
+import {
+  createJwtVerifier,
+  hasAdminScope,
+  type AdminScope,
+  type JwtClaims,
+  type JwtVerifier,
+  type JwtVerifierConfig,
+} from '../auth/JwtVerifier';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -8,17 +15,29 @@ declare module 'fastify' {
 }
 
 export interface JwtPluginOptions {
-  secret: string;
+  /**
+   * Verifier config. Pass `{ mode: 'hs256', secret }` for dev/test
+   * (HS256 shared secret) or one of `asymmetric` / `jwks` for prod.
+   *
+   * Backward compat: passing a bare `{ secret }` is treated as HS256.
+   */
+  verifier: JwtVerifierConfig | { secret: string };
   /** Routes that should bypass authentication (e.g. health checks). */
   publicPaths?: ReadonlyArray<string>;
 }
 
+function asConfig(input: JwtPluginOptions['verifier']): JwtVerifierConfig {
+  if ('mode' in input) return input;
+  return { mode: 'hs256', secret: input.secret };
+}
+
 /**
- * preHandler-style auth: extracts Bearer token, verifies HS256, attaches a
- * tenant context to the request. Routes use `requireTenant(req)` to read it.
+ * preHandler-style auth: extracts Bearer token, verifies via the
+ * configured `JwtVerifier`, attaches a tenant context to the
+ * request. Routes use `requireTenant(req)` to read it.
  */
 export async function registerJwtAuth(app: FastifyInstance, opts: JwtPluginOptions): Promise<void> {
-  const verifier = new JwtVerifier({ secret: opts.secret });
+  const verifier: JwtVerifier = createJwtVerifier(asConfig(opts.verifier));
   const publics = new Set(opts.publicPaths ?? []);
 
   app.addHook('onRequest', async (req, reply) => {
@@ -32,7 +51,7 @@ export async function registerJwtAuth(app: FastifyInstance, opts: JwtPluginOptio
     }
     const token = auth.slice('Bearer '.length).trim();
     try {
-      const claims = verifier.verify(token);
+      const claims = await verifier.verify(token);
       req.tenant = { id: claims.tenant_id, sub: claims.sub, claims };
     } catch (err) {
       reply.code(401).send({ error: `invalid token: ${(err as Error).message}` });

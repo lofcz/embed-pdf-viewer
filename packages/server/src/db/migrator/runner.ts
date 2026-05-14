@@ -34,6 +34,26 @@ export interface MigrateOptions {
   onApply?: (m: MigrationSource) => void;
 }
 
+/** A single line of the `migrate status` table. */
+export interface MigrationStatusEntry {
+  version: string;
+  /** Filename from code (or `?` if missing from code). */
+  name: string;
+  state: 'applied' | 'pending' | 'orphan' | 'drift';
+  /** Set for `applied` + `drift` + `orphan` rows. */
+  appliedAt?: number;
+  /** Set for `drift` rows: codeChecksum vs dbChecksum. */
+  drift?: { dbChecksum: string; codeChecksum: string };
+}
+
+export type DriftKind = 'checksum_mismatch' | 'missing_in_code' | 'renamed' | 'unknown_in_db';
+
+export interface DriftIssue {
+  kind: DriftKind;
+  version: string;
+  message: string;
+}
+
 /**
  * Apply every pending migration. Forward-only; checksums of
  * already-applied migrations are validated to detect silent edits.
@@ -68,12 +88,16 @@ export async function migrate(
 }
 
 async function ensureMigrationsTable(db: Kysely<Schema>): Promise<void> {
+  // BIGINT, not INTEGER: epoch-ms timestamps (13 digits) overflow PG's
+  // 4-byte INTEGER (max ~2.14B). SQLite treats `BIGINT` as an alias for
+  // its variable-width INTEGER affinity, so the same DDL works on both
+  // dialects.
   await sql`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       version    TEXT PRIMARY KEY,
       name       TEXT NOT NULL,
       checksum   TEXT NOT NULL,
-      applied_at INTEGER NOT NULL
+      applied_at BIGINT NOT NULL
     )
   `.execute(db);
 }
@@ -95,6 +119,151 @@ async function discoverMigrations(dir: string): Promise<MigrationSource[]> {
 
 function sortByVersion<T extends { version: string }>(list: T[]): T[] {
   return list.sort((a, b) => (a.version < b.version ? -1 : a.version > b.version ? 1 : 0));
+}
+
+/**
+ * Report applied / pending / drift state without modifying the DB.
+ *
+ * Drift = an applied migration whose code has changed since it was
+ * applied (checksum mismatch) — a strong signal that a developer
+ * edited a migration in-place instead of adding a new one. Production
+ * boot refuses to start when drift is detected; `migrate validate` is
+ * the corresponding CLI surface.
+ */
+export async function status(
+  db: Kysely<Schema>,
+  source: ReadonlyArray<MigrationSource>,
+): Promise<MigrationStatusEntry[]> {
+  await ensureMigrationsTable(db);
+  const migrations = sortByVersion([...source]);
+  const applied = await listApplied(db);
+
+  const out: MigrationStatusEntry[] = [];
+
+  // Walk every version present in either set. Some versions can be
+  // applied-without-code (orphan: migration file was deleted from the
+  // repo) — surface them explicitly so operators see what's going on.
+  const allVersions = new Set<string>();
+  for (const m of migrations) allVersions.add(m.version);
+  for (const v of applied.keys()) allVersions.add(v);
+  const sortedVersions = [...allVersions].sort();
+
+  for (const v of sortedVersions) {
+    const m = migrations.find((x) => x.version === v);
+    const a = applied.get(v);
+    if (!m && a) {
+      out.push({ version: v, name: a.name, state: 'orphan', appliedAt: a.applied_at });
+      continue;
+    }
+    if (m && !a) {
+      out.push({ version: m.version, name: m.name, state: 'pending' });
+      continue;
+    }
+    if (m && a) {
+      const codeChecksum = sha256(m.sql);
+      if (codeChecksum === a.checksum) {
+        out.push({ version: m.version, name: m.name, state: 'applied', appliedAt: a.applied_at });
+      } else {
+        out.push({
+          version: m.version,
+          name: m.name,
+          state: 'drift',
+          appliedAt: a.applied_at,
+          drift: { dbChecksum: a.checksum, codeChecksum },
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Strict drift detection. Returns the list of issues; an empty list
+ * means "safe to boot". Call this at server startup behind a flag —
+ * see `validateOrThrow` for the production-grade wrapper.
+ *
+ * Issues we surface:
+ *   - `checksum_mismatch` — code edited after apply (the dangerous one)
+ *   - `renamed` — filename changed after apply (catches accidental
+ *     rename squashes; the `migrate` function already enforces this
+ *     when applying, but validate covers boot-time read-only checks)
+ *   - `missing_in_code` — applied migration with no corresponding file
+ *     (someone deleted a migration; usually a bad merge)
+ *   - `unknown_in_db` — pending; not a drift per se but the CLI may
+ *     choose to error if `--strict` is passed
+ */
+export async function validate(
+  db: Kysely<Schema>,
+  source: ReadonlyArray<MigrationSource>,
+  opts: { treatPendingAsDrift?: boolean } = {},
+): Promise<DriftIssue[]> {
+  await ensureMigrationsTable(db);
+  const migrations = sortByVersion([...source]);
+  const applied = await listApplied(db);
+  const issues: DriftIssue[] = [];
+
+  for (const m of migrations) {
+    const a = applied.get(m.version);
+    if (!a) {
+      if (opts.treatPendingAsDrift) {
+        issues.push({
+          kind: 'unknown_in_db',
+          version: m.version,
+          message: `migration ${m.version} (${m.name}) has not been applied`,
+        });
+      }
+      continue;
+    }
+    if (a.name !== m.name) {
+      issues.push({
+        kind: 'renamed',
+        version: m.version,
+        message: `migration ${m.version} was applied as ${a.name} but code has ${m.name}`,
+      });
+    }
+    const codeChecksum = sha256(m.sql);
+    if (a.checksum !== codeChecksum) {
+      issues.push({
+        kind: 'checksum_mismatch',
+        version: m.version,
+        message:
+          `migration ${m.version} (${m.name}) checksum drift: ` +
+          `db=${a.checksum.slice(0, 12)}.. code=${codeChecksum.slice(0, 12)}..`,
+      });
+    }
+  }
+
+  // Applied rows with no corresponding code file.
+  const codeVersions = new Set(migrations.map((m) => m.version));
+  for (const [version, rec] of applied) {
+    if (!codeVersions.has(version)) {
+      issues.push({
+        kind: 'missing_in_code',
+        version,
+        message:
+          `migration ${version} (${rec.name}) is applied but its source file ` +
+          `is not present in code — someone deleted a migration after apply`,
+      });
+    }
+  }
+
+  return issues;
+}
+
+/**
+ * Production boot helper: validates and throws a single multi-line
+ * error if any drift is detected. Designed for `buildApp` to call
+ * before opening the listening socket. If you want soft warnings,
+ * call `validate` directly and log the issues instead.
+ */
+export async function validateOrThrow(
+  db: Kysely<Schema>,
+  source: ReadonlyArray<MigrationSource>,
+): Promise<void> {
+  const issues = await validate(db, source);
+  if (issues.length === 0) return;
+  const lines = issues.map((i) => `  - [${i.kind}] ${i.message}`).join('\n');
+  throw new Error(`migration drift detected:\n${lines}`);
 }
 
 async function listApplied(db: Kysely<Schema>): Promise<Map<string, MigrationRecord>> {

@@ -1,7 +1,9 @@
-import { createSqliteDb, migrate, sqliteMigrations } from '../src/index';
-import { runAdminE2e } from './_helpers/admin-e2e-suite';
+import { createSqliteDb } from '../src/db/drivers/sqlite';
+import { migrate } from '../src/db/migrator/runner';
+import { sqliteMigrations } from '../src/db/migrations/sqlite/index';
+import { runDbConformance } from './_helpers/db-conformance';
 
-runAdminE2e({
+runDbConformance({
   label: 'sqlite',
   makeDb: async () => {
     const db = createSqliteDb({ path: ':memory:' });

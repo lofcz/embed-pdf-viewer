@@ -63,6 +63,37 @@ export interface SchemaMigrationsTable {
 }
 
 /**
+ * Phase 2 — per-token denylist consulted on every authenticated
+ * request. Fronted by `RevokedJtisGuard`'s in-memory LRU so the DB
+ * round-trip happens only on cache misses.
+ */
+export interface RevokedJtisTable {
+  /** Opaque token id; PK. */
+  jti: string;
+  /** Tenant context for audit; nullable for system-issued tokens. */
+  tenant_id: string | null;
+  /** Short reason: `manual`, `password-rotation`, `compromise`, ... */
+  reason: string | null;
+  /** Unix epoch ms. */
+  revoked_at: number;
+  /** Unix epoch ms — same as the token's `exp`, used by GC sweeper. */
+  expires_at: number;
+}
+
+/**
+ * Phase 2 — persistent JWKS cache keyed by issuer. The actual
+ * verifier uses `jose`'s in-memory cache; this table is the
+ * cold-boot warm-up so we don't slam the customer's IdP on every
+ * pod restart.
+ */
+export interface JwksCacheTable {
+  issuer: string;
+  jwks_json: string;
+  fetched_at: number;
+  expires_at: number;
+}
+
+/**
  * The Kysely `Database` interface that the rest of the server typechecks
  * against. Each table maps to a single TypeScript shape; Kysely handles
  * INSERT/SELECT differences via the `Generated<T>` brand.
@@ -74,4 +105,6 @@ export interface Database {
     updated_at: Generated<number>;
   };
   schema_migrations: SchemaMigrationsTable;
+  revoked_jtis: RevokedJtisTable;
+  jwks_cache: JwksCacheTable;
 }

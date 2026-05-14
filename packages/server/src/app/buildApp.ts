@@ -9,15 +9,43 @@ import type { Database as Schema } from '../db/schema';
 import { DocumentsRepo } from '../db/repos/documents.repo';
 import { TenantsRepo } from '../db/repos/tenants.repo';
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
+import { validate as validateMigrations, type MigrationSource } from '../db/migrator/runner';
+import { RevokedJtisGuard } from '../auth/RevokedJtisGuard';
+import { DbJwksCacheStore } from '../auth/JwksCacheStore';
+import type { JwtVerifierConfig, RevocationCheck, JwksCacheStore } from '../auth/JwtVerifier';
 import { registerJwtAuth } from './jwt-plugin';
 import { registerDocumentRoutes } from '../routes/documents';
 import { registerMetadataRoutes } from '../routes/metadata';
 import { registerAnnotationRoutes } from '../routes/annotations';
 import { registerPagesRoutes } from '../routes/pages';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
+import { registerAdminTokensRoutes } from '../routes/admin/tokens';
 
 export interface BuildAppOptions {
-  jwtSecret: string;
+  /**
+   * HS256 shared secret. Convenience alias for
+   * `verifier: { mode: 'hs256', secret }`. Required when `verifier`
+   * is not supplied; ignored otherwise.
+   */
+  jwtSecret?: string;
+  /**
+   * Full verifier config. Use this for production (RS256 PEM /
+   * ES256 PEM / multi-tenant JWKS). When omitted, `jwtSecret` is
+   * used to construct an HS256 verifier.
+   */
+  verifier?: JwtVerifierConfig;
+  /**
+   * If true and `db` is supplied, wire a `RevokedJtisGuard` into the
+   * verifier so revoked `jti`s are rejected at request time. Off by
+   * default to keep dev tests cheap.
+   */
+  enableRevocation?: boolean;
+  /**
+   * If true and `db` + `verifier.mode === 'jwks'`, plug the
+   * persistent `jwks_cache` table into the JWKS verifier so the
+   * cache survives restarts.
+   */
+  enableJwksPersistence?: boolean;
   poolSize?: number;
   /**
    * URL of the worker_thread entry script. The package's main entry exports
@@ -55,6 +83,19 @@ export interface BuildAppOptions {
   sweepIntervalMs?: number;
   /** Max age of a `pending` doc before it's considered abandoned. */
   pendingTtlMs?: number;
+  /**
+   * Migration set this build expects to be applied. When supplied
+   * (alongside `db`), buildApp runs `validate()` at boot and refuses
+   * to start if the DB has drift (checksum mismatch on an applied
+   * migration, or a migration applied in DB but missing in code).
+   *
+   * Set `failOnPending: true` to also refuse to start when pending
+   * migrations exist — recommended for production where operators
+   * run `migrate up` explicitly before rolling out new pods.
+   */
+  expectedMigrations?: ReadonlyArray<MigrationSource>;
+  /** Treat pending migrations as drift at boot. Defaults to false. */
+  failOnPending?: boolean;
 }
 
 export interface AppBundle {
@@ -64,6 +105,8 @@ export interface AppBundle {
   store: InMemoryDocumentStore;
   /** Present only when `db` + `objectStore` were configured. */
   lifecycle?: DocumentLifecycleService;
+  /** Present only when `enableRevocation: true` with a `db`. */
+  revokedJtisGuard?: RevokedJtisGuard;
   shutdown: () => Promise<void>;
 }
 
@@ -98,7 +141,42 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     (_req, body, done) => done(null, body),
   );
 
-  await registerJwtAuth(app, { secret: opts.jwtSecret });
+  // Optional revocation + JWKS persistence guards. Both are no-ops
+  // unless explicitly enabled — admin-only tests / dev runs don't
+  // need them and they require a DB.
+  let revokedJtisGuard: RevokedJtisGuard | undefined;
+  let revocation: RevocationCheck | undefined;
+  if (opts.enableRevocation && opts.db) {
+    revokedJtisGuard = new RevokedJtisGuard({ db: opts.db });
+    revocation = revokedJtisGuard;
+  }
+  let jwksCacheStore: JwksCacheStore | undefined;
+  if (opts.enableJwksPersistence && opts.db) {
+    jwksCacheStore = new DbJwksCacheStore(opts.db);
+  }
+
+  let verifierConfig: JwtVerifierConfig;
+  if (opts.verifier) {
+    // Inject the revocation + cache store into whichever mode the
+    // caller picked. We don't overwrite if they're already set.
+    verifierConfig = {
+      ...opts.verifier,
+      revocation: opts.verifier.revocation ?? revocation,
+      ...(opts.verifier.mode === 'jwks' && !opts.verifier.cacheStore
+        ? { cacheStore: jwksCacheStore }
+        : {}),
+    } as JwtVerifierConfig;
+  } else {
+    if (!opts.jwtSecret) {
+      throw new Error('buildApp: either `verifier` or `jwtSecret` must be supplied');
+    }
+    verifierConfig = {
+      mode: 'hs256',
+      secret: opts.jwtSecret,
+      ...(revocation ? { revocation } : {}),
+    };
+  }
+  await registerJwtAuth(app, { verifier: verifierConfig });
 
   const pool: WorkerThreadPool | undefined = opts.workerEntry
     ? await WorkerThreadPool.create({
@@ -118,6 +196,21 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     await registerAnnotationRoutes(app, { pool, store });
   }
 
+  // Drift detection at boot. Production deployments should supply
+  // `expectedMigrations` — if the DB has a checksum mismatch or an
+  // applied migration vanished from code, we refuse to serve traffic
+  // rather than silently running on an unexpected schema. This is the
+  // safety net for "someone edited a migration and force-rolled it".
+  if (opts.db && opts.expectedMigrations && opts.expectedMigrations.length > 0) {
+    const issues = await validateMigrations(opts.db, opts.expectedMigrations, {
+      treatPendingAsDrift: opts.failOnPending ?? false,
+    });
+    if (issues.length > 0) {
+      const lines = issues.map((i) => `  - [${i.kind}] ${i.message}`).join('\n');
+      throw new Error(`buildApp: migration drift detected, refusing to start:\n${lines}`);
+    }
+  }
+
   let lifecycle: DocumentLifecycleService | undefined;
   let sweeperTimer: NodeJS.Timeout | undefined;
   if (opts.db && opts.objectStore) {
@@ -128,6 +221,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       autoProvisionTenant: opts.autoProvisionTenant ?? false,
     });
     await registerAdminDocumentsRoutes(app, { lifecycle });
+    if (revokedJtisGuard) {
+      await registerAdminTokensRoutes(app, { guard: revokedJtisGuard });
+    }
 
     const sweepIntervalMs = opts.sweepIntervalMs ?? 60_000;
     const pendingTtlMs = opts.pendingTtlMs ?? 60 * 60 * 1000; // 1h default
@@ -184,7 +280,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     }
   };
 
-  return { app, pool, store, lifecycle, shutdown };
+  return { app, pool, store, lifecycle, revokedJtisGuard, shutdown };
 }
 
 function mapToHttp(code: string): number {

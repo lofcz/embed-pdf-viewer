@@ -6,13 +6,27 @@
  */
 export { buildApp } from './app/buildApp';
 export type { BuildAppOptions, AppBundle } from './app/buildApp';
-export { JwtVerifier, signDevToken, hasAdminScope } from './auth/JwtVerifier';
+export {
+  createJwtVerifier,
+  Hs256Verifier,
+  AsymmetricVerifier,
+  JwksVerifier,
+  signDevToken,
+  hasAdminScope,
+} from './auth/JwtVerifier';
 export type {
   JwtClaims,
-  JwtVerifierOptions,
+  JwtVerifier,
+  JwtVerifierConfig,
+  JwtAudienceProfile,
+  JwksCacheStore,
+  RevocationCheck,
   SignDevTokenInput,
   AdminScope,
 } from './auth/JwtVerifier';
+export { RevokedJtisGuard } from './auth/RevokedJtisGuard';
+export type { RevokedJtisGuardOptions } from './auth/RevokedJtisGuard';
+export { DbJwksCacheStore } from './auth/JwksCacheStore';
 export { WorkerThreadPool } from './runtime/WorkerThreadPool';
 export type { WorkerThreadPoolOptions } from './runtime/WorkerThreadPool';
 export { InMemoryDocumentStore } from './storage/InMemoryDocumentStore';
@@ -21,9 +35,19 @@ export type { DocumentRecord } from './storage/InMemoryDocumentStore';
 // Phase 1 cloud platform surfaces.
 export { createSqliteDb } from './db/drivers/sqlite';
 export type { CreateSqliteDbOptions } from './db/drivers/sqlite';
-export { migrate } from './db/migrator/runner';
-export type { MigrationSource, MigrateInput, MigrateOptions } from './db/migrator/runner';
+export { createPostgresDb } from './db/drivers/postgres';
+export type { CreatePostgresDbOptions } from './db/drivers/postgres';
+export { migrate, status, validate, validateOrThrow } from './db/migrator/runner';
+export type {
+  MigrationSource,
+  MigrateInput,
+  MigrateOptions,
+  MigrationStatusEntry,
+  DriftIssue,
+  DriftKind,
+} from './db/migrator/runner';
 export { sqliteMigrations } from './db/migrations/sqlite/index';
+export { postgresMigrations } from './db/migrations/postgres/index';
 export type {
   Database as DbSchema,
   DocumentState,

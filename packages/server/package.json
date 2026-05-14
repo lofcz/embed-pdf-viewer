@@ -58,15 +58,20 @@
     "@fastify/multipart": "^9.0.0",
     "better-sqlite3": "^12.10.0",
     "fastify": "^5.0.0",
-    "kysely": "^0.29.0"
+    "jose": "^6.2.3",
+    "kysely": "^0.29.0",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@embedpdf/cloud-admin": "workspace:^",
     "@smithy/util-stream": "^4.6.1",
+    "@testcontainers/postgresql": "^11.14.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "latest",
+    "@types/pg": "^8.20.0",
     "aws-sdk-client-mock": "^4.1.0",
     "rimraf": "^5.0.0",
+    "testcontainers": "^11.14.0",
     "tsup": "^8.3.0",
     "typescript": "^5.0.0",
     "vitest": "^2.1.0"
