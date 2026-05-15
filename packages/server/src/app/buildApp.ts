@@ -279,6 +279,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       documentService = new DocumentService({
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
+        storage: opts.objectStore,
         pool,
         layerState: new LayerStateService({
           documentPages: new DocumentPagesRepo(opts.db),

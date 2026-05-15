@@ -8,7 +8,7 @@
  *       <cd>/                     <- 2-char shard on docId for FS fanout
  *         <docId>/
  *           base.pdf              <- per-doc base PDF (Design A)
- *           layers/<name>/v<NNNN>.pdf
+ *           layers/<name>/v00000001.layer
  *           events/<YYYY-MM>.jsonl
  *
  * Slashes are cosmetic on object stores; on FS they map to nested
@@ -28,16 +28,17 @@ export const StorageKeys = {
     return `${tenantId}/docs/${shard(docId)}/${docId}/base.pdf`;
   },
   /**
-   * Layer version PDF. `version` is a 1-based monotonic integer. Stored
-   * zero-padded for lexical sort and human readability. Not used in
-   * Phase 1; lives here so the key shape is fixed up-front.
+   * Layer artifact. `version` is a 1-based monotonic integer stored
+   * zero-padded for lexical sort and human readability. Padding is not
+   * a limit: v100000000.layer is valid once a layer gets that busy, and
+   * the database remains the authority for current_version.
    */
+  layerArtifact(tenantId: string, docId: string, layerName: string, version: number): string {
+    return layerArtifactKey(tenantId, docId, layerName, version);
+  },
+  /** @deprecated Use `layerArtifact()`. */
   layerPdf(tenantId: string, docId: string, layerName: string, version: number): string {
-    if (!Number.isInteger(version) || version < 1) {
-      throw new Error(`layerPdf: version must be a positive integer, got ${version}`);
-    }
-    const padded = version.toString().padStart(4, '0');
-    return `${tenantId}/docs/${shard(docId)}/${docId}/layers/${encodeURIComponent(layerName)}/v${padded}.pdf`;
+    return layerArtifactKey(tenantId, docId, layerName, version);
   },
   /** Append-only event log, partitioned per calendar month. */
   eventsMonth(tenantId: string, docId: string, yearMonth: string): string {
@@ -56,4 +57,17 @@ function shard(docId: string): string {
     throw new Error(`shard: docId too short (${docId})`);
   }
   return docId.slice(0, 2).toLowerCase();
+}
+
+function layerArtifactKey(
+  tenantId: string,
+  docId: string,
+  layerName: string,
+  version: number,
+): string {
+  if (!Number.isInteger(version) || version < 1) {
+    throw new Error(`layerArtifact: version must be a positive integer, got ${version}`);
+  }
+  const padded = version.toString().padStart(8, '0');
+  return `${tenantId}/docs/${shard(docId)}/${docId}/layers/${encodeURIComponent(layerName)}/v${padded}.layer`;
 }

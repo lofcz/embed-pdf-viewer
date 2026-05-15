@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   EngineError,
   EngineErrorCode,
@@ -9,6 +10,7 @@ import {
 import type { ManifestPage } from '@embedpdf/engine-core/wire';
 import type { DocumentsRepo, DocumentRow } from '../db/repos/documents.repo';
 import type { BaseFileCache, LocalFileHandle } from '../storage/BaseFileCache';
+import type { ObjectStore } from '../storage/ObjectStore';
 import { StorageKeys } from '../storage/keys';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { LayerStateService } from './LayerStateService';
@@ -53,6 +55,7 @@ export interface DocumentManifest {
 export interface DocumentServiceOptions {
   documents: DocumentsRepo;
   cache: BaseFileCache;
+  storage: ObjectStore;
   pool: WorkerThreadPool;
   layerState: LayerStateService;
 }
@@ -88,6 +91,7 @@ export interface OpenContext {
 export class DocumentService {
   private readonly documents: DocumentsRepo;
   private readonly cache: BaseFileCache;
+  private readonly storage: ObjectStore;
   private readonly pool: WorkerThreadPool;
   private readonly layerState: LayerStateService;
   private readonly heads = new Map<string, DocumentHead>();
@@ -99,6 +103,7 @@ export class DocumentService {
   constructor(opts: DocumentServiceOptions) {
     this.documents = opts.documents;
     this.cache = opts.cache;
+    this.storage = opts.storage;
     this.pool = opts.pool;
     this.layerState = opts.layerState;
   }
@@ -350,17 +355,24 @@ export class DocumentService {
         `base file handle missing for open document: ${docId}`,
       );
     }
-    const build = (jobId: WorkerJobId) =>
-      wirePack({
+
+    const layer = await this.layerState.repos.layers.findByDocAndName(docId, layerName);
+    const layerSource = layer ? await this.readLayerOpenSource(layer) : { kind: 'fresh' as const };
+    const build = (jobId: WorkerJobId) => {
+      const request = {
         kind: 'open.layerFileBase' as const,
         jobId,
         docId,
         layerName,
         baseKey: head.baseSha,
         basePath: handle.path,
-        layer: { kind: 'fresh' as const },
+        layer: layerSource,
         password: null,
-      });
+      };
+      return layerSource.kind === 'artifact'
+        ? wirePack(request, [layerSource.bytes])
+        : wirePack(request);
+    };
     const result = await this.pool.run(docId, build);
     if (result.tag !== 'open') {
       throw new EngineError(
@@ -368,6 +380,48 @@ export class DocumentService {
         `unexpected layer open payload: ${result.tag}`,
       );
     }
+  }
+
+  private async readLayerOpenSource(layer: {
+    currentVersion: number;
+    currentArtifactKey: string | null;
+    currentArtifactSha: string | null;
+    currentArtifactSize: number | null;
+  }): Promise<{ kind: 'fresh' } | { kind: 'artifact'; bytes: ArrayBuffer }> {
+    if (layer.currentVersion === 0 && !layer.currentArtifactKey) {
+      return { kind: 'fresh' };
+    }
+    if (!layer.currentArtifactKey) {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `layer version ${layer.currentVersion} is missing its artifact key`,
+      );
+    }
+
+    const bytes = await this.storage.get(layer.currentArtifactKey);
+    if (!bytes) {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `layer artifact not found: ${layer.currentArtifactKey}`,
+      );
+    }
+    if (layer.currentArtifactSize !== null && bytes.byteLength !== layer.currentArtifactSize) {
+      throw new EngineError(
+        EngineErrorCode.MalformedPdf,
+        `layer artifact size mismatch for ${layer.currentArtifactKey}`,
+      );
+    }
+    if (layer.currentArtifactSha) {
+      const actualSha = createHash('sha256').update(bytes).digest('hex');
+      if (actualSha !== layer.currentArtifactSha) {
+        throw new EngineError(
+          EngineErrorCode.MalformedPdf,
+          `layer artifact sha mismatch for ${layer.currentArtifactKey}`,
+        );
+      }
+    }
+
+    return { kind: 'artifact', bytes: toOwnedArrayBuffer(bytes) };
   }
 
   private forgetLayerSessions(docId: string): void {
@@ -390,4 +444,10 @@ export class DocumentService {
     this.baseHandles.delete(docId);
     handle.release();
   }
+}
+
+function toOwnedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
 }

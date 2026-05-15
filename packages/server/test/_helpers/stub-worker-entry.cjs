@@ -24,6 +24,15 @@ function sessionKey(msg) {
   return msg.layerName ? `${msg.docId}::layer:${msg.layerName}` : msg.docId;
 }
 
+function layerMeta(msg) {
+  const kind = msg.layer?.kind ?? 'fresh';
+  if (kind === 'artifact' || kind === 'raw-delta') {
+    const view = msg.layer.bytes ? new Uint8Array(msg.layer.bytes) : new Uint8Array(0);
+    return { layerKind: kind, layerByte0: view.byteLength > 0 ? view[0] : null };
+  }
+  return { layerKind: 'fresh', layerByte0: null };
+}
+
 parentPort.on('message', (msg) => {
   if (!msg || typeof msg !== 'object') return;
   switch (msg.kind) {
@@ -46,7 +55,7 @@ parentPort.on('message', (msg) => {
       // byte of the base payload still encodes page count for tests.
       const view = msg.baseBytes ? new Uint8Array(msg.baseBytes) : new Uint8Array(0);
       const pageCount = view.byteLength > 0 ? view[0] : 0;
-      openDocs.set(sessionKey(msg), { pageCount });
+      openDocs.set(sessionKey(msg), { pageCount, ...layerMeta(msg) });
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,
@@ -60,7 +69,7 @@ parentPort.on('message', (msg) => {
       // the test page-count byte.
       const bytes = msg.basePath ? readFileSync(msg.basePath) : Buffer.alloc(0);
       const pageCount = bytes.byteLength > 0 ? bytes[0] : 0;
-      openDocs.set(sessionKey(msg), { pageCount });
+      openDocs.set(sessionKey(msg), { pageCount, ...layerMeta(msg) });
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,
@@ -154,7 +163,11 @@ parentPort.on('message', (msg) => {
         });
         return;
       }
-      const text = `stub text for ${msg.docId} page ${pon}`;
+      const layerSuffix =
+        meta.layerKind && meta.layerKind !== 'fresh'
+          ? ` ${meta.layerKind}:${meta.layerByte0 ?? 'empty'}`
+          : '';
+      const text = `stub text for ${msg.docId} page ${pon}${layerSuffix}`;
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,

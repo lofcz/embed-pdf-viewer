@@ -577,7 +577,7 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         tenant_id: tenantId,
         name: layerName,
         doc_version: 2,
-        current_version: 1,
+        current_version: 0,
         current_artifact_key: null,
         current_artifact_sha: null,
         current_artifact_size: null,
@@ -637,6 +637,127 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     );
     expect(stale.status).toBe(404);
     expect(stale.headers.get('cache-control')).toBe(NO_STORE);
+  });
+
+  test('layer leaf reads open the persisted layer artifact when one exists', async () => {
+    const tenantId = 'tenant-layer-artifact';
+    const docId = 'doclayerartifact';
+    const layerId = 'layer-artifact-alice';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+    const token = docToken(tenantId, docId, { layerName });
+
+    const base = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(base.status).toBe(200);
+
+    const artifact = new Uint8Array([42, 7, 3, 1]);
+    const artifactKey = StorageKeys.layerArtifact(tenantId, docId, layerName, 1);
+    const storage = new FsObjectStore({ root: fx.storageRoot });
+    await storage.put(artifactKey, artifact, { contentLength: artifact.byteLength });
+    const artifactSha = createHash('sha256').update(artifact).digest('hex');
+
+    const now = Date.now();
+    await fx.db
+      .insertInto('layers')
+      .values({
+        id: layerId,
+        doc_id: docId,
+        tenant_id: tenantId,
+        name: layerName,
+        doc_version: 2,
+        current_version: 1,
+        current_artifact_key: artifactKey,
+        current_artifact_sha: artifactSha,
+        current_artifact_size: artifact.byteLength,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    await fx.db
+      .insertInto('layer_pages')
+      .values([
+        {
+          layer_id: layerId,
+          page_object_number: 1,
+          page_index: 0,
+          content_version: 3,
+          annotation_version: 1,
+          annotation_generation: 0,
+          has_weak_annotations: 0,
+          updated_at: now,
+        },
+        {
+          layer_id: layerId,
+          page_object_number: 2,
+          page_index: 1,
+          content_version: 1,
+          annotation_version: 1,
+          annotation_generation: 0,
+          has_weak_annotations: 0,
+          updated_at: now,
+        },
+      ])
+      .execute();
+
+    const text = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/v3/text`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(text.status).toBe(200);
+    const textBody = (await text.json()) as { text: string };
+    expect(textBody.text).toContain('artifact:42');
+  });
+
+  test('layer open fails closed when the current artifact is missing', async () => {
+    const tenantId = 'tenant-layer-missing-artifact';
+    const docId = 'doclayermissing';
+    const layerId = 'layer-missing-alice';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+    const token = docToken(tenantId, docId, { layerName });
+
+    const base = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(base.status).toBe(200);
+
+    const now = Date.now();
+    await fx.db
+      .insertInto('layers')
+      .values({
+        id: layerId,
+        doc_id: docId,
+        tenant_id: tenantId,
+        name: layerName,
+        doc_version: 2,
+        current_version: 1,
+        current_artifact_key: StorageKeys.layerArtifact(tenantId, docId, layerName, 1),
+        current_artifact_sha: null,
+        current_artifact_size: null,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    await fx.db
+      .insertInto('layer_pages')
+      .values({
+        layer_id: layerId,
+        page_object_number: 1,
+        page_index: 0,
+        content_version: 2,
+        annotation_version: 1,
+        annotation_generation: 0,
+        has_weak_annotations: 0,
+        updated_at: now,
+      })
+      .execute();
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/v2/text`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(422);
+    expect(res.headers.get('cache-control')).toBeNull();
   });
 
   test('doc-scoped layer token cannot read another layer namespace', async () => {
