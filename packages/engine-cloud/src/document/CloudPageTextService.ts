@@ -22,6 +22,7 @@ export class CloudPageTextService implements PageTextService {
   constructor(
     private readonly http: HttpClient,
     private readonly docId: string,
+    private readonly layerName: string,
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly isClosed: () => boolean,
     private readonly manifest: ManifestAccessor,
@@ -43,7 +44,12 @@ export class CloudPageTextService implements PageTextService {
             `no page with object number ${this.pageObjectNumber} in document ${this.docId}`,
           );
         }
-        return wirePaths.docPageText(this.docId, this.pageObjectNumber, page.contentVersion);
+        return wirePaths.layerPageText(
+          this.docId,
+          this.layerName,
+          this.pageObjectNumber,
+          page.contentVersion,
+        );
       };
       return this.http.getJsonWithRefresh(
         buildPath,

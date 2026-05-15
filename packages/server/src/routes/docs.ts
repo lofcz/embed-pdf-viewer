@@ -7,7 +7,7 @@ import {
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import { wirePaths, type ManifestPage } from '@embedpdf/engine-core/wire';
-import { requireDocAccess } from '../app/jwt-plugin';
+import { requireDocAccess, requireLayerDocAccess } from '../app/jwt-plugin';
 import type { DocumentService } from '../services/DocumentService';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import { abortSignalFromRequest } from './_helpers';
@@ -97,13 +97,21 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     return manifest;
   });
 
+  app.get('/v1/docs/:docId/layers/:layerName/head', async (req, reply) => {
+    const { docId, layerName } = req.params as { docId: string; layerName: string };
+    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const head = await service.getLayerHead({ tenantId, sub }, docId, layerName);
+    reply.header('Cache-Control', NO_STORE);
+    return head;
+  });
+
   app.get('/v1/docs/:docId/layers/:layerName/v:D/manifest', async (req, reply) => {
     const { docId, layerName, D } = req.params as {
       docId: string;
       layerName: string;
       D: string;
     };
-    const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
+    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     const requested = parseVersionPathSegment(D, 'layerDocVersion');
     const manifest = await service.getLayerManifest({ tenantId, sub }, docId, layerName);
     if (requested !== manifest.docVersion) {
@@ -119,10 +127,32 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
 
   app.get('/v1/docs/:docId/layers/:layerName/manifest', async (req, reply) => {
     const { docId, layerName } = req.params as { docId: string; layerName: string };
-    const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
+    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     const manifest = await service.getLayerManifest({ tenantId, sub }, docId, layerName);
     reply.header('Cache-Control', NO_STORE);
     return manifest;
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/v:D/metadata', async (req, reply) => {
+    const { docId, layerName, D } = req.params as {
+      docId: string;
+      layerName: string;
+      D: string;
+    };
+    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const requested = parseVersionPathSegment(D, 'layerDocVersion');
+    const head = await service.getLayerHead({ tenantId, sub }, docId, layerName);
+    if (requested !== head.docVersion) {
+      reply.header('Cache-Control', NO_STORE);
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `layer metadata version ${requested} no longer current (current=${head.docVersion})`,
+      );
+    }
+    const signal = abortSignalFromRequest(req);
+    const metadata = await service.readLayerMetadata({ tenantId, sub }, docId, layerName, signal);
+    reply.header('Cache-Control', IMMUTABLE_CACHE);
+    return metadata;
   });
 
   app.get('/v1/docs/:docId/pages/:pon/v:P/text', async (req, reply) => {
@@ -169,6 +199,57 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     };
   });
 
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:P/text', async (req, reply) => {
+    const { docId, layerName, pon, P } = req.params as {
+      docId: string;
+      layerName: string;
+      pon: string;
+      P: string;
+    };
+    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    const requested = parseVersionPathSegment(P, 'contentVersion');
+    const signal = abortSignalFromRequest(req);
+
+    const manifest = await service.getLayerManifest({ tenantId, sub }, docId, layerName);
+    const page = manifest.pages.find((p) => p.pageObjectNumber === pageObjectNumber);
+    if (!page) {
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `no page with object number ${pageObjectNumber} in layer ${layerName} for document ${docId}`,
+      );
+    }
+    if (requested !== page.contentVersion) {
+      reply.header('Cache-Control', NO_STORE);
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `layer text version ${requested} no longer current (current=${page.contentVersion}) for page ${pageObjectNumber}`,
+      );
+    }
+
+    await service.ensureLayerOnPool({ tenantId, sub }, docId, layerName);
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'pages.text' as const,
+        jobId,
+        docId,
+        layerName,
+        pageObjectNumber,
+      });
+    const result = await pool.run(docId, build, signal);
+    if (result.tag !== 'pages.text') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected layer pages.text payload: ${result.tag}`,
+      );
+    }
+    reply.header('Cache-Control', IMMUTABLE_CACHE);
+    return {
+      ...result.snapshot,
+      pageState: toPageState(page),
+    };
+  });
+
   app.get('/v1/docs/:docId/pages/:pon/text', async (req, reply) => {
     const { docId, pon } = req.params as { docId: string; pon: string };
     const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
@@ -199,6 +280,57 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
       );
     }
     reply.header('Cache-Control', NO_STORE);
+    return {
+      ...result.snapshot,
+      pageState: toPageState(page),
+    };
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:A/annotations', async (req, reply) => {
+    const { docId, layerName, pon, A } = req.params as {
+      docId: string;
+      layerName: string;
+      pon: string;
+      A: string;
+    };
+    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    const requested = parseVersionPathSegment(A, 'annotationVersion');
+    const signal = abortSignalFromRequest(req);
+
+    const manifest = await service.getLayerManifest({ tenantId, sub }, docId, layerName);
+    const page = manifest.pages.find((p) => p.pageObjectNumber === pageObjectNumber);
+    if (!page) {
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `no page with object number ${pageObjectNumber} in layer ${layerName} for document ${docId}`,
+      );
+    }
+    if (requested !== page.annotationVersion) {
+      reply.header('Cache-Control', NO_STORE);
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `layer annotation version ${requested} no longer current (current=${page.annotationVersion}) for page ${pageObjectNumber}`,
+      );
+    }
+
+    await service.ensureLayerOnPool({ tenantId, sub }, docId, layerName);
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.listFullPage' as const,
+        jobId,
+        docId,
+        layerName,
+        pageObjectNumber,
+      });
+    const result = await pool.run(docId, build, signal);
+    if (result.tag !== 'annotations.listFullPage') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected layer annotations.listFullPage payload: ${result.tag}`,
+      );
+    }
+    reply.header('Cache-Control', IMMUTABLE_CACHE);
     return {
       ...result.snapshot,
       pageState: toPageState(page),

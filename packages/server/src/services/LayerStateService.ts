@@ -78,11 +78,17 @@ export class LayerStateService {
     };
   }
 
-  buildLayerManifest(baseSha: string, layer: LayerRow, pages: DurablePageRow[]): DocumentManifest {
+  buildLayerManifest(
+    docId: string,
+    baseSha: string,
+    layerName: string,
+    layer: Pick<LayerRow, 'docVersion'>,
+    pages: DurablePageRow[],
+  ): DocumentManifest {
     return {
       docVersion: layer.docVersion,
       baseSha,
-      pages: pages.map((page) => this.toManifestPage(`cloud:layer:${layer.id}`, page)),
+      pages: pages.map((page) => this.toManifestPage(`cloud:layer:${docId}:${layerName}`, page)),
     };
   }
 

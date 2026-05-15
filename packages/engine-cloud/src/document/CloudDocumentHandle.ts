@@ -9,6 +9,7 @@ import {
   type PageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
 import {
+  DEFAULT_LAYER_NAME,
   DocumentHeadSchema,
   DocumentManifestSchema,
   wirePaths,
@@ -59,13 +60,22 @@ export class CloudDocumentHandle implements DocumentHandle {
   constructor(
     private readonly http: HttpClient,
     id: string,
+    private readonly layerName: string = DEFAULT_LAYER_NAME,
+    private readonly useLayerRoutes: boolean = true,
   ) {
     this.id = id;
     this.manifestAccessor = {
       get: (signal) => this.getManifest(signal),
       refresh: (signal) => this.refreshManifest(signal),
     };
-    this.metadata = new CloudMetadataService(http, id, () => this.closed);
+    this.metadata = new CloudMetadataService(
+      http,
+      id,
+      layerName,
+      () => this.closed,
+      this.manifestAccessor,
+      useLayerRoutes,
+    );
     this.annotations = new CloudDocumentAnnotationsService(http, id, () => this.closed);
     this.pages = new CloudDocumentPagesService(http, id, () => this.closed);
   }
@@ -76,8 +86,10 @@ export class CloudDocumentHandle implements DocumentHandle {
       -1,
       this.http,
       this.id,
+      this.layerName,
       () => this.closed,
       this.manifestAccessor,
+      this.useLayerRoutes,
     );
   }
 
@@ -122,16 +134,28 @@ export class CloudDocumentHandle implements DocumentHandle {
     if (this.closed) {
       throw new EngineError(EngineErrorCode.DocNotOpen, `document ${this.id} is closed`);
     }
+    if (!this.useLayerRoutes) {
+      const head = await this.http.getJson(
+        wirePaths.docHead(this.id),
+        (raw) => DocumentHeadSchema.parse(raw),
+        signal,
+      );
+      return this.http.getJson(
+        wirePaths.docManifest(this.id, head.docVersion),
+        (raw) => DocumentManifestSchema.parse(raw),
+        signal,
+      );
+    }
     // Always re-fetch `/head` first so we learn the current
     // `docVersion`; chasing the manifest with a stale `:D` would
     // 404 by definition.
     const head = await this.http.getJson(
-      wirePaths.docHead(this.id),
+      wirePaths.layerHead(this.id, this.layerName),
       (raw) => DocumentHeadSchema.parse(raw),
       signal,
     );
     return this.http.getJson(
-      wirePaths.docManifest(this.id, head.docVersion),
+      wirePaths.layerManifest(this.id, this.layerName, head.docVersion),
       (raw) => DocumentManifestSchema.parse(raw),
       signal,
     );

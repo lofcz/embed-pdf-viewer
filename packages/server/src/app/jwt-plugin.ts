@@ -179,3 +179,26 @@ export function requireDocAccess(
   }
   return { tenantId: t.id, sub: t.sub, mode: 'tenant' };
 }
+
+export function requireLayerDocAccess(
+  req: FastifyRequest,
+  docId: string,
+  layerName: string,
+  needed: ReadonlyArray<DocScope>,
+): { tenantId: string; sub: string; mode: DocAccessMode } {
+  const ctx = requireDocAccess(req, docId, needed);
+  const claims = req.tenant?.claims;
+  if (claims && isDocUserClaims(claims)) {
+    const expected = claims.layer_name ?? 'default';
+    if (expected !== layerName) {
+      const err = new Error('token grants access to a different layer') as Error & {
+        code: string;
+        status: number;
+      };
+      err.code = 'Forbidden';
+      err.status = 403;
+      throw err;
+    }
+  }
+  return ctx;
+}

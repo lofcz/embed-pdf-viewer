@@ -2,6 +2,7 @@ import {
   EngineError,
   EngineErrorCode,
   wirePack,
+  type DocumentMetadata,
   type PageState,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
@@ -92,6 +93,8 @@ export class DocumentService {
   private readonly heads = new Map<string, DocumentHead>();
   private readonly opens = new Map<string, Promise<DocumentHead>>();
   private readonly baseHandles = new Map<string, LocalFileHandle>();
+  private readonly openedLayerSessions = new Set<string>();
+  private readonly layerOpens = new Map<string, Promise<void>>();
 
   constructor(opts: DocumentServiceOptions) {
     this.documents = opts.documents;
@@ -203,6 +206,12 @@ export class DocumentService {
     return this.layerState.buildBaseManifest(head, pages);
   }
 
+  async getLayerHead(ctx: OpenContext, docId: string, layerName: string): Promise<DocumentHead> {
+    const head = await this.openOnPool(ctx, docId);
+    const layer = await this.layerState.repos.layers.findByDocAndName(docId, layerName);
+    return layer ? { ...head, docVersion: layer.docVersion } : head;
+  }
+
   /**
    * Build a layer-scoped manifest from durable state.
    *
@@ -220,12 +229,48 @@ export class DocumentService {
       const pages = await this.layerState.ensureBasePages(docId, () =>
         this.loadDurableBasePageStates(docId),
       );
-      return this.layerState.buildBaseManifest(head, pages);
+      return this.layerState.buildLayerManifest(docId, head.baseSha, layerName, head, pages);
     }
 
     await this.layerState.ensureBasePages(docId, () => this.loadDurableBasePageStates(docId));
     const pages = await this.layerState.ensureLayerPagesFromBase({ layerId: layer.id, docId });
-    return this.layerState.buildLayerManifest(head.baseSha, layer, pages);
+    return this.layerState.buildLayerManifest(docId, head.baseSha, layerName, layer, pages);
+  }
+
+  async ensureLayerOnPool(ctx: OpenContext, docId: string, layerName: string): Promise<void> {
+    const key = `${docId}::${layerName}`;
+    if (this.openedLayerSessions.has(key)) return;
+    const existing = this.layerOpens.get(key);
+    if (existing) return existing;
+
+    const promise = this.openLayerOnPool(ctx, docId, layerName)
+      .then(() => {
+        this.openedLayerSessions.add(key);
+      })
+      .finally(() => {
+        this.layerOpens.delete(key);
+      });
+    this.layerOpens.set(key, promise);
+    return promise;
+  }
+
+  async readLayerMetadata(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string,
+    signal?: AbortSignal,
+  ): Promise<DocumentMetadata> {
+    await this.ensureLayerOnPool(ctx, docId, layerName);
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'metadata.read' as const, jobId, docId, layerName });
+    const result = await this.pool.run(docId, build, signal);
+    if (result.tag !== 'metadata.read') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected metadata payload: ${result.tag}`,
+      );
+    }
+    return result.metadata;
   }
 
   /**
@@ -244,6 +289,7 @@ export class DocumentService {
    */
   onPoolEvict(evt: { docId: string }): void {
     this.heads.delete(evt.docId);
+    this.forgetLayerSessions(evt.docId);
     this.releaseBaseHandle(evt.docId);
   }
 
@@ -262,6 +308,7 @@ export class DocumentService {
       // anymore (already evicted), in which case it returns null and
       // we treat that as success.
     } finally {
+      this.forgetLayerSessions(docId);
       this.releaseBaseHandle(docId);
     }
   }
@@ -292,6 +339,44 @@ export class DocumentService {
       );
     }
     return annotationsResult.snapshot.pages.map((page) => page.pageState);
+  }
+
+  private async openLayerOnPool(ctx: OpenContext, docId: string, layerName: string): Promise<void> {
+    const head = await this.openOnPool(ctx, docId);
+    const handle = this.baseHandles.get(docId);
+    if (!handle) {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `base file handle missing for open document: ${docId}`,
+      );
+    }
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'open.layerFileBase' as const,
+        jobId,
+        docId,
+        layerName,
+        baseKey: head.baseSha,
+        basePath: handle.path,
+        layer: { kind: 'fresh' as const },
+        password: null,
+      });
+    const result = await this.pool.run(docId, build);
+    if (result.tag !== 'open') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected layer open payload: ${result.tag}`,
+      );
+    }
+  }
+
+  private forgetLayerSessions(docId: string): void {
+    for (const key of Array.from(this.openedLayerSessions)) {
+      if (key.startsWith(`${docId}::`)) this.openedLayerSessions.delete(key);
+    }
+    for (const key of Array.from(this.layerOpens.keys())) {
+      if (key.startsWith(`${docId}::`)) this.layerOpens.delete(key);
+    }
   }
 
   private replaceBaseHandle(docId: string, handle: LocalFileHandle): void {

@@ -32,7 +32,7 @@ export type {
   DocumentManifest,
   ManifestPage,
 } from './wire/schemas';
-export { wirePaths } from './wire/paths';
+export { DEFAULT_LAYER_NAME, wirePaths } from './wire/paths';
 
 export {
   AnnotationStableIdSchema,

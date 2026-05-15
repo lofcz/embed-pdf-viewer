@@ -4,6 +4,7 @@ import { HttpClient } from '../src/transport/HttpClient';
 import { CloudDocumentHandle } from '../src/document/CloudDocumentHandle';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import {
+  AnnotationListPageSnapshotSchema,
   DocumentHeadSchema,
   DocumentManifestSchema,
   PageTextSnapshotSchema,
@@ -36,6 +37,7 @@ import {
 interface ServerState {
   docVersion: number;
   pageContentVersion: number;
+  pageAnnotationVersion: number;
   text: string;
 }
 
@@ -54,6 +56,7 @@ interface StubbedFixture {
 }
 
 const DOC_ID = 'doc-retry-stub';
+const LAYER_NAME = 'default';
 const PAGE_OBJECT_NUMBER = 5;
 
 function buildStub(initial: ServerState): StubbedFixture {
@@ -67,7 +70,7 @@ function buildStub(initial: ServerState): StubbedFixture {
     const method = init?.method ?? 'GET';
     calls.push({ method, path });
 
-    const headMatch = path.match(/^\/v1\/docs\/([^/]+)\/head$/);
+    const headMatch = path.match(/^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/head$/);
     if (headMatch && method === 'GET') {
       return new Response(
         JSON.stringify({
@@ -82,9 +85,9 @@ function buildStub(initial: ServerState): StubbedFixture {
       );
     }
 
-    const manifestMatch = path.match(/^\/v1\/docs\/([^/]+)\/v(\d+)\/manifest$/);
+    const manifestMatch = path.match(/^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/v(\d+)\/manifest$/);
     if (manifestMatch && method === 'GET') {
-      const requested = Number(manifestMatch[2]);
+      const requested = Number(manifestMatch[3]);
       if (requested !== state.docVersion) {
         return new Response(
           JSON.stringify({ error: { code: 'NotFound', message: 'stale docVersion' } }),
@@ -107,7 +110,7 @@ function buildStub(initial: ServerState): StubbedFixture {
               weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
               hasAnyWeakAnnotations: false,
               contentVersion: state.pageContentVersion,
-              annotationVersion: 1,
+              annotationVersion: state.pageAnnotationVersion,
               hasWeakAnnotations: false,
             },
           ],
@@ -116,10 +119,12 @@ function buildStub(initial: ServerState): StubbedFixture {
       );
     }
 
-    const textMatch = path.match(/^\/v1\/docs\/([^/]+)\/pages\/(\d+)\/v(\d+)\/text$/);
+    const textMatch = path.match(
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/pages\/(\d+)\/v(\d+)\/text$/,
+    );
     if (textMatch && method === 'GET') {
-      const requestedPon = Number(textMatch[2]);
-      const requestedVersion = Number(textMatch[3]);
+      const requestedPon = Number(textMatch[3]);
+      const requestedVersion = Number(textMatch[4]);
       if (requestedPon !== PAGE_OBJECT_NUMBER) {
         return new Response(
           JSON.stringify({ error: { code: 'NotFound', message: 'unknown page' } }),
@@ -147,6 +152,43 @@ function buildStub(initial: ServerState): StubbedFixture {
           },
           text: state.text,
           charCount: state.text.length,
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    const annotationsMatch = path.match(
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/pages\/(\d+)\/v(\d+)\/annotations$/,
+    );
+    if (annotationsMatch && method === 'GET') {
+      const requestedPon = Number(annotationsMatch[3]);
+      const requestedVersion = Number(annotationsMatch[4]);
+      if (requestedPon !== PAGE_OBJECT_NUMBER) {
+        return new Response(
+          JSON.stringify({ error: { code: 'NotFound', message: 'unknown page' } }),
+          { status: 404, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      if (requestedVersion !== state.pageAnnotationVersion) {
+        return new Response(
+          JSON.stringify({ error: { code: 'NotFound', message: 'stale annotationVersion' } }),
+          { status: 404, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          pageState: {
+            pageObjectNumber: PAGE_OBJECT_NUMBER,
+            pageIndex: 0,
+            revision: {
+              docSessionId: 'stub-session',
+              pageObjectNumber: PAGE_OBJECT_NUMBER,
+              generation: 0,
+            },
+            weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
+            hasAnyWeakAnnotations: false,
+          },
+          annotations: [],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
@@ -251,7 +293,12 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
   let fx: StubbedFixture;
 
   beforeEach(() => {
-    fx = buildStub({ docVersion: 1, pageContentVersion: 1, text: 'initial' });
+    fx = buildStub({
+      docVersion: 1,
+      pageContentVersion: 1,
+      pageAnnotationVersion: 1,
+      text: 'initial',
+    });
   });
 
   test('first read with cold cache: fetches head + manifest + leaf', async () => {
@@ -263,9 +310,9 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       expect(PageTextSnapshotSchema.safeParse(snap).success).toBe(true);
       const paths = fx.calls.map((c) => c.path);
       expect(paths).toEqual([
-        `/v1/docs/${DOC_ID}/head`,
-        `/v1/docs/${DOC_ID}/v1/manifest`,
-        `/v1/docs/${DOC_ID}/pages/${PAGE_OBJECT_NUMBER}/v1/text`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v1/manifest`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v1/text`,
       ]);
     } finally {
       // Avoid the close roundtrip; deleteEmpty hits /v1/documents/* which
@@ -282,7 +329,9 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       const callsAfterFirst = fx.calls.length;
       await page.text.read();
       const newPaths = fx.calls.slice(callsAfterFirst).map((c) => c.path);
-      expect(newPaths).toEqual([`/v1/docs/${DOC_ID}/pages/${PAGE_OBJECT_NUMBER}/v1/text`]);
+      expect(newPaths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v1/text`,
+      ]);
     } finally {
       await doc.close();
     }
@@ -311,10 +360,10 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       //   [fresh-leaf v2]   → 200
       const retryPaths = fx.calls.slice(callsBeforeRetry).map((c) => c.path);
       expect(retryPaths).toEqual([
-        `/v1/docs/${DOC_ID}/pages/${PAGE_OBJECT_NUMBER}/v1/text`,
-        `/v1/docs/${DOC_ID}/head`,
-        `/v1/docs/${DOC_ID}/v2/manifest`,
-        `/v1/docs/${DOC_ID}/pages/${PAGE_OBJECT_NUMBER}/v2/text`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v1/text`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v2/manifest`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v2/text`,
       ]);
 
       // Cache is now warm with v2; a third read uses the new version
@@ -323,7 +372,35 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       const third = await page.text.read();
       expect(third.text).toBe('after-mutation');
       const thirdPaths = fx.calls.slice(callsBeforeThird).map((c) => c.path);
-      expect(thirdPaths).toEqual([`/v1/docs/${DOC_ID}/pages/${PAGE_OBJECT_NUMBER}/v2/text`]);
+      expect(thirdPaths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v2/text`,
+      ]);
+    } finally {
+      await doc.close();
+    }
+  });
+
+  test('annotation list uses the same layer refresh-on-404 ladder', async () => {
+    const doc = new CloudDocumentHandle(fx.http, DOC_ID);
+    try {
+      const page = doc.page(PAGE_OBJECT_NUMBER);
+      const first = await page.annotations.list();
+      expect(first.annotations).toEqual([]);
+      expect(AnnotationListPageSnapshotSchema.safeParse(first).success).toBe(true);
+
+      fx.bump({ docVersion: 2, pageAnnotationVersion: 2 });
+
+      const callsBeforeRetry = fx.calls.length;
+      const second = await page.annotations.list();
+      expect(second.annotations).toEqual([]);
+
+      const retryPaths = fx.calls.slice(callsBeforeRetry).map((c) => c.path);
+      expect(retryPaths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v1/annotations`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v2/manifest`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v2/annotations`,
+      ]);
     } finally {
       await doc.close();
     }

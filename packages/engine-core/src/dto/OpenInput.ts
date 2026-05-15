@@ -63,6 +63,11 @@ export interface OpenInputById {
   /** docId of a document already known to the cloud server. */
   id: string;
   /**
+   * Cloud layer namespace to bind the handle to. Omitted means the
+   * server/client default layer, never the immutable base.
+   */
+  layerName?: string;
+  /**
    * Optional per-open token override. Without this, the cloud engine
    * uses the token supplied at construction time. Most callers leave
    * this empty.

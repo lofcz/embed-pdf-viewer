@@ -23,6 +23,7 @@ import {
   wirePaths,
 } from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
+import type { ManifestAccessor } from './CloudDocumentHandle';
 
 /**
  * Cloud-side page annotation service. Mirrors the local wiring: each
@@ -50,8 +51,11 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
   constructor(
     private readonly http: HttpClient,
     private readonly docId: string,
+    private readonly layerName: string,
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly isClosed: () => boolean,
+    private readonly manifest: ManifestAccessor,
+    private readonly useLayerRoutes: boolean,
   ) {}
 
   list(): AbortablePromise<AnnotationListPageSnapshot> {
@@ -60,13 +64,41 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
       );
     }
-    return AbortablePromise.run<AnnotationListPageSnapshot>(async (signal) =>
-      this.http.getJson(
-        wirePaths.annotationsFullPage(this.docId, this.pageObjectNumber),
+    if (!this.useLayerRoutes) {
+      return AbortablePromise.run<AnnotationListPageSnapshot>(async (signal) =>
+        this.http.getJson(
+          wirePaths.annotationsFullPage(this.docId, this.pageObjectNumber),
+          (raw) => AnnotationListPageSnapshotSchema.parse(raw),
+          signal,
+        ),
+      );
+    }
+    return AbortablePromise.run<AnnotationListPageSnapshot>(async (signal) => {
+      const buildPath = async (s: AbortSignal): Promise<string> => {
+        const manifest = await this.manifest.get(s);
+        const page = manifest.pages.find((p) => p.pageObjectNumber === this.pageObjectNumber);
+        if (!page) {
+          throw new EngineError(
+            EngineErrorCode.NotFound,
+            `no page with object number ${this.pageObjectNumber} in document ${this.docId}`,
+          );
+        }
+        return wirePaths.layerPageAnnotations(
+          this.docId,
+          this.layerName,
+          this.pageObjectNumber,
+          page.annotationVersion,
+        );
+      };
+      return this.http.getJsonWithRefresh(
+        buildPath,
         (raw) => AnnotationListPageSnapshotSchema.parse(raw),
+        async (s) => {
+          await this.manifest.refresh(s);
+        },
         signal,
-      ),
-    );
+      );
+    });
   }
 
   create(draft: AnnotationDraft): AbortablePromise<AnnotationCreateResult> {

@@ -13,10 +13,27 @@ export class CloudPageHandle implements PageHandle {
     readonly pageIndex: number,
     http: HttpClient,
     docId: string,
+    layerName: string,
     isClosed: () => boolean,
     manifest: ManifestAccessor,
+    useLayerRoutes: boolean,
   ) {
-    this.annotations = new CloudPageAnnotationsService(http, docId, pageObjectNumber, isClosed);
-    this.text = new CloudPageTextService(http, docId, pageObjectNumber, isClosed, manifest);
+    this.annotations = new CloudPageAnnotationsService(
+      http,
+      docId,
+      layerName,
+      pageObjectNumber,
+      isClosed,
+      manifest,
+      useLayerRoutes,
+    );
+    this.text = new CloudPageTextService(
+      http,
+      docId,
+      layerName,
+      pageObjectNumber,
+      isClosed,
+      manifest,
+    );
   }
 }

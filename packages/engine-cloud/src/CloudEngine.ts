@@ -8,6 +8,7 @@ import {
   type OpenOptions,
 } from '@embedpdf/engine-core/runtime';
 import {
+  DEFAULT_LAYER_NAME,
   DocumentHeadSchema,
   OpenDocumentResponseSchema,
   wirePaths,
@@ -59,12 +60,16 @@ export class CloudEngine implements Engine {
             'cloud engine: token has no doc_id claim — mint a doc-scoped JWT',
           );
         }
+        const layerName =
+          typeof claims.layer_name === 'string' && claims.layer_name.length > 0
+            ? claims.layer_name
+            : DEFAULT_LAYER_NAME;
         const head = await docHttp.getJson(
-          wirePaths.docHead(docId),
+          wirePaths.layerHead(docId, layerName),
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        return new CloudDocumentHandle(docHttp, head.id);
+        return new CloudDocumentHandle(docHttp, head.id, layerName);
       });
     }
 
@@ -76,12 +81,20 @@ export class CloudEngine implements Engine {
       const id = input.id;
       const docHttp = input.token ? this.http.withToken(input.token) : this.http;
       return AbortablePromise.run<DocumentHandle>(async (signal) => {
+        let layerName = input.layerName ?? DEFAULT_LAYER_NAME;
+        if (!input.layerName && input.token) {
+          const token = await docHttp.currentToken();
+          const claims = decodeUnverifiedClaims(token);
+          if (typeof claims.layer_name === 'string' && claims.layer_name.length > 0) {
+            layerName = claims.layer_name;
+          }
+        }
         const head = await docHttp.getJson(
-          wirePaths.docHead(id),
+          wirePaths.layerHead(id, layerName),
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        return new CloudDocumentHandle(docHttp, head.id);
+        return new CloudDocumentHandle(docHttp, head.id, layerName);
       });
     }
 
@@ -120,7 +133,7 @@ export class CloudEngine implements Engine {
         (raw) => OpenDocumentResponseSchema.parse(raw),
         signal,
       );
-      return new CloudDocumentHandle(this.http, response.id);
+      return new CloudDocumentHandle(this.http, response.id, DEFAULT_LAYER_NAME, false);
     });
   }
 

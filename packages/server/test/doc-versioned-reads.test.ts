@@ -529,7 +529,7 @@ describe('Phase 4 manifest pages — per-page versions', () => {
       contentVersion: 2,
       annotationVersion: 5,
       hasWeakAnnotations: true,
-      revision: { docSessionId: `cloud:layer:${layerId}`, generation: 9 },
+      revision: { docSessionId: `cloud:layer:${docId}:${layerName}`, generation: 9 },
     });
   });
 
@@ -545,7 +545,7 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     const body = (await res.json()) as {
       pages: Array<{ revision: { docSessionId: string } }>;
     };
-    expect(body.pages[0]?.revision.docSessionId).toBe(`cloud:base:${docId}`);
+    expect(body.pages[0]?.revision.docSessionId).toBe(`cloud:layer:${docId}:bob`);
 
     const layerCount = await fx.db
       .selectFrom('layers')
@@ -553,6 +553,101 @@ describe('Phase 4 manifest pages — per-page versions', () => {
       .where('doc_id', '=', docId)
       .executeTakeFirst();
     expect(Number(layerCount?.n ?? 0)).toBe(0);
+  });
+
+  test('layer leaf reads use durable layer versions and reject stale versions', async () => {
+    const tenantId = 'tenant-layer-leaf';
+    const docId = 'doclayerleaf';
+    const layerId = 'layer-leaf-alice';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+    const token = docToken(tenantId, docId, { layerName });
+
+    const base = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(base.status).toBe(200);
+
+    const now = Date.now();
+    await fx.db
+      .insertInto('layers')
+      .values({
+        id: layerId,
+        doc_id: docId,
+        tenant_id: tenantId,
+        name: layerName,
+        doc_version: 2,
+        current_version: 1,
+        current_artifact_key: null,
+        current_artifact_sha: null,
+        current_artifact_size: null,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    await fx.db
+      .insertInto('layer_pages')
+      .values([
+        {
+          layer_id: layerId,
+          page_object_number: 1,
+          page_index: 0,
+          content_version: 4,
+          annotation_version: 6,
+          annotation_generation: 8,
+          has_weak_annotations: 1,
+          updated_at: now,
+        },
+        {
+          layer_id: layerId,
+          page_object_number: 2,
+          page_index: 1,
+          content_version: 1,
+          annotation_version: 1,
+          annotation_generation: 0,
+          has_weak_annotations: 0,
+          updated_at: now,
+        },
+      ])
+      .execute();
+
+    const text = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/v4/text`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(text.status).toBe(200);
+    expect(text.headers.get('cache-control')).toBe(IMMUTABLE_CACHE);
+    const textBody = (await text.json()) as {
+      pageState: { revision: { docSessionId: string; generation: number } };
+    };
+    expect(textBody.pageState.revision).toMatchObject({
+      docSessionId: `cloud:layer:${docId}:${layerName}`,
+      generation: 8,
+    });
+
+    const annotations = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/v6/annotations`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(annotations.status).toBe(200);
+    expect(annotations.headers.get('cache-control')).toBe(IMMUTABLE_CACHE);
+
+    const stale = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/v5/annotations`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(stale.status).toBe(404);
+    expect(stale.headers.get('cache-control')).toBe(NO_STORE);
+  });
+
+  test('doc-scoped layer token cannot read another layer namespace', async () => {
+    const tenantId = 'tenant-layer-guard';
+    const docId = 'doclayerguard';
+    await seedDocument(fx, tenantId, docId);
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/bob/v1/manifest`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docId, { layerName: 'alice' })}` },
+    });
+    expect(res.status).toBe(403);
   });
 
   test('unversioned read aliases return current state with no-store', async () => {
