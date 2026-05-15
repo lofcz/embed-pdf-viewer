@@ -8,6 +8,7 @@ export interface DocumentRow {
   baseSha: string | null;
   storageSizeBytes: number | null;
   pageCount: number | null;
+  docVersion: number;
   metadata: Record<string, unknown> | null;
   idempotencyKey: string | null;
   failureReason: string | null;
@@ -30,6 +31,7 @@ export interface CommitInput {
   baseSha: string;
   storageSizeBytes: number;
   pageCount: number | null;
+  docVersion?: number;
 }
 
 /**
@@ -160,6 +162,7 @@ export class DocumentsRepo {
         base_sha: input.baseSha,
         storage_size_bytes: input.storageSizeBytes,
         page_count: input.pageCount,
+        doc_version: input.docVersion ?? 1,
         updated_at: now,
       })
       .where('id', '=', input.id)
@@ -232,6 +235,7 @@ function mapRow(r: {
   base_sha: string | null;
   storage_size_bytes: number | null;
   page_count: number | null;
+  doc_version: number;
   metadata_json: string | null;
   idempotency_key: string | null;
   failure_reason: string | null;
@@ -246,6 +250,7 @@ function mapRow(r: {
     baseSha: r.base_sha,
     storageSizeBytes: r.storage_size_bytes,
     pageCount: r.page_count,
+    docVersion: Number(r.doc_version),
     metadata: r.metadata_json ? (JSON.parse(r.metadata_json) as Record<string, unknown>) : null,
     idempotencyKey: r.idempotency_key,
     failureReason: r.failure_reason,

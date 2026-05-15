@@ -356,6 +356,7 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/v:D/manifest', () => {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe('private, no-store');
   });
 
   test('rejects non-numeric structure version', async () => {

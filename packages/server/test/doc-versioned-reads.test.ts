@@ -64,13 +64,14 @@ async function tearDown(fx: Fixture | undefined): Promise<void> {
 function docToken(
   tenantId: string,
   docId: string,
-  opts: { scope?: ReadonlyArray<string> } = {},
+  opts: { scope?: ReadonlyArray<string>; layerName?: string } = {},
 ): string {
   return signDevToken(SECRET, {
     sub: 'user-1',
     tenant_id: tenantId,
     doc_id: docId,
     scope: opts.scope ?? ['doc.read'],
+    ...(opts.layerName ? { layer_name: opts.layerName } : {}),
   });
 }
 
@@ -219,6 +220,7 @@ describe('Phase 4 versioned reads — GET /pages/:pon/v:P/text', () => {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe(NO_STORE);
   });
 
   test('unknown pageObjectNumber returns 404', async () => {
@@ -326,6 +328,7 @@ describe('Phase 4 versioned reads — GET /pages/:pon/v:A/annotations', () => {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe(NO_STORE);
   });
 
   test('unknown pageObjectNumber returns 404', async () => {
@@ -362,6 +365,9 @@ describe('Phase 4 manifest pages — per-page versions', () => {
       docVersion: number;
       pages: Array<{
         pageObjectNumber: number;
+        pageIndex: number;
+        revision: { docSessionId: string; generation: number };
+        weakAnnotationState: { kind: string; hasAnyWeakAnnotations: boolean };
         contentVersion: number;
         annotationVersion: number;
         hasWeakAnnotations: boolean;
@@ -369,10 +375,220 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     };
     expect(body.docVersion).toBe(1);
     expect(body.pages).toHaveLength(5);
-    for (const page of body.pages) {
+    for (let i = 0; i < body.pages.length; i++) {
+      const page = body.pages[i]!;
+      expect(page.pageIndex).toBe(i);
+      expect(page.revision).toEqual({
+        docSessionId: `cloud:base:${docId}`,
+        pageObjectNumber: page.pageObjectNumber,
+        generation: 0,
+      });
+      expect(page.weakAnnotationState).toEqual({
+        kind: 'known',
+        hasAnyWeakAnnotations: false,
+      });
       expect(page.contentVersion).toBe(1);
       expect(page.annotationVersion).toBe(1);
       expect(page.hasWeakAnnotations).toBe(false);
     }
+
+    const documentPageCount = await fx.db
+      .selectFrom('document_pages')
+      .select(fx.db.fn.countAll().as('n'))
+      .where('doc_id', '=', docId)
+      .executeTakeFirst();
+    const layerCount = await fx.db
+      .selectFrom('layers')
+      .select(fx.db.fn.countAll().as('n'))
+      .where('doc_id', '=', docId)
+      .executeTakeFirst();
+    const layerPageCount = await fx.db
+      .selectFrom('layer_pages')
+      .select(fx.db.fn.countAll().as('n'))
+      .executeTakeFirst();
+    expect(Number(documentPageCount?.n ?? 0)).toBe(5);
+    expect(Number(layerCount?.n ?? 0)).toBe(0);
+    expect(Number(layerPageCount?.n ?? 0)).toBe(0);
+  });
+
+  test('manifest is served from durable page rows after first initialization', async () => {
+    const tenantId = 'tenant-m-db';
+    const docId = 'docmdb001';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+    const token = docToken(tenantId, docId);
+
+    const first = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(first.status).toBe(200);
+
+    await fx.db
+      .updateTable('document_pages')
+      .set({
+        annotation_version: 7,
+        annotation_generation: 3,
+        has_weak_annotations: 1,
+      })
+      .where('doc_id', '=', docId)
+      .where('page_object_number', '=', 1)
+      .execute();
+
+    const second = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(second.status).toBe(200);
+    const body = (await second.json()) as {
+      pages: Array<{
+        pageObjectNumber: number;
+        annotationVersion: number;
+        hasWeakAnnotations: boolean;
+        revision: { docSessionId: string; generation: number };
+      }>;
+    };
+    const page = body.pages.find((p) => p.pageObjectNumber === 1);
+    expect(page).toMatchObject({
+      annotationVersion: 7,
+      hasWeakAnnotations: true,
+      revision: { docSessionId: `cloud:base:${docId}`, generation: 3 },
+    });
+  });
+
+  test('layer manifest is served from durable layer page rows', async () => {
+    const tenantId = 'tenant-layer-db';
+    const docId = 'doclayerdb';
+    const layerId = 'layer-alice-1';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+
+    const base = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
+    });
+    expect(base.status).toBe(200);
+
+    const now = Date.now();
+    await fx.db
+      .insertInto('layers')
+      .values({
+        id: layerId,
+        doc_id: docId,
+        tenant_id: tenantId,
+        name: layerName,
+        doc_version: 4,
+        current_version: 3,
+        current_artifact_key: 'tenant/docs/doclayerdb/layers/alice/v0003.delta',
+        current_artifact_sha: 'delta-sha',
+        current_artifact_size: 123,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    await fx.db
+      .insertInto('layer_pages')
+      .values([
+        {
+          layer_id: layerId,
+          page_object_number: 1,
+          page_index: 0,
+          content_version: 2,
+          annotation_version: 5,
+          annotation_generation: 9,
+          has_weak_annotations: 1,
+          updated_at: now,
+        },
+        {
+          layer_id: layerId,
+          page_object_number: 2,
+          page_index: 1,
+          content_version: 1,
+          annotation_version: 1,
+          annotation_generation: 0,
+          has_weak_annotations: 0,
+          updated_at: now,
+        },
+      ])
+      .execute();
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/v4/manifest`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docId, { layerName })}` },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe(IMMUTABLE_CACHE);
+    const body = (await res.json()) as {
+      docVersion: number;
+      pages: Array<{
+        pageObjectNumber: number;
+        contentVersion: number;
+        annotationVersion: number;
+        hasWeakAnnotations: boolean;
+        revision: { docSessionId: string; generation: number };
+      }>;
+    };
+    expect(body.docVersion).toBe(4);
+    expect(body.pages[0]).toMatchObject({
+      pageObjectNumber: 1,
+      contentVersion: 2,
+      annotationVersion: 5,
+      hasWeakAnnotations: true,
+      revision: { docSessionId: `cloud:layer:${layerId}`, generation: 9 },
+    });
+  });
+
+  test('never-created layer manifest falls through to base without creating layer rows', async () => {
+    const tenantId = 'tenant-layer-empty';
+    const docId = 'doclayerempty';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/bob/v1/manifest`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docId, { layerName: 'bob' })}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      pages: Array<{ revision: { docSessionId: string } }>;
+    };
+    expect(body.pages[0]?.revision.docSessionId).toBe(`cloud:base:${docId}`);
+
+    const layerCount = await fx.db
+      .selectFrom('layers')
+      .select(fx.db.fn.countAll().as('n'))
+      .where('doc_id', '=', docId)
+      .executeTakeFirst();
+    expect(Number(layerCount?.n ?? 0)).toBe(0);
+  });
+
+  test('unversioned read aliases return current state with no-store', async () => {
+    const tenantId = 'tenant-alias';
+    const docId = 'docalias1';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+    const token = docToken(tenantId, docId);
+
+    const manifest = await fetch(`${fx.baseUrl}/v1/docs/${docId}/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(manifest.status).toBe(200);
+    expect(manifest.headers.get('cache-control')).toBe(NO_STORE);
+
+    const text = await fetch(`${fx.baseUrl}/v1/docs/${docId}/pages/1/text`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(text.status).toBe(200);
+    expect(text.headers.get('cache-control')).toBe(NO_STORE);
+
+    const annotations = await fetch(`${fx.baseUrl}/v1/docs/${docId}/pages/1/annotations`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(annotations.status).toBe(200);
+    expect(annotations.headers.get('cache-control')).toBe(NO_STORE);
+  });
+
+  test('future manifest versions fail closed with no-store', async () => {
+    const tenantId = 'tenant-future';
+    const docId = 'docfuture';
+    await seedDocument(fx, tenantId, docId);
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v999/manifest`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
+    });
+    expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe(NO_STORE);
   });
 });

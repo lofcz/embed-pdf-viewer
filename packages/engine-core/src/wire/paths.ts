@@ -91,6 +91,15 @@ export const wirePaths = {
     `/v1/docs/${encodeURIComponent(docId)}/v${docVersion}/manifest`,
 
   /**
+   * GET: full layer manifest at a specific layer document version.
+   * Never-mutated layers may fall through to the immutable base view;
+   * once a layer row exists, `layers.doc_version` and `layer_pages`
+   * drive the response.
+   */
+  layerManifest: (docId: string, layerName: string, docVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/v${docVersion}/manifest`,
+
+  /**
    * GET: full plain-text extraction for a single page at a specific
    * `contentVersion`. Content-addressed; CDN may cache forever.
    * Stale-version requests return 404 and the SDK's transparent

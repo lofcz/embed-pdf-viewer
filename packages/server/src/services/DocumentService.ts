@@ -10,6 +10,7 @@ import type { DocumentsRepo, DocumentRow } from '../db/repos/documents.repo';
 import type { BaseFileCache, LocalFileHandle } from '../storage/BaseFileCache';
 import { StorageKeys } from '../storage/keys';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
+import type { LayerStateService } from './LayerStateService';
 
 /**
  * Public head shape returned by `GET /v1/docs/:docId/head`.
@@ -52,6 +53,7 @@ export interface DocumentServiceOptions {
   documents: DocumentsRepo;
   cache: BaseFileCache;
   pool: WorkerThreadPool;
+  layerState: LayerStateService;
 }
 
 export interface OpenContext {
@@ -86,6 +88,7 @@ export class DocumentService {
   private readonly documents: DocumentsRepo;
   private readonly cache: BaseFileCache;
   private readonly pool: WorkerThreadPool;
+  private readonly layerState: LayerStateService;
   private readonly heads = new Map<string, DocumentHead>();
   private readonly opens = new Map<string, Promise<DocumentHead>>();
   private readonly baseHandles = new Map<string, LocalFileHandle>();
@@ -94,6 +97,7 @@ export class DocumentService {
     this.documents = opts.documents;
     this.cache = opts.cache;
     this.pool = opts.pool;
+    this.layerState = opts.layerState;
   }
 
   /**
@@ -174,11 +178,7 @@ export class DocumentService {
         baseSha,
         pageCount: row.pageCount ?? 0,
         storageSizeBytes: row.storageSizeBytes ?? 0,
-        // Phase 4: docVersion is hard-coded to 1. Phase 5's mutation
-        // handler bumps `documents.doc_version` in the same DB
-        // transaction as each mutation, alongside the per-page
-        // `layer_pages.{content,annotation}_version` bumps.
-        docVersion: 1,
+        docVersion: row.docVersion,
         state: row.state,
       };
       this.replaceBaseHandle(docId, handle);
@@ -197,42 +197,35 @@ export class DocumentService {
    */
   async getManifest(ctx: OpenContext, docId: string): Promise<DocumentManifest> {
     const head = await this.openOnPool(ctx, docId);
-    const build = (jobId: WorkerJobId) => wirePack({ kind: 'pages.list' as const, jobId, docId });
-    const result = await this.pool.run(docId, build);
-    if (result.tag !== 'pages.list') {
-      throw new EngineError(
-        EngineErrorCode.WireFormat,
-        `unexpected manifest payload: ${result.tag}`,
+    const pages = await this.layerState.ensureBasePages(docId, () =>
+      this.loadDurableBasePageStates(docId),
+    );
+    return this.layerState.buildBaseManifest(head, pages);
+  }
+
+  /**
+   * Build a layer-scoped manifest from durable state.
+   *
+   * A layer that has never been created/mutated has no DB rows by design,
+   * so it reads as the immutable base view without creating layer state.
+   */
+  async getLayerManifest(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string,
+  ): Promise<DocumentManifest> {
+    const head = await this.openOnPool(ctx, docId);
+    const layer = await this.layerState.repos.layers.findByDocAndName(docId, layerName);
+    if (!layer) {
+      const pages = await this.layerState.ensureBasePages(docId, () =>
+        this.loadDurableBasePageStates(docId),
       );
-    }
-    let pageStates = result.snapshot.pages;
-    if (pageStates.some((page) => page.weakAnnotationState.kind !== 'known')) {
-      const annotationsBuild = (jobId: WorkerJobId) =>
-        wirePack({ kind: 'annotations.listRawAll' as const, jobId, docId });
-      const annotationsResult = await this.pool.run(docId, annotationsBuild);
-      if (annotationsResult.tag !== 'annotations.listRawAll') {
-        throw new EngineError(
-          EngineErrorCode.WireFormat,
-          `unexpected manifest annotation payload: ${annotationsResult.tag}`,
-        );
-      }
-      pageStates = annotationsResult.snapshot.pages.map((page) => page.pageState);
+      return this.layerState.buildBaseManifest(head, pages);
     }
 
-    // Phase 4: per-page versions are all `1`. The weak-annotation flag is
-    // only published after the worker has actually scanned annotations for
-    // that page; unknown is not allowed to become a CDN-cacheable `false`.
-    const pages: ManifestPage[] = pageStates.map((page) => ({
-      ...page,
-      contentVersion: 1,
-      annotationVersion: 1,
-      hasWeakAnnotations: requireKnownWeakAnnotationBoolean(page),
-    }));
-    return {
-      docVersion: head.docVersion,
-      baseSha: head.baseSha,
-      pages,
-    };
+    await this.layerState.ensureBasePages(docId, () => this.loadDurableBasePageStates(docId));
+    const pages = await this.layerState.ensureLayerPagesFromBase({ layerId: layer.id, docId });
+    return this.layerState.buildLayerManifest(head.baseSha, layer, pages);
   }
 
   /**
@@ -288,6 +281,19 @@ export class DocumentService {
     };
   }
 
+  private async loadDurableBasePageStates(docId: string): Promise<PageState[]> {
+    const annotationsBuild = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'annotations.listRawAll' as const, jobId, docId });
+    const annotationsResult = await this.pool.run(docId, annotationsBuild);
+    if (annotationsResult.tag !== 'annotations.listRawAll') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected manifest annotation payload: ${annotationsResult.tag}`,
+      );
+    }
+    return annotationsResult.snapshot.pages.map((page) => page.pageState);
+  }
+
   private replaceBaseHandle(docId: string, handle: LocalFileHandle): void {
     this.releaseBaseHandle(docId);
     this.baseHandles.set(docId, handle);
@@ -299,15 +305,4 @@ export class DocumentService {
     this.baseHandles.delete(docId);
     handle.release();
   }
-}
-
-function requireKnownWeakAnnotationBoolean(page: PageState): boolean {
-  if (page.weakAnnotationState.kind !== 'known') {
-    throw new EngineError(
-      EngineErrorCode.WireFormat,
-      `manifest page ${page.pageObjectNumber} has unknown weak annotation state`,
-      { details: { pageObjectNumber: page.pageObjectNumber } },
-    );
-  }
-  return page.weakAnnotationState.hasAnyWeakAnnotations;
 }

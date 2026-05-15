@@ -7,8 +7,8 @@
  * column types (TEXT/INTEGER for SQLite, equivalents for PG).
  *
  * Phase 1 ships only `tenants`, `documents`, and `schema_migrations`.
- * Later phases add `layers`, `layer_pages`, `revoked_jtis`,
- * `jwks_cache`, `audit_log`, and `edit_leases`.
+ * Later phases add `document_pages`, `layers`, `layer_pages`,
+ * `revoked_jtis`, `jwks_cache`, `audit_log`, and `edit_leases`.
  */
 
 import type { Generated } from 'kysely';
@@ -38,6 +38,7 @@ export interface DocumentsTable {
   base_sha: string | null;
   storage_size_bytes: number | null;
   page_count: number | null;
+  doc_version: Generated<number>;
   metadata_json: string | null;
   /** Customer-supplied retry key; unique per `(tenant_id, idempotency_key)`. */
   idempotency_key: string | null;
@@ -49,6 +50,42 @@ export interface DocumentsTable {
   created_at: number;
   updated_at: number;
   created_by: string | null;
+}
+
+export interface DocumentPagesTable {
+  doc_id: string;
+  page_object_number: number;
+  page_index: number;
+  content_version: number;
+  annotation_version: number;
+  annotation_generation: number;
+  has_weak_annotations: boolean | number;
+  updated_at: number;
+}
+
+export interface LayersTable {
+  id: string;
+  doc_id: string;
+  tenant_id: string;
+  name: string;
+  doc_version: number;
+  current_version: number;
+  current_artifact_key: string | null;
+  current_artifact_sha: string | null;
+  current_artifact_size: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface LayerPagesTable {
+  layer_id: string;
+  page_object_number: number;
+  page_index: number;
+  content_version: number;
+  annotation_version: number;
+  annotation_generation: number;
+  has_weak_annotations: boolean | number;
+  updated_at: number;
 }
 
 export interface SchemaMigrationsTable {
@@ -104,6 +141,9 @@ export interface Database {
     created_at: Generated<number>;
     updated_at: Generated<number>;
   };
+  document_pages: DocumentPagesTable;
+  layers: LayersTable;
+  layer_pages: LayerPagesTable;
   schema_migrations: SchemaMigrationsTable;
   revoked_jtis: RevokedJtisTable;
   jwks_cache: JwksCacheTable;

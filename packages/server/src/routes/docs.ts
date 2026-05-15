@@ -3,9 +3,10 @@ import {
   EngineError,
   EngineErrorCode,
   wirePack,
+  type PageState,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
-import { wirePaths } from '@embedpdf/engine-core/wire';
+import { wirePaths, type ManifestPage } from '@embedpdf/engine-core/wire';
 import { requireDocAccess } from '../app/jwt-plugin';
 import type { DocumentService } from '../services/DocumentService';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
@@ -78,12 +79,49 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     const requested = parseVersionPathSegment(D, 'docVersion');
     const manifest = await service.getManifest({ tenantId, sub }, docId);
     if (requested !== manifest.docVersion) {
+      reply.header('Cache-Control', NO_STORE);
       throw new EngineError(
         EngineErrorCode.NotFound,
         `manifest version ${requested} no longer current (current=${manifest.docVersion})`,
       );
     }
     reply.header('Cache-Control', IMMUTABLE_CACHE);
+    return manifest;
+  });
+
+  app.get('/v1/docs/:docId/manifest', async (req, reply) => {
+    const { docId } = req.params as { docId: string };
+    const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
+    const manifest = await service.getManifest({ tenantId, sub }, docId);
+    reply.header('Cache-Control', NO_STORE);
+    return manifest;
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/v:D/manifest', async (req, reply) => {
+    const { docId, layerName, D } = req.params as {
+      docId: string;
+      layerName: string;
+      D: string;
+    };
+    const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
+    const requested = parseVersionPathSegment(D, 'layerDocVersion');
+    const manifest = await service.getLayerManifest({ tenantId, sub }, docId, layerName);
+    if (requested !== manifest.docVersion) {
+      reply.header('Cache-Control', NO_STORE);
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `layer manifest version ${requested} no longer current (current=${manifest.docVersion})`,
+      );
+    }
+    reply.header('Cache-Control', IMMUTABLE_CACHE);
+    return manifest;
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/manifest', async (req, reply) => {
+    const { docId, layerName } = req.params as { docId: string; layerName: string };
+    const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
+    const manifest = await service.getLayerManifest({ tenantId, sub }, docId, layerName);
+    reply.header('Cache-Control', NO_STORE);
     return manifest;
   });
 
@@ -103,6 +141,7 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
       );
     }
     if (requested !== page.contentVersion) {
+      reply.header('Cache-Control', NO_STORE);
       throw new EngineError(
         EngineErrorCode.NotFound,
         `text version ${requested} no longer current (current=${page.contentVersion}) for page ${pageObjectNumber}`,
@@ -124,7 +163,46 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
       );
     }
     reply.header('Cache-Control', IMMUTABLE_CACHE);
-    return result.snapshot;
+    return {
+      ...result.snapshot,
+      pageState: toPageState(page),
+    };
+  });
+
+  app.get('/v1/docs/:docId/pages/:pon/text', async (req, reply) => {
+    const { docId, pon } = req.params as { docId: string; pon: string };
+    const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    const signal = abortSignalFromRequest(req);
+
+    const manifest = await service.getManifest({ tenantId, sub }, docId);
+    const page = manifest.pages.find((p) => p.pageObjectNumber === pageObjectNumber);
+    if (!page) {
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `no page with object number ${pageObjectNumber} in document ${docId}`,
+      );
+    }
+
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'pages.text' as const,
+        jobId,
+        docId,
+        pageObjectNumber,
+      });
+    const result = await pool.run(docId, build, signal);
+    if (result.tag !== 'pages.text') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected pages.text payload: ${result.tag}`,
+      );
+    }
+    reply.header('Cache-Control', NO_STORE);
+    return {
+      ...result.snapshot,
+      pageState: toPageState(page),
+    };
   });
 
   app.get('/v1/docs/:docId/pages/:pon/v:A/annotations', async (req, reply) => {
@@ -143,6 +221,7 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
       );
     }
     if (requested !== page.annotationVersion) {
+      reply.header('Cache-Control', NO_STORE);
       throw new EngineError(
         EngineErrorCode.NotFound,
         `annotation version ${requested} no longer current (current=${page.annotationVersion}) for page ${pageObjectNumber}`,
@@ -164,7 +243,46 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
       );
     }
     reply.header('Cache-Control', IMMUTABLE_CACHE);
-    return result.snapshot;
+    return {
+      ...result.snapshot,
+      pageState: toPageState(page),
+    };
+  });
+
+  app.get('/v1/docs/:docId/pages/:pon/annotations', async (req, reply) => {
+    const { docId, pon } = req.params as { docId: string; pon: string };
+    const { tenantId, sub } = requireDocAccess(req, docId, ['doc.read']);
+    const pageObjectNumber = parsePageObjectNumber(pon);
+    const signal = abortSignalFromRequest(req);
+
+    const manifest = await service.getManifest({ tenantId, sub }, docId);
+    const page = manifest.pages.find((p) => p.pageObjectNumber === pageObjectNumber);
+    if (!page) {
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `no page with object number ${pageObjectNumber} in document ${docId}`,
+      );
+    }
+
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.listFullPage' as const,
+        jobId,
+        docId,
+        pageObjectNumber,
+      });
+    const result = await pool.run(docId, build, signal);
+    if (result.tag !== 'annotations.listFullPage') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected annotations.listFullPage payload: ${result.tag}`,
+      );
+    }
+    reply.header('Cache-Control', NO_STORE);
+    return {
+      ...result.snapshot,
+      pageState: toPageState(page),
+    };
   });
 
   app.post(wirePaths.docWarm, async (req) => {
@@ -177,6 +295,16 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     const head = await service.warm({ tenantId, sub }, docId);
     return { warmed: true, head };
   });
+}
+
+function toPageState(page: ManifestPage): PageState {
+  return {
+    pageObjectNumber: page.pageObjectNumber,
+    pageIndex: page.pageIndex,
+    revision: page.revision,
+    weakAnnotationState: page.weakAnnotationState,
+    hasAnyWeakAnnotations: page.hasAnyWeakAnnotations,
+  };
 }
 
 function parseVersionPathSegment(raw: string, label: string): number {

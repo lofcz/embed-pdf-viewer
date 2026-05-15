@@ -62,11 +62,21 @@ export type {
   DocumentState,
   TenantsTable,
   DocumentsTable,
+  DocumentPagesTable,
+  LayersTable,
+  LayerPagesTable,
 } from './db/schema';
 export { DocumentsRepo } from './db/repos/documents.repo';
 export type { DocumentRow, CreatePendingInput, CommitInput } from './db/repos/documents.repo';
 export { TenantsRepo } from './db/repos/tenants.repo';
 export type { TenantRow } from './db/repos/tenants.repo';
+export { DocumentPagesRepo, LayersRepo, LayerPagesRepo } from './db/repos/page_state.repo';
+export type {
+  DurablePageRow,
+  UpsertDurablePageInput,
+  LayerRow,
+  CreateLayerInput,
+} from './db/repos/page_state.repo';
 export { StorageKeys } from './storage/keys';
 export { FsObjectStore } from './storage/adapters/FsObjectStore';
 export type { FsObjectStoreOptions } from './storage/adapters/FsObjectStore';
@@ -108,6 +118,8 @@ export type {
   DocumentManifest,
   OpenContext,
 } from './services/DocumentService';
+export { LayerStateService } from './services/LayerStateService';
+export type { LayerStateServiceOptions, MutationImpactKind } from './services/LayerStateService';
 
 /**
  * Stable URL of the bundled worker_thread entry. Resolves to:

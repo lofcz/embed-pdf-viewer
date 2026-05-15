@@ -9,8 +9,10 @@ import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
 import type { Database as Schema } from '../db/schema';
 import { DocumentsRepo } from '../db/repos/documents.repo';
 import { TenantsRepo } from '../db/repos/tenants.repo';
+import { DocumentPagesRepo, LayerPagesRepo, LayersRepo } from '../db/repos/page_state.repo';
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
 import { DocumentService } from '../services/DocumentService';
+import { LayerStateService } from '../services/LayerStateService';
 import { validate as validateMigrations, type MigrationSource } from '../db/migrator/runner';
 import { RevokedJtisGuard } from '../auth/RevokedJtisGuard';
 import { DbJwksCacheStore } from '../auth/JwksCacheStore';
@@ -278,6 +280,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
         pool,
+        layerState: new LayerStateService({
+          documentPages: new DocumentPagesRepo(opts.db),
+          layers: new LayersRepo(opts.db),
+          layerPages: new LayerPagesRepo(opts.db),
+        }),
       });
       await registerDocsRoutes(app, { service: documentService, pool });
     }
