@@ -8,6 +8,16 @@ export { MetadataServiceImpl } from './MetadataServiceImpl';
 
 // Session
 export { DocumentSession } from './session/DocumentSession';
+export { BaseDocumentRegistry } from './session/BaseDocumentRegistry';
+export {
+  CloseStack,
+  openFatMemoryDocument,
+  openLayerDocument,
+  type AcquiredBaseDocument,
+  type LayerSource,
+  type OpenedPdfDocument,
+  type OpenedPdfDocumentKind,
+} from './session/PdfDocumentOpener';
 export { RevisionStore } from './session/RevisionStore';
 export { PagePtrPool } from './session/PagePtrPool';
 export { AnnotationIdentityResolver } from './session/AnnotationIdentityResolver';

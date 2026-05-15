@@ -6,6 +6,11 @@ import {
   isValidPageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
 import { MetadataServiceImpl } from '../MetadataServiceImpl';
+import {
+  openFatMemoryDocument,
+  type OpenedPdfDocument,
+  type OpenedPdfDocumentKind,
+} from './PdfDocumentOpener';
 import type { PageRecord } from './PageRecord';
 import { PagePtrPool } from './PagePtrPool';
 import { RevisionStore } from './RevisionStore';
@@ -22,7 +27,8 @@ import { RevisionStore } from './RevisionStore';
  */
 export class DocumentSession {
   private docPtr: Ptr | null = null;
-  private dataPtr: Ptr | null = null;
+  private closeDocument: (() => void) | null = null;
+  private _kind: OpenedPdfDocumentKind | null = null;
   private readonly _sessionId: string;
 
   /** pon -> record */
@@ -48,26 +54,28 @@ export class DocumentSession {
     return this._sessionId;
   }
 
+  get kind(): OpenedPdfDocumentKind | null {
+    return this._kind;
+  }
+
   isOpen(): boolean {
     return this.docPtr !== null;
   }
 
   open(bytes: Uint8Array, password: string | null = null): void {
+    this.openFromHandle(openFatMemoryDocument(this.runtime, bytes, password));
+  }
+
+  openFromHandle(handle: OpenedPdfDocument): void {
     if (this.docPtr) {
+      handle.close();
       throw new EngineError(EngineErrorCode.InvalidArg, 'document already open');
     }
-    const { mem, fn } = this.runtime;
-    const dataPtr = mem.alloc(bytes.byteLength);
-    mem.writeBytes(dataPtr, bytes);
-    const docPtr = fn.FPDF_LoadMemDocument(dataPtr, bytes.byteLength, password ?? '');
-    if (!docPtr) {
-      mem.free(dataPtr);
-      throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to open document');
-    }
-    this.docPtr = docPtr;
-    this.dataPtr = dataPtr;
+    this.docPtr = handle.docPtr;
+    this.closeDocument = () => handle.close();
+    this._kind = handle.kind;
     this.revisions = new RevisionStore(this._sessionId);
-    this.pages = new PagePtrPool(runtimePagesAreSafe(this.runtime), docPtr);
+    this.pages = new PagePtrPool(runtimePagesAreSafe(this.runtime), handle.docPtr);
   }
 
   metadata(): MetadataServiceImpl {
@@ -225,24 +233,31 @@ export class DocumentSession {
   }
 
   close(): void {
-    const { mem, fn } = this.runtime;
-    if (this.pages) {
-      this.pages.closeAll();
+    let firstError: unknown = null;
+    try {
+      this.pages?.closeAll();
+    } catch (error) {
+      firstError = error;
+    } finally {
       this.pages = null;
     }
-    if (this.docPtr) {
-      fn.FPDF_CloseDocument(this.docPtr);
+
+    try {
+      this.closeDocument?.();
+    } catch (error) {
+      firstError ??= error;
+    } finally {
+      this.closeDocument = null;
       this.docPtr = null;
+      this._kind = null;
+      this.revisions = null;
+      this.recordsByIndex.clear();
+      this.recordsByObjectNumber.clear();
+      this.weakFlags.clear();
+      this.fullyEnumerated = false;
     }
-    if (this.dataPtr) {
-      mem.free(this.dataPtr);
-      this.dataPtr = null;
-    }
-    this.revisions = null;
-    this.recordsByIndex.clear();
-    this.recordsByObjectNumber.clear();
-    this.weakFlags.clear();
-    this.fullyEnumerated = false;
+
+    if (firstError) throw firstError;
   }
 
   private requireRevisions(): RevisionStore {

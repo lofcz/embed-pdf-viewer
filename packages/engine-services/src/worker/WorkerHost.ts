@@ -33,6 +33,8 @@ import { FullAnnotationReader } from '../readers/annotations/FullAnnotationReade
 import { PageTextReader } from '../readers/text/PageTextReader';
 import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
 import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
+import { BaseDocumentRegistry } from '../session/BaseDocumentRegistry';
+import { openFatMemoryDocument } from '../session/PdfDocumentOpener';
 
 /**
  * The piece that runs "inside the worker": owns runtime, manages document
@@ -46,6 +48,7 @@ import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
  */
 export class WorkerHost {
   private readonly sessions = new Map<string, DocumentSession>();
+  private readonly baseDocuments: BaseDocumentRegistry;
   private readonly aborts = new Map<WorkerJobId, AbortController>();
   private destroyed = false;
 
@@ -62,6 +65,7 @@ export class WorkerHost {
     private readonly post: (pack: WirePack<WorkerResponse>) => void,
   ) {
     ensureInitialized(this.runtime);
+    this.baseDocuments = new BaseDocumentRegistry(this.runtime);
   }
 
   receive(msg: WorkerRequest): void {
@@ -148,7 +152,9 @@ export class WorkerHost {
       throw new EngineError(EngineErrorCode.InvalidArg, `document already open: ${req.docId}`);
     }
     const session = new DocumentSession(this.runtime);
-    session.open(new Uint8Array(req.bytes), req.password);
+    session.openFromHandle(
+      openFatMemoryDocument(this.runtime, new Uint8Array(req.bytes), req.password),
+    );
     this.sessions.set(req.docId, session);
     return wirePack({ tag: 'open', docId: req.docId });
   }
@@ -276,6 +282,7 @@ export class WorkerHost {
       this.destroyed = true;
       for (const session of this.sessions.values()) session.close();
       this.sessions.clear();
+      this.baseDocuments.releaseAll();
       destroyLibrary(this.runtime);
     }
     return wirePack({ tag: 'shutdown' });
