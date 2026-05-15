@@ -34,7 +34,9 @@ const openBuild = (docId: string) => (jobId: WorkerJobId) => {
   // Stub workers don't read bytes; pass an empty payload + empty
   // transfer list so the test stays focused on the routing logic.
   const empty = new ArrayBuffer(0);
-  return wirePack({ kind: 'open' as const, jobId, docId, bytes: empty, password: null }, [empty]);
+  return wirePack({ kind: 'open.fatMem' as const, jobId, docId, bytes: empty, password: null }, [
+    empty,
+  ]);
 };
 
 describe('WorkerThreadPool sticky-by-base_sha', () => {

@@ -162,7 +162,9 @@ export class DocumentService {
       ) as ArrayBuffer;
       const baseSha = row.baseSha;
       const build = (jobId: WorkerJobId) =>
-        wirePack({ kind: 'open' as const, jobId, docId, bytes: buffer, password: null }, [buffer]);
+        wirePack({ kind: 'open.fatMem' as const, jobId, docId, bytes: buffer, password: null }, [
+          buffer,
+        ]);
       const result = await this.pool.runOpen(docId, baseSha, build);
       if (result.tag !== 'open') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected open payload: ${result.tag}`);

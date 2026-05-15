@@ -4,7 +4,7 @@
  * The pool dispatches WorkerRequests of various kinds; this stub
  * implements only the surface that routing tests touch:
  *
- *   - `open`  -> echoes back a small open ack
+ *   - `open.fatMem` -> echoes back a small open ack
  *   - `close` -> echoes back a small close ack
  *   - `shutdown` -> exits after acking
  *
@@ -19,16 +19,33 @@ const { parentPort } = require('node:worker_threads');
 // in a per-process Map and serves `pages.list` from it.
 const openDocs = new Map();
 
+function sessionKey(msg) {
+  return msg.layerName ? `${msg.docId}::layer:${msg.layerName}` : msg.docId;
+}
+
 parentPort.on('message', (msg) => {
   if (!msg || typeof msg !== 'object') return;
   switch (msg.kind) {
-    case 'open': {
+    case 'open.fatMem': {
       // First byte of the payload encodes the page count for tests.
       // Real workers ignore the bytes' meaning here; this is a stub
       // convenience.
       const view = msg.bytes ? new Uint8Array(msg.bytes) : new Uint8Array(0);
       const pageCount = view.byteLength > 0 ? view[0] : 0;
-      openDocs.set(msg.docId, { pageCount });
+      openDocs.set(sessionKey(msg), { pageCount });
+      parentPort.postMessage({
+        kind: 'resolve',
+        jobId: msg.jobId,
+        result: { tag: 'open', docId: msg.docId },
+      });
+      return;
+    }
+    case 'open.layerMemBase': {
+      // Layer sessions are addressed by docId + layerName. The first
+      // byte of the base payload still encodes page count for tests.
+      const view = msg.baseBytes ? new Uint8Array(msg.baseBytes) : new Uint8Array(0);
+      const pageCount = view.byteLength > 0 ? view[0] : 0;
+      openDocs.set(sessionKey(msg), { pageCount });
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,
@@ -37,7 +54,7 @@ parentPort.on('message', (msg) => {
       return;
     }
     case 'pages.list': {
-      const meta = openDocs.get(msg.docId);
+      const meta = openDocs.get(sessionKey(msg));
       if (!meta) {
         parentPort.postMessage({
           kind: 'reject',
@@ -66,7 +83,7 @@ parentPort.on('message', (msg) => {
       return;
     }
     case 'pages.text': {
-      const meta = openDocs.get(msg.docId);
+      const meta = openDocs.get(sessionKey(msg));
       if (!meta) {
         parentPort.postMessage({
           kind: 'reject',
@@ -109,7 +126,7 @@ parentPort.on('message', (msg) => {
       return;
     }
     case 'annotations.listFullPage': {
-      const meta = openDocs.get(msg.docId);
+      const meta = openDocs.get(sessionKey(msg));
       if (!meta) {
         parentPort.postMessage({
           kind: 'reject',
@@ -150,7 +167,11 @@ parentPort.on('message', (msg) => {
       return;
     }
     case 'close':
-      openDocs.delete(msg.docId);
+      for (const key of Array.from(openDocs.keys())) {
+        if (key === msg.docId || key.startsWith(`${msg.docId}::layer:`)) {
+          openDocs.delete(key);
+        }
+      }
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,

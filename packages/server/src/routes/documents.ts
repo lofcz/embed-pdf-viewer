@@ -40,7 +40,7 @@ export async function registerDocumentRoutes(
     // the right place to declare the transfer. `wirePack(req, [buffer])`
     // is the producer-local statement: "this message moves this buffer".
     const build = (jobId: WorkerJobId) =>
-      wirePack({ kind: 'open' as const, jobId, docId, bytes: buffer, password }, [buffer]);
+      wirePack({ kind: 'open.fatMem' as const, jobId, docId, bytes: buffer, password }, [buffer]);
 
     const result = await pool.runOpen(docId, build);
     if (result.tag !== 'open') {

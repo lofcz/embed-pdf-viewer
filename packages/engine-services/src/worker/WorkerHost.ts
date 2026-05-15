@@ -34,7 +34,7 @@ import { PageTextReader } from '../readers/text/PageTextReader';
 import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
 import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
 import { BaseDocumentRegistry } from '../session/BaseDocumentRegistry';
-import { openFatMemoryDocument } from '../session/PdfDocumentOpener';
+import { openFatMemoryDocument, openLayerDocument } from '../session/PdfDocumentOpener';
 
 /**
  * The piece that runs "inside the worker": owns runtime, manages document
@@ -80,7 +80,8 @@ export class WorkerHost {
     let resultPack: WirePack<WorkerResultPayload>;
     try {
       switch (msg.kind) {
-        case 'open':
+        case 'open.fatMem':
+        case 'open.layerMemBase':
           resultPack = this.handleOpen(msg, ctrl.signal);
           break;
         case 'metadata.read':
@@ -148,14 +149,24 @@ export class WorkerHost {
   }
 
   private handleOpen(req: OpenWorkerRequest, _signal: AbortSignal): WirePack<WorkerResultPayload> {
-    if (this.sessions.has(req.docId)) {
-      throw new EngineError(EngineErrorCode.InvalidArg, `document already open: ${req.docId}`);
+    const key = sessionKey(req.docId, req.kind === 'open.layerMemBase' ? req.layerName : undefined);
+    if (this.sessions.has(key)) {
+      throw new EngineError(EngineErrorCode.InvalidArg, `document session already open: ${key}`);
     }
     const session = new DocumentSession(this.runtime);
-    session.openFromHandle(
-      openFatMemoryDocument(this.runtime, new Uint8Array(req.bytes), req.password),
-    );
-    this.sessions.set(req.docId, session);
+    if (req.kind === 'open.fatMem') {
+      session.openFromHandle(
+        openFatMemoryDocument(this.runtime, new Uint8Array(req.bytes), req.password),
+      );
+    } else {
+      const base = this.baseDocuments.acquireMemoryBase({
+        key: req.baseKey,
+        bytes: new Uint8Array(req.baseBytes),
+        password: req.password,
+      });
+      session.openFromHandle(openLayerDocument(this.runtime, base, req.layer, req.password));
+    }
+    this.sessions.set(key, session);
     return wirePack({ tag: 'open', docId: req.docId });
   }
 
@@ -163,7 +174,7 @@ export class WorkerHost {
     req: MetadataReadWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const metadata = session.metadata().read(signal);
     return wirePack({ tag: 'metadata.read', metadata });
   }
@@ -172,7 +183,7 @@ export class WorkerHost {
     req: AnnotationsListRawAllWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const reader = new RawAnnotationReader(this.runtime, session);
     const snapshot = reader.listAll(signal);
     return wirePack({ tag: 'annotations.listRawAll', snapshot });
@@ -182,7 +193,7 @@ export class WorkerHost {
     req: AnnotationsListRawPageWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const reader = new RawAnnotationReader(this.runtime, session);
     const snapshot = reader.listOne(req.pageObjectNumber, signal);
     return wirePack({ tag: 'annotations.listRawPage', snapshot });
@@ -192,7 +203,7 @@ export class WorkerHost {
     req: AnnotationsListFullPageWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const reader = new FullAnnotationReader(this.runtime, session);
     const snapshot = reader.list(req.pageObjectNumber, signal);
     return wirePack({ tag: 'annotations.listFullPage', snapshot });
@@ -202,7 +213,7 @@ export class WorkerHost {
     req: AnnotationsCreateWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.create(req.pageObjectNumber, req.draft, signal);
     return wirePack({ tag: 'annotations.create', result });
@@ -212,7 +223,7 @@ export class WorkerHost {
     req: AnnotationsUpdateWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.update(req.ref, req.patch, signal);
     return wirePack({ tag: 'annotations.update', result });
@@ -222,7 +233,7 @@ export class WorkerHost {
     req: AnnotationsDeleteWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.delete(req.ref, signal);
     return wirePack({ tag: 'annotations.delete', result });
@@ -232,7 +243,7 @@ export class WorkerHost {
     req: AnnotationsMoveWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumber, req.refs, req.toIndex, signal);
     return wirePack({ tag: 'annotations.move', result });
@@ -242,7 +253,7 @@ export class WorkerHost {
     req: PagesListWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const mutator = new DocumentPagesMutator(this.runtime, session);
     const snapshot = mutator.list(signal);
     return wirePack({ tag: 'pages.list', snapshot });
@@ -252,7 +263,7 @@ export class WorkerHost {
     req: PagesMoveWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const mutator = new DocumentPagesMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumbers, req.destIndex, signal);
     return wirePack({ tag: 'pages.move', result });
@@ -262,17 +273,17 @@ export class WorkerHost {
     req: PagesTextWorkerRequest,
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
-    const session = this.requireSession(req.docId);
+    const session = this.requireSession(req);
     const reader = new PageTextReader(this.runtime, session);
     const snapshot = reader.read(req.pageObjectNumber, signal);
     return wirePack({ tag: 'pages.text', snapshot });
   }
 
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {
-    const session = this.sessions.get(req.docId);
-    if (session) {
+    for (const [key, session] of Array.from(this.sessions.entries())) {
+      if (!sessionKeyBelongsToDoc(key, req.docId)) continue;
       session.close();
-      this.sessions.delete(req.docId);
+      this.sessions.delete(key);
     }
     return wirePack({ tag: 'close' });
   }
@@ -288,11 +299,22 @@ export class WorkerHost {
     return wirePack({ tag: 'shutdown' });
   }
 
-  private requireSession(docId: string): DocumentSession {
-    const session = this.sessions.get(docId);
+  private requireSession(req: { docId: string; layerName?: string }): DocumentSession {
+    const key = sessionKey(req.docId, req.layerName);
+    const session = this.sessions.get(key);
     if (!session || !session.isOpen()) {
-      throw new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${docId}`);
+      throw new EngineError(EngineErrorCode.DocNotOpen, `document session not open: ${key}`);
     }
     return session;
   }
+}
+
+const BASE_SESSION_SUFFIX = '__base__';
+
+function sessionKey(docId: string, layerName?: string): string {
+  return `${docId}::${layerName ? `layer:${layerName}` : BASE_SESSION_SUFFIX}`;
+}
+
+function sessionKeyBelongsToDoc(key: string, docId: string): boolean {
+  return key === sessionKey(docId) || key.startsWith(`${docId}::layer:`);
 }

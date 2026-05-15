@@ -64,7 +64,7 @@ export class LocalEngine implements Engine {
         // sender's `buffer.byteLength` becomes 0 after the transport hands
         // it off to the worker.
         buildPack: (jobId: JobId) =>
-          wirePack({ kind: 'open', jobId, docId, bytes: buffer, password }, [buffer]),
+          wirePack({ kind: 'open.fatMem', jobId, docId, bytes: buffer, password }, [buffer]),
       },
       { priority: Priority.HIGH },
     );

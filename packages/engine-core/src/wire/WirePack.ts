@@ -63,7 +63,7 @@ export const EMPTY_TRANSFER: readonly Transferable[] = Object.freeze([]);
  * code, where the knowledge actually lives.
  *
  *   wirePack({ kind: 'metadata.read', jobId, docId })
- *   wirePack({ kind: 'open', jobId, docId, bytes }, [bytes])
+ *   wirePack({ kind: 'open.fatMem', jobId, docId, bytes }, [bytes])
  *   wirePack({ tag: 'page.render', pixels }, [pixels.buffer])
  */
 export function wirePack<P>(

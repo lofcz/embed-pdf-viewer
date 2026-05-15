@@ -28,30 +28,51 @@ import type { PageMoveResult } from '../mutation/PageMoveResult';
  */
 export type WorkerJobId = number;
 
-export interface OpenWorkerRequest {
-  kind: 'open';
+export interface OpenFatMemoryWorkerRequest {
+  kind: 'open.fatMem';
   jobId: WorkerJobId;
   docId: string;
   bytes: ArrayBuffer;
   password: string | null;
 }
 
+export type LayerOpenSource =
+  | { kind: 'fresh' }
+  | { kind: 'raw-delta'; bytes: ArrayBuffer }
+  | { kind: 'artifact'; bytes: ArrayBuffer };
+
+export interface OpenLayerMemoryBaseWorkerRequest {
+  kind: 'open.layerMemBase';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName: string;
+  baseKey: string;
+  baseBytes: ArrayBuffer;
+  layer: LayerOpenSource;
+  password: string | null;
+}
+
+export type OpenWorkerRequest = OpenFatMemoryWorkerRequest | OpenLayerMemoryBaseWorkerRequest;
+
 export interface MetadataReadWorkerRequest {
   kind: 'metadata.read';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
 }
 
 export interface AnnotationsListRawAllWorkerRequest {
   kind: 'annotations.listRawAll';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
 }
 
 export interface AnnotationsListRawPageWorkerRequest {
   kind: 'annotations.listRawPage';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   pageObjectNumber: PageObjectNumber;
 }
 
@@ -59,6 +80,7 @@ export interface AnnotationsListFullPageWorkerRequest {
   kind: 'annotations.listFullPage';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   pageObjectNumber: PageObjectNumber;
 }
 
@@ -66,6 +88,7 @@ export interface AnnotationsCreateWorkerRequest {
   kind: 'annotations.create';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   pageObjectNumber: PageObjectNumber;
   draft: AnnotationDraft;
 }
@@ -74,6 +97,7 @@ export interface AnnotationsUpdateWorkerRequest {
   kind: 'annotations.update';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   ref: AnnotationRef;
   patch: AnnotationPatch;
 }
@@ -82,6 +106,7 @@ export interface AnnotationsDeleteWorkerRequest {
   kind: 'annotations.delete';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   ref: AnnotationRef;
 }
 
@@ -94,6 +119,7 @@ export interface AnnotationsMoveWorkerRequest {
   kind: 'annotations.move';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   pageObjectNumber: PageObjectNumber;
   refs: AnnotationRef[];
   toIndex: number;
@@ -103,6 +129,7 @@ export interface PagesListWorkerRequest {
   kind: 'pages.list';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
 }
 
 /**
@@ -115,6 +142,7 @@ export interface PagesTextWorkerRequest {
   kind: 'pages.text';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   pageObjectNumber: PageObjectNumber;
 }
 
@@ -122,6 +150,7 @@ export interface PagesMoveWorkerRequest {
   kind: 'pages.move';
   jobId: WorkerJobId;
   docId: string;
+  layerName?: string;
   pageObjectNumbers: PageObjectNumber[];
   destIndex: number;
 }

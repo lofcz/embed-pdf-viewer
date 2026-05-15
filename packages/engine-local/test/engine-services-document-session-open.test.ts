@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
+import { wirePack, type WorkerResponse } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import { BaseDocumentRegistry } from '../../engine-services/src/session/BaseDocumentRegistry';
 import { DocumentSession } from '../../engine-services/src/session/DocumentSession';
 import { openLayerDocument } from '../../engine-services/src/session/PdfDocumentOpener';
+import { WorkerHost } from '../../engine-services/src/worker/WorkerHost';
 
 const ptr = (value: number): Ptr => BigInt(value) as Ptr;
 
@@ -18,6 +20,8 @@ function createFakeRuntime(): PdfRuntimeModule & {
 } {
   let nextPtr = 1000;
   const memory = new Map<string, number | bigint>();
+  const pagesByDoc = new Map<Ptr, number[]>();
+  const ponByPagePtr = new Map<Ptr, number>();
   const calls = {
     closeDocuments: [] as Ptr[],
     loadMemDocuments: [] as Array<{ ptr: Ptr; size: number; password: string }>,
@@ -67,14 +71,28 @@ function createFakeRuntime(): PdfRuntimeModule & {
       }),
     },
     fn: {
+      FPDF_InitLibrary: () => undefined,
+      FPDF_DestroyLibrary: () => undefined,
       FPDF_LoadMemDocument64: (dataPtr: Ptr, size: number, password: string) => {
         calls.loadMemDocuments.push({ ptr: dataPtr, size, password });
-        return ptr(101);
+        const docPtr = ptr(101);
+        pagesByDoc.set(docPtr, [1101]);
+        return docPtr;
       },
       FPDF_CloseDocument: (docPtr: Ptr) => {
         calls.closeDocuments.push(docPtr);
         calls.order.push('document');
       },
+      FPDF_GetPageCount: (docPtr: Ptr) => pagesByDoc.get(docPtr)?.length ?? 0,
+      FPDF_LoadPage: (docPtr: Ptr, pageIndex: number) => {
+        const pon = pagesByDoc.get(docPtr)?.[pageIndex];
+        if (!pon) return ptr(0);
+        const pagePtr = ptr(Number(docPtr) * 100 + pageIndex);
+        ponByPagePtr.set(pagePtr, pon);
+        return pagePtr;
+      },
+      FPDF_ClosePage: () => undefined,
+      EPDFPage_GetObjectNumber: (pagePtr: Ptr) => ponByPagePtr.get(pagePtr) ?? 0,
       EPDF_LoadMemBaseDocument64: (dataPtr: Ptr, size: number, password: string) => {
         calls.loadMemBases.push({ ptr: dataPtr, size, password });
         return ptr(201);
@@ -86,7 +104,9 @@ function createFakeRuntime(): PdfRuntimeModule & {
       },
       EPDFLayer_OpenLayer: (_basePtr: Ptr, _accessPtr: Ptr, _password: string, statusPtr: Ptr) => {
         runtime.mem.poke(statusPtr, 'i32', 0);
-        return ptr(301);
+        const docPtr = ptr(301);
+        pagesByDoc.set(docPtr, [3101, 3102]);
+        return docPtr;
       },
       EPDFLayer_OpenLayerArtifact: (
         _basePtr: Ptr,
@@ -95,7 +115,9 @@ function createFakeRuntime(): PdfRuntimeModule & {
         statusPtr: Ptr,
       ) => {
         runtime.mem.poke(statusPtr, 'i32', 0);
-        return ptr(302);
+        const docPtr = ptr(302);
+        pagesByDoc.set(docPtr, [3201, 3202]);
+        return docPtr;
       },
     },
     async destroy() {
@@ -171,5 +193,58 @@ describe('DocumentSession open ownership', () => {
     expect(runtime.calls.closeDocuments).toEqual([ptr(302)]);
     expect(runtime.calls.fileAccessClosed).toBe(1);
     expect(runtime.calls.order).toEqual(['document', 'file-access', 'base-handle']);
+  });
+
+  test('worker routes base and layer sessions independently for one docId', () => {
+    const runtime = createFakeRuntime();
+    const responses: WorkerResponse[] = [];
+    const host = new WorkerHost(runtime, (pack) => responses.push(pack.payload));
+
+    host.receive({
+      kind: 'open.fatMem',
+      jobId: 1,
+      docId: 'doc-a',
+      bytes: new ArrayBuffer(1),
+      password: null,
+    });
+    host.receive({
+      kind: 'open.layerMemBase',
+      jobId: 2,
+      docId: 'doc-a',
+      layerName: 'alice',
+      baseKey: 'base-a',
+      baseBytes: new ArrayBuffer(1),
+      layer: { kind: 'fresh' },
+      password: null,
+    });
+    host.receive({ kind: 'pages.list', jobId: 3, docId: 'doc-a' });
+    host.receive({ kind: 'pages.list', jobId: 4, docId: 'doc-a', layerName: 'alice' });
+    host.receive({ kind: 'close', jobId: 5, docId: 'doc-a' });
+    host.receive({ kind: 'pages.list', jobId: 6, docId: 'doc-a', layerName: 'alice' });
+
+    expect(responses.map((r) => r.kind)).toEqual([
+      'resolve',
+      'resolve',
+      'resolve',
+      'resolve',
+      'resolve',
+      'reject',
+    ]);
+
+    const baseList = responses[2];
+    const layerList = responses[3];
+    expect(baseList.kind).toBe('resolve');
+    expect(layerList.kind).toBe('resolve');
+    if (baseList.kind !== 'resolve' || layerList.kind !== 'resolve') return;
+    expect(baseList.result).toMatchObject({
+      tag: 'pages.list',
+      snapshot: { pages: [{ pageObjectNumber: 1101 }] },
+    });
+    expect(layerList.result).toMatchObject({
+      tag: 'pages.list',
+      snapshot: { pages: [{ pageObjectNumber: 3101 }, { pageObjectNumber: 3102 }] },
+    });
+    expect(runtime.calls.closeDocuments).toEqual([ptr(101), ptr(301)]);
+    expect(runtime.calls.releaseBases).toEqual([ptr(201)]);
   });
 });
