@@ -1,5 +1,6 @@
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { RevisionToken } from './RevisionToken';
+import type { WeakAnnotationState } from './WeakAnnotationState';
 
 /**
  * Per-page state envelope returned with every annotation list and every
@@ -16,8 +17,17 @@ export interface PageState {
   pageIndex: number;
   revision: RevisionToken;
   /**
+   * Explicit knowledge state for the weak-annotation scan. `unknown` means the
+   * page has not been scanned yet; it must not be published as a CDN/cache
+   * boolean.
+   */
+  weakAnnotationState: WeakAnnotationState;
+  /**
    * `true` when at least one annotation on this page has
    * `identityQuality === 'weak'`. Drives the mutation-impact computation.
+   * Kept as a compatibility/convenience mirror for local transient results;
+   * cacheable manifests must derive their boolean from `weakAnnotationState`
+   * only when it is `known`.
    */
   hasAnyWeakAnnotations: boolean;
 }

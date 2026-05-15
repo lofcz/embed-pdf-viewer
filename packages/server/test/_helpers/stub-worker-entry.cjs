@@ -84,6 +84,7 @@ parentPort.on('message', (msg) => {
           pageObjectNumber: i + 1,
           pageIndex: i,
           revision: { docSessionId: 'stub-session', pageObjectNumber: i + 1, generation: 0 },
+          weakAnnotationState: { kind: 'unknown' },
           hasAnyWeakAnnotations: false,
         });
       }
@@ -92,6 +93,39 @@ parentPort.on('message', (msg) => {
         jobId: msg.jobId,
         result: {
           tag: 'pages.list',
+          snapshot: { pages },
+        },
+      });
+      return;
+    }
+    case 'annotations.listRawAll': {
+      const meta = openDocs.get(sessionKey(msg));
+      if (!meta) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: { name: 'EngineError', message: `not open: ${msg.docId}`, code: 'DocNotOpen' },
+        });
+        return;
+      }
+      const pages = [];
+      for (let i = 0; i < meta.pageCount; i++) {
+        pages.push({
+          pageState: {
+            pageObjectNumber: i + 1,
+            pageIndex: i,
+            revision: { docSessionId: 'stub-session', pageObjectNumber: i + 1, generation: 0 },
+            weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
+            hasAnyWeakAnnotations: false,
+          },
+          annotations: [],
+        });
+      }
+      parentPort.postMessage({
+        kind: 'resolve',
+        jobId: msg.jobId,
+        result: {
+          tag: 'annotations.listRawAll',
           snapshot: { pages },
         },
       });
@@ -131,6 +165,7 @@ parentPort.on('message', (msg) => {
               pageObjectNumber: pon,
               pageIndex: pon - 1,
               revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
+              weakAnnotationState: { kind: 'unknown' },
               hasAnyWeakAnnotations: false,
             },
             text,
@@ -173,6 +208,7 @@ parentPort.on('message', (msg) => {
               pageObjectNumber: pon,
               pageIndex: pon - 1,
               revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
+              weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
               hasAnyWeakAnnotations: false,
             },
             annotations: [],

@@ -2,6 +2,7 @@ import {
   EngineError,
   EngineErrorCode,
   wirePack,
+  type PageState,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import type { ManifestPage } from '@embedpdf/engine-core/wire';
@@ -36,9 +37,10 @@ export interface DocumentHead {
  * that drive `/pages/:pon/v:P/text` and `/pages/:pon/v:A/annotations`,
  * so the SDK can build leaf URLs without further round-trips.
  *
- * Hard-coded `(contentVersion: 1, annotationVersion: 1,
- * hasWeakAnnotations: false)` in Phase 4 — Phase 5 swaps the
- * one-liner for a `LayerPagesRepo.find(docId)` lookup.
+ * Hard-coded `(contentVersion: 1, annotationVersion: 1)` in Phase 4.
+ * `hasWeakAnnotations` is still computed from a real annotation scan before
+ * being published, so the cacheable manifest never collapses unknown to false.
+ * Phase 5 swaps the scan for a `LayerPagesRepo.find(docId)` lookup.
  */
 export interface DocumentManifest {
   docVersion: number;
@@ -203,14 +205,28 @@ export class DocumentService {
         `unexpected manifest payload: ${result.tag}`,
       );
     }
-    // Phase 4: per-page versions are all `1` and `hasWeakAnnotations`
-    // is `false` for every page. Phase 5 swaps this `.map` for a
-    // single `layerPages.find(docId)` lookup keyed by pon.
-    const pages: ManifestPage[] = result.snapshot.pages.map((page) => ({
+    let pageStates = result.snapshot.pages;
+    if (pageStates.some((page) => page.weakAnnotationState.kind !== 'known')) {
+      const annotationsBuild = (jobId: WorkerJobId) =>
+        wirePack({ kind: 'annotations.listRawAll' as const, jobId, docId });
+      const annotationsResult = await this.pool.run(docId, annotationsBuild);
+      if (annotationsResult.tag !== 'annotations.listRawAll') {
+        throw new EngineError(
+          EngineErrorCode.WireFormat,
+          `unexpected manifest annotation payload: ${annotationsResult.tag}`,
+        );
+      }
+      pageStates = annotationsResult.snapshot.pages.map((page) => page.pageState);
+    }
+
+    // Phase 4: per-page versions are all `1`. The weak-annotation flag is
+    // only published after the worker has actually scanned annotations for
+    // that page; unknown is not allowed to become a CDN-cacheable `false`.
+    const pages: ManifestPage[] = pageStates.map((page) => ({
       ...page,
       contentVersion: 1,
       annotationVersion: 1,
-      hasWeakAnnotations: page.hasAnyWeakAnnotations,
+      hasWeakAnnotations: requireKnownWeakAnnotationBoolean(page),
     }));
     return {
       docVersion: head.docVersion,
@@ -283,4 +299,15 @@ export class DocumentService {
     this.baseHandles.delete(docId);
     handle.release();
   }
+}
+
+function requireKnownWeakAnnotationBoolean(page: PageState): boolean {
+  if (page.weakAnnotationState.kind !== 'known') {
+    throw new EngineError(
+      EngineErrorCode.WireFormat,
+      `manifest page ${page.pageObjectNumber} has unknown weak annotation state`,
+      { details: { pageObjectNumber: page.pageObjectNumber } },
+    );
+  }
+  return page.weakAnnotationState.hasAnyWeakAnnotations;
 }

@@ -1,9 +1,16 @@
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
-import type { PageObjectNumber, PageState, RevisionToken } from '@embedpdf/engine-core/runtime';
+import type {
+  PageObjectNumber,
+  PageState,
+  RevisionToken,
+  WeakAnnotationState,
+} from '@embedpdf/engine-core/runtime';
 import {
   EngineError,
   EngineErrorCode,
+  knownWeakAnnotationState,
   isValidPageObjectNumber,
+  weakAnnotationStateToLegacyBoolean,
 } from '@embedpdf/engine-core/runtime';
 import { MetadataServiceImpl } from '../MetadataServiceImpl';
 import {
@@ -13,7 +20,7 @@ import {
 } from './PdfDocumentOpener';
 import type { PageRecord } from './PageRecord';
 import { PagePtrPool } from './PagePtrPool';
-import { RevisionStore } from './RevisionStore';
+import { LocalRevisionAuthority, type RevisionAuthority } from './RevisionStore';
 
 /**
  * Owns the lifecycle of a single open PDFium document and the v3
@@ -37,10 +44,7 @@ export class DocumentSession {
   private readonly recordsByIndex = new Map<number, PageRecord>();
   private fullyEnumerated = false;
 
-  /** Annotations on the page have at least one weak (no objectNumber, no NM). */
-  private readonly weakFlags = new Map<PageObjectNumber, boolean>();
-
-  private revisions: RevisionStore | null = null;
+  private revisions: RevisionAuthority | null = null;
   private pages: PagePtrPool | null = null;
 
   constructor(
@@ -74,7 +78,7 @@ export class DocumentSession {
     this.docPtr = handle.docPtr;
     this.closeDocument = () => handle.close();
     this._kind = handle.kind;
-    this.revisions = new RevisionStore(this._sessionId);
+    this.revisions = new LocalRevisionAuthority(this._sessionId);
     this.pages = new PagePtrPool(runtimePagesAreSafe(this.runtime), handle.docPtr);
   }
 
@@ -99,33 +103,25 @@ export class DocumentSession {
     const count = fn.FPDF_GetPageCount(docPtr);
     for (let i = 0; i < count; i++) {
       if (this.recordsByIndex.has(i)) continue;
-      const pagePtr = fn.FPDF_LoadPage(docPtr, i);
-      if (!pagePtr) {
-        throw new EngineError(EngineErrorCode.NotFound, `failed to load page at index ${i}`);
+      const pon = fn.EPDFDoc_GetPageObjectNumberByIndex(docPtr, i);
+      if (!isValidPageObjectNumber(pon)) {
+        // Spec violation: ISO 32000-1 §7.7.3.3 requires every
+        // /Page to be referenced indirectly from the /Pages tree.
+        // PDFium's loader is permissive enough to surface direct
+        // page dicts from broken generators, but the engine's
+        // identity model requires a real indirect object number,
+        // so we refuse the document here with a clear, actionable
+        // error rather than silently routing through a weak
+        // identity path.
+        throw new EngineError(
+          EngineErrorCode.MalformedPdf,
+          `page at index ${i} is a direct (non-indirect) PDF object; the engine requires every page to have a stable indirect object number`,
+          { details: { pageIndex: i, pon } },
+        );
       }
-      try {
-        const pon = fn.EPDFPage_GetObjectNumber(pagePtr);
-        if (!isValidPageObjectNumber(pon)) {
-          // Spec violation: ISO 32000-1 §7.7.3.3 requires every
-          // /Page to be referenced indirectly from the /Pages tree.
-          // PDFium's loader is permissive enough to surface direct
-          // page dicts from broken generators, but the engine's
-          // identity model requires a real indirect object number,
-          // so we refuse the document here with a clear, actionable
-          // error rather than silently routing through a weak
-          // identity path.
-          throw new EngineError(
-            EngineErrorCode.MalformedPdf,
-            `page at index ${i} is a direct (non-indirect) PDF object; the engine requires every page to have a stable indirect object number`,
-            { details: { pageIndex: i, pon } },
-          );
-        }
-        const record: PageRecord = { pageObjectNumber: pon, pageIndex: i };
-        this.recordsByIndex.set(i, record);
-        this.recordsByObjectNumber.set(pon, record);
-      } finally {
-        fn.FPDF_ClosePage(pagePtr);
-      }
+      const record: PageRecord = { pageObjectNumber: pon, pageIndex: i };
+      this.recordsByIndex.set(i, record);
+      this.recordsByObjectNumber.set(pon, record);
     }
     this.fullyEnumerated = true;
   }
@@ -183,8 +179,8 @@ export class DocumentSession {
    * Drop the cached `pageIndex <-> pageObjectNumber` mapping and force a
    * fresh enumeration on next access. Called by `DocumentPagesMutator`
    * after `FPDF_MovePages` shuffles page positions; we keep
-   * `weakFlags` and per-page revision counters intact, both of which are
-   * keyed by durable `pageObjectNumber` and survive a page reorder.
+   * weak-annotation knowledge and per-page revision counters intact, both of
+   * which are keyed by durable `pageObjectNumber` and survive a page reorder.
    */
   refreshPageRegistry(): void {
     this.recordsByIndex.clear();
@@ -196,17 +192,27 @@ export class DocumentSession {
   /** Per-page state envelope used by every read/mutation result. */
   pageState(pageObjectNumber: PageObjectNumber): PageState {
     const record = this.recordByObjectNumber(pageObjectNumber);
+    const weakAnnotationState = this.requireRevisions().weakAnnotationState(pageObjectNumber);
     return {
       pageObjectNumber,
       pageIndex: record.pageIndex,
       revision: this.requireRevisions().token(pageObjectNumber),
-      hasAnyWeakAnnotations: this.weakFlags.get(pageObjectNumber) ?? false,
+      weakAnnotationState,
+      hasAnyWeakAnnotations: weakAnnotationStateToLegacyBoolean(weakAnnotationState),
     };
   }
 
   /** Set by readers as they discover whether a page has weak annotations. */
   recordWeakFlag(pageObjectNumber: PageObjectNumber, hasWeak: boolean): void {
-    this.weakFlags.set(pageObjectNumber, hasWeak);
+    this.recordWeakAnnotationState(pageObjectNumber, knownWeakAnnotationState(hasWeak));
+  }
+
+  recordWeakAnnotationState(pageObjectNumber: PageObjectNumber, state: WeakAnnotationState): void {
+    this.requireRevisions().recordWeakAnnotationState(pageObjectNumber, state);
+  }
+
+  weakAnnotationState(pageObjectNumber: PageObjectNumber): WeakAnnotationState {
+    return this.requireRevisions().weakAnnotationState(pageObjectNumber);
   }
 
   /** Bump and return the new revision token; called by mutation paths. */
@@ -250,17 +256,17 @@ export class DocumentSession {
       this.closeDocument = null;
       this.docPtr = null;
       this._kind = null;
+      this.revisions?.clear();
       this.revisions = null;
       this.recordsByIndex.clear();
       this.recordsByObjectNumber.clear();
-      this.weakFlags.clear();
       this.fullyEnumerated = false;
     }
 
     if (firstError) throw firstError;
   }
 
-  private requireRevisions(): RevisionStore {
+  private requireRevisions(): RevisionAuthority {
     if (!this.revisions) {
       throw new EngineError(EngineErrorCode.DocNotOpen, 'document is not open');
     }

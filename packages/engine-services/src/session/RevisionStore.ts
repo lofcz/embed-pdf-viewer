@@ -1,5 +1,24 @@
-import type { PageObjectNumber, RevisionToken } from '@embedpdf/engine-core/runtime';
-import { EngineError, EngineErrorCode, revisionTokensEqual } from '@embedpdf/engine-core/runtime';
+import type {
+  PageObjectNumber,
+  RevisionToken,
+  WeakAnnotationState,
+} from '@embedpdf/engine-core/runtime';
+import {
+  EngineError,
+  EngineErrorCode,
+  UNKNOWN_WEAK_ANNOTATION_STATE,
+  revisionTokensEqual,
+} from '@embedpdf/engine-core/runtime';
+
+export interface RevisionAuthority {
+  readonly docSessionId: string;
+  token(pageObjectNumber: PageObjectNumber): RevisionToken;
+  bump(pageObjectNumber: PageObjectNumber): RevisionToken;
+  validate(token: RevisionToken): void;
+  weakAnnotationState(pageObjectNumber: PageObjectNumber): WeakAnnotationState;
+  recordWeakAnnotationState(pageObjectNumber: PageObjectNumber, state: WeakAnnotationState): void;
+  clear(): void;
+}
 
 /**
  * Per-page generation counter. Backs `RevisionToken` so weak
@@ -10,8 +29,9 @@ import { EngineError, EngineErrorCode, revisionTokensEqual } from '@embedpdf/eng
  * structural change to the page (annotation create/delete/reorder).
  * Read paths never mutate the store.
  */
-export class RevisionStore {
+export class LocalRevisionAuthority implements RevisionAuthority {
   private readonly generations = new Map<PageObjectNumber, number>();
+  private readonly weakAnnotationStates = new Map<PageObjectNumber, WeakAnnotationState>();
 
   constructor(public readonly docSessionId: string) {}
 
@@ -58,4 +78,19 @@ export class RevisionStore {
       });
     }
   }
+
+  weakAnnotationState(pageObjectNumber: PageObjectNumber): WeakAnnotationState {
+    return this.weakAnnotationStates.get(pageObjectNumber) ?? UNKNOWN_WEAK_ANNOTATION_STATE;
+  }
+
+  recordWeakAnnotationState(pageObjectNumber: PageObjectNumber, state: WeakAnnotationState): void {
+    this.weakAnnotationStates.set(pageObjectNumber, state);
+  }
+
+  clear(): void {
+    this.generations.clear();
+    this.weakAnnotationStates.clear();
+  }
 }
+
+export { LocalRevisionAuthority as RevisionStore };

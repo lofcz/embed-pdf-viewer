@@ -9,6 +9,7 @@ import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
 import { AnnotationStableIdSchema, RevisionTokenSchema } from '../annotation/base.schema';
 import type { PageState } from '../revision/PageState';
+import type { WeakAnnotationState } from '../revision/WeakAnnotationState';
 import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
@@ -75,10 +76,22 @@ export const EngineErrorPayloadSchema: z.ZodType<SerializedEngineError> = z.obje
   details: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const WeakAnnotationStateSchema: z.ZodType<WeakAnnotationState> = z.discriminatedUnion(
+  'kind',
+  [
+    z.object({ kind: z.literal('unknown') }),
+    z.object({
+      kind: z.literal('known'),
+      hasAnyWeakAnnotations: z.boolean(),
+    }),
+  ],
+);
+
 export const PageStateSchema: z.ZodType<PageState> = z.object({
   pageObjectNumber: z.number().int().positive(),
   pageIndex: z.number().int().nonnegative(),
   revision: RevisionTokenSchema,
+  weakAnnotationState: WeakAnnotationStateSchema,
   hasAnyWeakAnnotations: z.boolean(),
 });
 
@@ -103,7 +116,30 @@ export const ManifestPageSchema = PageStateSchema.and(
     annotationVersion: z.number().int().positive(),
     hasWeakAnnotations: z.boolean(),
   }),
-);
+).superRefine((page, ctx) => {
+  if (page.weakAnnotationState.kind !== 'known') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['weakAnnotationState'],
+      message: 'manifest pages must have a known weak annotation state',
+    });
+    return;
+  }
+  if (page.hasWeakAnnotations !== page.weakAnnotationState.hasAnyWeakAnnotations) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['hasWeakAnnotations'],
+      message: 'hasWeakAnnotations must match the known weak annotation state',
+    });
+  }
+  if (page.hasAnyWeakAnnotations !== page.weakAnnotationState.hasAnyWeakAnnotations) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['hasAnyWeakAnnotations'],
+      message: 'hasAnyWeakAnnotations must match the known weak annotation state',
+    });
+  }
+});
 export type ManifestPage = z.infer<typeof ManifestPageSchema>;
 
 /**

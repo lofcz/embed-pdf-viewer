@@ -70,6 +70,7 @@ export class DocumentAnnotationMutator {
     const pool = this.session.pagePool();
     const pagePtr = pool.acquire(pageObjectNumber);
     try {
+      this.ensureKnownWeakStateFromPage(pageObjectNumber, pagePtr);
       // `create` is append-only: PDFium drops the new annotation at
       // `index = previousCount`, so no existing index ever shifts. Per
       // the locked rule in `ImpactComputer`, that means create is
@@ -147,6 +148,7 @@ export class DocumentAnnotationMutator {
       annotPtr = this.resolveAnnotPtr(pagePtr, ref);
       throwIfAborted(signal);
 
+      this.ensureKnownWeakStateFromPage(ref.pageObjectNumber, pagePtr);
       const pageStateBefore = this.session.pageState(ref.pageObjectNumber);
 
       // Opportunistic /NM stamp for weak annotations + capture the
@@ -177,6 +179,7 @@ export class DocumentAnnotationMutator {
         pageStateBefore.revision,
       );
 
+      this.recordWeakStateFromPage(ref.pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(ref.pageObjectNumber);
       const meta = ImpactComputer.compute({
         mutation: 'update',
@@ -198,11 +201,12 @@ export class DocumentAnnotationMutator {
     const pagePtr = pool.acquire(ref.pageObjectNumber);
     let bumpRequested = false;
     try {
+      this.ensureKnownWeakStateFromPage(ref.pageObjectNumber, pagePtr);
       const pageStateBefore = this.session.pageState(ref.pageObjectNumber);
       throwIfAborted(signal);
 
       let deleted: AnnotationStableId | null;
-      let ok: boolean;
+      let ok = false;
       switch (ref.kind) {
         case 'objectNumber': {
           // Probe so we 404 honestly before mutating. The fork helper
@@ -279,6 +283,7 @@ export class DocumentAnnotationMutator {
       // Structural change; bump revision now and stop the finally-bump.
       this.session.bumpRevision(ref.pageObjectNumber);
       bumpRequested = false;
+      this.recordWeakStateFromPage(ref.pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(ref.pageObjectNumber);
 
       const meta = ImpactComputer.compute({
@@ -357,6 +362,7 @@ export class DocumentAnnotationMutator {
     let bumpRequested = false;
 
     try {
+      this.ensureKnownWeakStateFromPage(pageObjectNumber, pagePtr);
       const pageStateBefore = this.session.pageState(pageObjectNumber);
       throwIfAborted(signal);
 
@@ -462,6 +468,7 @@ export class DocumentAnnotationMutator {
         }
       }
 
+      this.recordWeakStateFromPage(pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(pageObjectNumber);
       const meta: AnnotationListMutationMeta = ImpactComputer.compute({
         mutation: 'move',
@@ -492,6 +499,47 @@ export class DocumentAnnotationMutator {
     const minted = generateUuid();
     writeAnnotationNm(fn, mem, annotPtr, minted);
     return { kind: 'nm', value: minted };
+  }
+
+  private ensureKnownWeakStateFromPage(pageObjectNumber: PageObjectNumber, pagePtr: Ptr): void {
+    if (this.session.weakAnnotationState(pageObjectNumber).kind === 'known') {
+      return;
+    }
+    this.recordWeakStateFromPage(pageObjectNumber, pagePtr);
+  }
+
+  private recordWeakStateFromPage(pageObjectNumber: PageObjectNumber, pagePtr: Ptr): void {
+    this.session.recordWeakFlag(pageObjectNumber, this.computeHasWeakAnnotations(pagePtr));
+  }
+
+  private computeHasWeakAnnotations(pagePtr: Ptr): boolean {
+    const { fn, mem } = this.runtime;
+    const count = fn.FPDFPage_GetAnnotCount(pagePtr);
+    if (count < 0) {
+      throw new EngineError(
+        EngineErrorCode.Unknown,
+        `FPDFPage_GetAnnotCount returned ${count} while computing weak annotations`,
+      );
+    }
+    for (let i = 0; i < count; i++) {
+      const annotPtr = fn.FPDFPage_GetAnnot(pagePtr, i);
+      if (!annotPtr) {
+        continue;
+      }
+      try {
+        const objNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);
+        if (objNum > 0) {
+          continue;
+        }
+        const nm = readAnnotString(fn, mem, annotPtr, 'NM');
+        if (nm === null || nm.length === 0) {
+          return true;
+        }
+      } finally {
+        fn.FPDFPage_CloseAnnot(annotPtr);
+      }
+    }
+    return false;
   }
 
   /**
@@ -540,5 +588,6 @@ export class DocumentAnnotationMutator {
         return annotPtr;
       }
     }
+    throw new EngineError(EngineErrorCode.InvalidArg, `unsupported annotation ref kind`);
   }
 }

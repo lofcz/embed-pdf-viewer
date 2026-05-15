@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { wirePack, type WorkerResponse } from '@embedpdf/engine-core/runtime';
+import { ManifestPageSchema } from '@embedpdf/engine-core/wire';
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import { BaseDocumentRegistry } from '../../engine-services/src/session/BaseDocumentRegistry';
 import { DocumentSession } from '../../engine-services/src/session/DocumentSession';
@@ -16,6 +17,7 @@ function createFakeRuntime(): PdfRuntimeModule & {
     nodeFilePaths: string[];
     releaseBases: Ptr[];
     fileAccessClosed: number;
+    loadPages: Array<{ docPtr: Ptr; pageIndex: number }>;
     order: string[];
   };
 } {
@@ -30,6 +32,7 @@ function createFakeRuntime(): PdfRuntimeModule & {
     nodeFilePaths: [] as string[],
     releaseBases: [] as Ptr[],
     fileAccessClosed: 0,
+    loadPages: [] as Array<{ docPtr: Ptr; pageIndex: number }>,
     order: [] as string[],
   };
 
@@ -87,11 +90,20 @@ function createFakeRuntime(): PdfRuntimeModule & {
         calls.order.push('document');
       },
       FPDF_GetPageCount: (docPtr: Ptr) => pagesByDoc.get(docPtr)?.length ?? 0,
+      EPDFDoc_GetPageObjectNumberByIndex: (docPtr: Ptr, pageIndex: number) =>
+        pagesByDoc.get(docPtr)?.[pageIndex] ?? 0,
       FPDF_LoadPage: (docPtr: Ptr, pageIndex: number) => {
+        calls.loadPages.push({ docPtr, pageIndex });
         const pon = pagesByDoc.get(docPtr)?.[pageIndex];
         if (!pon) return ptr(0);
         const pagePtr = ptr(Number(docPtr) * 100 + pageIndex);
         ponByPagePtr.set(pagePtr, pon);
+        return pagePtr;
+      },
+      EPDFDoc_LoadPageByObjectNumber: (docPtr: Ptr, pageObjectNumber: number) => {
+        if (!pagesByDoc.get(docPtr)?.includes(pageObjectNumber)) return ptr(0);
+        const pagePtr = ptr(Number(docPtr) * 1000 + pageObjectNumber);
+        ponByPagePtr.set(pagePtr, pageObjectNumber);
         return pagePtr;
       },
       FPDF_ClosePage: () => undefined,
@@ -145,6 +157,42 @@ describe('DocumentSession open ownership', () => {
     session.close();
 
     expect(runtime.calls.closeDocuments).toEqual([ptr(101)]);
+  });
+
+  test('pageState keeps weak annotation knowledge explicit', () => {
+    const runtime = createFakeRuntime();
+    const session = new DocumentSession(runtime);
+
+    session.open(new Uint8Array([1]), null);
+
+    const initial = session.pageState(1101);
+    expect(initial.weakAnnotationState).toEqual({ kind: 'unknown' });
+    expect(initial.hasAnyWeakAnnotations).toBe(false);
+    expect(
+      ManifestPageSchema.safeParse({
+        ...initial,
+        contentVersion: 1,
+        annotationVersion: 1,
+        hasWeakAnnotations: false,
+      }).success,
+    ).toBe(false);
+
+    session.recordWeakFlag(1101, false);
+    const known = session.pageState(1101);
+    expect(known.weakAnnotationState).toEqual({
+      kind: 'known',
+      hasAnyWeakAnnotations: false,
+    });
+    expect(
+      ManifestPageSchema.safeParse({
+        ...known,
+        contentVersion: 1,
+        annotationVersion: 1,
+        hasWeakAnnotations: false,
+      }).success,
+    ).toBe(true);
+
+    session.close();
   });
 
   test('base registry shares one loaded memory base until the last release', () => {
@@ -247,6 +295,7 @@ describe('DocumentSession open ownership', () => {
       tag: 'pages.list',
       snapshot: { pages: [{ pageObjectNumber: 3101 }, { pageObjectNumber: 3102 }] },
     });
+    expect(runtime.calls.loadPages).toEqual([]);
     expect(runtime.calls.closeDocuments).toEqual([ptr(101), ptr(301)]);
     expect(runtime.calls.releaseBases).toEqual([ptr(201)]);
   });
@@ -276,6 +325,7 @@ describe('DocumentSession open ownership', () => {
       tag: 'pages.list',
       snapshot: { pages: [{ pageObjectNumber: 3101 }, { pageObjectNumber: 3102 }] },
     });
+    expect(runtime.calls.loadPages).toEqual([]);
     expect(runtime.calls.nodeFilePaths).toEqual(['/tmp/base-file.pdf']);
     expect(runtime.calls.closeDocuments).toEqual([ptr(301)]);
     expect(runtime.calls.releaseBases).toEqual([ptr(202)]);

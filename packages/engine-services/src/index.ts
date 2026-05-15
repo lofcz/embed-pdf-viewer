@@ -18,7 +18,11 @@ export {
   type OpenedPdfDocument,
   type OpenedPdfDocumentKind,
 } from './session/PdfDocumentOpener';
-export { RevisionStore } from './session/RevisionStore';
+export {
+  LocalRevisionAuthority,
+  RevisionStore,
+  type RevisionAuthority,
+} from './session/RevisionStore';
 export { PagePtrPool } from './session/PagePtrPool';
 export { AnnotationIdentityResolver } from './session/AnnotationIdentityResolver';
 export type { ResolvedAnnotation } from './session/AnnotationIdentityResolver';

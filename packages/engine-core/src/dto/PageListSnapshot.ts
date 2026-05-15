@@ -10,9 +10,11 @@ import type { PageState } from '../revision/PageState';
  *     identity, do not pass back as a ref.
  *   - `revision`: per-page generation token used for weak annotation ref
  *     liveness; intentionally untouched by `pages.move()`.
- *   - `hasAnyWeakAnnotations`: drives the annotation mutation impact
- *     computation, surfaced here too so a UI can render a "this page
- *     has legacy annotations" badge without an extra read.
+ *   - `weakAnnotationState`: whether the engine has actually scanned
+ *     annotations for weak identities on this page.
+ *   - `hasAnyWeakAnnotations`: compatibility mirror for local transient
+ *     reads. Cacheable/cloud state must use `weakAnnotationState` and may
+ *     only publish a boolean when it is `known`.
  */
 export interface PageListSnapshot {
   pages: PageState[];

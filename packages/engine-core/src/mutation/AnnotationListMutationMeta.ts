@@ -24,6 +24,8 @@ export interface AnnotationListMutationMeta {
    * client may still be holding became invalid as a result of this
    * mutation. Set by the engine based on the page's
    * `hasAnyWeakAnnotations` flag and the structural shape of the change.
+   * Mutation paths ensure the weak-annotation state is known before computing
+   * this value.
    */
   weakRefsInvalidated: boolean;
   /**

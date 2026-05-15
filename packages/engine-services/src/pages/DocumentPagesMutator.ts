@@ -46,8 +46,9 @@ export class DocumentPagesMutator {
 
   /**
    * Snapshot of every page, in display order. Cheap; no `pagePtr` is
-   * acquired (page registry enumeration uses an FPDF_LoadPage / Close
-   * cycle exactly once per session).
+   * acquired (page registry enumeration asks PDFium for each page dict's
+   * object number by index, without constructing page handles or parsing
+   * page content).
    */
   list(signal: AbortSignal): PageListSnapshot {
     throwIfAborted(signal);

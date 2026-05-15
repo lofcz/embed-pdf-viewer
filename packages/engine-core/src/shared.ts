@@ -35,6 +35,12 @@ export type { AnnotationIdentityQuality } from './identity/AnnotationIdentityQua
 export { revisionTokensEqual } from './revision/RevisionToken';
 export type { RevisionToken } from './revision/RevisionToken';
 export type { PageState } from './revision/PageState';
+export {
+  UNKNOWN_WEAK_ANNOTATION_STATE,
+  knownWeakAnnotationState,
+  weakAnnotationStateToLegacyBoolean,
+} from './revision/WeakAnnotationState';
+export type { WeakAnnotationState } from './revision/WeakAnnotationState';
 
 export type {
   Color,
