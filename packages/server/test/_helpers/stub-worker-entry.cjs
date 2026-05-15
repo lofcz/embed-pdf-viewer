@@ -4,7 +4,7 @@
  * The pool dispatches WorkerRequests of various kinds; this stub
  * implements only the surface that routing tests touch:
  *
- *   - `open.fatMem` -> echoes back a small open ack
+ *   - `open.fatMem` / `open.layer*` -> echoes back a small open ack
  *   - `close` -> echoes back a small close ack
  *   - `shutdown` -> exits after acking
  *
@@ -13,6 +13,7 @@
  * fixtures.
  */
 const { parentPort } = require('node:worker_threads');
+const { readFileSync } = require('node:fs');
 
 // Per-open page count, derived from the byte payload's first byte
 // so DocumentService tests can vary it. The stub records every open
@@ -45,6 +46,20 @@ parentPort.on('message', (msg) => {
       // byte of the base payload still encodes page count for tests.
       const view = msg.baseBytes ? new Uint8Array(msg.baseBytes) : new Uint8Array(0);
       const pageCount = view.byteLength > 0 ? view[0] : 0;
+      openDocs.set(sessionKey(msg), { pageCount });
+      parentPort.postMessage({
+        kind: 'resolve',
+        jobId: msg.jobId,
+        result: { tag: 'open', docId: msg.docId },
+      });
+      return;
+    }
+    case 'open.layerFileBase': {
+      // Server doc routes pass a materialised file path so native
+      // PDFium can range-read the base. The stub reads only to recover
+      // the test page-count byte.
+      const bytes = msg.basePath ? readFileSync(msg.basePath) : Buffer.alloc(0);
+      const pageCount = bytes.byteLength > 0 ? bytes[0] : 0;
       openDocs.set(sessionKey(msg), { pageCount });
       parentPort.postMessage({
         kind: 'resolve',

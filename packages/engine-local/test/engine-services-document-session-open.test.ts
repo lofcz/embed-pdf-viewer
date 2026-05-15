@@ -13,6 +13,7 @@ function createFakeRuntime(): PdfRuntimeModule & {
     closeDocuments: Ptr[];
     loadMemDocuments: Array<{ ptr: Ptr; size: number; password: string }>;
     loadMemBases: Array<{ ptr: Ptr; size: number; password: string }>;
+    nodeFilePaths: string[];
     releaseBases: Ptr[];
     fileAccessClosed: number;
     order: string[];
@@ -26,6 +27,7 @@ function createFakeRuntime(): PdfRuntimeModule & {
     closeDocuments: [] as Ptr[],
     loadMemDocuments: [] as Array<{ ptr: Ptr; size: number; password: string }>,
     loadMemBases: [] as Array<{ ptr: Ptr; size: number; password: string }>,
+    nodeFilePaths: [] as string[],
     releaseBases: [] as Ptr[],
     fileAccessClosed: 0,
     order: [] as string[],
@@ -62,9 +64,10 @@ function createFakeRuntime(): PdfRuntimeModule & {
           calls.order.push('file-access');
         },
       }),
-      fromNodeFile: () => ({
+      fromNodeFile: (path: string) => ({
         ptr: ptr(502),
         close: () => {
+          calls.nodeFilePaths.push(path);
           calls.fileAccessClosed++;
           calls.order.push('file-access');
         },
@@ -246,5 +249,35 @@ describe('DocumentSession open ownership', () => {
     });
     expect(runtime.calls.closeDocuments).toEqual([ptr(101), ptr(301)]);
     expect(runtime.calls.releaseBases).toEqual([ptr(201)]);
+  });
+
+  test('worker can open the base-view session from a file-backed base', () => {
+    const runtime = createFakeRuntime();
+    const responses: WorkerResponse[] = [];
+    const host = new WorkerHost(runtime, (pack) => responses.push(pack.payload));
+
+    host.receive({
+      kind: 'open.layerFileBase',
+      jobId: 1,
+      docId: 'doc-file',
+      baseKey: 'base-file',
+      basePath: '/tmp/base-file.pdf',
+      layer: { kind: 'fresh' },
+      password: null,
+    });
+    host.receive({ kind: 'pages.list', jobId: 2, docId: 'doc-file' });
+    host.receive({ kind: 'close', jobId: 3, docId: 'doc-file' });
+
+    expect(responses.map((r) => r.kind)).toEqual(['resolve', 'resolve', 'resolve']);
+    const list = responses[1];
+    expect(list.kind).toBe('resolve');
+    if (list.kind !== 'resolve') return;
+    expect(list.result).toMatchObject({
+      tag: 'pages.list',
+      snapshot: { pages: [{ pageObjectNumber: 3101 }, { pageObjectNumber: 3102 }] },
+    });
+    expect(runtime.calls.nodeFilePaths).toEqual(['/tmp/base-file.pdf']);
+    expect(runtime.calls.closeDocuments).toEqual([ptr(301)]);
+    expect(runtime.calls.releaseBases).toEqual([ptr(202)]);
   });
 });

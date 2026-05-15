@@ -52,7 +52,25 @@ export interface OpenLayerMemoryBaseWorkerRequest {
   password: string | null;
 }
 
-export type OpenWorkerRequest = OpenFatMemoryWorkerRequest | OpenLayerMemoryBaseWorkerRequest;
+export interface OpenLayerFileBaseWorkerRequest {
+  kind: 'open.layerFileBase';
+  jobId: WorkerJobId;
+  docId: string;
+  /**
+   * Omit for the base-view session. Supplying a name opens a separate
+   * layer session under the same docId.
+   */
+  layerName?: string;
+  baseKey: string;
+  basePath: string;
+  layer: LayerOpenSource;
+  password: string | null;
+}
+
+export type OpenWorkerRequest =
+  | OpenFatMemoryWorkerRequest
+  | OpenLayerMemoryBaseWorkerRequest
+  | OpenLayerFileBaseWorkerRequest;
 
 export interface MetadataReadWorkerRequest {
   kind: 'metadata.read';

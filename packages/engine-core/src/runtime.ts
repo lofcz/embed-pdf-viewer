@@ -33,6 +33,7 @@ export type {
   OpenWorkerRequest,
   OpenFatMemoryWorkerRequest,
   OpenLayerMemoryBaseWorkerRequest,
+  OpenLayerFileBaseWorkerRequest,
   LayerOpenSource,
   MetadataReadWorkerRequest,
   AnnotationsListRawAllWorkerRequest,

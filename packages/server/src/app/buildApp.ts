@@ -333,8 +333,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     try {
       await app.close();
     } finally {
-      if (pool) await pool.destroy();
-      if (baseFileCache) await baseFileCache.destroy();
+      try {
+        if (pool) await pool.destroy();
+      } finally {
+        documentService?.releaseAllBaseHandles();
+        if (baseFileCache) await baseFileCache.destroy();
+      }
     }
   };
 

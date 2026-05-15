@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import {
   EngineError,
   EngineErrorCode,
@@ -69,12 +68,12 @@ export interface OpenContext {
  *      materialisation; concurrent acquirers of the same `docId` share
  *      one `WorkerThreadPool.runOpen` via this service's own
  *      singleflight map.
- *   3. Read the materialised bytes into a fresh `ArrayBuffer` and
- *      transfer (zero-copy) into the worker via `pool.runOpen` with
- *      sticky-by-baseSha routing.
- *   4. Release the cache handle. The worker now owns the bytes; the
- *      file on disk stays in the cache (subject to LRU) so the next
- *      cold open on a sibling slot is also fast.
+ *   3. Pass the materialised path to the worker via `pool.runOpen`
+ *      with sticky-by-baseSha routing. The worker opens PDFium through
+ *      file-backed FPDF_FILEACCESS, so Node never copies the full base
+ *      into JS or worker memory.
+ *   4. Keep the cache handle pinned while the worker session is open.
+ *      Release it on explicit close, pool eviction, or app shutdown.
  *   5. Cache the head data so warm `/head` is a single Map lookup.
  *
  * Eviction model: when the pool evicts a `docId` from a worker slot
@@ -87,6 +86,7 @@ export class DocumentService {
   private readonly pool: WorkerThreadPool;
   private readonly heads = new Map<string, DocumentHead>();
   private readonly opens = new Map<string, Promise<DocumentHead>>();
+  private readonly baseHandles = new Map<string, LocalFileHandle>();
 
   constructor(opts: DocumentServiceOptions) {
     this.documents = opts.documents;
@@ -147,24 +147,22 @@ export class DocumentService {
       );
     }
 
-    const handle: LocalFileHandle = await this.cache.acquire({
+    let handle: LocalFileHandle | null = await this.cache.acquire({
       sha: row.baseSha,
       key: StorageKeys.basePdf(row.tenantId, row.id),
     });
     try {
-      // Buffer.allocUnsafeSlow creates a non-pooled buffer; its
-      // underlying ArrayBuffer is exclusive to us, so we can declare
-      // the transfer without worrying about Node reusing the slab.
-      const bytes = await readFile(handle.path);
-      const buffer = bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength,
-      ) as ArrayBuffer;
       const baseSha = row.baseSha;
       const build = (jobId: WorkerJobId) =>
-        wirePack({ kind: 'open.fatMem' as const, jobId, docId, bytes: buffer, password: null }, [
-          buffer,
-        ]);
+        wirePack({
+          kind: 'open.layerFileBase' as const,
+          jobId,
+          docId,
+          baseKey: baseSha,
+          basePath: handle!.path,
+          layer: { kind: 'fresh' as const },
+          password: null,
+        });
       const result = await this.pool.runOpen(docId, baseSha, build);
       if (result.tag !== 'open') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected open payload: ${result.tag}`);
@@ -181,11 +179,11 @@ export class DocumentService {
         docVersion: 1,
         state: row.state,
       };
+      this.replaceBaseHandle(docId, handle);
+      handle = null;
       return head;
     } finally {
-      // The worker has the bytes; we don't need the disk file pinned
-      // anymore. BaseFileCache can LRU-evict whenever it pleases.
-      handle.release();
+      handle?.release();
     }
   }
 
@@ -237,6 +235,7 @@ export class DocumentService {
    */
   onPoolEvict(evt: { docId: string }): void {
     this.heads.delete(evt.docId);
+    this.releaseBaseHandle(evt.docId);
   }
 
   /**
@@ -253,11 +252,35 @@ export class DocumentService {
       // close is best-effort; pool may not know about this docId
       // anymore (already evicted), in which case it returns null and
       // we treat that as success.
+    } finally {
+      this.releaseBaseHandle(docId);
+    }
+  }
+
+  releaseAllBaseHandles(): void {
+    for (const docId of Array.from(this.baseHandles.keys())) {
+      this.releaseBaseHandle(docId);
     }
   }
 
   /** Diagnostic snapshot for tests + ops dashboards. */
-  stats(): { openHeads: number; inflightOpens: number } {
-    return { openHeads: this.heads.size, inflightOpens: this.opens.size };
+  stats(): { openHeads: number; inflightOpens: number; pinnedBaseFiles: number } {
+    return {
+      openHeads: this.heads.size,
+      inflightOpens: this.opens.size,
+      pinnedBaseFiles: this.baseHandles.size,
+    };
+  }
+
+  private replaceBaseHandle(docId: string, handle: LocalFileHandle): void {
+    this.releaseBaseHandle(docId);
+    this.baseHandles.set(docId, handle);
+  }
+
+  private releaseBaseHandle(docId: string): void {
+    const handle = this.baseHandles.get(docId);
+    if (!handle) return;
+    this.baseHandles.delete(docId);
+    handle.release();
   }
 }

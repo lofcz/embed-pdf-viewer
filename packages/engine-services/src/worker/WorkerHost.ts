@@ -82,6 +82,7 @@ export class WorkerHost {
       switch (msg.kind) {
         case 'open.fatMem':
         case 'open.layerMemBase':
+        case 'open.layerFileBase':
           resultPack = this.handleOpen(msg, ctrl.signal);
           break;
         case 'metadata.read':
@@ -149,7 +150,7 @@ export class WorkerHost {
   }
 
   private handleOpen(req: OpenWorkerRequest, _signal: AbortSignal): WirePack<WorkerResultPayload> {
-    const key = sessionKey(req.docId, req.kind === 'open.layerMemBase' ? req.layerName : undefined);
+    const key = sessionKey(req.docId, req.kind === 'open.fatMem' ? undefined : req.layerName);
     if (this.sessions.has(key)) {
       throw new EngineError(EngineErrorCode.InvalidArg, `document session already open: ${key}`);
     }
@@ -158,10 +159,17 @@ export class WorkerHost {
       session.openFromHandle(
         openFatMemoryDocument(this.runtime, new Uint8Array(req.bytes), req.password),
       );
-    } else {
+    } else if (req.kind === 'open.layerMemBase') {
       const base = this.baseDocuments.acquireMemoryBase({
         key: req.baseKey,
         bytes: new Uint8Array(req.baseBytes),
+        password: req.password,
+      });
+      session.openFromHandle(openLayerDocument(this.runtime, base, req.layer, req.password));
+    } else {
+      const base = this.baseDocuments.acquireFileBase({
+        key: req.baseKey,
+        path: req.basePath,
         password: req.password,
       });
       session.openFromHandle(openLayerDocument(this.runtime, base, req.layer, req.password));

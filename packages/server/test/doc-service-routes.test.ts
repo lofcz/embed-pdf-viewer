@@ -29,7 +29,9 @@ interface Fixture {
   cacheRoot: string;
 }
 
-async function buildFixture(): Promise<Fixture> {
+async function buildFixture(
+  opts: { poolSize?: number; maxDocsPerSlot?: number } = {},
+): Promise<Fixture> {
   const storageRoot = await mkdtemp(join(tmpdir(), 'doc-routes-store-'));
   const cacheRoot = await mkdtemp(join(tmpdir(), 'doc-routes-cache-'));
   const db = createSqliteDb({ path: ':memory:' });
@@ -38,13 +40,14 @@ async function buildFixture(): Promise<Fixture> {
   const bundle = await buildApp({
     jwtSecret: SECRET,
     workerEntry: STUB_ENTRY,
-    poolSize: 2,
+    poolSize: opts.poolSize ?? 2,
     db,
     objectStore: store,
     autoProvisionTenant: true,
     sweepIntervalMs: 0,
     cacheRoot,
     cacheMaxBytes: 1024 * 1024,
+    maxDocsPerSlot: opts.maxDocsPerSlot,
   });
   const addr = await bundle.app.listen({ host: '127.0.0.1', port: 0 });
   const baseUrl = typeof addr === 'string' ? addr : `http://127.0.0.1:${addr}`;
@@ -187,6 +190,24 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
       docVersion: 1,
       state: 'ready',
     });
+  });
+
+  test('pins the materialised base file while the worker session is open', async () => {
+    const tenantId = 'tenant-pin';
+    const docId = 'docpin111';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/head`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
+    });
+    expect(res.status).toBe(200);
+    expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(1);
+    expect(fx.bundle.documentService!.stats().pinnedBaseFiles).toBe(1);
+
+    await fx.bundle.documentService!.close(docId);
+
+    expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(0);
+    expect(fx.bundle.documentService!.stats().pinnedBaseFiles).toBe(0);
   });
 
   test('second /head call is served from the head cache (no second materialise)', async () => {
@@ -446,5 +467,30 @@ describe('Phase 3 doc routes — concurrency', () => {
     for (const r of responses) expect(r.status).toBe(200);
     const materializes = events.filter((k) => k === 'materialize-start').length;
     expect(materializes).toBe(1);
+  });
+
+  test('pool eviction releases the pinned base-file handle', async () => {
+    await tearDown(fx);
+    fx = await buildFixture({ poolSize: 1, maxDocsPerSlot: 1 });
+
+    const tenantId = 'tenant-evict';
+    const docA = 'doceva111';
+    const docB = 'docevb222';
+    await seedDocument(fx, tenantId, docA, { pageCount: 1 });
+    await seedDocument(fx, tenantId, docB, { pageCount: 2 });
+
+    const resA = await fetch(`${fx.baseUrl}/v1/docs/${docA}/head`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docA)}` },
+    });
+    expect(resA.status).toBe(200);
+    expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(1);
+
+    const resB = await fetch(`${fx.baseUrl}/v1/docs/${docB}/head`, {
+      headers: { Authorization: `Bearer ${docToken(tenantId, docB)}` },
+    });
+    expect(resB.status).toBe(200);
+
+    expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(1);
+    expect(fx.bundle.documentService!.stats().openHeads).toBe(1);
   });
 });
