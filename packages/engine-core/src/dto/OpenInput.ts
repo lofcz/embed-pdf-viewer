@@ -20,6 +20,32 @@ export interface OpenInputBytes {
   password?: string | null;
 }
 
+export type OpenInputLayerSource =
+  | { kind: 'fresh' }
+  | { kind: 'artifact'; bytes: Uint8Array | ArrayBuffer };
+
+/**
+ * Local-engine layer open. Browser/local callers hand us the base bytes
+ * once per open request; worker-side PDFium loads them as an
+ * EPDF_BASE_DOCUMENT and then opens a layer document over that base.
+ *
+ * Multiple local layer handles can share one loaded base by using the same
+ * `baseKey` with different `id`s. The layer artifact is intentionally small
+ * and memory-backed.
+ *
+ * Rejected by `@embedpdf/engine-cloud`.
+ */
+export interface OpenInputLayerBytes {
+  kind: 'layerBytes';
+  /** Caller-supplied stable id for this layer document handle. */
+  id: string;
+  /** Optional sharing key for the loaded base. Defaults to `id`. */
+  baseKey?: string;
+  baseBytes: Uint8Array | ArrayBuffer;
+  layer?: OpenInputLayerSource;
+  password?: string | null;
+}
+
 /**
  * Cloud-engine: open a document the caller already knows the id of.
  * The engine pings `GET /v1/docs/:id/head`, authenticating with
@@ -70,7 +96,7 @@ export interface OpenInputToken {
   password?: string | null;
 }
 
-export type OpenInput = OpenInputBytes | OpenInputById | OpenInputToken;
+export type OpenInput = OpenInputBytes | OpenInputLayerBytes | OpenInputById | OpenInputToken;
 
 export interface OpenOptions {
   password?: string | null;

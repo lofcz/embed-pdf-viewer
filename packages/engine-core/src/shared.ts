@@ -10,6 +10,8 @@
 export type {
   OpenInput,
   OpenInputBytes,
+  OpenInputLayerBytes,
+  OpenInputLayerSource,
   OpenInputById,
   OpenInputToken,
   OpenOptions,

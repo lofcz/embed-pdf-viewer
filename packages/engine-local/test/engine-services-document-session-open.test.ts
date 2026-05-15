@@ -280,4 +280,35 @@ describe('DocumentSession open ownership', () => {
     expect(runtime.calls.closeDocuments).toEqual([ptr(301)]);
     expect(runtime.calls.releaseBases).toEqual([ptr(202)]);
   });
+
+  test('worker shares one memory base across local layer docIds with the same baseKey', () => {
+    const runtime = createFakeRuntime();
+    const responses: WorkerResponse[] = [];
+    const host = new WorkerHost(runtime, (pack) => responses.push(pack.payload));
+
+    host.receive({
+      kind: 'open.layerMemBase',
+      jobId: 1,
+      docId: 'layer-a',
+      baseKey: 'shared-base',
+      baseBytes: new ArrayBuffer(1),
+      layer: { kind: 'fresh' },
+      password: null,
+    });
+    host.receive({
+      kind: 'open.layerMemBase',
+      jobId: 2,
+      docId: 'layer-b',
+      baseKey: 'shared-base',
+      baseBytes: new ArrayBuffer(1),
+      layer: { kind: 'fresh' },
+      password: null,
+    });
+    host.receive({ kind: 'close', jobId: 3, docId: 'layer-a' });
+    host.receive({ kind: 'close', jobId: 4, docId: 'layer-b' });
+
+    expect(responses.map((r) => r.kind)).toEqual(['resolve', 'resolve', 'resolve', 'resolve']);
+    expect(runtime.calls.loadMemBases).toHaveLength(1);
+    expect(runtime.calls.releaseBases).toEqual([ptr(201)]);
+  });
 });

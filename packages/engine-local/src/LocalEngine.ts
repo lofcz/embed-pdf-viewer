@@ -42,15 +42,27 @@ export class LocalEngine implements Engine {
         new EngineError(EngineErrorCode.RuntimeUnavailable, 'engine destroyed'),
       );
     }
-    if (input.kind !== 'bytes') {
-      return AbortablePromise.rejectReason(
-        new EngineError(
-          EngineErrorCode.InvalidArg,
-          `local engine only supports OpenInput.kind === 'bytes' (got '${input.kind}')`,
-        ),
-      );
+
+    if (input.kind === 'bytes') {
+      return this.openBytes(input, options);
     }
 
+    if (input.kind === 'layerBytes') {
+      return this.openLayerBytes(input, options);
+    }
+
+    return AbortablePromise.rejectReason(
+      new EngineError(
+        EngineErrorCode.InvalidArg,
+        `local engine only supports OpenInput.kind === 'bytes' or 'layerBytes' (got '${input.kind}')`,
+      ),
+    );
+  }
+
+  private openBytes(
+    input: Extract<OpenInput, { kind: 'bytes' }>,
+    options?: OpenOptions,
+  ): AbortablePromise<DocumentHandle> {
     const queue = this.queue;
     const password = options?.password ?? input.password ?? null;
     const buffer = toArrayBuffer(input.bytes);
@@ -69,6 +81,52 @@ export class LocalEngine implements Engine {
       { priority: Priority.HIGH },
     );
 
+    return this.openResult(submission);
+  }
+
+  private openLayerBytes(
+    input: Extract<OpenInput, { kind: 'layerBytes' }>,
+    options?: OpenOptions,
+  ): AbortablePromise<DocumentHandle> {
+    const queue = this.queue;
+    const password = options?.password ?? input.password ?? null;
+    const docId = input.id;
+    const baseKey = input.baseKey ?? input.id;
+    const baseBytes = toArrayBuffer(input.baseBytes);
+    const artifactBytes =
+      input.layer?.kind === 'artifact' ? toArrayBuffer(input.layer.bytes) : undefined;
+    const layer =
+      artifactBytes === undefined
+        ? ({ kind: 'fresh' } as const)
+        : ({ kind: 'artifact', bytes: artifactBytes } as const);
+    const transfer = artifactBytes ? [baseBytes, artifactBytes] : [baseBytes];
+
+    const submission = queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) =>
+          wirePack(
+            {
+              kind: 'open.layerMemBase',
+              jobId,
+              docId,
+              baseKey,
+              baseBytes,
+              layer,
+              password,
+            },
+            transfer,
+          ),
+      },
+      { priority: Priority.HIGH },
+    );
+
+    return this.openResult(submission);
+  }
+
+  private openResult(
+    submission: AbortablePromise<WorkerResultPayload>,
+  ): AbortablePromise<DocumentHandle> {
+    const queue = this.queue;
     return AbortablePromise.run<DocumentHandle>(async (signal) => {
       const onAbort = () => submission.abort(signal.reason);
       if (signal.aborted) onAbort();

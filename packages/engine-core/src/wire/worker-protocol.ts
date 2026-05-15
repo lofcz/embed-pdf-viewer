@@ -45,7 +45,12 @@ export interface OpenLayerMemoryBaseWorkerRequest {
   kind: 'open.layerMemBase';
   jobId: WorkerJobId;
   docId: string;
-  layerName: string;
+  /**
+   * Omit for a handle whose docId already uniquely identifies the layer
+   * session. Cloud layer sessions supply a real layer name when multiple
+   * layer views must live under one docId.
+   */
+  layerName?: string;
   baseKey: string;
   baseBytes: ArrayBuffer;
   layer: LayerOpenSource;
