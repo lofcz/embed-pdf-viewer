@@ -29,11 +29,29 @@ export interface PdfRuntimeCallbacks {
   dispose(callback: Callback): void;
 }
 
+export interface PdfFileAccessHandle {
+  /** Pointer to the owned FPDF_FILEACCESS struct. */
+  readonly ptr: Ptr;
+  /** Releases callbacks, native file handles, and retained byte views. */
+  close(): void;
+}
+
+export interface PdfRuntimeFileAccess {
+  /**
+   * Small in-memory file access, intended for layer deltas/artifacts.
+   * Browser base documents should prefer EPDF_LoadMemBaseDocument64().
+   */
+  fromMemory(bytes: Uint8Array | ArrayBuffer): PdfFileAccessHandle;
+  /** Native/node only: range-reads a local file without loading it into JS. */
+  fromNodeFile(path: string): PdfFileAccessHandle;
+}
+
 export interface PdfRuntimeModule {
   readonly kind: 'wasm' | 'native';
   readonly platform: string;
   readonly mem: PdfRuntimeMemory;
   readonly cb: PdfRuntimeCallbacks;
+  readonly fileAccess: PdfRuntimeFileAccess;
   readonly fn: PdfFunctions;
   destroy(): Promise<void>;
 }

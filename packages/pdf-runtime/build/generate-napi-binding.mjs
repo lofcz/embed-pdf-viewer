@@ -121,11 +121,121 @@ const exports = functions
   )
   .join('\n');
 
+const fileAccessHelpers =
+  `typedef int (*FPDF_GetBlock_Callback)(void* param,\n` +
+  `                                      unsigned long position,\n` +
+  `                                      unsigned char* out,\n` +
+  `                                      unsigned long size);\n\n` +
+  `typedef struct FPDF_FILEACCESS_ {\n` +
+  `  unsigned long m_FileLen;\n` +
+  `  FPDF_GetBlock_Callback m_GetBlock;\n` +
+  `  void* m_Param;\n` +
+  `} FPDF_FILEACCESS;\n\n` +
+  `struct RuntimeFileAccess final {\n` +
+  `  FPDF_FILEACCESS access = {};\n` +
+  `  bool memory_backed = false;\n` +
+  `  std::vector<uint8_t> bytes;\n` +
+  `  std::ifstream file;\n` +
+  `  std::mutex mutex;\n\n` +
+  `  RuntimeFileAccess() {\n` +
+  `    access.m_Param = this;\n` +
+  `    access.m_GetBlock = &RuntimeFileAccess::GetBlock;\n` +
+  `  }\n\n` +
+  `  static int GetBlock(void* param, unsigned long position, unsigned char* out, unsigned long size) {\n` +
+  `    auto* self = static_cast<RuntimeFileAccess*>(param);\n` +
+  `    const uint64_t begin = static_cast<uint64_t>(position);\n` +
+  `    const uint64_t length = static_cast<uint64_t>(size);\n` +
+  `    if (!self || begin + length < begin) return 0;\n` +
+  `    if (self->memory_backed) {\n` +
+  `      if (begin + length > self->bytes.size()) return 0;\n` +
+  `      memcpy(out, self->bytes.data() + begin, static_cast<size_t>(length));\n` +
+  `      return 1;\n` +
+  `    }\n` +
+  `    std::lock_guard<std::mutex> lock(self->mutex);\n` +
+  `    if (!self->file.is_open()) return 0;\n` +
+  `    self->file.clear();\n` +
+  `    self->file.seekg(static_cast<std::streamoff>(begin), std::ios::beg);\n` +
+  `    if (!self->file) return 0;\n` +
+  `    self->file.read(reinterpret_cast<char*>(out), static_cast<std::streamsize>(length));\n` +
+  `    return self->file.gcount() == static_cast<std::streamsize>(length) ? 1 : 0;\n` +
+  `  }\n` +
+  `};\n\n` +
+  `static RuntimeFileAccess* ReadRuntimeFileAccessHandle(napi_env env, napi_value value) {\n` +
+  `  int64_t raw = 0;\n` +
+  `  napi_get_value_bigint_int64(env, value, &raw, &g_napi_lossless);\n` +
+  `  return reinterpret_cast<RuntimeFileAccess*>(raw);\n` +
+  `}\n\n` +
+  `static napi_value CreateMemoryFileAccess(napi_env env, napi_callback_info info) {\n` +
+  `  size_t argc = 1;\n` +
+  `  napi_value argv[1];\n` +
+  `  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n` +
+  `  void* data = nullptr;\n` +
+  `  size_t len = 0;\n` +
+  `  napi_get_arraybuffer_info(env, argv[0], &data, &len);\n` +
+  `  if (len > std::numeric_limits<unsigned long>::max()) {\n` +
+  `    napi_throw_range_error(env, nullptr, "FPDF_FILEACCESS length exceeds unsigned long");\n` +
+  `    return nullptr;\n` +
+  `  }\n` +
+  `  auto* owner = new RuntimeFileAccess();\n` +
+  `  owner->memory_backed = true;\n` +
+  `  owner->bytes.assign(static_cast<uint8_t*>(data), static_cast<uint8_t*>(data) + len);\n` +
+  `  owner->access.m_FileLen = static_cast<unsigned long>(len);\n` +
+  `  napi_value out;\n` +
+  `  napi_create_bigint_int64(env, reinterpret_cast<int64_t>(owner), &out);\n` +
+  `  return out;\n` +
+  `}\n\n` +
+  `static napi_value CreatePathFileAccess(napi_env env, napi_callback_info info) {\n` +
+  `  size_t argc = 1;\n` +
+  `  napi_value argv[1];\n` +
+  `  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n` +
+  `  size_t path_len = 0;\n` +
+  `  napi_get_value_string_utf8(env, argv[0], nullptr, 0, &path_len);\n` +
+  `  std::string path_buf(path_len + 1, '\\0');\n` +
+  `  napi_get_value_string_utf8(env, argv[0], path_buf.data(), path_buf.size(), &path_len);\n` +
+  `  std::string path(path_buf.data(), path_len);\n` +
+  `  auto* owner = new RuntimeFileAccess();\n` +
+  `  owner->file.open(path, std::ios::binary | std::ios::in);\n` +
+  `  if (!owner->file.is_open()) {\n` +
+  `    delete owner;\n` +
+  `    napi_throw_error(env, nullptr, "Failed to open file for FPDF_FILEACCESS");\n` +
+  `    return nullptr;\n` +
+  `  }\n` +
+  `  owner->file.seekg(0, std::ios::end);\n` +
+  `  const std::streamoff file_size = owner->file.tellg();\n` +
+  `  owner->file.seekg(0, std::ios::beg);\n` +
+  `  if (file_size < 0 || static_cast<uint64_t>(file_size) > std::numeric_limits<unsigned long>::max()) {\n` +
+  `    delete owner;\n` +
+  `    napi_throw_range_error(env, nullptr, "FPDF_FILEACCESS file length exceeds unsigned long");\n` +
+  `    return nullptr;\n` +
+  `  }\n` +
+  `  owner->access.m_FileLen = static_cast<unsigned long>(file_size);\n` +
+  `  napi_value out;\n` +
+  `  napi_create_bigint_int64(env, reinterpret_cast<int64_t>(owner), &out);\n` +
+  `  return out;\n` +
+  `}\n\n` +
+  `static napi_value GetFileAccessPtr(napi_env env, napi_callback_info info) {\n` +
+  `  size_t argc = 1;\n` +
+  `  napi_value argv[1];\n` +
+  `  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n` +
+  `  auto* owner = ReadRuntimeFileAccessHandle(env, argv[0]);\n` +
+  `  napi_value out;\n` +
+  `  napi_create_bigint_int64(env, reinterpret_cast<int64_t>(&owner->access), &out);\n` +
+  `  return out;\n` +
+  `}\n\n` +
+  `static napi_value DestroyFileAccess(napi_env env, napi_callback_info info) {\n` +
+  `  size_t argc = 1;\n` +
+  `  napi_value argv[1];\n` +
+  `  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n` +
+  `  delete ReadRuntimeFileAccessHandle(env, argv[0]);\n` +
+  `  return nullptr;\n` +
+  `}\n\n`;
+
 writeFileSync(
   outPath,
   `/* AUTO-GENERATED - DO NOT EDIT BY HAND. */\n` +
-    `#include <node_api.h>\n#include <stdint.h>\n#include <stdlib.h>\n#include <string.h>\n#include <string>\n\n` +
+    `#include <node_api.h>\n#include <stdint.h>\n#include <stdlib.h>\n#include <string.h>\n#include <fstream>\n#include <limits>\n#include <mutex>\n#include <string>\n#include <vector>\n\n` +
     `static bool g_napi_lossless;\n\n` +
+    fileAccessHelpers +
     `${declarations}\n\n` +
     `static napi_value Alloc(napi_env env, napi_callback_info info) {\n  size_t argc = 1;\n  napi_value argv[1];\n  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n  int64_t size = 0;\n  napi_get_value_int64(env, argv[0], &size);\n  void* ptr = malloc(static_cast<size_t>(size));\n  napi_value out;\n  napi_create_bigint_int64(env, reinterpret_cast<int64_t>(ptr), &out);\n  return out;\n}\n\n` +
     `static napi_value Free(napi_env env, napi_callback_info info) {\n  size_t argc = 1;\n  napi_value argv[1];\n  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n  int64_t raw = 0;\n  napi_get_value_bigint_int64(env, argv[0], &raw, &g_napi_lossless);\n  free(reinterpret_cast<void*>(raw));\n  return nullptr;\n}\n\n` +
@@ -138,13 +248,13 @@ writeFileSync(
     `static napi_value Peek(napi_env env, napi_callback_info info) {\n  size_t argc = 2;\n  napi_value argv[2];\n  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n  int64_t raw = 0;\n  napi_get_value_bigint_int64(env, argv[0], &raw, &g_napi_lossless);\n  char kind[8];\n  size_t kind_len = 0;\n  napi_get_value_string_utf8(env, argv[1], kind, sizeof(kind), &kind_len);\n  napi_value out;\n  if (strcmp(kind, \"i8\") == 0) napi_create_int32(env, *reinterpret_cast<int8_t*>(raw), &out);\n  else if (strcmp(kind, \"i16\") == 0) napi_create_int32(env, *reinterpret_cast<int16_t*>(raw), &out);\n  else if (strcmp(kind, \"i64\") == 0 || strcmp(kind, \"ptr\") == 0) napi_create_bigint_int64(env, *reinterpret_cast<int64_t*>(raw), &out);\n  else if (strcmp(kind, \"f32\") == 0) napi_create_double(env, *reinterpret_cast<float*>(raw), &out);\n  else if (strcmp(kind, \"f64\") == 0) napi_create_double(env, *reinterpret_cast<double*>(raw), &out);\n  else napi_create_int32(env, *reinterpret_cast<int32_t*>(raw), &out);\n  return out;\n}\n\n` +
     `static napi_value Poke(napi_env env, napi_callback_info info) {\n  size_t argc = 3;\n  napi_value argv[3];\n  napi_get_cb_info(env, info, &argc, argv, nullptr, nullptr);\n  int64_t raw = 0;\n  napi_get_value_bigint_int64(env, argv[0], &raw, &g_napi_lossless);\n  char kind[8];\n  size_t kind_len = 0;\n  napi_get_value_string_utf8(env, argv[1], kind, sizeof(kind), &kind_len);\n  if (strcmp(kind, \"i64\") == 0 || strcmp(kind, \"ptr\") == 0) {\n    int64_t value = 0;\n    napi_get_value_bigint_int64(env, argv[2], &value, &g_napi_lossless);\n    *reinterpret_cast<int64_t*>(raw) = value;\n  } else if (strcmp(kind, \"f32\") == 0 || strcmp(kind, \"f64\") == 0) {\n    double value = 0;\n    napi_get_value_double(env, argv[2], &value);\n    if (strcmp(kind, \"f32\") == 0) *reinterpret_cast<float*>(raw) = static_cast<float>(value);\n    else *reinterpret_cast<double*>(raw) = value;\n  } else {\n    int32_t value = 0;\n    napi_get_value_int32(env, argv[2], &value);\n    if (strcmp(kind, \"i8\") == 0) *reinterpret_cast<int8_t*>(raw) = static_cast<int8_t>(value);\n    else if (strcmp(kind, \"i16\") == 0) *reinterpret_cast<int16_t*>(raw) = static_cast<int16_t>(value);\n    else *reinterpret_cast<int32_t*>(raw) = value;\n  }\n  return nullptr;\n}\n\n` +
     wrappers +
-    `\n\nstatic napi_value Init(napi_env env, napi_value exports) {\n  napi_value fn;\n  napi_create_function(env, "alloc", NAPI_AUTO_LENGTH, Alloc, nullptr, &fn);\n  napi_set_named_property(env, exports, "alloc", fn);\n  napi_create_function(env, "free", NAPI_AUTO_LENGTH, Free, nullptr, &fn);\n  napi_set_named_property(env, exports, "free", fn);\n  napi_create_function(env, "readBytes", NAPI_AUTO_LENGTH, ReadBytes, nullptr, &fn);\n  napi_set_named_property(env, exports, "readBytes", fn);\n  napi_create_function(env, "writeBytes", NAPI_AUTO_LENGTH, WriteBytes, nullptr, &fn);\n  napi_set_named_property(env, exports, "writeBytes", fn);\n  napi_create_function(env, "readU8String", NAPI_AUTO_LENGTH, ReadU8String, nullptr, &fn);\n  napi_set_named_property(env, exports, "readU8String", fn);\n  napi_create_function(env, "writeU8String", NAPI_AUTO_LENGTH, WriteU8String, nullptr, &fn);\n  napi_set_named_property(env, exports, "writeU8String", fn);\n  napi_create_function(env, "readU16String", NAPI_AUTO_LENGTH, ReadU16String, nullptr, &fn);\n  napi_set_named_property(env, exports, "readU16String", fn);\n  napi_create_function(env, "writeU16String", NAPI_AUTO_LENGTH, WriteU16String, nullptr, &fn);\n  napi_set_named_property(env, exports, "writeU16String", fn);\n  napi_create_function(env, "peek", NAPI_AUTO_LENGTH, Peek, nullptr, &fn);\n  napi_set_named_property(env, exports, "peek", fn);\n  napi_create_function(env, "poke", NAPI_AUTO_LENGTH, Poke, nullptr, &fn);\n  napi_set_named_property(env, exports, "poke", fn);\n${exports}\n  return exports;\n}\n\nNAPI_MODULE(NODE_GYP_MODULE_NAME, Init)\n`,
+    `\n\nstatic napi_value Init(napi_env env, napi_value exports) {\n  napi_value fn;\n  napi_create_function(env, "alloc", NAPI_AUTO_LENGTH, Alloc, nullptr, &fn);\n  napi_set_named_property(env, exports, "alloc", fn);\n  napi_create_function(env, "free", NAPI_AUTO_LENGTH, Free, nullptr, &fn);\n  napi_set_named_property(env, exports, "free", fn);\n  napi_create_function(env, "readBytes", NAPI_AUTO_LENGTH, ReadBytes, nullptr, &fn);\n  napi_set_named_property(env, exports, "readBytes", fn);\n  napi_create_function(env, "writeBytes", NAPI_AUTO_LENGTH, WriteBytes, nullptr, &fn);\n  napi_set_named_property(env, exports, "writeBytes", fn);\n  napi_create_function(env, "readU8String", NAPI_AUTO_LENGTH, ReadU8String, nullptr, &fn);\n  napi_set_named_property(env, exports, "readU8String", fn);\n  napi_create_function(env, "writeU8String", NAPI_AUTO_LENGTH, WriteU8String, nullptr, &fn);\n  napi_set_named_property(env, exports, "writeU8String", fn);\n  napi_create_function(env, "readU16String", NAPI_AUTO_LENGTH, ReadU16String, nullptr, &fn);\n  napi_set_named_property(env, exports, "readU16String", fn);\n  napi_create_function(env, "writeU16String", NAPI_AUTO_LENGTH, WriteU16String, nullptr, &fn);\n  napi_set_named_property(env, exports, "writeU16String", fn);\n  napi_create_function(env, "peek", NAPI_AUTO_LENGTH, Peek, nullptr, &fn);\n  napi_set_named_property(env, exports, "peek", fn);\n  napi_create_function(env, "poke", NAPI_AUTO_LENGTH, Poke, nullptr, &fn);\n  napi_set_named_property(env, exports, "poke", fn);\n  napi_create_function(env, "createMemoryFileAccess", NAPI_AUTO_LENGTH, CreateMemoryFileAccess, nullptr, &fn);\n  napi_set_named_property(env, exports, "createMemoryFileAccess", fn);\n  napi_create_function(env, "createPathFileAccess", NAPI_AUTO_LENGTH, CreatePathFileAccess, nullptr, &fn);\n  napi_set_named_property(env, exports, "createPathFileAccess", fn);\n  napi_create_function(env, "getFileAccessPtr", NAPI_AUTO_LENGTH, GetFileAccessPtr, nullptr, &fn);\n  napi_set_named_property(env, exports, "getFileAccessPtr", fn);\n  napi_create_function(env, "destroyFileAccess", NAPI_AUTO_LENGTH, DestroyFileAccess, nullptr, &fn);\n  napi_set_named_property(env, exports, "destroyFileAccess", fn);\n${exports}\n  return exports;\n}\n\nNAPI_MODULE(NODE_GYP_MODULE_NAME, Init)\n`,
 );
 
 writeFileSync(
   dtsPath,
-  `/* AUTO-GENERATED - DO NOT EDIT BY HAND. */\n` +
-    `export function alloc(bytes: number): bigint;\nexport function free(ptr: bigint): void;\nexport function readBytes(ptr: bigint, len: number): ArrayBuffer;\nexport function writeBytes(ptr: bigint, data: ArrayBuffer): void;\nexport function readU8String(ptr: bigint): string;\nexport function writeU8String(str: string): bigint;\nexport function readU16String(ptr: bigint): string;\nexport function writeU16String(str: string): bigint;\nexport function peek(ptr: bigint, kind: string): number | bigint;\nexport function poke(ptr: bigint, kind: string, value: number | bigint): void;\n` +
+    `/* AUTO-GENERATED - DO NOT EDIT BY HAND. */\n` +
+    `export function alloc(bytes: number): bigint;\nexport function free(ptr: bigint): void;\nexport function readBytes(ptr: bigint, len: number): ArrayBuffer;\nexport function writeBytes(ptr: bigint, data: ArrayBuffer): void;\nexport function readU8String(ptr: bigint): string;\nexport function writeU8String(str: string): bigint;\nexport function readU16String(ptr: bigint): string;\nexport function writeU16String(str: string): bigint;\nexport function peek(ptr: bigint, kind: string): number | bigint;\nexport function poke(ptr: bigint, kind: string, value: number | bigint): void;\nexport function createMemoryFileAccess(bytes: ArrayBuffer): bigint;\nexport function createPathFileAccess(path: string): bigint;\nexport function getFileAccessPtr(handle: bigint): bigint;\nexport function destroyFileAccess(handle: bigint): void;\n` +
     functions.map((fn) => `export function ${fn.name}(...args: unknown[]): unknown;`).join('\n') +
     '\n',
 );

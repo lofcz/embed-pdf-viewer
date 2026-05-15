@@ -12,6 +12,8 @@ export interface PdfFunctions {
   EPDF_IsEncrypted: (arg0: Ptr) => boolean;
   EPDF_IsOwnerUnlocked: (arg0: Ptr) => boolean;
   EPDF_LoadBaseDocument: (arg0: Ptr, arg1: string) => Ptr;
+  EPDF_LoadMemBaseDocument: (arg0: Ptr, arg1: number, arg2: string) => Ptr;
+  EPDF_LoadMemBaseDocument64: (arg0: Ptr, arg1: number, arg2: string) => Ptr;
   EPDF_LoadPageNormalized: (arg0: Ptr, arg1: number, arg2: Ptr) => Ptr;
   EPDF_PNG_EncodeRGBA: (
     arg0: Ptr,
@@ -1205,6 +1207,54 @@ export const pdfFunctionSignatures = {
         ts: 'Ptr',
         wasm: { kind: 'pointer', cwrap: 'number' },
         native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDF_LoadMemBaseDocument: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDF_LoadMemBaseDocument64: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
       },
       {
         ts: 'string',

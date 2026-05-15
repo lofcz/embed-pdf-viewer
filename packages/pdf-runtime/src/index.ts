@@ -4,6 +4,8 @@ export type {
   CallbackKind,
   CreatePdfRuntimeOptions,
   MemoryValueKind,
+  PdfFileAccessHandle,
+  PdfRuntimeFileAccess,
   PdfRuntimeCallbacks,
   PdfRuntimeMemory,
   PdfRuntimeModule,

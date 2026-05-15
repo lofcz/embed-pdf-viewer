@@ -5,6 +5,7 @@ import type {
   CreatePdfRuntimeOptions,
   MemoryValueKind,
   PdfRuntimeCallbacks,
+  PdfRuntimeFileAccess,
   PdfRuntimeMemory,
   PdfRuntimeModule,
   Ptr,
@@ -108,12 +109,69 @@ function createWasmMemory(module: EmscriptenModule): PdfRuntimeMemory {
 
 function createWasmCallbacks(module: EmscriptenModule): PdfRuntimeCallbacks {
   return {
-    register(_kind: CallbackKind, fn: CallbackFn): Callback {
+    register(kind: CallbackKind, fn: CallbackFn): Callback {
       if (!module.addFunction) throw new Error('WASM runtime does not expose addFunction');
-      return BigInt(module.addFunction(fn)) as Callback;
+      return BigInt(module.addFunction(fn, kind)) as Callback;
     },
     dispose(callback) {
       module.removeFunction?.(toNumber(callback));
+    },
+  };
+}
+
+function createWasmFileAccess(
+  mem: PdfRuntimeMemory,
+  callbacks: PdfRuntimeCallbacks,
+): PdfRuntimeFileAccess {
+  return {
+    fromMemory(input) {
+      const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+      if (bytes.byteLength > 0xffffffff) {
+        throw new RangeError('FPDF_FILEACCESS on wasm supports files up to 4 GiB');
+      }
+
+      const structPtr = mem.alloc(12);
+      let callback: Callback | null = null;
+      let closed = false;
+
+      try {
+        callback = callbacks.register('iiiii', (_param, position, outPtr, size) => {
+          const begin = Number(position);
+          const length = Number(size);
+          if (
+            !Number.isSafeInteger(begin) ||
+            !Number.isSafeInteger(length) ||
+            begin < 0 ||
+            length < 0 ||
+            begin + length > bytes.byteLength
+          ) {
+            return 0;
+          }
+          mem.writeBytes(toPtr(outPtr as number), bytes.subarray(begin, begin + length));
+          return 1;
+        });
+
+        mem.poke(structPtr, 'i32', bytes.byteLength, 0);
+        mem.poke(structPtr, 'i32', toNumber(callback), 4);
+        mem.poke(structPtr, 'i32', 0, 8);
+
+        return {
+          ptr: structPtr,
+          close() {
+            if (closed) return;
+            closed = true;
+            callbacks.dispose(callback as Callback);
+            mem.free(structPtr);
+          },
+        };
+      } catch (error) {
+        if (callback) callbacks.dispose(callback);
+        mem.free(structPtr);
+        throw error;
+      }
+    },
+    fromNodeFile() {
+      throw new Error('fromNodeFile() is only available on the native Node runtime');
     },
   };
 }
@@ -169,12 +227,15 @@ export async function createWasmRuntime(
     opts?: Record<string, unknown>,
   ) => Promise<EmscriptenModule>;
   const module = await createModule(opts.wasm);
+  const mem = createWasmMemory(module);
+  const cb = createWasmCallbacks(module);
 
   return {
     kind: 'wasm',
     platform: 'wasm32',
-    mem: createWasmMemory(module),
-    cb: createWasmCallbacks(module),
+    mem,
+    cb,
+    fileAccess: createWasmFileAccess(mem, cb),
     fn: createWasmFunctions(module),
     async destroy() {
       module._free = module._free;
