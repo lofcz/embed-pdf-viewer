@@ -66,7 +66,7 @@ export class LayerStateService {
     const existing = await this.layerPages.findByLayer(input.layerId);
     if (existing.length > 0) return existing;
     const basePages = await this.documentPages.findByDocument(input.docId);
-    await this.layerPages.copyFromDocument(input.layerId, basePages);
+    await this.layerPages.snapshotImmutableBaseForLayer(input.layerId, basePages);
     return this.layerPages.findByLayer(input.layerId);
   }
 
@@ -116,6 +116,10 @@ export class LayerStateService {
       ...snapshot,
       pageState: this.decorateBasePageState(docId, page),
     };
+  }
+
+  decorateLayerPageState(docId: string, layerName: string, page: DurablePageRow): PageState {
+    return this.toPageState(`cloud:layer:${docId}:${layerName}`, page);
   }
 
   mutationBumps(kind: MutationImpactKind): {

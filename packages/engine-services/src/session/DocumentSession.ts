@@ -238,6 +238,40 @@ export class DocumentSession {
     return this.docPtr;
   }
 
+  saveLayerArtifact(): { bytes: ArrayBuffer; size: number } {
+    if (this._kind !== 'layer') {
+      throw new EngineError(EngineErrorCode.InvalidArg, 'document session is not a layer');
+    }
+
+    const { mem, fn } = this.runtime;
+    const sizePtr = mem.alloc(4);
+    const statusPtr = mem.alloc(4);
+    let artifactPtr: Ptr | null = null;
+    try {
+      mem.poke(sizePtr, 'i32', 0);
+      mem.poke(statusPtr, 'i32', -1);
+      artifactPtr = fn.EPDFLayer_SaveLayerArtifactToOwnedBuffer(
+        this.requireDocPtr(),
+        sizePtr,
+        statusPtr,
+      );
+      const status = Number(mem.peek(statusPtr, 'i32'));
+      const size = Number(mem.peek(sizePtr, 'i32'));
+      if (!artifactPtr || status !== 0 || size <= 0) {
+        throw layerSaveError(status);
+      }
+
+      const bytes = mem.readBytes(artifactPtr, size);
+      const buffer = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(buffer).set(bytes);
+      return { bytes: buffer, size };
+    } finally {
+      if (artifactPtr) fn.EPDF_FreeBuffer(artifactPtr);
+      mem.free(statusPtr);
+      mem.free(sizePtr);
+    }
+  }
+
   close(): void {
     let firstError: unknown = null;
     try {
@@ -284,4 +318,14 @@ function generateSessionId(): string {
   // Lightweight id; no crypto dependency. Sufficient for the docSessionId
   // bleed-over check (which is local-process anyway).
   return `sess_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+}
+
+function layerSaveError(status: number): EngineError {
+  if (status === 1) {
+    return new EngineError(
+      EngineErrorCode.DocOpenFailed,
+      'layer artifact cannot be saved because append-only offsets exceed the supported range',
+    );
+  }
+  return new EngineError(EngineErrorCode.DocOpenFailed, 'failed to save layer artifact');
 }

@@ -33,6 +33,79 @@ function layerMeta(msg) {
   return { layerKind: 'fresh', layerByte0: null };
 }
 
+function pageState(pon, generation = 0, hasWeak = false) {
+  return {
+    pageObjectNumber: pon,
+    pageIndex: pon - 1,
+    revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation },
+    weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: hasWeak },
+    hasAnyWeakAnnotations: hasWeak,
+  };
+}
+
+function annotation(pon, index = 0) {
+  const annotObjectNumber = 10_000 + pon + index;
+  return {
+    subtype: 'unsupported',
+    ref: { kind: 'objectNumber', pageObjectNumber: pon, annotObjectNumber },
+    pageObjectNumber: pon,
+    index,
+    identityQuality: 'durable',
+    nm: `stub-${pon}-${index}`,
+    flags: {
+      invisible: false,
+      hidden: false,
+      print: true,
+      noZoom: false,
+      noRotate: false,
+      noView: false,
+      readOnly: false,
+      locked: false,
+      toggleNoView: false,
+      lockedContents: false,
+    },
+    rect: { left: 0, top: 0, right: 10, bottom: 10 },
+    contents: null,
+    author: null,
+    created: null,
+    modified: null,
+    rawSubtypeCode: 0,
+    rawSubtypeName: null,
+  };
+}
+
+function mutationMeta(pon, generation, hasWeak = false) {
+  const ann = annotation(pon);
+  return {
+    pageState: pageState(pon, generation, hasWeak),
+    changed: [{ kind: 'objectNumber', value: ann.ref.annotObjectNumber }],
+    weakRefsInvalidated: false,
+    shouldRefetch: null,
+  };
+}
+
+function layerArtifact(msg, meta) {
+  if (!msg.layerName) return undefined;
+  const view = new Uint8Array([
+    0x4c,
+    meta.pageState.pageObjectNumber & 0xff,
+    meta.pageState.revision.generation & 0xff,
+    Date.now() & 0xff,
+  ]);
+  return { bytes: view.buffer, size: view.byteLength };
+}
+
+function resolveMutation(msg, payload) {
+  parentPort.postMessage(
+    {
+      kind: 'resolve',
+      jobId: msg.jobId,
+      result: payload,
+    },
+    payload.artifact ? [payload.artifact.bytes] : [],
+  );
+}
+
 parentPort.on('message', (msg) => {
   if (!msg || typeof msg !== 'object') return;
   switch (msg.kind) {
@@ -227,6 +300,48 @@ parentPort.on('message', (msg) => {
             annotations: [],
           },
         },
+      });
+      return;
+    }
+    case 'annotations.create': {
+      const pon = msg.pageObjectNumber;
+      const ann = annotation(pon);
+      const meta = mutationMeta(pon, 0, false);
+      resolveMutation(msg, {
+        tag: 'annotations.create',
+        result: { created: ann, meta },
+        artifact: layerArtifact(msg, meta),
+      });
+      return;
+    }
+    case 'annotations.update': {
+      const pon = msg.ref.pageObjectNumber;
+      const ann = annotation(pon, msg.ref.kind === 'index' ? msg.ref.index : 0);
+      const meta = mutationMeta(pon, 0, false);
+      resolveMutation(msg, {
+        tag: 'annotations.update',
+        result: { updated: ann, meta },
+        artifact: layerArtifact(msg, meta),
+      });
+      return;
+    }
+    case 'annotations.delete': {
+      const pon = msg.ref.pageObjectNumber;
+      const meta = mutationMeta(pon, 1, false);
+      resolveMutation(msg, {
+        tag: 'annotations.delete',
+        result: { deleted: { kind: 'objectNumber', value: 10_000 + pon }, meta },
+        artifact: layerArtifact(msg, meta),
+      });
+      return;
+    }
+    case 'annotations.move': {
+      const pon = msg.pageObjectNumber;
+      const meta = mutationMeta(pon, 1, false);
+      resolveMutation(msg, {
+        tag: 'annotations.move',
+        result: { moved: msg.refs.map((_, i) => annotation(pon, msg.toIndex + i)), meta },
+        artifact: layerArtifact(msg, meta),
       });
       return;
     }

@@ -13,6 +13,7 @@ import { DocumentPagesRepo, LayerPagesRepo, LayersRepo } from '../db/repos/page_
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
 import { DocumentService } from '../services/DocumentService';
 import { LayerStateService } from '../services/LayerStateService';
+import { LayerService } from '../services/LayerService';
 import { validate as validateMigrations, type MigrationSource } from '../db/migrator/runner';
 import { RevokedJtisGuard } from '../auth/RevokedJtisGuard';
 import { DbJwksCacheStore } from '../auth/JwksCacheStore';
@@ -23,6 +24,7 @@ import { registerMetadataRoutes } from '../routes/metadata';
 import { registerAnnotationRoutes } from '../routes/annotations';
 import { registerPagesRoutes } from '../routes/pages';
 import { registerDocsRoutes } from '../routes/docs';
+import { registerLayerMutationRoutes } from '../routes/layer-mutations';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
 import { registerAdminTokensRoutes } from '../routes/admin/tokens';
 
@@ -129,6 +131,8 @@ export interface AppBundle {
   revokedJtisGuard?: RevokedJtisGuard;
   /** Phase 3 — present only when `cacheRoot` is set (+ pool + db). */
   documentService?: DocumentService;
+  /** Phase 5 — write-side lazy layer materialization service. */
+  layerService?: LayerService;
   /** Phase 3 — the base-file cache backing `documentService`. */
   baseFileCache?: BaseFileCache;
   shutdown: () => Promise<void>;
@@ -248,6 +252,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
   }
 
   let lifecycle: DocumentLifecycleService | undefined;
+  let layerService: LayerService | undefined;
   let sweeperTimer: NodeJS.Timeout | undefined;
   let baseFileCache: BaseFileCache | undefined;
   if (opts.db && opts.objectStore) {
@@ -276,18 +281,28 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       // leave `.partial.*` files behind. Better to clean them up
       // here than to surface bogus disk-usage stats to ops.
       await baseFileCache.sweepPartials();
+      const layerStateService = new LayerStateService({
+        documentPages: new DocumentPagesRepo(opts.db),
+        layers: new LayersRepo(opts.db),
+        layerPages: new LayerPagesRepo(opts.db),
+      });
       documentService = new DocumentService({
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
         storage: opts.objectStore,
         pool,
-        layerState: new LayerStateService({
-          documentPages: new DocumentPagesRepo(opts.db),
-          layers: new LayersRepo(opts.db),
-          layerPages: new LayerPagesRepo(opts.db),
-        }),
+        layerState: layerStateService,
+      });
+      layerService = new LayerService({
+        db: opts.db,
+        documents: new DocumentsRepo(opts.db),
+        layerState: layerStateService,
+        documentService,
+        pool,
+        storage: opts.objectStore,
       });
       await registerDocsRoutes(app, { service: documentService, pool });
+      await registerLayerMutationRoutes(app, { service: layerService });
     }
 
     const sweepIntervalMs = opts.sweepIntervalMs ?? 60_000;
@@ -357,6 +372,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     lifecycle,
     revokedJtisGuard,
     documentService,
+    layerService,
     baseFileCache,
     shutdown,
   };

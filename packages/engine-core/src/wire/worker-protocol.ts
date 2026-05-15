@@ -194,6 +194,11 @@ export interface ShutdownWorkerRequest {
   jobId: WorkerJobId;
 }
 
+export interface LayerArtifactWorkerPayload {
+  bytes: ArrayBuffer;
+  size: number;
+}
+
 export type WorkerRequest =
   | OpenWorkerRequest
   | MetadataReadWorkerRequest
@@ -217,10 +222,26 @@ export type WorkerResultPayload =
   | { tag: 'annotations.listRawAll'; snapshot: AnnotationListSnapshotAllPages }
   | { tag: 'annotations.listRawPage'; snapshot: AnnotationListPageSnapshot }
   | { tag: 'annotations.listFullPage'; snapshot: AnnotationListPageSnapshot }
-  | { tag: 'annotations.create'; result: AnnotationCreateResult }
-  | { tag: 'annotations.update'; result: AnnotationUpdateResult }
-  | { tag: 'annotations.delete'; result: AnnotationDeleteResult }
-  | { tag: 'annotations.move'; result: AnnotationMoveResult }
+  | {
+      tag: 'annotations.create';
+      result: AnnotationCreateResult;
+      artifact?: LayerArtifactWorkerPayload;
+    }
+  | {
+      tag: 'annotations.update';
+      result: AnnotationUpdateResult;
+      artifact?: LayerArtifactWorkerPayload;
+    }
+  | {
+      tag: 'annotations.delete';
+      result: AnnotationDeleteResult;
+      artifact?: LayerArtifactWorkerPayload;
+    }
+  | {
+      tag: 'annotations.move';
+      result: AnnotationMoveResult;
+      artifact?: LayerArtifactWorkerPayload;
+    }
   | { tag: 'pages.list'; snapshot: PageListSnapshot }
   | { tag: 'pages.move'; result: PageMoveResult }
   | { tag: 'pages.text'; snapshot: PageTextSnapshot }

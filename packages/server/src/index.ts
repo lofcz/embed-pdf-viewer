@@ -120,6 +120,12 @@ export type {
 } from './services/DocumentService';
 export { LayerStateService } from './services/LayerStateService';
 export type { LayerStateServiceOptions, MutationImpactKind } from './services/LayerStateService';
+export { LayerService } from './services/LayerService';
+export type {
+  LayerServiceOptions,
+  LayerWriteContext,
+  MaterializedLayer,
+} from './services/LayerService';
 
 /**
  * Stable URL of the bundled worker_thread entry. Resolves to:

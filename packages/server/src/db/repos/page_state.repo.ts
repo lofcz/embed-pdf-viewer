@@ -235,12 +235,15 @@ export class LayerPagesRepo {
     });
   }
 
-  async copyFromDocument(layerId: string, pages: DurablePageRow[]): Promise<void> {
+  async snapshotImmutableBaseForLayer(layerId: string, pages: DurablePageRow[]): Promise<void> {
     await this.replaceForLayer(
       layerId,
       pages.map((page) => ({
         pageObjectNumber: page.pageObjectNumber,
         pageIndex: page.pageIndex,
+        // `document_pages` describes the immutable base view, so these
+        // counters are the initial CDN/revision epoch. After snapshotting,
+        // only `layer_pages` advance.
         contentVersion: page.contentVersion,
         annotationVersion: page.annotationVersion,
         annotationGeneration: page.annotationGeneration,

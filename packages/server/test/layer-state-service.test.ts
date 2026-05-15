@@ -29,7 +29,7 @@ describe('LayerStateService durable authority', () => {
     await db.destroy();
   });
 
-  test('copies durable base page state into a freshly created layer', async () => {
+  test('snapshots immutable base page state into a freshly created layer', async () => {
     const now = Date.now();
     await db.insertInto('tenants').values({ id: 'tenant-ls', name: 'tenant-ls' }).execute();
     await db
@@ -75,6 +75,7 @@ describe('LayerStateService durable authority', () => {
     expect(pages[1]).toMatchObject({
       pageObjectNumber: 22,
       pageIndex: 1,
+      contentVersion: 1,
       annotationVersion: 4,
       annotationGeneration: 2,
       hasWeakAnnotations: true,

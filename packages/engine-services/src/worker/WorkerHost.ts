@@ -224,7 +224,11 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.create(req.pageObjectNumber, req.draft, signal);
-    return wirePack({ tag: 'annotations.create', result });
+    if (session.kind !== 'layer') {
+      return wirePack({ tag: 'annotations.create', result });
+    }
+    const artifact = session.saveLayerArtifact();
+    return wirePack({ tag: 'annotations.create', result, artifact }, [artifact.bytes]);
   }
 
   private handleAnnotationsUpdate(
@@ -234,7 +238,11 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.update(req.ref, req.patch, signal);
-    return wirePack({ tag: 'annotations.update', result });
+    if (session.kind !== 'layer') {
+      return wirePack({ tag: 'annotations.update', result });
+    }
+    const artifact = session.saveLayerArtifact();
+    return wirePack({ tag: 'annotations.update', result, artifact }, [artifact.bytes]);
   }
 
   private handleAnnotationsDelete(
@@ -244,7 +252,11 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.delete(req.ref, signal);
-    return wirePack({ tag: 'annotations.delete', result });
+    if (session.kind !== 'layer') {
+      return wirePack({ tag: 'annotations.delete', result });
+    }
+    const artifact = session.saveLayerArtifact();
+    return wirePack({ tag: 'annotations.delete', result, artifact }, [artifact.bytes]);
   }
 
   private handleAnnotationsMove(
@@ -254,7 +266,11 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumber, req.refs, req.toIndex, signal);
-    return wirePack({ tag: 'annotations.move', result });
+    if (session.kind !== 'layer') {
+      return wirePack({ tag: 'annotations.move', result });
+    }
+    const artifact = session.saveLayerArtifact();
+    return wirePack({ tag: 'annotations.move', result, artifact }, [artifact.bytes]);
   }
 
   private handlePagesList(
