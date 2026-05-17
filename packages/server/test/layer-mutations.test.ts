@@ -116,7 +116,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(manifest.pages.find((p) => p.pageObjectNumber === 1)?.annotationVersion).toBe(2);
   });
 
-  test('delete creates the next artifact and bumps annotation generation', async () => {
+  test('stable delete creates the next artifact without bumping weak-index generation', async () => {
     const tenantId = 'tenant-layer-del';
     const docId = 'doclayermut002';
     const layerName = 'alice';
@@ -159,7 +159,127 @@ describe('Phase 5 layer mutation pipeline', () => {
       .where('page_object_number', '=', 1)
       .executeTakeFirstOrThrow();
     expect(page.annotation_version).toBe(3);
-    expect(page.annotation_generation).toBe(1);
+    expect(page.annotation_generation).toBe(0);
+  });
+
+  test('fresh cloud index delete bridges to worker epoch and bumps generation from DB state', async () => {
+    const tenantId = 'tenant-layer-idx';
+    const docId = 'doclayermut003';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+    await seedLayerPage(fx, {
+      tenantId,
+      docId,
+      layerName,
+      annotationVersion: 17,
+      annotationGeneration: 10,
+      hasWeakAnnotations: true,
+    });
+
+    const res = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          op: 'delete',
+          ref: {
+            kind: 'index',
+            pageObjectNumber: 1,
+            index: 0,
+            revision: {
+              docSessionId: `cloud:layer:${docId}:${layerName}`,
+              pageObjectNumber: 1,
+              generation: 10,
+            },
+          },
+        }),
+      },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      meta: {
+        weakRefsInvalidated: boolean;
+        shouldRefetch: { reason: string } | null;
+        pageState: { revision: { docSessionId: string; generation: number } };
+      };
+    };
+    expect(body.meta.weakRefsInvalidated).toBe(true);
+    expect(body.meta.shouldRefetch).toEqual({ reason: 'weakRefsInvalidated' });
+    expect(body.meta.pageState.revision).toMatchObject({
+      docSessionId: `cloud:layer:${docId}:${layerName}`,
+      generation: 11,
+    });
+
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    expect(layer.current_version).toBe(2);
+    expect(layer.doc_version).toBe(2);
+
+    const page = await fx.db
+      .selectFrom('layer_pages')
+      .selectAll()
+      .where('layer_id', '=', layer.id)
+      .where('page_object_number', '=', 1)
+      .executeTakeFirstOrThrow();
+    expect(page.annotation_version).toBe(18);
+    expect(page.annotation_generation).toBe(11);
+  });
+
+  test('stale cloud index ref fails before saving a new artifact', async () => {
+    const tenantId = 'tenant-layer-stale';
+    const docId = 'doclayermut004';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+    await seedLayerPage(fx, {
+      tenantId,
+      docId,
+      layerName,
+      annotationVersion: 17,
+      annotationGeneration: 10,
+      hasWeakAnnotations: true,
+    });
+
+    const res = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          op: 'delete',
+          ref: {
+            kind: 'index',
+            pageObjectNumber: 1,
+            index: 0,
+            revision: {
+              docSessionId: `cloud:layer:${docId}:${layerName}`,
+              pageObjectNumber: 1,
+              generation: 9,
+            },
+          },
+        }),
+      },
+    );
+    expect(res.status).toBe(400);
+
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    expect(layer.current_version).toBe(1);
+    expect(layer.doc_version).toBe(1);
   });
 });
 
@@ -238,6 +358,56 @@ async function seedDocument(
       created_at: now,
       updated_at: now,
       created_by: null,
+    })
+    .execute();
+}
+
+async function seedLayerPage(
+  fx: Fixture,
+  input: {
+    tenantId: string;
+    docId: string;
+    layerName: string;
+    annotationVersion: number;
+    annotationGeneration: number;
+    hasWeakAnnotations: boolean;
+  },
+): Promise<void> {
+  const storage = new FsObjectStore({ root: fx.storageRoot });
+  const artifactKey = StorageKeys.layerArtifact(input.tenantId, input.docId, input.layerName, 1);
+  await storage.put(artifactKey, new Uint8Array([0x4c, 0x01, 0x00, 0x00]), {
+    contentLength: 4,
+  });
+  const now = Date.now();
+  await fx.db
+    .insertInto('layers')
+    .values({
+      id: `layer-${input.docId}`,
+      doc_id: input.docId,
+      tenant_id: input.tenantId,
+      name: input.layerName,
+      doc_version: 1,
+      current_version: 1,
+      current_artifact_key: artifactKey,
+      current_artifact_sha: createHash('sha256')
+        .update(new Uint8Array([0x4c, 0x01, 0x00, 0x00]))
+        .digest('hex'),
+      current_artifact_size: 4,
+      created_at: now,
+      updated_at: now,
+    })
+    .execute();
+  await fx.db
+    .insertInto('layer_pages')
+    .values({
+      layer_id: `layer-${input.docId}`,
+      page_object_number: 1,
+      page_index: 0,
+      content_version: 1,
+      annotation_version: input.annotationVersion,
+      annotation_generation: input.annotationGeneration,
+      has_weak_annotations: input.hasWeakAnnotations ? 1 : 0,
+      updated_at: now,
     })
     .execute();
 }

@@ -101,6 +101,12 @@ export type {
 } from './annotation/AnnotationListSnapshot';
 
 export type { AnnotationListMutationMeta } from './mutation/AnnotationListMutationMeta';
+export {
+  changesAnnotationList,
+  shiftsExistingAnnotationIndices,
+  invalidatesWeakIndexRefs,
+} from './mutation/AnnotationMutationImpactPolicy';
+export type { AnnotationMutationKind } from './mutation/AnnotationMutationImpactPolicy';
 export type { RefetchReason } from './mutation/RefetchReason';
 export type {
   AnnotationCreateResult,

@@ -3,6 +3,11 @@ import type {
   AnnotationStableId,
   PageState,
 } from '@embedpdf/engine-core/runtime';
+import {
+  invalidatesWeakIndexRefs,
+  shiftsExistingAnnotationIndices,
+  type AnnotationMutationKind,
+} from '@embedpdf/engine-core/runtime';
 
 /**
  * The kind of mutation that just happened on a page.
@@ -28,7 +33,7 @@ import type {
  * shift indices >= toIndex and would join the structural cohort —
  * see `MutationKind` extension note in `compute()` below.)
  */
-export type MutationKind = 'create' | 'update' | 'delete' | 'move';
+export type MutationKind = AnnotationMutationKind;
 
 /**
  * Inputs that decide whether a mutation should make a client refetch.
@@ -112,7 +117,7 @@ export class ImpactComputer {
   static compute(inputs: ImpactInputs): AnnotationListMutationMeta {
     const { mutation, pageStateBefore, pageStateAfter, changed } = inputs;
 
-    if (mutation === 'update' || mutation === 'create') {
+    if (!shiftsExistingAnnotationIndices(mutation)) {
       return {
         pageState: pageStateAfter,
         changed,
@@ -123,11 +128,12 @@ export class ImpactComputer {
 
     // delete / move: index-shifting.
     const hadWeakBefore = pageStateBefore.hasAnyWeakAnnotations;
+    const weakRefsInvalidated = invalidatesWeakIndexRefs(mutation, hadWeakBefore);
     return {
       pageState: pageStateAfter,
       changed,
-      weakRefsInvalidated: hadWeakBefore,
-      shouldRefetch: hadWeakBefore ? { reason: 'weakRefsInvalidated' } : null,
+      weakRefsInvalidated,
+      shouldRefetch: weakRefsInvalidated ? { reason: 'weakRefsInvalidated' } : null,
     };
   }
 }

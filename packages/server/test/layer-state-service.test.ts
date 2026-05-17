@@ -83,21 +83,38 @@ describe('LayerStateService durable authority', () => {
   });
 
   test('keeps cache versions and index-ref generations separate', () => {
-    expect(service.mutationBumps('create')).toEqual({
+    const strongPage = { hasWeakAnnotations: false };
+    const weakPage = { hasWeakAnnotations: true };
+
+    expect(service.mutationBumps('create', strongPage)).toMatchObject({
       bumpAnnotationVersion: true,
       bumpAnnotationGeneration: false,
+      weakRefsInvalidated: false,
     });
-    expect(service.mutationBumps('update')).toEqual({
+    expect(service.mutationBumps('update', strongPage)).toMatchObject({
       bumpAnnotationVersion: true,
       bumpAnnotationGeneration: false,
+      weakRefsInvalidated: false,
     });
-    expect(service.mutationBumps('delete')).toEqual({
+    expect(service.mutationBumps('delete', strongPage)).toMatchObject({
+      bumpAnnotationVersion: true,
+      bumpAnnotationGeneration: false,
+      weakRefsInvalidated: false,
+    });
+    expect(service.mutationBumps('move', strongPage)).toMatchObject({
+      bumpAnnotationVersion: true,
+      bumpAnnotationGeneration: false,
+      weakRefsInvalidated: false,
+    });
+    expect(service.mutationBumps('delete', weakPage)).toMatchObject({
       bumpAnnotationVersion: true,
       bumpAnnotationGeneration: true,
+      weakRefsInvalidated: true,
     });
-    expect(service.mutationBumps('move')).toEqual({
+    expect(service.mutationBumps('move', weakPage)).toMatchObject({
       bumpAnnotationVersion: true,
       bumpAnnotationGeneration: true,
+      weakRefsInvalidated: true,
     });
   });
 });

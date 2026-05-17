@@ -12,6 +12,7 @@ import {
   type AnnotationRef,
   type AnnotationUpdateResult,
   type PageObjectNumber,
+  type RevisionToken,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import type { Database as Schema } from '../db/schema';
@@ -159,13 +160,20 @@ export class LayerService {
   ): Promise<AnnotationUpdateResult> {
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      const ref = await this.rewriteRefForWorker(
+        input.docId,
+        input.layerName,
+        layer,
+        input.ref,
+        signal,
+      );
       const build = (jobId: WorkerJobId) =>
         wirePack({
           kind: 'annotations.update' as const,
           jobId,
           docId: input.docId,
           layerName: input.layerName,
-          ref: input.ref,
+          ref,
           patch: input.patch,
         });
       const payload = await this.requirePool().run(input.docId, build, signal);
@@ -193,13 +201,20 @@ export class LayerService {
   ): Promise<AnnotationDeleteResult> {
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      const ref = await this.rewriteRefForWorker(
+        input.docId,
+        input.layerName,
+        layer,
+        input.ref,
+        signal,
+      );
       const build = (jobId: WorkerJobId) =>
         wirePack({
           kind: 'annotations.delete' as const,
           jobId,
           docId: input.docId,
           layerName: input.layerName,
-          ref: input.ref,
+          ref,
         });
       const payload = await this.requirePool().run(input.docId, build, signal);
       if (payload.tag !== 'annotations.delete') {
@@ -228,6 +243,11 @@ export class LayerService {
   ): Promise<AnnotationMoveResult> {
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      const refs = await Promise.all(
+        input.refs.map((ref) =>
+          this.rewriteRefForWorker(input.docId, input.layerName, layer, ref, signal),
+        ),
+      );
       const build = (jobId: WorkerJobId) =>
         wirePack({
           kind: 'annotations.move' as const,
@@ -235,7 +255,7 @@ export class LayerService {
           docId: input.docId,
           layerName: input.layerName,
           pageObjectNumber: input.pageObjectNumber,
-          refs: input.refs,
+          refs,
           toIndex: input.toIndex,
         });
       const payload = await this.requirePool().run(input.docId, build, signal);
@@ -308,9 +328,72 @@ export class LayerService {
       ...input.result,
       meta: {
         ...input.result.meta,
-        pageState: this.layerState.decorateLayerPageState(docId, layerName, durablePage),
+        pageState: this.layerState.decorateLayerPageState(docId, layerName, durablePage.page),
+        weakRefsInvalidated: durablePage.weakRefsInvalidated,
+        shouldRefetch: durablePage.weakRefsInvalidated
+          ? { reason: 'weakRefsInvalidated' as const }
+          : null,
       },
     };
+  }
+
+  private async rewriteRefForWorker(
+    docId: string,
+    layerName: string,
+    layer: LayerRow,
+    ref: AnnotationRef,
+    signal?: AbortSignal,
+  ): Promise<AnnotationRef> {
+    if (ref.kind !== 'index') return ref;
+
+    const page = await this.requireLayerPage(layer.id, ref.pageObjectNumber);
+    this.layerState.validateLayerIndexRef({ docId, layerName, page, ref });
+    const workerRevision = await this.loadWorkerPageRevision(
+      docId,
+      layerName,
+      ref.pageObjectNumber,
+      signal,
+    );
+    return { ...ref, revision: workerRevision };
+  }
+
+  private async loadWorkerPageRevision(
+    docId: string,
+    layerName: string,
+    pageObjectNumber: PageObjectNumber,
+    signal?: AbortSignal,
+  ): Promise<RevisionToken> {
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.listFullPage' as const,
+        jobId,
+        docId,
+        layerName,
+        pageObjectNumber,
+      });
+    const payload = await this.requirePool().run(docId, build, signal);
+    if (payload.tag !== 'annotations.listFullPage') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected annotations.listFullPage payload while rewriting index ref: ${payload.tag}`,
+      );
+    }
+    return payload.snapshot.pageState.revision;
+  }
+
+  private async requireLayerPage(
+    layerId: string,
+    pageObjectNumber: PageObjectNumber,
+  ): Promise<DurablePageRow> {
+    const pages = await this.layerState.repos.layerPages.findByLayer(layerId);
+    const page = pages.find((candidate) => candidate.pageObjectNumber === pageObjectNumber);
+    if (!page) {
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `layer page ${pageObjectNumber} not found for layer ${layerId}`,
+      );
+    }
+    return page;
   }
 
   private async commitAnnotationMutation(input: {
@@ -322,7 +405,7 @@ export class LayerService {
     artifactSize: number;
     nextVersion: number;
     hasWeakAnnotations: boolean;
-  }): Promise<DurablePageRow> {
+  }): Promise<{ page: DurablePageRow; weakRefsInvalidated: boolean }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -355,11 +438,13 @@ export class LayerService {
           );
         }
 
-        const bumps = this.layerState.mutationBumps(input.kind);
+        const bumps = this.layerState.mutationBumps(input.kind, {
+          hasWeakAnnotations: Boolean(page.has_weak_annotations),
+        });
         const nextPage: DurablePageRow = {
           pageObjectNumber: Number(page.page_object_number),
           pageIndex: Number(page.page_index),
-          contentVersion: Number(page.content_version),
+          contentVersion: Number(page.content_version) + (bumps.bumpContentVersion ? 1 : 0),
           annotationVersion:
             Number(page.annotation_version) + (bumps.bumpAnnotationVersion ? 1 : 0),
           annotationGeneration:
@@ -371,7 +456,7 @@ export class LayerService {
         await trx
           .updateTable('layers')
           .set({
-            doc_version: Number(currentLayer.doc_version) + 1,
+            doc_version: Number(currentLayer.doc_version) + (bumps.bumpLayerDocVersion ? 1 : 0),
             current_version: input.nextVersion,
             current_artifact_key: input.artifactKey,
             current_artifact_sha: input.artifactSha,
@@ -384,6 +469,7 @@ export class LayerService {
         await trx
           .updateTable('layer_pages')
           .set({
+            content_version: nextPage.contentVersion,
             annotation_version: nextPage.annotationVersion,
             annotation_generation: nextPage.annotationGeneration,
             has_weak_annotations: nextPage.hasWeakAnnotations ? 1 : 0,
@@ -393,7 +479,7 @@ export class LayerService {
           .where('page_object_number', '=', input.pageObjectNumber)
           .execute();
 
-        return nextPage;
+        return { page: nextPage, weakRefsInvalidated: bumps.weakRefsInvalidated };
       });
   }
 
@@ -405,14 +491,18 @@ export class LayerService {
   ): Promise<T> {
     const key = `${ctx.tenantId}::${docId}::${layerName}`;
     const previous = this.layerWriteQueues.get(key) ?? Promise.resolve();
-    const next = previous.catch(() => undefined).then(op);
-    const stored = next.finally(() => {
-      if (this.layerWriteQueues.get(key) === stored) {
-        this.layerWriteQueues.delete(key);
-      }
-    });
-    this.layerWriteQueues.set(key, stored);
-    return next;
+    const operation = previous.catch(() => undefined).then(op);
+
+    const queueEntry = operation
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.layerWriteQueues.get(key) === queueEntry) {
+          this.layerWriteQueues.delete(key);
+        }
+      });
+
+    this.layerWriteQueues.set(key, queueEntry);
+    return operation;
   }
 
   private requireDb(): Kysely<Schema> {

@@ -1,7 +1,15 @@
 import type {
   AnnotationListPageSnapshot,
+  AnnotationMutationKind,
+  AnnotationRef,
   PageState,
   PageTextSnapshot,
+} from '@embedpdf/engine-core/runtime';
+import {
+  EngineError,
+  EngineErrorCode,
+  changesAnnotationList,
+  invalidatesWeakIndexRefs,
 } from '@embedpdf/engine-core/runtime';
 import type { DocumentManifest, ManifestPage } from '@embedpdf/engine-core/wire';
 import type {
@@ -19,7 +27,7 @@ export interface LayerStateServiceOptions {
   layerPages: LayerPagesRepo;
 }
 
-export type MutationImpactKind = 'create' | 'update' | 'delete' | 'move';
+export type MutationImpactKind = AnnotationMutationKind;
 
 /**
  * Durable authority for cloud/CDN page state.
@@ -88,7 +96,9 @@ export class LayerStateService {
     return {
       docVersion: layer.docVersion,
       baseSha,
-      pages: pages.map((page) => this.toManifestPage(`cloud:layer:${docId}:${layerName}`, page)),
+      pages: pages.map((page) =>
+        this.toManifestPage(this.layerRevisionScopeId(docId, layerName), page),
+      ),
     };
   }
 
@@ -119,16 +129,56 @@ export class LayerStateService {
   }
 
   decorateLayerPageState(docId: string, layerName: string, page: DurablePageRow): PageState {
-    return this.toPageState(`cloud:layer:${docId}:${layerName}`, page);
+    return this.toPageState(this.layerRevisionScopeId(docId, layerName), page);
   }
 
-  mutationBumps(kind: MutationImpactKind): {
+  layerRevisionScopeId(docId: string, layerName: string): string {
+    return `cloud:layer:${docId}:${layerName}`;
+  }
+
+  validateLayerIndexRef(input: {
+    docId: string;
+    layerName: string;
+    page: DurablePageRow;
+    ref: AnnotationRef;
+  }): void {
+    if (input.ref.kind !== 'index') return;
+    const expectedScope = this.layerRevisionScopeId(input.docId, input.layerName);
+    if (
+      input.ref.revision.docSessionId !== expectedScope ||
+      input.ref.revision.pageObjectNumber !== input.ref.pageObjectNumber ||
+      input.ref.revision.generation !== input.page.annotationGeneration
+    ) {
+      throw new EngineError(EngineErrorCode.InvalidReference, 'revision token is stale', {
+        details: {
+          provided: input.ref.revision,
+          current: {
+            docSessionId: expectedScope,
+            pageObjectNumber: input.ref.pageObjectNumber,
+            generation: input.page.annotationGeneration,
+          },
+        },
+      });
+    }
+  }
+
+  mutationBumps(
+    kind: MutationImpactKind,
+    pageBefore: Pick<DurablePageRow, 'hasWeakAnnotations'>,
+  ): {
+    bumpLayerDocVersion: boolean;
     bumpAnnotationVersion: boolean;
+    bumpContentVersion: boolean;
     bumpAnnotationGeneration: boolean;
+    weakRefsInvalidated: boolean;
   } {
+    const weakRefsInvalidated = invalidatesWeakIndexRefs(kind, pageBefore.hasWeakAnnotations);
     return {
-      bumpAnnotationVersion: true,
-      bumpAnnotationGeneration: kind === 'delete' || kind === 'move',
+      bumpLayerDocVersion: true,
+      bumpAnnotationVersion: changesAnnotationList(kind),
+      bumpContentVersion: false,
+      bumpAnnotationGeneration: weakRefsInvalidated,
+      weakRefsInvalidated,
     };
   }
 
