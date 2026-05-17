@@ -138,6 +138,12 @@ export class HttpClient {
     if (!res.ok) await this.throwFromBody(res);
   }
 
+  async postEmpty(path: string, body: unknown, signal: AbortSignal): Promise<void> {
+    const res = await this.requestJson(path, 'POST', body, signal);
+    if (res.status === 204) return;
+    if (!res.ok) await this.throwFromBody(res);
+  }
+
   private requestJson(
     path: string,
     method: 'POST' | 'PATCH' | 'PUT',
@@ -224,6 +230,7 @@ export class HttpClient {
 function mapStatusToCode(status: number): EngineErrorCode {
   if (status === 401) return EngineErrorCode.Unauthenticated;
   if (status === 403) return EngineErrorCode.Forbidden;
+  if (status === 409) return EngineErrorCode.WeakAnnotationSessionConflict;
   if (status === 404) return EngineErrorCode.NotFound;
   if (status === 422) return EngineErrorCode.DocOpenFailed;
   if (status === 499) return EngineErrorCode.Aborted;

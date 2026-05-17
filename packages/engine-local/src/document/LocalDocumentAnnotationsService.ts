@@ -7,6 +7,7 @@ import {
   type AnnotationListSnapshotAllPages,
   type DocumentAnnotationsService,
   type PageObjectNumber,
+  type WeakAnnotationEditSession,
 } from '@embedpdf/engine-core/runtime';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
@@ -82,5 +83,45 @@ export class LocalDocumentAnnotationsService implements DocumentAnnotationsServi
       }
       return payload.snapshot;
     });
+  }
+
+  beginWeakEdit(
+    pageObjectNumbers: readonly PageObjectNumber[],
+  ): AbortablePromise<WeakAnnotationEditSession> {
+    const session = new LocalWeakAnnotationEditSession(pageObjectNumbers);
+    return AbortablePromise.resolveValue(session);
+  }
+}
+
+class LocalWeakAnnotationEditSession implements WeakAnnotationEditSession {
+  readonly id = 'local-noop';
+  readonly expiresAt = Number.MAX_SAFE_INTEGER;
+  readonly heartbeatIntervalMs = Number.MAX_SAFE_INTEGER;
+  private pages: readonly PageObjectNumber[];
+
+  constructor(pageObjectNumbers: readonly PageObjectNumber[]) {
+    this.pages = [...pageObjectNumbers];
+  }
+
+  get pageObjectNumbers(): readonly PageObjectNumber[] {
+    return this.pages;
+  }
+
+  covers(pageObjectNumber: PageObjectNumber): boolean {
+    return this.pages.includes(pageObjectNumber);
+  }
+
+  updatePages(pageObjectNumbers: readonly PageObjectNumber[]): AbortablePromise<void> {
+    this.pages = [...pageObjectNumbers];
+    return AbortablePromise.resolveValue(undefined);
+  }
+
+  heartbeat(): AbortablePromise<void> {
+    return AbortablePromise.resolveValue(undefined);
+  }
+
+  release(): AbortablePromise<void> {
+    this.pages = [];
+    return AbortablePromise.resolveValue(undefined);
   }
 }

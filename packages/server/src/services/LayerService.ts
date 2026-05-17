@@ -26,6 +26,7 @@ import type { CloudRevisionBridge } from './CloudRevisionBridge';
 import type { DocumentService } from './DocumentService';
 import type { LayerStateService } from './LayerStateService';
 import type { MutationImpactKind } from './LayerStateService';
+import type { WeakAnnotationSessionService } from './WeakAnnotationSessionService';
 
 export interface LayerServiceOptions {
   db?: Kysely<Schema>;
@@ -33,6 +34,7 @@ export interface LayerServiceOptions {
   layerState: LayerStateService;
   revisionBridge?: CloudRevisionBridge;
   documentService?: DocumentService;
+  weakAnnotationSessions?: WeakAnnotationSessionService;
   pool?: WorkerThreadPool;
   storage?: ObjectStore;
 }
@@ -61,6 +63,7 @@ export class LayerService {
   private readonly layerState: LayerStateService;
   private readonly revisionBridge?: CloudRevisionBridge;
   private readonly documentService?: DocumentService;
+  private readonly weakAnnotationSessions?: WeakAnnotationSessionService;
   private readonly pool?: WorkerThreadPool;
   private readonly storage?: ObjectStore;
   private readonly layerWriteQueues = new Map<string, Promise<unknown>>();
@@ -71,6 +74,7 @@ export class LayerService {
     this.layerState = opts.layerState;
     this.revisionBridge = opts.revisionBridge;
     this.documentService = opts.documentService;
+    this.weakAnnotationSessions = opts.weakAnnotationSessions;
     this.pool = opts.pool;
     this.storage = opts.storage;
   }
@@ -206,6 +210,12 @@ export class LayerService {
   ): Promise<AnnotationDeleteResult> {
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      await this.assertWeakAnnotationStructuralEditAllowed(ctx, {
+        docId: input.docId,
+        layerName: input.layerName,
+        layer,
+        pageObjectNumber: input.ref.pageObjectNumber,
+      });
       const ref = await this.rewriteRefForWorker(
         input.docId,
         input.layerName,
@@ -248,6 +258,12 @@ export class LayerService {
   ): Promise<AnnotationMoveResult> {
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      await this.assertWeakAnnotationStructuralEditAllowed(ctx, {
+        docId: input.docId,
+        layerName: input.layerName,
+        layer,
+        pageObjectNumber: input.pageObjectNumber,
+      });
       const refs = await Promise.all(
         input.refs.map((ref) =>
           this.rewriteRefForWorker(input.docId, input.layerName, layer, ref, signal),
@@ -476,6 +492,34 @@ export class LayerService {
       );
     }
     return page;
+  }
+
+  private async assertWeakAnnotationStructuralEditAllowed(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      layer: LayerRow;
+      pageObjectNumber: PageObjectNumber;
+    },
+  ): Promise<void> {
+    const page = await this.requireLayerPage(input.layer.id, input.pageObjectNumber);
+    if (!page.hasWeakAnnotations) {
+      return;
+    }
+    if (!this.weakAnnotationSessions) {
+      throw new EngineError(
+        EngineErrorCode.NotImplemented,
+        'weak annotation session service is not configured',
+      );
+    }
+    await this.weakAnnotationSessions.assertSoleEditorForWeakPage({
+      tenantId: ctx.tenantId,
+      docId: input.docId,
+      layerName: input.layerName,
+      sub: ctx.sub,
+      pageObjectNumber: input.pageObjectNumber,
+    });
   }
 
   private async commitAnnotationMutation(input: {

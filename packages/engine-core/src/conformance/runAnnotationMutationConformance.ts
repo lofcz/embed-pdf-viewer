@@ -16,6 +16,7 @@ import {
 } from '../wire/schemas';
 import type { AnnotationDraft, AnnotationPatch, HighlightDraft } from '../annotation/kinds';
 import type { AnnotationRef } from '../identity/AnnotationRef';
+import type { WeakAnnotationEditSession } from '../engine/DocumentAnnotationsService';
 
 /**
  * Per-fixture knowledge the mutation harness needs. The shared fixture
@@ -233,21 +234,26 @@ export function runAnnotationMutationConformance(
         const created = await page.annotations.create(draft);
         const before = await page.annotations.list();
 
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         const result = await page.annotations.delete(created.created.ref);
-        expect(AnnotationDeleteResultSchema.safeParse(result).success).toBe(true);
+        try {
+          expect(AnnotationDeleteResultSchema.safeParse(result).success).toBe(true);
 
-        // Stable id is reported (we created it; it's durable).
-        expect(result.deleted !== null).toBe(true);
-        expect(result.deleted?.kind).toBe('objectNumber');
+          // Stable id is reported (we created it; it's durable).
+          expect(result.deleted !== null).toBe(true);
+          expect(result.deleted?.kind).toBe('objectNumber');
 
-        // Structural: revision bumped.
-        expect(result.meta.pageState.revision.generation).toBe(
-          before.pageState.revision.generation + 1,
-        );
+          // Structural: revision bumped.
+          expect(result.meta.pageState.revision.generation).toBe(
+            before.pageState.revision.generation + 1,
+          );
 
-        // The annotation is gone.
-        const after = await page.annotations.list();
-        expect(after.annotations.length).toBe(before.annotations.length - 1);
+          // The annotation is gone.
+          const after = await page.annotations.list();
+          expect(after.annotations.length).toBe(before.annotations.length - 1);
+        } finally {
+          await weakSession?.release();
+        }
       } finally {
         await doc.close();
       }
@@ -263,21 +269,26 @@ export function runAnnotationMutationConformance(
           if (!weak) return;
           expect(weak.ref.kind).toBe('index');
 
+          const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
           const result = await page.annotations.delete(weak.ref);
-          // The weak annotation MAY have had /NM in some shapes (very
-          // legacy PDFs), but the locked semantics say a true weak
-          // delete returns null. We assert "either null or a stable id"
-          // since the fixture controls which side this lands on.
-          expect(
-            result.deleted === null ||
-              result.deleted.kind === 'objectNumber' ||
-              result.deleted.kind === 'nm',
-          ).toBe(true);
+          try {
+            // The weak annotation MAY have had /NM in some shapes (very
+            // legacy PDFs), but the locked semantics say a true weak
+            // delete returns null. We assert "either null or a stable id"
+            // since the fixture controls which side this lands on.
+            expect(
+              result.deleted === null ||
+                result.deleted.kind === 'objectNumber' ||
+                result.deleted.kind === 'nm',
+            ).toBe(true);
 
-          // The page had weak refs before, structural mutation,
-          // therefore: shouldRefetch is set.
-          expect(result.meta.shouldRefetch?.reason).toBe('weakRefsInvalidated');
-          expect(result.meta.weakRefsInvalidated).toBe(true);
+            // The page had weak refs before, structural mutation,
+            // therefore: shouldRefetch is set.
+            expect(result.meta.shouldRefetch?.reason).toBe('weakRefsInvalidated');
+            expect(result.meta.weakRefsInvalidated).toBe(true);
+          } finally {
+            await weakSession?.release();
+          }
         } finally {
           await doc.close();
         }
@@ -319,7 +330,9 @@ export function runAnnotationMutationConformance(
           contents: 'rev-bump-throwaway',
           quadPoints: quad,
         });
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         await page.annotations.delete(throwaway.created.ref);
+        await weakSession?.release();
 
         const patch = subtypeAwarePatch(weak.subtype, 'should-fail');
         if (!patch) return;
@@ -388,24 +401,29 @@ export function runAnnotationMutationConformance(
         // so B's position becomes bIdx - 1. Targeting bIdx puts A AFTER
         // B's original position. Use `bIdx` as toIndex => A lands right
         // after B in the new order.
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         const result = await page.annotations.move([a.created.ref], bIdx);
-        expect(AnnotationMoveResultSchema.safeParse(result).success).toBe(true);
-        expect(result.moved.length).toBe(1);
+        try {
+          expect(AnnotationMoveResultSchema.safeParse(result).success).toBe(true);
+          expect(result.moved.length).toBe(1);
 
-        // Single revision bump per batch.
-        expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+          // Single revision bump per batch.
+          expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
 
-        // The moved DTO sits at toIndex.
-        if (result.moved[0].ref.kind === 'objectNumber') {
-          const movedObjNum = result.moved[0].ref.annotObjectNumber;
-          if (a.created.ref.kind === 'objectNumber') {
-            expect(movedObjNum).toBe(a.created.ref.annotObjectNumber);
+          // The moved DTO sits at toIndex.
+          if (result.moved[0].ref.kind === 'objectNumber') {
+            const movedObjNum = result.moved[0].ref.annotObjectNumber;
+            if (a.created.ref.kind === 'objectNumber') {
+              expect(movedObjNum).toBe(a.created.ref.annotObjectNumber);
+            }
           }
-        }
 
-        // Verify the page now has A at its new position.
-        const after = await page.annotations.list();
-        expect(after.annotations.length).toBe(list.annotations.length);
+          // Verify the page now has A at its new position.
+          const after = await page.annotations.list();
+          expect(after.annotations.length).toBe(list.annotations.length);
+        } finally {
+          await weakSession?.release();
+        }
       } finally {
         await doc.close();
       }
@@ -432,24 +450,28 @@ export function runAnnotationMutationConformance(
 
         // Move the three to position 0 in caller order [3, 1, 2].
         const callerOrder = [ids[2].created.ref, ids[0].created.ref, ids[1].created.ref];
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         const result = await page.annotations.move(callerOrder, 0);
+        try {
+          // One revision bump even though three annotations moved.
+          expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+          expect(result.moved.length).toBe(3);
+          expect(result.meta.changed.length).toBe(3);
 
-        // One revision bump even though three annotations moved.
-        expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
-        expect(result.moved.length).toBe(3);
-        expect(result.meta.changed.length).toBe(3);
+          // Caller-supplied order preserved at the destination. Indices
+          // 0, 1, 2 of the page now hold the moved DTOs in that order.
+          const expectedOrder = [ids[2].created.ref, ids[0].created.ref, ids[1].created.ref].map(
+            (r) => (r.kind === 'objectNumber' ? r.annotObjectNumber : null),
+          );
 
-        // Caller-supplied order preserved at the destination. Indices
-        // 0, 1, 2 of the page now hold the moved DTOs in that order.
-        const expectedOrder = [ids[2].created.ref, ids[0].created.ref, ids[1].created.ref].map(
-          (r) => (r.kind === 'objectNumber' ? r.annotObjectNumber : null),
-        );
-
-        const movedObjNums = result.moved.map((d) =>
-          d.ref.kind === 'objectNumber' ? d.ref.annotObjectNumber : null,
-        );
-        for (let i = 0; i < expectedOrder.length; i++) {
-          expect(movedObjNums[i]).toBe(expectedOrder[i]);
+          const movedObjNums = result.moved.map((d) =>
+            d.ref.kind === 'objectNumber' ? d.ref.annotObjectNumber : null,
+          );
+          for (let i = 0; i < expectedOrder.length; i++) {
+            expect(movedObjNums[i]).toBe(expectedOrder[i]);
+          }
+        } finally {
+          await weakSession?.release();
         }
       } finally {
         await doc.close();
@@ -470,20 +492,25 @@ export function runAnnotationMutationConformance(
           // non-trivial). The engine must stamp a fresh /NM BEFORE the
           // move so the result is durable.
           const target = weak.ref.index === 0 ? 1 : 0;
+          const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
           const result = await page.annotations.move([weak.ref], target);
+          try {
+            expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+            expect(result.moved.length).toBe(1);
+            expect(result.moved[0].identityQuality).toBe('durable');
+            expect(
+              result.moved[0].ref.kind === 'nm' || result.moved[0].ref.kind === 'objectNumber',
+            ).toBe(true);
 
-          expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
-          expect(result.moved.length).toBe(1);
-          expect(result.moved[0].identityQuality).toBe('durable');
-          expect(
-            result.moved[0].ref.kind === 'nm' || result.moved[0].ref.kind === 'objectNumber',
-          ).toBe(true);
-
-          // meta.changed is a stable id, never a weak ref.
-          expect(result.meta.changed.length).toBe(1);
-          expect(
-            result.meta.changed[0].kind === 'nm' || result.meta.changed[0].kind === 'objectNumber',
-          ).toBe(true);
+            // meta.changed is a stable id, never a weak ref.
+            expect(result.meta.changed.length).toBe(1);
+            expect(
+              result.meta.changed[0].kind === 'nm' ||
+                result.meta.changed[0].kind === 'objectNumber',
+            ).toBe(true);
+          } finally {
+            await weakSession?.release();
+          }
         } finally {
           await doc.close();
         }
@@ -523,6 +550,7 @@ export function runAnnotationMutationConformance(
           contents: 'bump-throwaway',
           quadPoints: quad,
         });
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         await page.annotations.delete(throwaway.created.ref);
 
         let caught: unknown;
@@ -530,6 +558,8 @@ export function runAnnotationMutationConformance(
           await page.annotations.move([staleIndexRef], 0);
         } catch (err) {
           caught = err;
+        } finally {
+          await weakSession?.release();
         }
         expect(EngineError.is(caught, EngineErrorCode.InvalidReference)).toBe(true);
       } finally {
@@ -548,11 +578,14 @@ export function runAnnotationMutationConformance(
         });
         const list = await page.annotations.list();
         const farTooBig = list.annotations.length + 100;
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         let caught: unknown;
         try {
           await page.annotations.move([a.created.ref], farTooBig);
         } catch (err) {
           caught = err;
+        } finally {
+          await weakSession?.release();
         }
         expect(EngineError.is(caught, EngineErrorCode.InvalidArg)).toBe(true);
       } finally {
@@ -569,11 +602,14 @@ export function runAnnotationMutationConformance(
           contents: 'dup-a',
           quadPoints: quad,
         });
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         let caught: unknown;
         try {
           await page.annotations.move([a.created.ref, a.created.ref], 0);
         } catch (err) {
           caught = err;
+        } finally {
+          await weakSession?.release();
         }
         expect(EngineError.is(caught, EngineErrorCode.InvalidArg)).toBe(true);
       } finally {
@@ -590,14 +626,30 @@ export function runAnnotationMutationConformance(
           contents: 'abort-a',
           quadPoints: quad,
         });
+        const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
         const p = page.annotations.move([a.created.ref], 0);
         p.abort('test');
-        await expect(p).rejects.toBeInstanceOf(AbortError);
+        try {
+          await expect(p).rejects.toBeInstanceOf(AbortError);
+        } finally {
+          await weakSession?.release();
+        }
       } finally {
         await doc.close();
       }
     });
   });
+}
+
+async function beginWeakEditIfRequired(
+  doc: DocumentHandle,
+  pageObjectNumber: number,
+  fix: AnnotationMutationConformanceFixture,
+): Promise<WeakAnnotationEditSession | null> {
+  if (doc.capabilities.weakAnnotationEditSessions !== 'required' || !fix.expectsWeakAnnotation) {
+    return null;
+  }
+  return doc.annotations.beginWeakEdit([pageObjectNumber]);
 }
 
 async function openFixture(

@@ -25,6 +25,13 @@ export const EngineErrorCode = {
    */
   InvalidReference: 'InvalidReference',
   /**
+   * A weak-annotation structural edit (delete/move) was attempted while the
+   * caller does not have sole active edit presence for that page. This is a
+   * collaboration guard for index-addressed annotations; stable pages and
+   * non-shifting annotation updates do not use it.
+   */
+  WeakAnnotationSessionConflict: 'WeakAnnotationSessionConflict',
+  /**
    * The requested operation is typed but not yet wired in this engine
    * version. The wire shape stays valid; clients can detect this with
    * `EngineError.is(err, EngineErrorCode.NotImplemented)` and degrade

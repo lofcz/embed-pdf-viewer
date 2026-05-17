@@ -25,12 +25,16 @@ export {
   PageListSnapshotSchema,
   PageMoveInputSchema,
   PageMoveResultSchema,
+  WeakAnnotationSessionResponseSchema,
+  WeakAnnotationSessionPagesRequestSchema,
 } from './wire/schemas';
 export type {
   OpenDocumentResponse,
   DocumentHead,
   DocumentManifest,
   ManifestPage,
+  WeakAnnotationSessionResponse,
+  WeakAnnotationSessionPagesRequest,
 } from './wire/schemas';
 export { DEFAULT_LAYER_NAME, wirePaths } from './wire/paths';
 

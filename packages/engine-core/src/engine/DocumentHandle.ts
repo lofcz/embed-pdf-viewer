@@ -5,8 +5,14 @@ import type { DocumentPagesService } from './DocumentPagesService';
 import type { MetadataService } from './MetadataService';
 import type { PageHandle } from './PageHandle';
 
+export interface DocumentCapabilities {
+  readonly weakAnnotationEditSessions: 'not-needed' | 'required';
+  readonly pageEditSessions: 'unsupported' | 'supported';
+}
+
 export interface DocumentHandle {
   readonly id: string;
+  readonly capabilities: DocumentCapabilities;
   readonly metadata: MetadataService;
   readonly annotations: DocumentAnnotationsService;
   /**

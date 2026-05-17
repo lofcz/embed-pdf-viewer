@@ -98,6 +98,18 @@ export const wirePaths = {
   layerPagesMove: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/move`,
 
+  layerWeakAnnotationSession: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session`,
+
+  layerWeakAnnotationSessionHeartbeat: (docId: string, layerName: string, sessionId: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session/${encodeURIComponent(sessionId)}/heartbeat`,
+
+  layerWeakAnnotationSessionPages: (docId: string, layerName: string, sessionId: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session/${encodeURIComponent(sessionId)}/pages`,
+
+  layerWeakAnnotationSessionRelease: (docId: string, layerName: string, sessionId: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session/${encodeURIComponent(sessionId)}`,
+
   /**
    * POST: pre-warm the doc cache + worker open before any user
    * request lands. Body is `{ docId }`. Doc-scoped token required.

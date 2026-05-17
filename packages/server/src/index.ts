@@ -63,6 +63,8 @@ export type {
   DocumentPagesTable,
   LayersTable,
   LayerPagesTable,
+  WeakAnnotationSessionsTable,
+  WeakAnnotationSessionPagesTable,
 } from './db/schema';
 export { DocumentsRepo } from './db/repos/documents.repo';
 export type { DocumentRow, CreatePendingInput, CommitInput } from './db/repos/documents.repo';
@@ -75,6 +77,11 @@ export type {
   LayerRow,
   CreateLayerInput,
 } from './db/repos/page_state.repo';
+export { WeakAnnotationSessionsRepo } from './db/repos/weak_annotation_sessions.repo';
+export type {
+  WeakAnnotationSessionRow,
+  WeakAnnotationSessionScope,
+} from './db/repos/weak_annotation_sessions.repo';
 export { StorageKeys } from './storage/keys';
 export { FsObjectStore } from './storage/adapters/FsObjectStore';
 export type { FsObjectStoreOptions } from './storage/adapters/FsObjectStore';
@@ -126,6 +133,12 @@ export type {
   LayerWriteContext,
   MaterializedLayer,
 } from './services/LayerService';
+export { WeakAnnotationSessionService } from './services/WeakAnnotationSessionService';
+export type {
+  WeakAnnotationSessionServiceOptions,
+  WeakAnnotationSessionContext,
+  WeakAnnotationSessionResult,
+} from './services/WeakAnnotationSessionService';
 
 /**
  * Stable URL of the bundled worker_thread entry. Resolves to:

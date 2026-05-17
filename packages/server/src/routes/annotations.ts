@@ -12,6 +12,7 @@ import {
   AnnotationDraftSchema,
   AnnotationPatchSchema,
   AnnotationRefSchema,
+  WeakAnnotationSessionPagesRequestSchema,
   type ManifestPage,
 } from '@embedpdf/engine-core/wire';
 import { requireDocAccess, requireLayerDocAccess } from '../app/jwt-plugin';
@@ -19,6 +20,7 @@ import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { CloudRevisionBridge } from '../services/CloudRevisionBridge';
 import type { DocumentService, OpenContext } from '../services/DocumentService';
 import type { LayerService } from '../services/LayerService';
+import type { WeakAnnotationSessionService } from '../services/WeakAnnotationSessionService';
 import {
   abortSignalFromRequest,
   parseOrInvalidArg,
@@ -36,6 +38,7 @@ interface AnnotationRouteDeps {
   layerService: LayerService;
   pool: WorkerThreadPool;
   revisionBridge: CloudRevisionBridge;
+  weakAnnotationSessions?: WeakAnnotationSessionService;
 }
 
 type ReadScope =
@@ -46,7 +49,7 @@ export async function registerAnnotationRoutes(
   app: FastifyInstance,
   deps: AnnotationRouteDeps,
 ): Promise<void> {
-  const { documentService, layerService, pool, revisionBridge } = deps;
+  const { documentService, layerService, pool, revisionBridge, weakAnnotationSessions } = deps;
 
   app.get('/v1/docs/:docId/pages/:pon/v:A/annotations', async (req, reply) => {
     const { docId, pon, A } = req.params as { docId: string; pon: string; A: string };
@@ -114,6 +117,87 @@ export async function registerAnnotationRoutes(
       pageObjectNumber: parsePageObjectNumber(pon),
     });
   });
+
+  app.post('/v1/docs/:docId/layers/:layerName/weak-annotation-session', async (req, reply) => {
+    const { docId, layerName } = req.params as { docId: string; layerName: string };
+    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+    setNoStore(reply);
+    const body = parseOrInvalidArg(
+      WeakAnnotationSessionPagesRequestSchema,
+      req.body,
+      'request body',
+    );
+    return requireWeakAnnotationSessions(weakAnnotationSessions).begin(
+      { tenantId, sub },
+      {
+        docId,
+        layerName,
+        pageObjectNumbers: body.pageObjectNumbers,
+      },
+    );
+  });
+
+  app.post(
+    '/v1/docs/:docId/layers/:layerName/weak-annotation-session/:sessionId/pages',
+    async (req, reply) => {
+      const { docId, layerName, sessionId } = req.params as {
+        docId: string;
+        layerName: string;
+        sessionId: string;
+      };
+      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      setNoStore(reply);
+      const body = parseOrInvalidArg(
+        WeakAnnotationSessionPagesRequestSchema,
+        req.body,
+        'request body',
+      );
+      return requireWeakAnnotationSessions(weakAnnotationSessions).updatePages(
+        { tenantId, sub },
+        {
+          docId,
+          layerName,
+          sessionId,
+          pageObjectNumbers: body.pageObjectNumbers,
+        },
+      );
+    },
+  );
+
+  app.post(
+    '/v1/docs/:docId/layers/:layerName/weak-annotation-session/:sessionId/heartbeat',
+    async (req, reply) => {
+      const { docId, layerName, sessionId } = req.params as {
+        docId: string;
+        layerName: string;
+        sessionId: string;
+      };
+      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      setNoStore(reply);
+      return requireWeakAnnotationSessions(weakAnnotationSessions).heartbeat(
+        { tenantId, sub },
+        { docId, layerName, sessionId },
+      );
+    },
+  );
+
+  app.delete(
+    '/v1/docs/:docId/layers/:layerName/weak-annotation-session/:sessionId',
+    async (req, reply) => {
+      const { docId, layerName, sessionId } = req.params as {
+        docId: string;
+        layerName: string;
+        sessionId: string;
+      };
+      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      await requireWeakAnnotationSessions(weakAnnotationSessions).release(
+        { tenantId, sub },
+        { docId, layerName, sessionId },
+      );
+      setNoStore(reply);
+      return reply.code(204).send();
+    },
+  );
 
   app.post('/v1/docs/:docId/layers/:layerName/pages/:pon/annotations', async (req, reply) => {
     const { docId, layerName, pon } = req.params as {
@@ -268,6 +352,18 @@ export async function registerAnnotationRoutes(
       );
     },
   );
+}
+
+function requireWeakAnnotationSessions(
+  service: WeakAnnotationSessionService | undefined,
+): WeakAnnotationSessionService {
+  if (!service) {
+    throw new EngineError(
+      EngineErrorCode.NotImplemented,
+      'weak annotation sessions are not configured',
+    );
+  }
+  return service;
 }
 
 async function readAnnotations(input: {

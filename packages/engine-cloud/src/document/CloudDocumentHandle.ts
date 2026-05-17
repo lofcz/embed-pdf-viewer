@@ -37,6 +37,10 @@ export interface ManifestAccessor {
 
 export class CloudDocumentHandle implements DocumentHandle {
   readonly id: string;
+  readonly capabilities = {
+    weakAnnotationEditSessions: 'required',
+    pageEditSessions: 'unsupported',
+  } as const;
   readonly metadata: CloudMetadataService;
   readonly annotations: DocumentAnnotationsService;
   readonly pages: DocumentPagesService;

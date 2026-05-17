@@ -9,11 +9,13 @@ import type { Database as Schema } from '../db/schema';
 import { DocumentsRepo } from '../db/repos/documents.repo';
 import { TenantsRepo } from '../db/repos/tenants.repo';
 import { DocumentPagesRepo, LayerPagesRepo, LayersRepo } from '../db/repos/page_state.repo';
+import { WeakAnnotationSessionsRepo } from '../db/repos/weak_annotation_sessions.repo';
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
 import { DocumentService } from '../services/DocumentService';
 import { CloudRevisionBridge } from '../services/CloudRevisionBridge';
 import { LayerStateService } from '../services/LayerStateService';
 import { LayerService } from '../services/LayerService';
+import { WeakAnnotationSessionService } from '../services/WeakAnnotationSessionService';
 import { validate as validateMigrations, type MigrationSource } from '../db/migrator/runner';
 import { RevokedJtisGuard } from '../auth/RevokedJtisGuard';
 import { DbJwksCacheStore } from '../auth/JwksCacheStore';
@@ -274,6 +276,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         layerPages: new LayerPagesRepo(opts.db),
       });
       const cloudRevisionBridge = new CloudRevisionBridge();
+      const weakAnnotationSessions = new WeakAnnotationSessionService({
+        repo: new WeakAnnotationSessionsRepo(opts.db),
+      });
       documentService = new DocumentService({
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
@@ -286,6 +291,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         documents: new DocumentsRepo(opts.db),
         layerState: layerStateService,
         revisionBridge: cloudRevisionBridge,
+        weakAnnotationSessions,
         documentService,
         pool,
         storage: opts.objectStore,
@@ -302,6 +308,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         layerService,
         pool,
         revisionBridge: cloudRevisionBridge,
+        weakAnnotationSessions,
       });
     }
 
@@ -387,6 +394,8 @@ function mapToHttp(code: string): number {
       return 401;
     case EngineErrorCode.Forbidden:
       return 403;
+    case EngineErrorCode.WeakAnnotationSessionConflict:
+      return 409;
     case EngineErrorCode.NotFound:
     case EngineErrorCode.DocNotOpen:
       return 404;

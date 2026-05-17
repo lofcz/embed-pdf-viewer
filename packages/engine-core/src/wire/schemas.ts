@@ -257,3 +257,18 @@ export const PageMoveInputSchema: z.ZodType<PageMoveInput> = z.object({
 export const PageMoveResultSchema: z.ZodType<PageMoveResult> = z.object({
   pageOrder: z.array(PageStateSchema),
 });
+
+export const WeakAnnotationSessionResponseSchema = z.object({
+  sessionId: z.string().min(1),
+  expiresAt: z.number().int().positive(),
+  heartbeatIntervalMs: z.number().int().positive(),
+  pageObjectNumbers: z.array(z.number().int().positive()),
+});
+export type WeakAnnotationSessionResponse = z.infer<typeof WeakAnnotationSessionResponseSchema>;
+
+export const WeakAnnotationSessionPagesRequestSchema = z.object({
+  pageObjectNumbers: z.array(z.number().int().positive()).transform((pages) => [...new Set(pages)]),
+});
+export type WeakAnnotationSessionPagesRequest = z.infer<
+  typeof WeakAnnotationSessionPagesRequestSchema
+>;

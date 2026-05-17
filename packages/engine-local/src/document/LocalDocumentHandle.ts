@@ -17,6 +17,10 @@ import { LocalDocumentPagesService } from './LocalDocumentPagesService';
 import { LocalPageHandle } from './LocalPageHandle';
 
 export class LocalDocumentHandle implements DocumentHandle {
+  readonly capabilities = {
+    weakAnnotationEditSessions: 'not-needed',
+    pageEditSessions: 'unsupported',
+  } as const;
   readonly metadata: MetadataService;
   readonly annotations: DocumentAnnotationsService;
   readonly pages: DocumentPagesService;

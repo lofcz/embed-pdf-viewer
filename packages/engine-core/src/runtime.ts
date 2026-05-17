@@ -14,9 +14,11 @@ export { AbortError, isAbortError } from './promise/AbortError';
 
 export type { Engine } from './engine/Engine';
 export type { DocumentHandle } from './engine/DocumentHandle';
+export type { DocumentCapabilities } from './engine/DocumentHandle';
 export type { MetadataService } from './engine/MetadataService';
 export type { PageHandle } from './engine/PageHandle';
 export type { DocumentAnnotationsService } from './engine/DocumentAnnotationsService';
+export type { WeakAnnotationEditSession } from './engine/DocumentAnnotationsService';
 export type { DocumentPagesService } from './engine/DocumentPagesService';
 export type { PageAnnotationsService } from './engine/PageAnnotationsService';
 export type { PageTextService } from './engine/PageTextService';

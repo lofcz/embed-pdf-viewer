@@ -8,7 +8,7 @@
  *
  * Phase 1 ships only `tenants`, `documents`, and `schema_migrations`.
  * Later phases add `document_pages`, `layers`, `layer_pages`,
- * `revoked_jtis`, `jwks_cache`, `audit_log`, and `edit_leases`.
+ * `revoked_jtis`, `jwks_cache`, `audit_log`, and weak annotation sessions.
  */
 
 import type { Generated } from 'kysely';
@@ -88,6 +88,24 @@ export interface LayerPagesTable {
   updated_at: number;
 }
 
+export interface WeakAnnotationSessionsTable {
+  id: string;
+  tenant_id: string;
+  doc_id: string;
+  layer_name: string;
+  sub: string;
+  created_at: number;
+  updated_at: number;
+  expires_at: number;
+}
+
+export interface WeakAnnotationSessionPagesTable {
+  session_id: string;
+  page_object_number: number;
+  updated_at: number;
+  expires_at: number;
+}
+
 export interface SchemaMigrationsTable {
   /** Monotonically-increasing version (zero-padded for lexical sort). */
   version: string;
@@ -144,6 +162,8 @@ export interface Database {
   document_pages: DocumentPagesTable;
   layers: LayersTable;
   layer_pages: LayerPagesTable;
+  weak_annotation_sessions: WeakAnnotationSessionsTable;
+  weak_annotation_session_pages: WeakAnnotationSessionPagesTable;
   schema_migrations: SchemaMigrationsTable;
   revoked_jtis: RevokedJtisTable;
   jwks_cache: JwksCacheTable;

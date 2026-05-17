@@ -5,6 +5,17 @@ import type {
 } from '../annotation/AnnotationListSnapshot';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 
+export interface WeakAnnotationEditSession {
+  readonly id: string;
+  readonly expiresAt: number;
+  readonly heartbeatIntervalMs: number;
+  readonly pageObjectNumbers: readonly PageObjectNumber[];
+  covers(pageObjectNumber: PageObjectNumber): boolean;
+  updatePages(pageObjectNumbers: readonly PageObjectNumber[]): AbortablePromise<void>;
+  heartbeat(): AbortablePromise<void>;
+  release(): AbortablePromise<void>;
+}
+
 /**
  * Document-scoped annotation service exposed via
  * `DocumentHandle.annotations`. The two read paths matter:
@@ -24,4 +35,7 @@ import type { PageObjectNumber } from '../identity/PageObjectNumber';
 export interface DocumentAnnotationsService {
   listRawAll(): AbortablePromise<AnnotationListSnapshotAllPages>;
   listRaw(pageObjectNumber: PageObjectNumber): AbortablePromise<AnnotationListPageSnapshot>;
+  beginWeakEdit(
+    pageObjectNumbers: readonly PageObjectNumber[],
+  ): AbortablePromise<WeakAnnotationEditSession>;
 }

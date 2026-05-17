@@ -175,6 +175,7 @@ describe('Phase 5 layer mutation pipeline', () => {
       annotationGeneration: 10,
       hasWeakAnnotations: true,
     });
+    await beginWeakAnnotationSession(fx, tenantId, docId, layerName, [1]);
 
     const res = await fetch(
       `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
@@ -233,6 +234,124 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(page.annotation_generation).toBe(11);
   });
 
+  test('weak page delete requires an active weak annotation session covering the page', async () => {
+    const tenantId = 'tenant-layer-weak-required';
+    const docId = 'doclayermut006';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+    await seedLayerPage(fx, {
+      tenantId,
+      docId,
+      layerName,
+      annotationVersion: 17,
+      annotationGeneration: 10,
+      hasWeakAnnotations: true,
+    });
+
+    const denied = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          op: 'delete',
+          ref: cloudIndexRef(docId, layerName, 1, 0, 10),
+        }),
+      },
+    );
+    expect(denied.status).toBe(409);
+
+    const session = await beginWeakAnnotationSession(fx, tenantId, docId, layerName, []);
+    const stillDenied = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          op: 'delete',
+          ref: cloudIndexRef(docId, layerName, 1, 0, 10),
+        }),
+      },
+    );
+    expect(stillDenied.status).toBe(409);
+
+    const update = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/weak-annotation-session/${session.sessionId}/pages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ pageObjectNumbers: [1] }),
+      },
+    );
+    expect(update.status).toBe(200);
+
+    const allowed = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          op: 'delete',
+          ref: cloudIndexRef(docId, layerName, 1, 0, 10),
+        }),
+      },
+    );
+    expect(allowed.status).toBe(200);
+  });
+
+  test('weak page structural edit is blocked when another distinct editor is active', async () => {
+    const tenantId = 'tenant-layer-weak-two-editors';
+    const docId = 'doclayermut007';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+    await seedLayerPage(fx, {
+      tenantId,
+      docId,
+      layerName,
+      annotationVersion: 17,
+      annotationGeneration: 10,
+      hasWeakAnnotations: true,
+    });
+    await beginWeakAnnotationSession(fx, tenantId, docId, layerName, [1], 'user-1');
+    await beginWeakAnnotationSession(fx, tenantId, docId, layerName, [1], 'user-2');
+
+    const res = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${docToken(tenantId, docId, layerName, 'user-1')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          op: 'delete',
+          ref: cloudIndexRef(docId, layerName, 1, 0, 10),
+        }),
+      },
+    );
+    expect(res.status).toBe(409);
+
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    expect(layer.current_version).toBe(1);
+  });
+
   test('stale cloud index ref fails before saving a new artifact', async () => {
     const tenantId = 'tenant-layer-stale';
     const docId = 'doclayermut004';
@@ -246,6 +365,7 @@ describe('Phase 5 layer mutation pipeline', () => {
       annotationGeneration: 10,
       hasWeakAnnotations: true,
     });
+    await beginWeakAnnotationSession(fx, tenantId, docId, layerName, [1]);
 
     const res = await fetch(
       `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
@@ -360,14 +480,56 @@ async function tearDown(fx: Fixture | undefined): Promise<void> {
   await rm(fx.cacheRoot, { recursive: true, force: true });
 }
 
-function docToken(tenantId: string, docId: string, layerName: string): string {
+function docToken(tenantId: string, docId: string, layerName: string, sub = 'user-1'): string {
   return signDevToken(SECRET, {
-    sub: 'user-1',
+    sub,
     tenant_id: tenantId,
     doc_id: docId,
     layer_name: layerName,
     scope: ['doc.read', 'doc.annotate', 'doc.edit-pages'],
   });
+}
+
+async function beginWeakAnnotationSession(
+  fx: Fixture,
+  tenantId: string,
+  docId: string,
+  layerName: string,
+  pageObjectNumbers: number[],
+  sub = 'user-1',
+): Promise<{ sessionId: string; pageObjectNumbers: number[] }> {
+  const res = await fetch(
+    `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/weak-annotation-session`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${docToken(tenantId, docId, layerName, sub)}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pageObjectNumbers }),
+    },
+  );
+  expect(res.status).toBe(200);
+  return (await res.json()) as { sessionId: string; pageObjectNumbers: number[] };
+}
+
+function cloudIndexRef(
+  docId: string,
+  layerName: string,
+  pageObjectNumber: number,
+  index: number,
+  generation: number,
+): unknown {
+  return {
+    kind: 'index',
+    pageObjectNumber,
+    index,
+    revision: {
+      docSessionId: `cloud:layer:${docId}:${layerName}`,
+      pageObjectNumber,
+      generation,
+    },
+  };
 }
 
 async function seedDocument(
