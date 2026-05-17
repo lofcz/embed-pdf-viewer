@@ -7,12 +7,7 @@ import {
   type OpenInput,
   type OpenOptions,
 } from '@embedpdf/engine-core/runtime';
-import {
-  DEFAULT_LAYER_NAME,
-  DocumentHeadSchema,
-  OpenDocumentResponseSchema,
-  wirePaths,
-} from '@embedpdf/engine-core/wire';
+import { DEFAULT_LAYER_NAME, DocumentHeadSchema, wirePaths } from '@embedpdf/engine-core/wire';
 import { HttpClient, type HttpClientOptions } from './transport/HttpClient';
 import { CloudDocumentHandle } from './document/CloudDocumentHandle';
 import { decodeUnverifiedClaims } from './transport/decodeUnverifiedClaims';
@@ -98,43 +93,13 @@ export class CloudEngine implements Engine {
       });
     }
 
-    if (input.kind !== 'bytes') {
-      return AbortablePromise.rejectReason(
-        new EngineError(
-          EngineErrorCode.InvalidArg,
-          `cloud engine: unknown OpenInput.kind '${(input as { kind?: string }).kind}'`,
-        ),
-      );
-    }
-
-    // Legacy `kind: 'bytes'` upload path. Hits the pre-Phase-3
-    // `POST /v1/documents` route and creates a doc record on the
-    // fly. Phase 5 replaces this with the admin lifecycle (init +
-    // commit) plus a subsequent token-open; at that point this
-    // branch is deleted from the cloud engine.
-    const password = options?.password ?? input.password ?? null;
-    const id = input.id;
-    const bytes = input.bytes;
-
-    return AbortablePromise.run<DocumentHandle>(async (signal) => {
-      const form = new FormData();
-      form.append('id', id);
-      if (password != null) form.append('password', password);
-      const fileBlob =
-        bytes instanceof ArrayBuffer
-          ? new Blob([bytes])
-          : new Blob([
-              new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength).slice().buffer,
-            ]);
-      form.append('file', fileBlob, `${id}.pdf`);
-      const response = await this.http.postMultipartJson(
-        wirePaths.documents,
-        form,
-        (raw) => OpenDocumentResponseSchema.parse(raw),
-        signal,
-      );
-      return new CloudDocumentHandle(this.http, response.id, DEFAULT_LAYER_NAME, false);
-    });
+    void options;
+    return AbortablePromise.rejectReason(
+      new EngineError(
+        EngineErrorCode.InvalidArg,
+        `cloud engine supports OpenInput.kind === 'token' or 'id' (got '${(input as { kind?: string }).kind}')`,
+      ),
+    );
   }
 
   destroy(): AbortablePromise<void> {

@@ -243,7 +243,7 @@ export type WorkerResultPayload =
       artifact?: LayerArtifactWorkerPayload;
     }
   | { tag: 'pages.list'; snapshot: PageListSnapshot }
-  | { tag: 'pages.move'; result: PageMoveResult }
+  | { tag: 'pages.move'; result: PageMoveResult; artifact?: LayerArtifactWorkerPayload }
   | { tag: 'pages.text'; snapshot: PageTextSnapshot }
   | { tag: 'close' }
   | { tag: 'shutdown' };

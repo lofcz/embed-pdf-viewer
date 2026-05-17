@@ -3,7 +3,6 @@ import multipart from '@fastify/multipart';
 import type { Kysely } from 'kysely';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import { WorkerThreadPool } from '../runtime/WorkerThreadPool';
-import { InMemoryDocumentStore } from '../storage/InMemoryDocumentStore';
 import { BaseFileCache } from '../storage/BaseFileCache';
 import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
 import type { Database as Schema } from '../db/schema';
@@ -12,6 +11,7 @@ import { TenantsRepo } from '../db/repos/tenants.repo';
 import { DocumentPagesRepo, LayerPagesRepo, LayersRepo } from '../db/repos/page_state.repo';
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
 import { DocumentService } from '../services/DocumentService';
+import { CloudRevisionBridge } from '../services/CloudRevisionBridge';
 import { LayerStateService } from '../services/LayerStateService';
 import { LayerService } from '../services/LayerService';
 import { validate as validateMigrations, type MigrationSource } from '../db/migrator/runner';
@@ -19,12 +19,10 @@ import { RevokedJtisGuard } from '../auth/RevokedJtisGuard';
 import { DbJwksCacheStore } from '../auth/JwksCacheStore';
 import type { JwtVerifierConfig, RevocationCheck, JwksCacheStore } from '../auth/JwtVerifier';
 import { registerJwtAuth } from './jwt-plugin';
-import { registerDocumentRoutes } from '../routes/documents';
-import { registerMetadataRoutes } from '../routes/metadata';
-import { registerAnnotationRoutes } from '../routes/annotations';
-import { registerPagesRoutes } from '../routes/pages';
 import { registerDocsRoutes } from '../routes/docs';
-import { registerLayerMutationRoutes } from '../routes/layer-mutations';
+import { registerAnnotationRoutes } from '../routes/annotations';
+import { registerMetadataRoutes } from '../routes/metadata';
+import { registerPageRoutes } from '../routes/pages';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
 import { registerAdminTokensRoutes } from '../routes/admin/tokens';
 
@@ -62,9 +60,8 @@ export interface BuildAppOptions {
   /**
    * Set to `null` (or omit) to skip worker_thread initialisation. Use
    * this for admin-only deployments where no engine reads happen
-   * through this Fastify process. The engine routes (`/v1/documents`,
-   * `/v1/.../pages/...`) are still registered but will throw 503 at
-   * call time. The admin routes don't depend on the pool.
+   * through this Fastify process. The admin routes don't depend on
+   * the pool.
    */
   workerEntry: URL | string | null;
   /** Override Fastify body limit. Defaults to 50 MiB. */
@@ -92,15 +89,14 @@ export interface BuildAppOptions {
   pendingTtlMs?: number;
   /**
    * Phase 3 — when supplied (with `db`, `objectStore`, and a worker
-   * pool), enables the doc-scoped `/v1/docs/...` routes via the
+   * pool), enables the cloud `/v1/docs/...` routes via the
    * `DocumentService` orchestrator. The required pieces are:
    *
    *   - `cacheRoot`        absolute path the BaseFileCache uses
    *   - `cacheMaxBytes`    disk budget (default 4 GiB)
    *   - `maxDocsPerSlot`   worker pool slot capacity (default 64)
    *
-   * Disable by leaving `cacheRoot` unset; the legacy upload-then-open
-   * routes (`/v1/documents/...`) still work without it.
+   * Disable by leaving `cacheRoot` unset.
    */
   cacheRoot?: string;
   cacheMaxBytes?: number;
@@ -124,7 +120,6 @@ export interface AppBundle {
   app: FastifyInstance;
   /** Present only when `workerEntry` was supplied. */
   pool?: WorkerThreadPool;
-  store: InMemoryDocumentStore;
   /** Present only when `db` + `objectStore` were configured. */
   lifecycle?: DocumentLifecycleService;
   /** Present only when `enableRevocation: true` with a `db`. */
@@ -139,8 +134,9 @@ export interface AppBundle {
 }
 
 /**
- * Build the Fastify app with the worker pool, in-memory store, JWT auth,
- * and the alpha-slice routes. Caller is responsible for `app.listen()`.
+ * Build the Fastify app with JWT auth, admin routes, and the cloud
+ * document routes when their adapters are configured. Caller is
+ * responsible for `app.listen()`.
  */
 export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
   const app = Fastify({
@@ -224,17 +220,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         onEvict: evictForward,
       })
     : undefined;
-  const store = new InMemoryDocumentStore();
-
   app.get('/healthz', async () => ({ status: 'ok' }));
   app.get('/readyz', async () => ({ status: 'ok' }));
-
-  if (pool) {
-    await registerDocumentRoutes(app, { pool, store });
-    await registerMetadataRoutes(app, { pool, store });
-    await registerPagesRoutes(app, { pool, store });
-    await registerAnnotationRoutes(app, { pool, store });
-  }
 
   // Drift detection at boot. Production deployments should supply
   // `expectedMigrations` — if the DB has a checksum mismatch or an
@@ -286,6 +273,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         layers: new LayersRepo(opts.db),
         layerPages: new LayerPagesRepo(opts.db),
       });
+      const cloudRevisionBridge = new CloudRevisionBridge();
       documentService = new DocumentService({
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
@@ -297,12 +285,24 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         db: opts.db,
         documents: new DocumentsRepo(opts.db),
         layerState: layerStateService,
+        revisionBridge: cloudRevisionBridge,
         documentService,
         pool,
         storage: opts.objectStore,
       });
-      await registerDocsRoutes(app, { service: documentService, pool });
-      await registerLayerMutationRoutes(app, { service: layerService });
+      await registerDocsRoutes(app, { service: documentService });
+      await registerMetadataRoutes(app, { service: documentService });
+      await registerPageRoutes(app, {
+        documentService,
+        layerService,
+        pool,
+      });
+      await registerAnnotationRoutes(app, {
+        documentService,
+        layerService,
+        pool,
+        revisionBridge: cloudRevisionBridge,
+      });
     }
 
     const sweepIntervalMs = opts.sweepIntervalMs ?? 60_000;
@@ -368,7 +368,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
   return {
     app,
     pool,
-    store,
     lifecycle,
     revokedJtisGuard,
     documentService,

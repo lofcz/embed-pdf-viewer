@@ -1,4 +1,5 @@
 import {
+  AbortError,
   AbortablePromise,
   EngineError,
   EngineErrorCode,
@@ -61,7 +62,6 @@ export class CloudDocumentHandle implements DocumentHandle {
     private readonly http: HttpClient,
     id: string,
     private readonly layerName: string = DEFAULT_LAYER_NAME,
-    private readonly useLayerRoutes: boolean = true,
   ) {
     this.id = id;
     this.manifestAccessor = {
@@ -74,10 +74,21 @@ export class CloudDocumentHandle implements DocumentHandle {
       layerName,
       () => this.closed,
       this.manifestAccessor,
-      useLayerRoutes,
     );
-    this.annotations = new CloudDocumentAnnotationsService(http, id, () => this.closed);
-    this.pages = new CloudDocumentPagesService(http, id, () => this.closed);
+    this.annotations = new CloudDocumentAnnotationsService(
+      http,
+      id,
+      layerName,
+      () => this.closed,
+      this.manifestAccessor,
+    );
+    this.pages = new CloudDocumentPagesService(
+      http,
+      id,
+      layerName,
+      () => this.closed,
+      this.manifestAccessor,
+    );
   }
 
   page(pageObjectNumber: PageObjectNumber): PageHandle {
@@ -89,7 +100,6 @@ export class CloudDocumentHandle implements DocumentHandle {
       this.layerName,
       () => this.closed,
       this.manifestAccessor,
-      this.useLayerRoutes,
     );
   }
 
@@ -101,16 +111,17 @@ export class CloudDocumentHandle implements DocumentHandle {
    */
   async getManifest(signal: AbortSignal): Promise<DocumentManifest> {
     if (this.manifestCache) return this.manifestCache;
-    if (this.inflightManifest) return this.inflightManifest;
-    const promise = this.fetchManifest(signal);
-    this.inflightManifest = promise;
-    try {
-      const manifest = await promise;
-      this.manifestCache = manifest;
-      return manifest;
-    } finally {
-      this.inflightManifest = null;
+    if (!this.inflightManifest) {
+      this.startManifestFetch();
     }
+    const promise = this.inflightManifest;
+    if (!promise) {
+      throw new EngineError(
+        EngineErrorCode.Unknown,
+        `manifest fetch was not started for document ${this.id}`,
+      );
+    }
+    return awaitSignal(promise, signal);
   }
 
   /**
@@ -119,32 +130,30 @@ export class CloudDocumentHandle implements DocumentHandle {
    * wholesale so the next `getManifest()` is a Map lookup.
    */
   async refreshManifest(signal: AbortSignal): Promise<DocumentManifest> {
-    const promise = this.fetchManifest(signal);
+    const promise = this.startManifestFetch();
+    return awaitSignal(promise, signal);
+  }
+
+  private startManifestFetch(): Promise<DocumentManifest> {
+    const ctrl = new AbortController();
+    const promise = this.fetchManifest(ctrl.signal);
     this.inflightManifest = promise;
-    try {
-      const manifest = await promise;
-      this.manifestCache = manifest;
-      return manifest;
-    } finally {
-      this.inflightManifest = null;
-    }
+    promise
+      .then((manifest) => {
+        this.manifestCache = manifest;
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (this.inflightManifest === promise) {
+          this.inflightManifest = null;
+        }
+      });
+    return promise;
   }
 
   private async fetchManifest(signal: AbortSignal): Promise<DocumentManifest> {
     if (this.closed) {
       throw new EngineError(EngineErrorCode.DocNotOpen, `document ${this.id} is closed`);
-    }
-    if (!this.useLayerRoutes) {
-      const head = await this.http.getJson(
-        wirePaths.docHead(this.id),
-        (raw) => DocumentHeadSchema.parse(raw),
-        signal,
-      );
-      return this.http.getJson(
-        wirePaths.docManifest(this.id, head.docVersion),
-        (raw) => DocumentManifestSchema.parse(raw),
-        signal,
-      );
     }
     // Always re-fetch `/head` first so we learn the current
     // `docVersion`; chasing the manifest with a stale `:D` would
@@ -168,13 +177,28 @@ export class CloudDocumentHandle implements DocumentHandle {
     this.closed = true;
     this.manifestCache = null;
     this.inflightManifest = null;
-    return AbortablePromise.run<void>(async (signal) => {
-      try {
-        await this.http.deleteEmpty(wirePaths.document(this.id), signal);
-      } catch (err) {
-        if (EngineError.is(err, EngineErrorCode.NotFound)) return;
-        throw err;
-      }
-    });
+    return AbortablePromise.resolveValue<void>(undefined);
   }
+}
+
+function awaitSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) {
+    return Promise.reject(new AbortError(signal.reason));
+  }
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      reject(new AbortError(signal.reason));
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (reason) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(reason);
+      },
+    );
+  });
 }

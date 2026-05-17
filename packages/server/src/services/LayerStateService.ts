@@ -1,16 +1,9 @@
 import type {
-  AnnotationListPageSnapshot,
   AnnotationMutationKind,
-  AnnotationRef,
   PageState,
   PageTextSnapshot,
 } from '@embedpdf/engine-core/runtime';
-import {
-  EngineError,
-  EngineErrorCode,
-  changesAnnotationList,
-  invalidatesWeakIndexRefs,
-} from '@embedpdf/engine-core/runtime';
+import { changesAnnotationList, invalidatesWeakIndexRefs } from '@embedpdf/engine-core/runtime';
 import type { DocumentManifest, ManifestPage } from '@embedpdf/engine-core/wire';
 import type {
   DocumentPagesRepo,
@@ -32,10 +25,9 @@ export type MutationImpactKind = AnnotationMutationKind;
 /**
  * Durable authority for cloud/CDN page state.
  *
- * Worker sessions are still responsible for PDF parsing/mutation, but their
- * local revision tokens are not stable across process eviction. This service
- * converts worker observations into DB-backed PageState envelopes before they
- * leave the server.
+ * Worker sessions are still responsible for PDF parsing/mutation. This
+ * service owns the durable DB-backed page state used by manifests and CDN
+ * version checks; `CloudRevisionBridge` owns worker/cloud token translation.
  */
 export class LayerStateService {
   private readonly documentPages: DocumentPagesRepo;
@@ -117,49 +109,12 @@ export class LayerStateService {
     };
   }
 
-  decorateBaseAnnotationSnapshot(
-    docId: string,
-    page: DurablePageRow,
-    snapshot: AnnotationListPageSnapshot,
-  ): AnnotationListPageSnapshot {
-    return {
-      ...snapshot,
-      pageState: this.decorateBasePageState(docId, page),
-    };
-  }
-
   decorateLayerPageState(docId: string, layerName: string, page: DurablePageRow): PageState {
     return this.toPageState(this.layerRevisionScopeId(docId, layerName), page);
   }
 
   layerRevisionScopeId(docId: string, layerName: string): string {
     return `cloud:layer:${docId}:${layerName}`;
-  }
-
-  validateLayerIndexRef(input: {
-    docId: string;
-    layerName: string;
-    page: DurablePageRow;
-    ref: AnnotationRef;
-  }): void {
-    if (input.ref.kind !== 'index') return;
-    const expectedScope = this.layerRevisionScopeId(input.docId, input.layerName);
-    if (
-      input.ref.revision.docSessionId !== expectedScope ||
-      input.ref.revision.pageObjectNumber !== input.ref.pageObjectNumber ||
-      input.ref.revision.generation !== input.page.annotationGeneration
-    ) {
-      throw new EngineError(EngineErrorCode.InvalidReference, 'revision token is stale', {
-        details: {
-          provided: input.ref.revision,
-          current: {
-            docSessionId: expectedScope,
-            pageObjectNumber: input.ref.pageObjectNumber,
-            generation: input.page.annotationGeneration,
-          },
-        },
-      });
-    }
   }
 
   mutationBumps(
@@ -173,11 +128,12 @@ export class LayerStateService {
     weakRefsInvalidated: boolean;
   } {
     const weakRefsInvalidated = invalidatesWeakIndexRefs(kind, pageBefore.hasWeakAnnotations);
+    const shiftsAnnotationIndexes = kind === 'delete' || kind === 'move';
     return {
       bumpLayerDocVersion: true,
       bumpAnnotationVersion: changesAnnotationList(kind),
       bumpContentVersion: false,
-      bumpAnnotationGeneration: weakRefsInvalidated,
+      bumpAnnotationGeneration: shiftsAnnotationIndexes,
       weakRefsInvalidated,
     };
   }

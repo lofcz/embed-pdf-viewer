@@ -315,8 +315,6 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v1/text`,
       ]);
     } finally {
-      // Avoid the close roundtrip; deleteEmpty hits /v1/documents/* which
-      // the stub 404s, but our close handler swallows that branch.
       await doc.close();
     }
   });

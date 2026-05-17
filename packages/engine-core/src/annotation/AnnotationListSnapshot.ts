@@ -4,8 +4,8 @@ import type { AnnotationDTO } from './kinds';
 /**
  * Whole-document raw read response. Returned by
  * `DocumentAnnotationsService.listRawAll()` and over the wire as the
- * `GET /v1/documents/:id/annotations` body. Page order matches the
- * document's page index.
+ * cloud layer annotation reads. Page order matches the document's
+ * page index.
  */
 export interface AnnotationListSnapshotAllPages {
   pages: AnnotationListPageSnapshot[];
@@ -14,7 +14,7 @@ export interface AnnotationListSnapshotAllPages {
 /**
  * Single-page raw or full read response. Returned by
  * `PageAnnotationsService.list()` and over the wire as the
- * `GET /v1/documents/:id/pages/:pageObjectNumber/annotations` body.
+ * `GET /v1/docs/:id/layers/:layer/pages/:pageObjectNumber/.../annotations` body.
  *
  * `pageState` carries the revision token clients must hand back when
  * referring to weak annotations on this page; `annotations` is the

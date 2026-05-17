@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
@@ -6,8 +5,14 @@ import {
   runMetadataConformance,
   type ConformanceTestRunner,
 } from '@embedpdf/engine-core/conformance';
-import { buildApp, signDevToken, defaultWorkerEntryUrl, type AppBundle } from '@embedpdf/server';
 import { createCloudEngine } from '../src/index';
+import {
+  buildDbSeededFixture,
+  docScopedToken,
+  seedDocumentFromBytes,
+  teardownDbSeededFixture,
+  type DbSeededFixture,
+} from './_helpers/db-seeded-app';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const samplePath = resolve(
@@ -29,37 +34,34 @@ const runner: ConformanceTestRunner = {
   expect: expect as unknown as ConformanceTestRunner['expect'],
 };
 
-let bundle: AppBundle | undefined;
-let baseUrl = '';
-const SECRET = 'cloud-conformance-secret';
+let fx: DbSeededFixture | undefined;
+const TENANT_ID = 'cloud-metadata-tenant';
+const DOC_ID = 'sample-pdf-cloud';
 
 beforeAll(async () => {
-  bundle = await buildApp({
-    jwtSecret: SECRET,
-    poolSize: 1,
-    workerEntry: defaultWorkerEntryUrl,
-  });
-  const addr = await bundle.app.listen({ host: '127.0.0.1', port: 0 });
-  baseUrl = typeof addr === 'string' ? addr : `http://127.0.0.1:${addr}`;
+  fx = await buildDbSeededFixture({ secret: 'cloud-conformance-secret' });
+  await seedDocumentFromBytes(fx, TENANT_ID, DOC_ID, samplePath, 8);
 });
 
 afterAll(async () => {
-  if (bundle) await bundle.shutdown();
+  await teardownDbSeededFixture(fx);
 });
 
 runMetadataConformance(runner, {
   label: 'engine-cloud (HTTP -> @embedpdf/server, native runtime)',
-  openKind: 'bytes',
+  openKind: 'id',
   fixture: {
-    id: 'sample-pdf-cloud',
-    bytes: async () => new Uint8Array(await readFile(samplePath)),
+    id: DOC_ID,
+    bytes: async () => new Uint8Array(),
     expected: {
       trapped: 'unknown',
     },
   },
-  makeEngine: () =>
-    createCloudEngine({
-      baseUrl,
-      token: signDevToken(SECRET, { sub: 'tester', tenant_id: 'conformance' }),
-    }),
+  makeEngine: () => {
+    if (!fx) throw new Error('fixture not initialised');
+    return createCloudEngine({
+      baseUrl: fx.baseUrl,
+      token: docScopedToken(fx, TENANT_ID, DOC_ID),
+    });
+  },
 });

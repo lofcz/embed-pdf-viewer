@@ -16,22 +16,12 @@ export class CloudMetadataService implements MetadataService {
     private readonly layerName: string,
     private readonly isClosed: () => boolean,
     private readonly manifest: ManifestAccessor,
-    private readonly useLayerRoutes: boolean,
   ) {}
 
   read(): AbortablePromise<DocumentMetadata> {
     if (this.isClosed()) {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
-      );
-    }
-    if (!this.useLayerRoutes) {
-      return AbortablePromise.run<DocumentMetadata>(async (signal) =>
-        this.http.getJson(
-          wirePaths.metadata(this.docId),
-          (raw) => DocumentMetadataSchema.parse(raw),
-          signal,
-        ),
       );
     }
     return AbortablePromise.run<DocumentMetadata>(async (signal) => {

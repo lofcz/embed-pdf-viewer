@@ -796,6 +796,107 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     expect(annotations.headers.get('cache-control')).toBe(NO_STORE);
   });
 
+  test('layer unversioned read aliases return current layer state with no-store', async () => {
+    const tenantId = 'tenant-layer-alias';
+    const docId = 'doclayeralias1';
+    const layerId = 'layer-alias-alice';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+    const token = docToken(tenantId, docId, { layerName });
+
+    const base = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(base.status).toBe(200);
+
+    const now = Date.now();
+    await fx.db
+      .insertInto('layers')
+      .values({
+        id: layerId,
+        doc_id: docId,
+        tenant_id: tenantId,
+        name: layerName,
+        doc_version: 5,
+        current_version: 0,
+        current_artifact_key: null,
+        current_artifact_sha: null,
+        current_artifact_size: null,
+        created_at: now,
+        updated_at: now,
+      })
+      .execute();
+    await fx.db
+      .insertInto('layer_pages')
+      .values({
+        layer_id: layerId,
+        page_object_number: 1,
+        page_index: 0,
+        content_version: 7,
+        annotation_version: 9,
+        annotation_generation: 4,
+        has_weak_annotations: 1,
+        updated_at: now,
+      })
+      .execute();
+
+    const manifest = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/manifest`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(manifest.status).toBe(200);
+    expect(manifest.headers.get('cache-control')).toBe(NO_STORE);
+    const manifestBody = (await manifest.json()) as {
+      docVersion: number;
+      pages: Array<{
+        contentVersion: number;
+        annotationVersion: number;
+        revision: { generation: number };
+      }>;
+    };
+    expect(manifestBody.docVersion).toBe(5);
+    expect(manifestBody.pages[0]).toMatchObject({
+      contentVersion: 7,
+      annotationVersion: 9,
+      revision: { generation: 4 },
+    });
+
+    const text = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/text`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(text.status).toBe(200);
+    expect(text.headers.get('cache-control')).toBe(NO_STORE);
+
+    const annotations = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    expect(annotations.status).toBe(200);
+    expect(annotations.headers.get('cache-control')).toBe(NO_STORE);
+    const annotationsBody = (await annotations.json()) as {
+      pageState: { revision: { docSessionId: string; generation: number } };
+    };
+    expect(annotationsBody.pageState.revision).toMatchObject({
+      docSessionId: `cloud:layer:${docId}:${layerName}`,
+      generation: 4,
+    });
+  });
+
+  test('DB-backed cloud mode does not register legacy in-memory mutation routes', async () => {
+    const tenantId = 'tenant-no-legacy';
+    const docId = 'docnolegacy';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+
+    const res = await fetch(`${fx.baseUrl}/v1/documents/${docId}/pages/1/annotations`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${docToken(tenantId, docId, { layerName: 'alice' })}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(404);
+  });
+
   test('future manifest versions fail closed with no-store', async () => {
     const tenantId = 'tenant-future';
     const docId = 'docfuture';

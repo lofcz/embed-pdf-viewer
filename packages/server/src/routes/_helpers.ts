@@ -1,4 +1,5 @@
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
+import { EngineError, EngineErrorCode, type PageState } from '@embedpdf/engine-core/runtime';
+import type { ManifestPage } from '@embedpdf/engine-core/wire';
 
 /**
  * Shared route helpers. Lives next to the route files (prefixed with
@@ -27,6 +28,59 @@ export type SafeParseLike<T> =
 
 export interface SchemaLike<T> {
   safeParse(raw: unknown): SafeParseLike<T>;
+}
+
+/** Long-cache header for content-addressed versioned URLs. */
+export const IMMUTABLE_CACHE = 'public, max-age=31536000, immutable';
+/** No-cache header for unversioned aliases, mutations, and error responses. */
+export const NO_STORE = 'private, no-store';
+
+export function setImmutableCache(reply: {
+  header(name: 'Cache-Control', value: string): unknown;
+}): void {
+  reply.header('Cache-Control', IMMUTABLE_CACHE);
+}
+
+export function setNoStore(reply: { header(name: 'Cache-Control', value: string): unknown }): void {
+  reply.header('Cache-Control', NO_STORE);
+}
+
+export function parseVersionPathSegment(raw: string, label: string): number {
+  if (!/^\d+$/.test(raw)) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `${label} path expects an integer version, got "${raw}"`,
+    );
+  }
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `${label} must be a positive integer, got ${raw}`,
+    );
+  }
+  return n;
+}
+
+export function parsePageObjectNumber(raw: string): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `pageObjectNumber must be a positive integer, got '${raw}'`,
+    );
+  }
+  return n;
+}
+
+export function toPageState(page: ManifestPage): PageState {
+  return {
+    pageObjectNumber: page.pageObjectNumber,
+    pageIndex: page.pageIndex,
+    revision: page.revision,
+    weakAnnotationState: page.weakAnnotationState,
+    hasAnyWeakAnnotations: page.hasAnyWeakAnnotations,
+  };
 }
 
 /**

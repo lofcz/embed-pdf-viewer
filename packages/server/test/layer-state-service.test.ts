@@ -98,12 +98,12 @@ describe('LayerStateService durable authority', () => {
     });
     expect(service.mutationBumps('delete', strongPage)).toMatchObject({
       bumpAnnotationVersion: true,
-      bumpAnnotationGeneration: false,
+      bumpAnnotationGeneration: true,
       weakRefsInvalidated: false,
     });
     expect(service.mutationBumps('move', strongPage)).toMatchObject({
       bumpAnnotationVersion: true,
-      bumpAnnotationGeneration: false,
+      bumpAnnotationGeneration: true,
       weakRefsInvalidated: false,
     });
     expect(service.mutationBumps('delete', weakPage)).toMatchObject({

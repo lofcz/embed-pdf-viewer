@@ -25,7 +25,7 @@ export type AnnotationStableId =
  *   `{ kind: 'nm', value: 'foo bar' }`    -> `'nm:foo bar'`
  *
  * The caller is responsible for `encodeURIComponent`-ing the result before
- * splicing it into a URL path; `wirePaths.annotationByKey` already does
+ * splicing it into a URL path; `wirePaths.layerAnnotationByKey` already does
  * that. /NM values are opaque strings and may contain anything; the
  * `nm:` prefix lets the decoder distinguish them from numeric ids
  * unambiguously.

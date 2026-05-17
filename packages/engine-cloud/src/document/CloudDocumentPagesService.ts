@@ -7,12 +7,9 @@ import {
   type PageMoveResult,
   type PageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
-import {
-  PageListSnapshotSchema,
-  PageMoveResultSchema,
-  wirePaths,
-} from '@embedpdf/engine-core/wire';
+import { PageMoveResultSchema, wirePaths } from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
+import type { ManifestAccessor } from './CloudDocumentHandle';
 
 /**
  * Cloud-side document pages service. Mirrors `LocalDocumentPagesService`
@@ -31,7 +28,9 @@ export class CloudDocumentPagesService implements DocumentPagesService {
   constructor(
     private readonly http: HttpClient,
     private readonly docId: string,
+    private readonly layerName: string,
     private readonly isClosed: () => boolean,
+    private readonly manifest: ManifestAccessor,
   ) {}
 
   list(): AbortablePromise<PageListSnapshot> {
@@ -40,13 +39,10 @@ export class CloudDocumentPagesService implements DocumentPagesService {
         new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
       );
     }
-    return AbortablePromise.run<PageListSnapshot>(async (signal) =>
-      this.http.getJson(
-        wirePaths.pagesList(this.docId),
-        (raw) => PageListSnapshotSchema.parse(raw),
-        signal,
-      ),
-    );
+    return AbortablePromise.run<PageListSnapshot>(async (signal) => {
+      const manifest = await this.manifest.get(signal);
+      return { pages: manifest.pages.map((page) => ({ ...page })) };
+    });
   }
 
   move(pageObjectNumbers: PageObjectNumber[], destIndex: number): AbortablePromise<PageMoveResult> {
@@ -57,7 +53,7 @@ export class CloudDocumentPagesService implements DocumentPagesService {
     }
     return AbortablePromise.run<PageMoveResult>(async (signal) =>
       this.http.postJson(
-        wirePaths.pagesMove(this.docId),
+        wirePaths.layerPagesMove(this.docId, this.layerName),
         { pageObjectNumbers, destIndex },
         (raw) => PageMoveResultSchema.parse(raw),
         signal,

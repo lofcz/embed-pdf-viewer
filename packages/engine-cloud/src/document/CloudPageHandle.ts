@@ -16,7 +16,6 @@ export class CloudPageHandle implements PageHandle {
     layerName: string,
     isClosed: () => boolean,
     manifest: ManifestAccessor,
-    useLayerRoutes: boolean,
   ) {
     this.annotations = new CloudPageAnnotationsService(
       http,
@@ -25,7 +24,6 @@ export class CloudPageHandle implements PageHandle {
       pageObjectNumber,
       isClosed,
       manifest,
-      useLayerRoutes,
     );
     this.text = new CloudPageTextService(
       http,

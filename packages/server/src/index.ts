@@ -38,8 +38,6 @@ export type { RevokedJtisGuardOptions } from './auth/RevokedJtisGuard';
 export { DbJwksCacheStore } from './auth/JwksCacheStore';
 export { WorkerThreadPool } from './runtime/WorkerThreadPool';
 export type { WorkerThreadPoolOptions } from './runtime/WorkerThreadPool';
-export { InMemoryDocumentStore } from './storage/InMemoryDocumentStore';
-export type { DocumentRecord } from './storage/InMemoryDocumentStore';
 
 // Phase 1 cloud platform surfaces.
 export { createSqliteDb } from './db/drivers/sqlite';
@@ -118,6 +116,8 @@ export type {
   DocumentManifest,
   OpenContext,
 } from './services/DocumentService';
+export { CloudRevisionBridge } from './services/CloudRevisionBridge';
+export type { AnnotationMutationResult } from './services/CloudRevisionBridge';
 export { LayerStateService } from './services/LayerStateService';
 export type { LayerStateServiceOptions, MutationImpactKind } from './services/LayerStateService';
 export { LayerService } from './services/LayerService';

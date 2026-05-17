@@ -86,10 +86,12 @@ function mutationMeta(pon, generation, hasWeak = false) {
 
 function layerArtifact(msg, meta) {
   if (!msg.layerName) return undefined;
+  const pon = meta?.pageState?.pageObjectNumber ?? 0;
+  const generation = meta?.pageState?.revision?.generation ?? 0;
   const view = new Uint8Array([
     0x4c,
-    meta.pageState.pageObjectNumber & 0xff,
-    meta.pageState.revision.generation & 0xff,
+    pon & 0xff,
+    generation & 0xff,
     Date.now() & 0xff,
   ]);
   return { bytes: view.buffer, size: view.byteLength };
@@ -342,6 +344,41 @@ parentPort.on('message', (msg) => {
         tag: 'annotations.move',
         result: { moved: msg.refs.map((_, i) => annotation(pon, msg.toIndex + i)), meta },
         artifact: layerArtifact(msg, meta),
+      });
+      return;
+    }
+    case 'pages.move': {
+      const meta = openDocs.get(sessionKey(msg));
+      if (!meta) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: { name: 'EngineError', message: `not open: ${msg.docId}`, code: 'DocNotOpen' },
+        });
+        return;
+      }
+      const current = meta.pageOrder ?? Array.from({ length: meta.pageCount }, (_, i) => i + 1);
+      const moving = new Set(msg.pageObjectNumbers);
+      const remaining = current.filter((pon) => !moving.has(pon));
+      const next = [
+        ...remaining.slice(0, msg.destIndex),
+        ...msg.pageObjectNumbers,
+        ...remaining.slice(msg.destIndex),
+      ];
+      meta.pageOrder = next;
+      const result = {
+        pageOrder: next.map((pon, pageIndex) => ({
+          pageObjectNumber: pon,
+          pageIndex,
+          revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
+          weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
+          hasAnyWeakAnnotations: false,
+        })),
+      };
+      resolveMutation(msg, {
+        tag: 'pages.move',
+        result,
+        artifact: layerArtifact(msg),
       });
       return;
     }

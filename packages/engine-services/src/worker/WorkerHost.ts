@@ -290,7 +290,11 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new DocumentPagesMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumbers, req.destIndex, signal);
-    return wirePack({ tag: 'pages.move', result });
+    if (session.kind !== 'layer') {
+      return wirePack({ tag: 'pages.move', result });
+    }
+    const artifact = session.saveLayerArtifact();
+    return wirePack({ tag: 'pages.move', result, artifact }, [artifact.bytes]);
   }
 
   private handlePagesText(

@@ -31,21 +31,8 @@ import type { ManifestAccessor } from './CloudDocumentHandle';
  * down to `fetch` and validates the JSON response with the wire-stable
  * Zod schema.
  *
- * Phase 4 note on URL versions: the server now publishes the
- * versioned annotation read at `/pages/:pon/v:A/annotations` (see
- * `wirePaths.docPageAnnotations`), and it is fully exercised by the
- * server's `doc-versioned-reads.test.ts`. The cloud SDK still uses
- * the un-versioned legacy path here because the mutation conformance
- * harness (`runAnnotationMutationConformance`) opens with `kind:
- * 'bytes'`, which seeds docs into the legacy `InMemoryDocumentStore`
- * — that store is invisible to `DocumentService.getManifest`. Phase 5
- * removes the legacy bytes-open + InMemoryDocumentStore in the same
- * patch that makes this service swap to `docPageAnnotations` with
- * the same `getJsonWithRefresh` pattern used by `CloudPageTextService`.
- *
- * The PATCH/DELETE/POST mutation routes already stay un-versioned —
- * HTTP semantics exempt them from cache, so versioning would be
- * ceremony with no payoff.
+ * Reads use immutable versioned layer URLs discovered from the
+ * manifest. Mutations use unversioned layer URLs and are never cached.
  */
 export class CloudPageAnnotationsService implements PageAnnotationsService {
   constructor(
@@ -55,22 +42,12 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly isClosed: () => boolean,
     private readonly manifest: ManifestAccessor,
-    private readonly useLayerRoutes: boolean,
   ) {}
 
   list(): AbortablePromise<AnnotationListPageSnapshot> {
     if (this.isClosed()) {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
-      );
-    }
-    if (!this.useLayerRoutes) {
-      return AbortablePromise.run<AnnotationListPageSnapshot>(async (signal) =>
-        this.http.getJson(
-          wirePaths.annotationsFullPage(this.docId, this.pageObjectNumber),
-          (raw) => AnnotationListPageSnapshotSchema.parse(raw),
-          signal,
-        ),
       );
     }
     return AbortablePromise.run<AnnotationListPageSnapshot>(async (signal) => {
@@ -109,7 +86,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
     }
     return AbortablePromise.run<AnnotationCreateResult>(async (signal) =>
       this.http.postJson(
-        wirePaths.pageAnnotationsCreate(this.docId, this.pageObjectNumber),
+        wirePaths.layerPageAnnotationsCreate(this.docId, this.layerName, this.pageObjectNumber),
         draft,
         (raw) => AnnotationCreateResultSchema.parse(raw),
         signal,
@@ -135,7 +112,12 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       // Index refs cannot be addressed by stable id. Send the full ref
       // in the body so the server can validate the revision and resolve
       // it the same way the local mutator does.
-      const path = wirePaths.annotationByKey(this.docId, ref.pageObjectNumber, 'index');
+      const path = wirePaths.layerAnnotationByKey(
+        this.docId,
+        this.layerName,
+        ref.pageObjectNumber,
+        'index',
+      );
       return AbortablePromise.run<AnnotationUpdateResult>(async (signal) =>
         this.http.patchJson(
           path,
@@ -146,7 +128,12 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       );
     }
     const stableKey = encodeStableIdKey(refToStableId(ref));
-    const path = wirePaths.annotationByKey(this.docId, ref.pageObjectNumber, stableKey);
+    const path = wirePaths.layerAnnotationByKey(
+      this.docId,
+      this.layerName,
+      ref.pageObjectNumber,
+      stableKey,
+    );
     return AbortablePromise.run<AnnotationUpdateResult>(async (signal) =>
       this.http.patchJson(
         path,
@@ -175,7 +162,12 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       // DELETE has no body in plain HTTP, so we PATCH the same
       // 'index' key with `{ ref, op: 'delete' }`. This keeps the
       // semantics atomic on the server (single round-trip).
-      const path = wirePaths.annotationByKey(this.docId, ref.pageObjectNumber, 'index');
+      const path = wirePaths.layerAnnotationByKey(
+        this.docId,
+        this.layerName,
+        ref.pageObjectNumber,
+        'index',
+      );
       return AbortablePromise.run<AnnotationDeleteResult>(async (signal) =>
         this.http.patchJson(
           path,
@@ -186,7 +178,12 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       );
     }
     const stableKey = encodeStableIdKey(refToStableId(ref));
-    const path = wirePaths.annotationByKey(this.docId, ref.pageObjectNumber, stableKey);
+    const path = wirePaths.layerAnnotationByKey(
+      this.docId,
+      this.layerName,
+      ref.pageObjectNumber,
+      stableKey,
+    );
     return AbortablePromise.run<AnnotationDeleteResult>(async (signal) =>
       this.http.deleteJson(path, (raw) => AnnotationDeleteResultSchema.parse(raw), signal),
     );
@@ -210,7 +207,11 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         );
       }
     }
-    const path = wirePaths.pageAnnotationsMove(this.docId, this.pageObjectNumber);
+    const path = wirePaths.layerPageAnnotationsMove(
+      this.docId,
+      this.layerName,
+      this.pageObjectNumber,
+    );
     return AbortablePromise.run<AnnotationMoveResult>(async (signal) =>
       this.http.postJson(
         path,

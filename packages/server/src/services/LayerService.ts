@@ -11,8 +11,9 @@ import {
   type AnnotationPatch,
   type AnnotationRef,
   type AnnotationUpdateResult,
+  type PageMoveResult,
   type PageObjectNumber,
-  type RevisionToken,
+  type PageState,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import type { Database as Schema } from '../db/schema';
@@ -21,6 +22,7 @@ import type { DurablePageRow, LayerRow } from '../db/repos/page_state.repo';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { ObjectStore } from '../storage/ObjectStore';
 import { StorageKeys } from '../storage/keys';
+import type { CloudRevisionBridge } from './CloudRevisionBridge';
 import type { DocumentService } from './DocumentService';
 import type { LayerStateService } from './LayerStateService';
 import type { MutationImpactKind } from './LayerStateService';
@@ -29,6 +31,7 @@ export interface LayerServiceOptions {
   db?: Kysely<Schema>;
   documents: DocumentsRepo;
   layerState: LayerStateService;
+  revisionBridge?: CloudRevisionBridge;
   documentService?: DocumentService;
   pool?: WorkerThreadPool;
   storage?: ObjectStore;
@@ -56,6 +59,7 @@ export class LayerService {
   private readonly db?: Kysely<Schema>;
   private readonly documents: DocumentsRepo;
   private readonly layerState: LayerStateService;
+  private readonly revisionBridge?: CloudRevisionBridge;
   private readonly documentService?: DocumentService;
   private readonly pool?: WorkerThreadPool;
   private readonly storage?: ObjectStore;
@@ -65,6 +69,7 @@ export class LayerService {
     this.db = opts.db;
     this.documents = opts.documents;
     this.layerState = opts.layerState;
+    this.revisionBridge = opts.revisionBridge;
     this.documentService = opts.documentService;
     this.pool = opts.pool;
     this.storage = opts.storage;
@@ -272,6 +277,41 @@ export class LayerService {
     });
   }
 
+  async movePages(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      pageObjectNumbers: PageObjectNumber[];
+      destIndex: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<PageMoveResult> {
+    return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
+      const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      const build = (jobId: WorkerJobId) =>
+        wirePack({
+          kind: 'pages.move' as const,
+          jobId,
+          docId: input.docId,
+          layerName: input.layerName,
+          pageObjectNumbers: input.pageObjectNumbers,
+          destIndex: input.destIndex,
+        });
+      const payload = await this.requirePool().run(input.docId, build, signal);
+      if (payload.tag !== 'pages.move') {
+        throw new EngineError(
+          EngineErrorCode.WireFormat,
+          `unexpected pages.move payload: ${payload.tag}`,
+        );
+      }
+      return this.persistPageMove(ctx, input.docId, input.layerName, layer, {
+        result: payload.result,
+        artifact: requireLayerArtifact(payload as unknown),
+      });
+    });
+  }
+
   private async prepareLayerMutation(
     ctx: LayerWriteContext,
     docId: string,
@@ -324,16 +364,57 @@ export class LayerService {
       hasWeakAnnotations: input.result.meta.pageState.hasAnyWeakAnnotations,
     });
 
-    return {
+    const pageState = this.layerState.decorateLayerPageState(docId, layerName, durablePage.page);
+    const result = {
       ...input.result,
       meta: {
         ...input.result.meta,
-        pageState: this.layerState.decorateLayerPageState(docId, layerName, durablePage.page),
+        pageState,
         weakRefsInvalidated: durablePage.weakRefsInvalidated,
         shouldRefetch: durablePage.weakRefsInvalidated
           ? { reason: 'weakRefsInvalidated' as const }
           : null,
       },
+    };
+    return this.requireRevisionBridge().decorateAnnotationMutationResult(pageState, result);
+  }
+
+  private async persistPageMove(
+    ctx: LayerWriteContext,
+    docId: string,
+    layerName: string,
+    layer: LayerRow,
+    input: {
+      result: PageMoveResult;
+      artifact: { bytes: ArrayBuffer; size: number };
+    },
+  ): Promise<PageMoveResult> {
+    const nextVersion = layer.currentVersion + 1;
+    const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
+    const artifactBytes = new Uint8Array(input.artifact.bytes);
+    if (artifactBytes.byteLength !== input.artifact.size) {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `layer artifact size mismatch: payload=${artifactBytes.byteLength}, declared=${input.artifact.size}`,
+      );
+    }
+
+    const putResult = await this.requireStorage().put(artifactKey, artifactBytes, {
+      contentLength: input.artifact.size,
+    });
+    const pages = await this.commitPageMove({
+      layer,
+      pageOrder: input.result.pageOrder.map((page) => page.pageObjectNumber),
+      artifactKey,
+      artifactSha: putResult.sha256,
+      artifactSize: input.artifact.size,
+      nextVersion,
+    });
+
+    return {
+      pageOrder: pages.map((page) =>
+        this.layerState.decorateLayerPageState(docId, layerName, page),
+      ),
     };
   }
 
@@ -347,22 +428,23 @@ export class LayerService {
     if (ref.kind !== 'index') return ref;
 
     const page = await this.requireLayerPage(layer.id, ref.pageObjectNumber);
-    this.layerState.validateLayerIndexRef({ docId, layerName, page, ref });
-    const workerRevision = await this.loadWorkerPageRevision(
+    const durablePageState = this.layerState.decorateLayerPageState(docId, layerName, page);
+    this.requireRevisionBridge().validateClientIndexRef(durablePageState, ref);
+    const workerPageState = await this.loadWorkerPageState(
       docId,
       layerName,
       ref.pageObjectNumber,
       signal,
     );
-    return { ...ref, revision: workerRevision };
+    return this.requireRevisionBridge().rewriteIndexRefForWorker(workerPageState, ref);
   }
 
-  private async loadWorkerPageRevision(
+  private async loadWorkerPageState(
     docId: string,
     layerName: string,
     pageObjectNumber: PageObjectNumber,
     signal?: AbortSignal,
-  ): Promise<RevisionToken> {
+  ): Promise<PageState> {
     const build = (jobId: WorkerJobId) =>
       wirePack({
         kind: 'annotations.listFullPage' as const,
@@ -378,7 +460,7 @@ export class LayerService {
         `unexpected annotations.listFullPage payload while rewriting index ref: ${payload.tag}`,
       );
     }
-    return payload.snapshot.pageState.revision;
+    return payload.snapshot.pageState;
   }
 
   private async requireLayerPage(
@@ -483,6 +565,111 @@ export class LayerService {
       });
   }
 
+  private async commitPageMove(input: {
+    layer: LayerRow;
+    pageOrder: PageObjectNumber[];
+    artifactKey: string;
+    artifactSha: string;
+    artifactSize: number;
+    nextVersion: number;
+  }): Promise<DurablePageRow[]> {
+    return this.requireDb()
+      .transaction()
+      .execute(async (trx) => {
+        const now = Date.now();
+        const currentLayer = await trx
+          .selectFrom('layers')
+          .select(['current_version', 'doc_version'])
+          .where('id', '=', input.layer.id)
+          .executeTakeFirst();
+        if (!currentLayer) {
+          throw new EngineError(EngineErrorCode.NotFound, `layer not found: ${input.layer.id}`);
+        }
+        if (Number(currentLayer.current_version) !== input.layer.currentVersion) {
+          throw new EngineError(
+            EngineErrorCode.Aborted,
+            `layer version changed while saving artifact for ${input.layer.id}`,
+          );
+        }
+
+        const rows = await trx
+          .selectFrom('layer_pages')
+          .selectAll()
+          .where('layer_id', '=', input.layer.id)
+          .execute();
+        if (rows.length !== input.pageOrder.length) {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `pages.move returned ${input.pageOrder.length} pages for ${rows.length} layer page rows`,
+          );
+        }
+
+        const byObjectNumber = new Map(rows.map((row) => [Number(row.page_object_number), row]));
+        const nextPages: DurablePageRow[] = input.pageOrder.map((pageObjectNumber, pageIndex) => {
+          const row = byObjectNumber.get(pageObjectNumber);
+          if (!row) {
+            throw new EngineError(
+              EngineErrorCode.WireFormat,
+              `pages.move returned unknown page object number ${pageObjectNumber}`,
+            );
+          }
+          return {
+            pageObjectNumber,
+            pageIndex,
+            contentVersion: Number(row.content_version),
+            annotationVersion: Number(row.annotation_version),
+            annotationGeneration: Number(row.annotation_generation),
+            hasWeakAnnotations: Boolean(row.has_weak_annotations),
+            updatedAt: now,
+          };
+        });
+
+        await trx
+          .updateTable('layers')
+          .set({
+            doc_version: Number(currentLayer.doc_version) + 1,
+            current_version: input.nextVersion,
+            current_artifact_key: input.artifactKey,
+            current_artifact_sha: input.artifactSha,
+            current_artifact_size: input.artifactSize,
+            updated_at: now,
+          })
+          .where('id', '=', input.layer.id)
+          .execute();
+
+        const maxPageIndex = rows.reduce((max, row) => Math.max(max, Number(row.page_index)), -1);
+        const stagingOffset = maxPageIndex + rows.length + 1;
+        // `layer_pages` enforces unique `(layer_id, page_index)`.
+        // Reordering is a valid permutation, but row-by-row updates can
+        // temporarily collide with another row's old index. Move the whole
+        // layer into an out-of-band index range inside this transaction, then
+        // write the canonical final order. Readers only see old-or-new
+        // committed state, never this staging range.
+        await trx
+          .updateTable('layer_pages')
+          .set((eb) => ({
+            page_index: eb('page_index', '+', stagingOffset),
+            updated_at: now,
+          }))
+          .where('layer_id', '=', input.layer.id)
+          .execute();
+
+        for (const page of nextPages) {
+          await trx
+            .updateTable('layer_pages')
+            .set({
+              page_index: page.pageIndex,
+              updated_at: now,
+            })
+            .where('layer_id', '=', input.layer.id)
+            .where('page_object_number', '=', page.pageObjectNumber)
+            .execute();
+        }
+
+        return nextPages;
+      });
+  }
+
   private enqueueLayerWrite<T>(
     ctx: LayerWriteContext,
     docId: string,
@@ -520,6 +707,16 @@ export class LayerService {
       );
     }
     return this.documentService;
+  }
+
+  private requireRevisionBridge(): CloudRevisionBridge {
+    if (!this.revisionBridge) {
+      throw new EngineError(
+        EngineErrorCode.NotImplemented,
+        'LayerService revision bridge is not configured',
+      );
+    }
+    return this.revisionBridge;
   }
 
   private requirePool(): WorkerThreadPool {

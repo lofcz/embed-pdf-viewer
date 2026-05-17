@@ -116,7 +116,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(manifest.pages.find((p) => p.pageObjectNumber === 1)?.annotationVersion).toBe(2);
   });
 
-  test('stable delete creates the next artifact without bumping weak-index generation', async () => {
+  test('stable delete creates the next artifact and bumps index generation', async () => {
     const tenantId = 'tenant-layer-del';
     const docId = 'doclayermut002';
     const layerName = 'alice';
@@ -159,7 +159,7 @@ describe('Phase 5 layer mutation pipeline', () => {
       .where('page_object_number', '=', 1)
       .executeTakeFirstOrThrow();
     expect(page.annotation_version).toBe(3);
-    expect(page.annotation_generation).toBe(0);
+    expect(page.annotation_generation).toBe(1);
   });
 
   test('fresh cloud index delete bridges to worker epoch and bumps generation from DB state', async () => {
@@ -281,6 +281,53 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(layer.current_version).toBe(1);
     expect(layer.doc_version).toBe(1);
   });
+
+  test('page move saves a layer artifact, bumps layer doc version, and rewrites page order', async () => {
+    const tenantId = 'tenant-layer-pages';
+    const docId = 'doclayermut005';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 3 });
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/move`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pageObjectNumbers: [3], destIndex: 0 }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe(NO_STORE);
+    const body = (await res.json()) as {
+      pageOrder: Array<{ pageObjectNumber: number; pageIndex: number }>;
+    };
+    expect(body.pageOrder.map((page) => page.pageObjectNumber)).toEqual([3, 1, 2]);
+    expect(body.pageOrder.map((page) => page.pageIndex)).toEqual([0, 1, 2]);
+
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    expect(layer.current_version).toBe(1);
+    expect(layer.doc_version).toBe(2);
+    expect(layer.current_artifact_key).toBe(
+      StorageKeys.layerArtifact(tenantId, docId, layerName, 1),
+    );
+
+    const pages = await fx.db
+      .selectFrom('layer_pages')
+      .select(['page_object_number', 'page_index', 'annotation_version', 'annotation_generation'])
+      .where('layer_id', '=', layer.id)
+      .orderBy('page_index', 'asc')
+      .execute();
+    expect(pages.map((page) => Number(page.page_object_number))).toEqual([3, 1, 2]);
+    expect(pages.map((page) => Number(page.page_index))).toEqual([0, 1, 2]);
+    expect(pages.map((page) => Number(page.annotation_version))).toEqual([1, 1, 1]);
+    expect(pages.map((page) => Number(page.annotation_generation))).toEqual([0, 0, 0]);
+  });
 });
 
 async function buildFixture(): Promise<Fixture> {
@@ -319,7 +366,7 @@ function docToken(tenantId: string, docId: string, layerName: string): string {
     tenant_id: tenantId,
     doc_id: docId,
     layer_name: layerName,
-    scope: ['doc.read', 'doc.annotate'],
+    scope: ['doc.read', 'doc.annotate', 'doc.edit-pages'],
   });
 }
 
