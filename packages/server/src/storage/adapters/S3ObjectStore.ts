@@ -92,7 +92,7 @@ export class S3ObjectStore implements ObjectStoreWithInfo {
   async put(
     key: string,
     body: ObjectBody,
-    opts: { contentLength: number },
+    opts: { contentLength: number; contentType?: string },
   ): Promise<{ sha256: string }> {
     let bytes: Uint8Array;
     if (body instanceof Uint8Array) {
@@ -112,7 +112,7 @@ export class S3ObjectStore implements ObjectStoreWithInfo {
         Key: key,
         Body: bytes,
         ContentLength: opts.contentLength,
-        ContentType: 'application/pdf',
+        ContentType: opts.contentType ?? 'application/pdf',
         Metadata: { 'x-embedpdf-sha256': sha256 },
       }),
     );

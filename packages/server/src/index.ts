@@ -65,6 +65,7 @@ export type {
   LayerPagesTable,
   WeakAnnotationSessionsTable,
   WeakAnnotationSessionPagesTable,
+  AuditLogTable,
 } from './db/schema';
 export { DocumentsRepo } from './db/repos/documents.repo';
 export type { DocumentRow, CreatePendingInput, CommitInput } from './db/repos/documents.repo';
@@ -82,6 +83,19 @@ export type {
   WeakAnnotationSessionRow,
   WeakAnnotationSessionScope,
 } from './db/repos/weak_annotation_sessions.repo';
+export { AuditLogRepo } from './db/repos/audit_log.repo';
+export type {
+  AppendAuditLogInput,
+  AuditDocKey,
+  AuditMutationKind,
+} from './db/repos/audit_log.repo';
+export { AuditExportsRepo } from './db/repos/audit_exports.repo';
+export type {
+  AuditExportClaimResult,
+  AuditExportRow,
+  AuditExportScope,
+  AuditExportStatus,
+} from './db/repos/audit_exports.repo';
 export { StorageKeys } from './storage/keys';
 export { FsObjectStore } from './storage/adapters/FsObjectStore';
 export type { FsObjectStoreOptions } from './storage/adapters/FsObjectStore';
@@ -125,6 +139,15 @@ export type {
 } from './services/DocumentService';
 export { CloudRevisionBridge } from './services/CloudRevisionBridge';
 export type { AnnotationMutationResult } from './services/CloudRevisionBridge';
+export { EventLogService } from './services/EventLogService';
+export type {
+  AuditEvent,
+  EventLogServiceOptions,
+  ExportDayInput,
+  ExportDayResult,
+  ExportDocDayInput,
+  ExportDocDayResult,
+} from './services/EventLogService';
 export { LayerStateService } from './services/LayerStateService';
 export type { LayerStateServiceOptions, MutationImpactKind } from './services/LayerStateService';
 export { LayerService } from './services/LayerService';

@@ -47,6 +47,13 @@ export const StorageKeys = {
     }
     return `${tenantId}/docs/${shard(docId)}/${docId}/events/${yearMonth}.jsonl`;
   },
+  /** Daily audit archive exported from `audit_log` by a scheduled job. */
+  eventsDay(tenantId: string, docId: string, day: string): string {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      throw new Error(`eventsDay: bad YYYY-MM-DD "${day}"`);
+    }
+    return `${tenantId}/docs/${shard(docId)}/${docId}/events/${day}.jsonl`;
+  },
   tenantRoot(tenantId: string): string {
     return `${tenantId}/`;
   },

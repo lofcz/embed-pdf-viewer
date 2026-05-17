@@ -106,6 +106,44 @@ export interface WeakAnnotationSessionPagesTable {
   expires_at: number;
 }
 
+export interface AuditLogTable {
+  id: Generated<number>;
+  tenant_id: string;
+  doc_id: string;
+  layer_id: string;
+  layer_name: string;
+  ts: number;
+  sub: string;
+  kind: string;
+  page_object_number: number | null;
+  affected_pages_json: string;
+  artifact_version: number;
+  artifact_key: string;
+  artifact_sha: string;
+  artifact_size: number;
+  idempotency_key: string | null;
+  payload_json: string;
+}
+
+export type AuditExportStatus = 'running' | 'succeeded' | 'failed';
+
+export interface AuditExportsTable {
+  id: Generated<number>;
+  tenant_id: string;
+  doc_id: string;
+  day: string;
+  status: AuditExportStatus;
+  storage_key: string | null;
+  event_count: number;
+  checksum: string | null;
+  lease_id: string | null;
+  lease_expires_at: number | null;
+  started_at: number;
+  finished_at: number | null;
+  error_json: string | null;
+  updated_at: number;
+}
+
 export interface SchemaMigrationsTable {
   /** Monotonically-increasing version (zero-padded for lexical sort). */
   version: string;
@@ -164,6 +202,8 @@ export interface Database {
   layer_pages: LayerPagesTable;
   weak_annotation_sessions: WeakAnnotationSessionsTable;
   weak_annotation_session_pages: WeakAnnotationSessionPagesTable;
+  audit_log: AuditLogTable;
+  audit_exports: AuditExportsTable;
   schema_migrations: SchemaMigrationsTable;
   revoked_jtis: RevokedJtisTable;
   jwks_cache: JwksCacheTable;

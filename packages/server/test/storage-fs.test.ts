@@ -13,9 +13,9 @@ describe('StorageKeys', () => {
   test('docRoot ends with /', () => {
     expect(StorageKeys.docRoot('t', 'ab123')).toBe('t/docs/ab/ab123/');
   });
-  test('layerPdf zero-pads version', () => {
-    expect(StorageKeys.layerPdf('t', 'ab123', 'main', 7)).toBe(
-      't/docs/ab/ab123/layers/main/v0007.pdf',
+  test('layerArtifact zero-pads version', () => {
+    expect(StorageKeys.layerArtifact('t', 'ab123', 'main', 7)).toBe(
+      't/docs/ab/ab123/layers/main/v00000007.layer',
     );
   });
   test('eventsMonth validates YYYY-MM', () => {
@@ -23,6 +23,12 @@ describe('StorageKeys', () => {
       't/docs/ab/ab123/events/2026-05.jsonl',
     );
     expect(() => StorageKeys.eventsMonth('t', 'ab123', '2026-5')).toThrow();
+  });
+  test('eventsDay validates YYYY-MM-DD', () => {
+    expect(StorageKeys.eventsDay('t', 'ab123', '2026-05-17')).toBe(
+      't/docs/ab/ab123/events/2026-05-17.jsonl',
+    );
+    expect(() => StorageKeys.eventsDay('t', 'ab123', '2026-5-17')).toThrow();
   });
   test('rejects too-short docIds', () => {
     expect(() => StorageKeys.basePdf('t', 'a')).toThrow();

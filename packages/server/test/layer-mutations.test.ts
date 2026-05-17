@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +9,7 @@ import type { Kysely } from 'kysely';
 import {
   buildApp,
   createSqliteDb,
+  EventLogService,
   migrate,
   sqliteMigrations,
   FsObjectStore,
@@ -82,6 +84,72 @@ describe('Phase 5 layer mutation pipeline', () => {
 
     const storage = new FsObjectStore({ root: fx.storageRoot });
     expect(await storage.exists(layer.current_artifact_key!)).toBe(true);
+
+    const auditRows = await fx.db
+      .selectFrom('audit_log')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .execute();
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]).toMatchObject({
+      tenant_id: tenantId,
+      doc_id: docId,
+      layer_id: layer.id,
+      layer_name: layerName,
+      sub: 'user-1',
+      kind: 'annot.create',
+      page_object_number: 1,
+      affected_pages_json: '[1]',
+      artifact_version: 1,
+      artifact_key: layer.current_artifact_key,
+      artifact_sha: layer.current_artifact_sha,
+      artifact_size: 4,
+    });
+
+    const day = new Date(Number(auditRows[0]!.ts)).toISOString().slice(0, 10);
+    const eventKey = StorageKeys.eventsDay(tenantId, docId, day);
+    expect(await storage.exists(eventKey)).toBe(false);
+
+    const exported = await new EventLogService({ storage }).exportDocDayJsonl(fx.db, {
+      tenantId,
+      docId,
+      day,
+      allowOpenDay: true,
+    });
+    expect(exported).toEqual({ key: eventKey, count: 1, status: 'exported' });
+
+    const exportRow = await fx.db
+      .selectFrom('audit_exports')
+      .selectAll()
+      .where('tenant_id', '=', tenantId)
+      .where('doc_id', '=', docId)
+      .where('day', '=', day)
+      .executeTakeFirstOrThrow();
+    expect(exportRow).toMatchObject({
+      status: 'succeeded',
+      storage_key: eventKey,
+      event_count: 1,
+      lease_id: null,
+      lease_expires_at: null,
+    });
+
+    const jsonlEvents = await readJsonlEvents(storage, eventKey);
+    expect(jsonlEvents).toHaveLength(1);
+    expect(jsonlEvents[0]).toMatchObject({
+      id: Number(auditRows[0]!.id),
+      tenantId,
+      docId,
+      layerId: layer.id,
+      layerName,
+      sub: 'user-1',
+      kind: 'annot.create',
+      pageObjectNumber: 1,
+      affectedPages: [1],
+      artifactVersion: 1,
+      artifactKey: layer.current_artifact_key,
+      artifactSha: layer.current_artifact_sha,
+      artifactSize: 4,
+    });
 
     const pages = await fx.db
       .selectFrom('layer_pages')
@@ -633,4 +701,18 @@ function highlightDraft(): unknown {
       },
     ],
   };
+}
+
+async function readJsonlEvents(
+  storage: FsObjectStore,
+  key: string,
+): Promise<Array<Record<string, unknown>>> {
+  const bytes = await storage.get(key);
+  if (!bytes) return [];
+  return Buffer.from(bytes)
+    .toString('utf8')
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
 }

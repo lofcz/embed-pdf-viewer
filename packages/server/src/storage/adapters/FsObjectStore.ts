@@ -81,7 +81,7 @@ export class FsObjectStore implements ObjectStoreWithInfo {
   async put(
     key: string,
     body: ObjectBody,
-    opts: { contentLength: number },
+    opts: { contentLength: number; contentType?: string },
   ): Promise<{ sha256: string }> {
     const abs = this.absolute(key);
     await mkdir(dirname(abs), { recursive: true });

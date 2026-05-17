@@ -13,6 +13,7 @@ import { WeakAnnotationSessionsRepo } from '../db/repos/weak_annotation_sessions
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
 import { DocumentService } from '../services/DocumentService';
 import { CloudRevisionBridge } from '../services/CloudRevisionBridge';
+import { EventLogService } from '../services/EventLogService';
 import { LayerStateService } from '../services/LayerStateService';
 import { LayerService } from '../services/LayerService';
 import { WeakAnnotationSessionService } from '../services/WeakAnnotationSessionService';
@@ -279,6 +280,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       const weakAnnotationSessions = new WeakAnnotationSessionService({
         repo: new WeakAnnotationSessionsRepo(opts.db),
       });
+      const eventLog = new EventLogService({ storage: opts.objectStore });
       documentService = new DocumentService({
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
@@ -291,6 +293,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         documents: new DocumentsRepo(opts.db),
         layerState: layerStateService,
         revisionBridge: cloudRevisionBridge,
+        eventLog,
         weakAnnotationSessions,
         documentService,
         pool,

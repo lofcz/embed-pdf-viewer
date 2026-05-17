@@ -24,6 +24,7 @@ import type { ObjectStore } from '../storage/ObjectStore';
 import { StorageKeys } from '../storage/keys';
 import type { CloudRevisionBridge } from './CloudRevisionBridge';
 import type { DocumentService } from './DocumentService';
+import type { AuditEvent, EventLogService } from './EventLogService';
 import type { LayerStateService } from './LayerStateService';
 import type { MutationImpactKind } from './LayerStateService';
 import type { WeakAnnotationSessionService } from './WeakAnnotationSessionService';
@@ -34,6 +35,7 @@ export interface LayerServiceOptions {
   layerState: LayerStateService;
   revisionBridge?: CloudRevisionBridge;
   documentService?: DocumentService;
+  eventLog?: EventLogService;
   weakAnnotationSessions?: WeakAnnotationSessionService;
   pool?: WorkerThreadPool;
   storage?: ObjectStore;
@@ -63,6 +65,7 @@ export class LayerService {
   private readonly layerState: LayerStateService;
   private readonly revisionBridge?: CloudRevisionBridge;
   private readonly documentService?: DocumentService;
+  private readonly eventLog?: EventLogService;
   private readonly weakAnnotationSessions?: WeakAnnotationSessionService;
   private readonly pool?: WorkerThreadPool;
   private readonly storage?: ObjectStore;
@@ -74,6 +77,7 @@ export class LayerService {
     this.layerState = opts.layerState;
     this.revisionBridge = opts.revisionBridge;
     this.documentService = opts.documentService;
+    this.eventLog = opts.eventLog;
     this.weakAnnotationSessions = opts.weakAnnotationSessions;
     this.pool = opts.pool;
     this.storage = opts.storage;
@@ -369,7 +373,10 @@ export class LayerService {
     const putResult = await this.requireStorage().put(artifactKey, artifactBytes, {
       contentLength: input.artifact.size,
     });
-    const durablePage = await this.commitAnnotationMutation({
+    const durable = await this.commitAnnotationMutation({
+      ctx,
+      docId,
+      layerName,
       layer,
       pageObjectNumber: input.result.meta.pageState.pageObjectNumber,
       kind,
@@ -378,16 +385,17 @@ export class LayerService {
       artifactSize: input.artifact.size,
       nextVersion,
       hasWeakAnnotations: input.result.meta.pageState.hasAnyWeakAnnotations,
+      payload: input.result,
     });
 
-    const pageState = this.layerState.decorateLayerPageState(docId, layerName, durablePage.page);
+    const pageState = this.layerState.decorateLayerPageState(docId, layerName, durable.page);
     const result = {
       ...input.result,
       meta: {
         ...input.result.meta,
         pageState,
-        weakRefsInvalidated: durablePage.weakRefsInvalidated,
-        shouldRefetch: durablePage.weakRefsInvalidated
+        weakRefsInvalidated: durable.weakRefsInvalidated,
+        shouldRefetch: durable.weakRefsInvalidated
           ? { reason: 'weakRefsInvalidated' as const }
           : null,
       },
@@ -418,17 +426,21 @@ export class LayerService {
     const putResult = await this.requireStorage().put(artifactKey, artifactBytes, {
       contentLength: input.artifact.size,
     });
-    const pages = await this.commitPageMove({
+    const committed = await this.commitPageMove({
+      ctx,
+      docId,
+      layerName,
       layer,
       pageOrder: input.result.pageOrder.map((page) => page.pageObjectNumber),
       artifactKey,
       artifactSha: putResult.sha256,
       artifactSize: input.artifact.size,
       nextVersion,
+      payload: input.result,
     });
 
     return {
-      pageOrder: pages.map((page) =>
+      pageOrder: committed.pages.map((page) =>
         this.layerState.decorateLayerPageState(docId, layerName, page),
       ),
     };
@@ -523,6 +535,9 @@ export class LayerService {
   }
 
   private async commitAnnotationMutation(input: {
+    ctx: LayerWriteContext;
+    docId: string;
+    layerName: string;
     layer: LayerRow;
     pageObjectNumber: number;
     kind: MutationImpactKind;
@@ -531,6 +546,7 @@ export class LayerService {
     artifactSize: number;
     nextVersion: number;
     hasWeakAnnotations: boolean;
+    payload: unknown;
   }): Promise<{ page: DurablePageRow; weakRefsInvalidated: boolean }> {
     return this.requireDb()
       .transaction()
@@ -605,18 +621,39 @@ export class LayerService {
           .where('page_object_number', '=', input.pageObjectNumber)
           .execute();
 
+        const auditEvent = makeAuditEvent({
+          ctx: input.ctx,
+          docId: input.docId,
+          layer: input.layer,
+          layerName: input.layerName,
+          kind: `annot.${input.kind}` as AuditEvent['kind'],
+          pageObjectNumber: input.pageObjectNumber,
+          affectedPages: [input.pageObjectNumber],
+          artifactVersion: input.nextVersion,
+          artifactKey: input.artifactKey,
+          artifactSha: input.artifactSha,
+          artifactSize: input.artifactSize,
+          payload: input.payload,
+          ts: now,
+        });
+        await this.eventLog?.appendDb(trx, auditEvent);
+
         return { page: nextPage, weakRefsInvalidated: bumps.weakRefsInvalidated };
       });
   }
 
   private async commitPageMove(input: {
+    ctx: LayerWriteContext;
+    docId: string;
+    layerName: string;
     layer: LayerRow;
     pageOrder: PageObjectNumber[];
     artifactKey: string;
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
-  }): Promise<DurablePageRow[]> {
+    payload: unknown;
+  }): Promise<{ pages: DurablePageRow[] }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -710,7 +747,24 @@ export class LayerService {
             .execute();
         }
 
-        return nextPages;
+        const auditEvent = makeAuditEvent({
+          ctx: input.ctx,
+          docId: input.docId,
+          layer: input.layer,
+          layerName: input.layerName,
+          kind: 'pages.move',
+          pageObjectNumber: null,
+          affectedPages: input.pageOrder,
+          artifactVersion: input.nextVersion,
+          artifactKey: input.artifactKey,
+          artifactSha: input.artifactSha,
+          artifactSize: input.artifactSize,
+          payload: input.payload,
+          ts: now,
+        });
+        await this.eventLog?.appendDb(trx, auditEvent);
+
+        return { pages: nextPages };
       });
   }
 
@@ -782,6 +836,40 @@ export class LayerService {
     }
     return this.storage;
   }
+}
+
+function makeAuditEvent(input: {
+  ctx: LayerWriteContext;
+  docId: string;
+  layer: LayerRow;
+  layerName: string;
+  kind: AuditEvent['kind'];
+  pageObjectNumber: number | null;
+  affectedPages: number[];
+  artifactVersion: number;
+  artifactKey: string;
+  artifactSha: string;
+  artifactSize: number;
+  payload: unknown;
+  ts: number;
+}): AuditEvent {
+  return {
+    tenantId: input.ctx.tenantId,
+    docId: input.docId,
+    layerId: input.layer.id,
+    layerName: input.layerName,
+    ts: input.ts,
+    sub: input.ctx.sub,
+    kind: input.kind,
+    pageObjectNumber: input.pageObjectNumber,
+    affectedPages: input.affectedPages,
+    artifactVersion: input.artifactVersion,
+    artifactKey: input.artifactKey,
+    artifactSha: input.artifactSha,
+    artifactSize: input.artifactSize,
+    idempotencyKey: null,
+    payload: input.payload,
+  };
 }
 
 function requireLayerArtifact(payload: unknown): { bytes: ArrayBuffer; size: number } {

@@ -94,7 +94,11 @@ export interface ObjectStore {
    * Returns the SHA-256 hex digest of the bytes that were written.
    * Implementations stream-hash if `body` is a `Readable`.
    */
-  put(key: string, body: ObjectBody, opts: { contentLength: number }): Promise<{ sha256: string }>;
+  put(
+    key: string,
+    body: ObjectBody,
+    opts: { contentLength: number; contentType?: string },
+  ): Promise<{ sha256: string }>;
 
   /**
    * One-shot full download. Returns `null` for missing keys. Phase 1

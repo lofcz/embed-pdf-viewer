@@ -7,6 +7,10 @@ import { migrate, status, validate, type MigrationSource } from '../db/migrator/
 import { sqliteMigrations } from '../db/migrations/sqlite/index';
 import { postgresMigrations } from '../db/migrations/postgres/index';
 import type { Database as Schema } from '../db/schema';
+import { EventLogService } from '../services/EventLogService';
+import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
+import { FsObjectStore } from '../storage/adapters/FsObjectStore';
+import { S3ObjectStore } from '../storage/adapters/S3ObjectStore';
 import type { Kysely } from 'kysely';
 
 /**
@@ -18,6 +22,7 @@ import type { Kysely } from 'kysely';
  *   embedpdf-server migrate up [--dry-run]
  *   embedpdf-server migrate validate [--strict]
  *   embedpdf-server db doctor
+ *   embedpdf-server audit export --day yesterday
  *   embedpdf-server --help
  *
  * Config is read from env (12-factor friendly):
@@ -25,6 +30,11 @@ import type { Kysely } from 'kysely';
  *   EMBEDPDF_DB_SQLITE_PATH                  (default: ./data/embedpdf.db)
  *   EMBEDPDF_DB_URL         postgres://...
  *   EMBEDPDF_JWT_SECRET    (default: dev secret; warn at startup)
+ *   EMBEDPDF_STORAGE_KIND  fs|s3            (default: fs for audit export)
+ *   EMBEDPDF_STORAGE_FS_ROOT                (default: ./data/objects)
+ *   EMBEDPDF_STORAGE_S3_BUCKET
+ *   EMBEDPDF_STORAGE_S3_REGION
+ *   EMBEDPDF_STORAGE_S3_ENDPOINT            (optional)
  *   PORT                   (default: 3000)
  *   HOST                   (default: 0.0.0.0)
  *   POOL_SIZE              (default: auto)
@@ -88,6 +98,34 @@ function openDb(): DbContext {
   };
 }
 
+function openObjectStore(): ObjectStoreWithInfo {
+  const kind = (process.env['EMBEDPDF_STORAGE_KIND'] ?? 'fs').toLowerCase();
+  if (kind === 'fs') {
+    return new FsObjectStore({
+      root:
+        process.env['EMBEDPDF_STORAGE_FS_ROOT'] ??
+        process.env['EMBEDPDF_STORAGE_ROOT'] ??
+        './data/objects',
+    });
+  }
+  if (kind === 's3') {
+    const bucket = process.env['EMBEDPDF_STORAGE_S3_BUCKET'];
+    const region = process.env['EMBEDPDF_STORAGE_S3_REGION'];
+    if (!bucket || !region) {
+      fail(
+        2,
+        'EMBEDPDF_STORAGE_KIND=s3 requires EMBEDPDF_STORAGE_S3_BUCKET and EMBEDPDF_STORAGE_S3_REGION',
+      );
+    }
+    return new S3ObjectStore({
+      bucket,
+      region,
+      endpoint: process.env['EMBEDPDF_STORAGE_S3_ENDPOINT'],
+    });
+  }
+  fail(2, `EMBEDPDF_STORAGE_KIND must be 'fs' or 's3' (got ${kind})`);
+}
+
 function redact(url: string): string {
   return url.replace(/(:\/\/[^:]+:)[^@]+(@)/, '$1***$2');
 }
@@ -110,11 +148,16 @@ function printHelp(): void {
       '  migrate validate       Refuse to exit 0 if drift is detected',
       '  migrate validate --strict  Treat pending migrations as drift too',
       '  db doctor              Connect, run validate, print version info',
+      '  audit export --day yesterday',
+      '                          Export closed-day audit_log rows to JSONL storage',
       '',
       'Environment:',
       '  EMBEDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)',
       '  EMBEDPDF_DB_SQLITE_PATH                  (default: ./data/embedpdf.db)',
       '  EMBEDPDF_DB_URL        postgres://...',
+      '  EMBEDPDF_STORAGE_KIND  fs|s3            (default: fs)',
+      '  EMBEDPDF_STORAGE_FS_ROOT                (default: ./data/objects)',
+      '  EMBEDPDF_STORAGE_S3_BUCKET, EMBEDPDF_STORAGE_S3_REGION',
       '  EMBEDPDF_JWT_SECRET    (required in production)',
       '  PORT, HOST, POOL_SIZE',
       '  EMBEDPDF_FAIL_ON_PENDING=1  refuse to serve with pending migrations',
@@ -231,6 +274,54 @@ async function cmdDbDoctor(): Promise<void> {
   }
 }
 
+async function cmdAuditExport(args: string[]): Promise<void> {
+  const dayRaw = readFlagValue(args, '--day') ?? 'yesterday';
+  const day = resolveAuditDay(dayRaw);
+  const tenantId = readFlagValue(args, '--tenant');
+  const docId = readFlagValue(args, '--doc');
+  if ((tenantId && !docId) || (!tenantId && docId)) {
+    fail(2, 'audit export requires --tenant and --doc together, or neither');
+  }
+  const force = args.includes('--force');
+  const allowOpenDay = args.includes('--allow-open-day');
+  const lagMinutes = readOptionalNumberFlag(args, '--lag-minutes') ?? 30;
+
+  const dbCtx = openDb();
+  const storage = openObjectStore();
+  const service = new EventLogService({ storage });
+  try {
+    console.log(`db: ${dbCtx.describe}`);
+    console.log(`storage: ${storage.info.kind} ${storage.info.location}`);
+    if (tenantId && docId) {
+      const result = await service.exportDocDayJsonl(dbCtx.db, {
+        tenantId,
+        docId,
+        day,
+        force,
+        allowOpenDay,
+        closedDayLagMs: lagMinutes * 60 * 1000,
+      });
+      console.log(
+        `audit export ${result.status}: day=${day} tenant=${tenantId} doc=${docId} ` +
+          `events=${result.count} key=${result.key}`,
+      );
+      return;
+    }
+    const result = await service.exportDayJsonl(dbCtx.db, {
+      day,
+      force,
+      allowOpenDay,
+      closedDayLagMs: lagMinutes * 60 * 1000,
+    });
+    console.log(
+      `audit export day=${day}: targets=${result.targets} exported=${result.exported} ` +
+        `skipped=${result.skipped} alreadyRunning=${result.alreadyRunning} empty=${result.empty}`,
+    );
+  } finally {
+    await dbCtx.db.destroy();
+  }
+}
+
 async function cmdServe(): Promise<void> {
   const PORT = Number(process.env['PORT'] ?? 3000);
   const HOST = process.env['HOST'] ?? '0.0.0.0';
@@ -309,7 +400,60 @@ async function main(): Promise<void> {
     if (sub === 'doctor') return cmdDbDoctor();
     fail(2, `unknown subcommand: db ${sub ?? '(missing)'}\nrun: embedpdf-server --help`);
   }
+  if (args[0] === 'audit') {
+    const sub = args[1];
+    const rest = args.slice(2);
+    if (sub === 'export') return cmdAuditExport(rest);
+    fail(2, `unknown subcommand: audit ${sub ?? '(missing)'}\nrun: embedpdf-server --help`);
+  }
   fail(2, `unknown command: ${args[0]!}\nrun: embedpdf-server --help`);
+}
+
+function readFlagValue(args: string[], name: string): string | undefined {
+  const eq = args.find((arg) => arg.startsWith(`${name}=`));
+  if (eq) {
+    return eq.slice(name.length + 1);
+  }
+  const index = args.indexOf(name);
+  if (index < 0) {
+    return undefined;
+  }
+  const value = args[index + 1];
+  if (!value || value.startsWith('--')) {
+    fail(2, `${name} requires a value`);
+  }
+  return value;
+}
+
+function readOptionalNumberFlag(args: string[], name: string): number | undefined {
+  const raw = readFlagValue(args, name);
+  if (raw === undefined) {
+    return undefined;
+  }
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) {
+    fail(2, `${name} must be a non-negative number`);
+  }
+  return value;
+}
+
+function resolveAuditDay(value: string): string {
+  if (value === 'yesterday') {
+    return dayFromOffsetUtc(-1);
+  }
+  if (value === 'today') {
+    return dayFromOffsetUtc(0);
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    fail(2, `--day must be YYYY-MM-DD, yesterday, or today (got ${value})`);
+  }
+  return value;
+}
+
+function dayFromOffsetUtc(offsetDays: number): string {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
 }
 
 main().catch((err) => {
