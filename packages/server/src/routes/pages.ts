@@ -62,6 +62,33 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     });
   });
 
+  app.get('/v1/docs/:docId/pages/:pon/v:P/geometry', async (req, reply) => {
+    const { docId, pon, P } = req.params as { docId: string; pon: string; P: string };
+    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    return readPageGeometry({
+      documentService,
+      pool,
+      reply,
+      signal: abortSignalFromRequest(req),
+      scope: { kind: 'base', ctx, docId },
+      pageObjectNumber: parsePageObjectNumber(pon),
+      requestedVersion: parseVersionPathSegment(P, 'contentVersion'),
+    });
+  });
+
+  app.get('/v1/docs/:docId/pages/:pon/geometry', async (req, reply) => {
+    const { docId, pon } = req.params as { docId: string; pon: string };
+    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    return readPageGeometry({
+      documentService,
+      pool,
+      reply,
+      signal: abortSignalFromRequest(req),
+      scope: { kind: 'base', ctx, docId },
+      pageObjectNumber: parsePageObjectNumber(pon),
+    });
+  });
+
   app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:P/text', async (req, reply) => {
     const { docId, layerName, pon, P } = req.params as {
       docId: string;
@@ -89,6 +116,42 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     };
     const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     return readPageText({
+      documentService,
+      pool,
+      reply,
+      signal: abortSignalFromRequest(req),
+      scope: { kind: 'layer', ctx, docId, layerName },
+      pageObjectNumber: parsePageObjectNumber(pon),
+    });
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:P/geometry', async (req, reply) => {
+    const { docId, layerName, pon, P } = req.params as {
+      docId: string;
+      layerName: string;
+      pon: string;
+      P: string;
+    };
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    return readPageGeometry({
+      documentService,
+      pool,
+      reply,
+      signal: abortSignalFromRequest(req),
+      scope: { kind: 'layer', ctx, docId, layerName },
+      pageObjectNumber: parsePageObjectNumber(pon),
+      requestedVersion: parseVersionPathSegment(P, 'contentVersion'),
+    });
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/geometry', async (req, reply) => {
+    const { docId, layerName, pon } = req.params as {
+      docId: string;
+      layerName: string;
+      pon: string;
+    };
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    return readPageGeometry({
       documentService,
       pool,
       reply,
@@ -169,6 +232,63 @@ async function readPageText(input: {
     throw new EngineError(
       EngineErrorCode.WireFormat,
       `unexpected ${input.scope.kind === 'layer' ? 'layer ' : ''}pages.text payload: ${result.tag}`,
+    );
+  }
+
+  input.requestedVersion === undefined ? setNoStore(input.reply) : setImmutableCache(input.reply);
+  return {
+    ...result.snapshot,
+    pageState: toPageState(page),
+  };
+}
+
+async function readPageGeometry(input: {
+  documentService: DocumentService;
+  pool: WorkerThreadPool;
+  reply: { header(name: 'Cache-Control', value: string): unknown };
+  signal: AbortSignal;
+  scope: ReadScope;
+  pageObjectNumber: number;
+  requestedVersion?: number;
+}) {
+  const page = await resolvePageForRead(input);
+  if (
+    input.requestedVersion !== undefined &&
+    input.requestedVersion !== page.cache.contentVersion
+  ) {
+    setNoStore(input.reply);
+    throw new EngineError(
+      EngineErrorCode.NotFound,
+      `${input.scope.kind === 'layer' ? 'layer ' : ''}geometry version ${
+        input.requestedVersion
+      } no longer current (current=${page.cache.contentVersion}) for page ${
+        input.pageObjectNumber
+      }`,
+    );
+  }
+
+  if (input.scope.kind === 'layer') {
+    await input.documentService.ensureLayerOnPool(
+      input.scope.ctx,
+      input.scope.docId,
+      input.scope.layerName,
+    );
+  }
+  const build = (jobId: WorkerJobId) =>
+    wirePack({
+      kind: 'pages.geometry' as const,
+      jobId,
+      docId: input.scope.docId,
+      ...(input.scope.kind === 'layer' ? { layerName: input.scope.layerName } : {}),
+      pageObjectNumber: input.pageObjectNumber,
+    });
+  const result = await input.pool.run(input.scope.docId, build, input.signal);
+  if (result.tag !== 'pages.geometry') {
+    throw new EngineError(
+      EngineErrorCode.WireFormat,
+      `unexpected ${
+        input.scope.kind === 'layer' ? 'layer ' : ''
+      }pages.geometry payload: ${result.tag}`,
     );
   }
 

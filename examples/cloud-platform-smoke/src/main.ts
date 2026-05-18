@@ -4,6 +4,7 @@ import type {
   AnnotationListPageSnapshot,
   AnnotationRef,
   DocumentHandle,
+  PageGeometrySnapshot,
   PageListSnapshot,
   PageObjectNumber,
   WeakAnnotationEditSession,
@@ -84,6 +85,7 @@ app.innerHTML = `
 
         <div class="actions">
           <button id="readText" type="button">Read Text</button>
+          <button id="readGeometry" type="button">Read Geometry</button>
           <button id="listAnnots" type="button">List Annotations</button>
           <button id="createHighlight" type="button">Create Highlight</button>
           <button id="beginWeakEdit" type="button">Begin Weak Edit</button>
@@ -118,6 +120,7 @@ const els = {
   pageObjectNumber: must<HTMLInputElement>('pageObjectNumber'),
   listPages: must<HTMLButtonElement>('listPages'),
   readText: must<HTMLButtonElement>('readText'),
+  readGeometry: must<HTMLButtonElement>('readGeometry'),
   listAnnots: must<HTMLButtonElement>('listAnnots'),
   createHighlight: must<HTMLButtonElement>('createHighlight'),
   beginWeakEdit: must<HTMLButtonElement>('beginWeakEdit'),
@@ -152,6 +155,7 @@ els.exportAudit.addEventListener('click', () => void run(exportAudit));
 els.openToken.addEventListener('click', () => void run(openToken));
 els.listPages.addEventListener('click', () => void run(listPages));
 els.readText.addEventListener('click', () => void run(readText));
+els.readGeometry.addEventListener('click', () => void run(readGeometry));
 els.listAnnots.addEventListener('click', () => void run(listAnnotations));
 els.createHighlight.addEventListener('click', () => void run(createHighlight));
 els.beginWeakEdit.addEventListener('click', () => void run(beginWeakEdit));
@@ -240,6 +244,11 @@ async function listPages(): Promise<void> {
 async function readText(): Promise<void> {
   const page = requireDoc().page(selectedPage());
   setOutput(await page.text.read());
+}
+
+async function readGeometry(): Promise<void> {
+  const page = requireDoc().page(selectedPage());
+  setOutput(summarizeGeometry(await page.geometry.read()));
 }
 
 async function listAnnotations(): Promise<void> {
@@ -375,6 +384,15 @@ function renderClaims(token: string): void {
 
 function setOutput(value: unknown): void {
   els.output.textContent = JSON.stringify(value, null, 2);
+}
+
+function summarizeGeometry(snapshot: PageGeometrySnapshot): unknown {
+  return {
+    pageState: snapshot.pageState,
+    runCount: snapshot.runs.length,
+    glyphCount: snapshot.runs.reduce((total, run) => total + run.glyphs.length, 0),
+    sampleRuns: snapshot.runs.slice(0, 5),
+  };
 }
 
 async function run(fn: () => Promise<void>): Promise<void> {

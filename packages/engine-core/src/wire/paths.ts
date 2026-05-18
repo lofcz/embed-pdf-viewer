@@ -67,6 +67,23 @@ export const wirePaths = {
   layerPageTextCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/text`,
 
+  docPageGeometry: (docId: string, pageObjectNumber: number, contentVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${contentVersion}/geometry`,
+
+  docPageGeometryCurrent: (docId: string, pageObjectNumber: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/geometry`,
+
+  layerPageGeometry: (
+    docId: string,
+    layerName: string,
+    pageObjectNumber: number,
+    contentVersion: number,
+  ) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${contentVersion}/geometry`,
+
+  layerPageGeometryCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/geometry`,
+
   /**
    * GET: full annotation list for a single page at a specific
    * `annotationVersion`. Same cache-control rules and 404-retry

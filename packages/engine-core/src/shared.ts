@@ -20,6 +20,11 @@ export type {
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
 export type { PageTextSnapshot } from './dto/PageTextSnapshot';
+export type {
+  PageGeometryGlyph,
+  PageGeometryRun,
+  PageGeometrySnapshot,
+} from './dto/PageGeometrySnapshot';
 export type { CachePins } from './dto/CachePins';
 
 export { EngineError, serializeError, deserializeError } from './errors/EngineError';

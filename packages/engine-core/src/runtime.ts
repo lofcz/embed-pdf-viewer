@@ -22,6 +22,7 @@ export type { WeakAnnotationEditSession } from './engine/DocumentAnnotationsServ
 export type { DocumentPagesService } from './engine/DocumentPagesService';
 export type { PageAnnotationsService } from './engine/PageAnnotationsService';
 export type { PageTextService } from './engine/PageTextService';
+export type { PageGeometryService } from './engine/PageGeometryService';
 
 export { wirePack, EMPTY_TRANSFER } from './wire/WirePack';
 export type { WirePack } from './wire/WirePack';
@@ -48,6 +49,7 @@ export type {
   PagesListWorkerRequest,
   PagesMoveWorkerRequest,
   PagesTextWorkerRequest,
+  PagesGeometryWorkerRequest,
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,

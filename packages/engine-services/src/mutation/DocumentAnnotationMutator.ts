@@ -280,7 +280,10 @@ export class DocumentAnnotationMutator {
         throw new EngineError(EngineErrorCode.Unknown, `failed to remove annotation: ${ref.kind}`);
       }
 
-      // Structural change; bump revision now and stop the finally-bump.
+      // Structural change; bump the local index-space epoch now and stop
+      // the finally-bump. Do not gate this on the page's current weak state:
+      // old snapshots can still hold index refs from before annotations were
+      // strengthened, and delete/move can make those refs point elsewhere.
       this.session.bumpRevision(ref.pageObjectNumber);
       bumpRequested = false;
       this.recordWeakStateFromPage(ref.pageObjectNumber, pagePtr);
@@ -445,8 +448,10 @@ export class DocumentAnnotationMutator {
         );
       }
 
-      // 5. Single revision bump for the whole batch. Read back DTOs
-      //    against the bumped revision so they are internally consistent.
+      // 5. Single revision bump for the whole batch. This is the local
+      //    index-space epoch, so it advances for every successful move even
+      //    if the page is currently strong. Read back DTOs against the
+      //    bumped revision so they are internally consistent.
       const bumpedRev = this.session.bumpRevision(pageObjectNumber);
       bumpRequested = false;
 

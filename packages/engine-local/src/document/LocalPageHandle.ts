@@ -1,5 +1,6 @@
 import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core/runtime';
 import { LocalPageAnnotationsService } from './LocalPageAnnotationsService';
+import { LocalPageGeometryService } from './LocalPageGeometryService';
 import { LocalPageTextService } from './LocalPageTextService';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 
@@ -15,6 +16,7 @@ interface DocClosedView {
 export class LocalPageHandle implements PageHandle {
   readonly annotations: LocalPageAnnotationsService;
   readonly text: LocalPageTextService;
+  readonly geometry: LocalPageGeometryService;
 
   constructor(
     readonly pageObjectNumber: PageObjectNumber,
@@ -25,5 +27,6 @@ export class LocalPageHandle implements PageHandle {
   ) {
     this.annotations = new LocalPageAnnotationsService(docId, pageObjectNumber, queue, view);
     this.text = new LocalPageTextService(docId, pageObjectNumber, queue, view);
+    this.geometry = new LocalPageGeometryService(docId, pageObjectNumber, queue, view);
   }
 }

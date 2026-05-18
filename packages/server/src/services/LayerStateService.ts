@@ -158,6 +158,13 @@ export class LayerStateService {
       kind,
       knownWeakAnnotationState(pageBefore.hasWeakAnnotations),
     );
+    // `annotation_generation` is the durable epoch of the page's /Annots
+    // index space, not a count of currently-weak annotations. Keep bumping
+    // it for every delete/move even when `hasWeakAnnotations` is false:
+    // older CDN-cached snapshots may still contain index refs minted before
+    // an update strengthened those annotations with /NM or object numbers.
+    // `weakRefsInvalidated` is only the client refetch hint for refs known
+    // to be weak in the current page state.
     const shiftsAnnotationIndexes = kind === 'delete' || kind === 'move';
     return {
       bumpLayerDocVersion: true,

@@ -20,6 +20,7 @@ import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutat
 import type { RefetchReason } from '../mutation/RefetchReason';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
+import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
 import type { CachePins } from '../dto/CachePins';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
@@ -167,6 +168,35 @@ export const PageTextSnapshotSchema: z.ZodType<PageTextSnapshot> = z.object({
   pageState: PageStateSchema,
   text: z.string(),
   charCount: z.number().int().nonnegative(),
+});
+
+export const PageGeometryGlyphSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number().nonnegative(),
+  height: z.number().nonnegative(),
+  flags: z.number().int().nonnegative(),
+  tightX: z.number().optional(),
+  tightY: z.number().optional(),
+  tightWidth: z.number().positive().optional(),
+  tightHeight: z.number().positive().optional(),
+});
+
+export const PageGeometryRunSchema = z.object({
+  rect: z.object({
+    x: z.number(),
+    y: z.number(),
+    width: z.number().nonnegative(),
+    height: z.number().nonnegative(),
+  }),
+  charStart: z.number().int().nonnegative(),
+  glyphs: z.array(PageGeometryGlyphSchema),
+  fontSize: z.number().optional(),
+});
+
+export const PageGeometrySnapshotSchema: z.ZodType<PageGeometrySnapshot> = z.object({
+  pageState: PageStateSchema,
+  runs: z.array(PageGeometryRunSchema),
 });
 
 /**

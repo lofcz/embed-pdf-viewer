@@ -25,6 +25,7 @@ export { LocalDocumentAnnotationsService } from './document/LocalDocumentAnnotat
 export { LocalDocumentPagesService } from './document/LocalDocumentPagesService';
 export { LocalPageHandle } from './document/LocalPageHandle';
 export { LocalPageAnnotationsService } from './document/LocalPageAnnotationsService';
+export { LocalPageGeometryService } from './document/LocalPageGeometryService';
 
 export interface CreateLocalEngineOptions extends Omit<LocalEngineOptions, 'transport'> {
   /** Forwarded to @embedpdf/pdf-runtime when no transport is provided. */

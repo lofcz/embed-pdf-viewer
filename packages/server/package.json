@@ -55,6 +55,7 @@
     "@embedpdf/engine-core": "workspace:*",
     "@embedpdf/engine-services": "workspace:*",
     "@embedpdf/pdf-runtime": "workspace:*",
+    "@fastify/compress": "^8",
     "@fastify/multipart": "^9.0.0",
     "better-sqlite3": "^12.10.0",
     "fastify": "^5.0.0",

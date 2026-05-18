@@ -6,6 +6,7 @@ import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
+import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
@@ -169,6 +170,14 @@ export interface PagesTextWorkerRequest {
   pageObjectNumber: PageObjectNumber;
 }
 
+export interface PagesGeometryWorkerRequest {
+  kind: 'pages.geometry';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumber: PageObjectNumber;
+}
+
 export interface PagesMoveWorkerRequest {
   kind: 'pages.move';
   jobId: WorkerJobId;
@@ -212,6 +221,7 @@ export type WorkerRequest =
   | PagesListWorkerRequest
   | PagesMoveWorkerRequest
   | PagesTextWorkerRequest
+  | PagesGeometryWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -245,6 +255,7 @@ export type WorkerResultPayload =
   | { tag: 'pages.list'; snapshot: PageListSnapshot }
   | { tag: 'pages.move'; result: PageMoveResult; artifact?: LayerArtifactWorkerPayload }
   | { tag: 'pages.text'; snapshot: PageTextSnapshot }
+  | { tag: 'pages.geometry'; snapshot: PageGeometrySnapshot }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

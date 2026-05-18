@@ -1,5 +1,6 @@
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PageAnnotationsService } from './PageAnnotationsService';
+import type { PageGeometryService } from './PageGeometryService';
 import type { PageTextService } from './PageTextService';
 
 /**
@@ -17,4 +18,5 @@ export interface PageHandle {
   readonly pageIndex: number;
   readonly annotations: PageAnnotationsService;
   readonly text: PageTextService;
+  readonly geometry: PageGeometryService;
 }

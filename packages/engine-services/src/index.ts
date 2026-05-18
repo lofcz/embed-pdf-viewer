@@ -44,6 +44,7 @@ export { FullAnnotationReader } from './readers/annotations/FullAnnotationReader
 
 // Text readers
 export { PageTextReader } from './readers/text/PageTextReader';
+export { PageGeometryReader } from './readers/geometry/PageGeometryReader';
 export { readAnnotationBase } from './readers/annotations/base';
 export { readAnnotationIdentity } from './readers/annotations/identity';
 export type { AnnotationIdentity } from './readers/annotations/identity';

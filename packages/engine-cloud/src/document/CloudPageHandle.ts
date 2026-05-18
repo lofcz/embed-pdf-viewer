@@ -1,12 +1,14 @@
 import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core/runtime';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudPageAnnotationsService } from './CloudPageAnnotationsService';
+import { CloudPageGeometryService } from './CloudPageGeometryService';
 import { CloudPageTextService } from './CloudPageTextService';
 import type { ManifestAccessor } from './CloudDocumentHandle';
 
 export class CloudPageHandle implements PageHandle {
   readonly annotations: CloudPageAnnotationsService;
   readonly text: CloudPageTextService;
+  readonly geometry: CloudPageGeometryService;
 
   constructor(
     readonly pageObjectNumber: PageObjectNumber,
@@ -26,6 +28,14 @@ export class CloudPageHandle implements PageHandle {
       manifest,
     );
     this.text = new CloudPageTextService(
+      http,
+      docId,
+      layerName,
+      pageObjectNumber,
+      isClosed,
+      manifest,
+    );
+    this.geometry = new CloudPageGeometryService(
       http,
       docId,
       layerName,

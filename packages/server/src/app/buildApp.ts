@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
+import compress from '@fastify/compress';
 import type { Kysely } from 'kysely';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import { WorkerThreadPool } from '../runtime/WorkerThreadPool';
@@ -147,6 +148,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       level: process.env['LOG_LEVEL'] ?? 'info',
     },
     bodyLimit: opts.bodyLimit ?? 50 * 1024 * 1024,
+  });
+
+  await app.register(compress, {
+    global: true,
+    threshold: 1024,
+    encodings: ['br', 'gzip', 'deflate'],
   });
 
   await app.register(multipart, {
