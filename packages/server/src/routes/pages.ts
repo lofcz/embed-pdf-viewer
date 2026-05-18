@@ -134,13 +134,18 @@ async function readPageText(input: {
   requestedVersion?: number;
 }) {
   const page = await resolvePageForRead(input);
-  if (input.requestedVersion !== undefined && input.requestedVersion !== page.contentVersion) {
+  if (
+    input.requestedVersion !== undefined &&
+    input.requestedVersion !== page.cache.contentVersion
+  ) {
     setNoStore(input.reply);
     throw new EngineError(
       EngineErrorCode.NotFound,
       `${input.scope.kind === 'layer' ? 'layer ' : ''}text version ${
         input.requestedVersion
-      } no longer current (current=${page.contentVersion}) for page ${input.pageObjectNumber}`,
+      } no longer current (current=${page.cache.contentVersion}) for page ${
+        input.pageObjectNumber
+      }`,
     );
   }
 
@@ -187,7 +192,7 @@ async function resolvePageForRead(input: {
           input.scope.layerName,
         )
       : await input.documentService.getManifest(input.scope.ctx, input.scope.docId);
-  const page = manifest.pages.find((p) => p.pageObjectNumber === input.pageObjectNumber);
+  const page = manifest.pages.find((p) => p.state.pageObjectNumber === input.pageObjectNumber);
   if (page) {
     return page;
   }

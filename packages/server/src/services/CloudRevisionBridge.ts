@@ -43,14 +43,21 @@ export class CloudRevisionBridge {
   }
 
   decorateAnnotationMutationResult<T extends AnnotationMutationResult>(
-    pageState: PageState,
+    affectedPages: PageState[],
     result: T,
   ): T {
+    const pageState = affectedPages[0];
+    if (!pageState) {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        'annotation mutation result did not include an affected page',
+      );
+    }
     const base = {
       ...result,
       meta: {
         ...result.meta,
-        pageState,
+        affectedPages,
       },
     };
 

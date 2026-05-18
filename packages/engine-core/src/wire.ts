@@ -11,6 +11,9 @@ export {
   DocumentHeadSchema,
   DocumentManifestSchema,
   ManifestPageSchema,
+  CachePinsSchema,
+  CacheDeltaSchema,
+  MutationMetaSchema,
   EngineErrorPayloadSchema,
   PageStateSchema,
   AnnotationListPageSnapshotSchema,
@@ -33,6 +36,8 @@ export type {
   DocumentHead,
   DocumentManifest,
   ManifestPage,
+  CacheDelta,
+  MutationMeta,
   WeakAnnotationSessionResponse,
   WeakAnnotationSessionPagesRequest,
 } from './wire/schemas';

@@ -65,7 +65,7 @@ export class DocumentPagesMutator {
    *   - `FPDF_MovePages` rejects atomically: if it returns false, no
    *     change has happened. We surface that as `InvalidArg`.
    *   - On success we refresh the per-session page registry so the
-   *     `pageOrder` returned reflects the new layout.
+   *     `meta.affectedPages` returned reflects the new layout.
    *
    * Validation done up front (the helper repeats these checks; we do
    * them here for clean error messages):
@@ -152,6 +152,6 @@ export class DocumentPagesMutator {
 
     const records = this.session.allRecords();
     const pageOrder: PageState[] = records.map((r) => this.session.pageState(r.pageObjectNumber));
-    return { pageOrder };
+    return { meta: { affectedPages: pageOrder, cacheDelta: null } };
   }
 }

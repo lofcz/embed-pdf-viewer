@@ -64,10 +64,28 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe(NO_STORE);
     const body = (await res.json()) as {
-      meta: { pageState: { pageObjectNumber: number; revision: { generation: number } } };
+      meta: {
+        cacheDelta: {
+          previousDocVersion: number;
+          docVersion: number;
+          pages: Array<{
+            pageObjectNumber: number;
+            cache: {
+              annotationVersion: number;
+              contentVersion: number;
+            };
+          }>;
+        };
+        affectedPages: Array<{ pageObjectNumber: number; revision: { generation: number } }>;
+      };
     };
-    expect(body.meta.pageState.pageObjectNumber).toBe(1);
-    expect(body.meta.pageState.revision.generation).toBe(0);
+    expect(body.meta.affectedPages[0]?.pageObjectNumber).toBe(1);
+    expect(body.meta.affectedPages[0]?.revision.generation).toBe(0);
+    expect(body.meta.cacheDelta).toMatchObject({
+      previousDocVersion: 1,
+      docVersion: 2,
+      pages: [{ pageObjectNumber: 1, cache: { annotationVersion: 2, contentVersion: 1 } }],
+    });
 
     const layer = await fx.db
       .selectFrom('layers')
@@ -179,9 +197,14 @@ describe('Phase 5 layer mutation pipeline', () => {
     });
     expect(fresh.status).toBe(200);
     const manifest = (await fresh.json()) as {
-      pages: Array<{ pageObjectNumber: number; annotationVersion: number }>;
+      pages: Array<{
+        state: { pageObjectNumber: number };
+        cache: { annotationVersion: number };
+      }>;
     };
-    expect(manifest.pages.find((p) => p.pageObjectNumber === 1)?.annotationVersion).toBe(2);
+    expect(
+      manifest.pages.find((p) => p.state.pageObjectNumber === 1)?.cache.annotationVersion,
+    ).toBe(2);
   });
 
   test('stable delete creates the next artifact and bumps index generation', async () => {
@@ -273,12 +296,12 @@ describe('Phase 5 layer mutation pipeline', () => {
       meta: {
         weakRefsInvalidated: boolean;
         shouldRefetch: { reason: string } | null;
-        pageState: { revision: { docSessionId: string; generation: number } };
+        affectedPages: Array<{ revision: { docSessionId: string; generation: number } }>;
       };
     };
     expect(body.meta.weakRefsInvalidated).toBe(true);
     expect(body.meta.shouldRefetch).toEqual({ reason: 'weakRefsInvalidated' });
-    expect(body.meta.pageState.revision).toMatchObject({
+    expect(body.meta.affectedPages[0]?.revision).toMatchObject({
       docSessionId: `cloud:layer:${docId}:${layerName}`,
       generation: 11,
     });
@@ -488,10 +511,26 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe(NO_STORE);
     const body = (await res.json()) as {
-      pageOrder: Array<{ pageObjectNumber: number; pageIndex: number }>;
+      meta: {
+        affectedPages: Array<{ pageObjectNumber: number; pageIndex: number }>;
+        cacheDelta: {
+          previousDocVersion: number;
+          docVersion: number;
+          pages: Array<{
+            pageObjectNumber: number;
+            cache: {
+              annotationVersion: number;
+              contentVersion: number;
+            };
+          }>;
+        };
+      };
     };
-    expect(body.pageOrder.map((page) => page.pageObjectNumber)).toEqual([3, 1, 2]);
-    expect(body.pageOrder.map((page) => page.pageIndex)).toEqual([0, 1, 2]);
+    expect(body.meta.affectedPages.map((page) => page.pageObjectNumber)).toEqual([3, 1, 2]);
+    expect(body.meta.affectedPages.map((page) => page.pageIndex)).toEqual([0, 1, 2]);
+    expect(body.meta.cacheDelta.previousDocVersion).toBe(1);
+    expect(body.meta.cacheDelta.docVersion).toBe(2);
+    expect(body.meta.cacheDelta.pages).toEqual([]);
 
     const layer = await fx.db
       .selectFrom('layers')

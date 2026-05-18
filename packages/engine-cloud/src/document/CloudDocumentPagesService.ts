@@ -20,7 +20,7 @@ import type { ManifestAccessor } from './CloudDocumentHandle';
  *     `pageObjectNumber`. The wire never sends a page index for a
  *     mutation. This keeps multi-call client logic from having to
  *     account for index drift between requests.
- *   - Successful `move()` returns the full new `pageOrder`. The server
+ *   - Successful `move()` returns the full new order in `meta.affectedPages`. The server
  *     does NOT bump per-page revisions on a page move (page reorder is
  *     intentionally outside the weak-ref staleness model).
  */
@@ -41,7 +41,7 @@ export class CloudDocumentPagesService implements DocumentPagesService {
     }
     return AbortablePromise.run<PageListSnapshot>(async (signal) => {
       const manifest = await this.manifest.get(signal);
-      return { pages: manifest.pages.map((page) => ({ ...page })) };
+      return { pages: manifest.pages.map((page) => ({ ...page.state })) };
     });
   }
 
@@ -51,13 +51,15 @@ export class CloudDocumentPagesService implements DocumentPagesService {
         new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
       );
     }
-    return AbortablePromise.run<PageMoveResult>(async (signal) =>
-      this.http.postJson(
+    return AbortablePromise.run<PageMoveResult>(async (signal) => {
+      const result = await this.http.postJson(
         wirePaths.layerPagesMove(this.docId, this.layerName),
         { pageObjectNumbers, destIndex },
         (raw) => PageMoveResultSchema.parse(raw),
         signal,
-      ),
-    );
+      );
+      this.manifest.apply(result.meta);
+      return result;
+    });
   }
 }

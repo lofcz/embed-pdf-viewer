@@ -1,4 +1,4 @@
-import type { PageState } from '../revision/PageState';
+import type { MutationMeta } from './MutationMeta';
 
 /**
  * Result of a `pages.move()`. Page reorder is intentionally **outside**
@@ -14,16 +14,12 @@ import type { PageState } from '../revision/PageState';
  *     in the UI, their pending annotation edits must not silently
  *     break.
  *
- * The result therefore returns the new `pageOrder` directly. Callers
- * holding a previously-listed `PageListSnapshot` should swap it out for
- * `pageOrder` and re-render.
+ * The result therefore returns the new state order via
+ * `meta.affectedPages`. Callers holding a previously-listed
+ * `PageListSnapshot` should swap it out for `meta.affectedPages` and
+ * re-render.
  */
 export interface PageMoveResult {
-  /**
-   * The full post-move page order. `pageOrder[i].pageIndex === i` after
-   * the engine refreshes its page registry. The `revision` and
-   * `hasAnyWeakAnnotations` fields are unchanged from before the move
-   * (the engine carries them over verbatim).
-   */
-  pageOrder: PageState[];
+  /** Cache-key delta for cloud clients; `null` for local engines. */
+  meta: MutationMeta;
 }

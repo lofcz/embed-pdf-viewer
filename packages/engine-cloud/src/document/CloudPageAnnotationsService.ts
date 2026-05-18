@@ -11,6 +11,7 @@ import {
   type AnnotationDeleteResult,
   type AnnotationMoveResult,
   type AnnotationUpdateResult,
+  type MutationMeta,
   type PageAnnotationsService,
   type PageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
@@ -53,7 +54,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
     return AbortablePromise.run<AnnotationListPageSnapshot>(async (signal) => {
       const buildPath = async (s: AbortSignal): Promise<string> => {
         const manifest = await this.manifest.get(s);
-        const page = manifest.pages.find((p) => p.pageObjectNumber === this.pageObjectNumber);
+        const page = manifest.pages.find((p) => p.state.pageObjectNumber === this.pageObjectNumber);
         if (!page) {
           throw new EngineError(
             EngineErrorCode.NotFound,
@@ -64,7 +65,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
           this.docId,
           this.layerName,
           this.pageObjectNumber,
-          page.annotationVersion,
+          page.cache.annotationVersion,
         );
       };
       return this.http.getJsonWithRefresh(
@@ -84,14 +85,15 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
       );
     }
-    return AbortablePromise.run<AnnotationCreateResult>(async (signal) =>
-      this.http.postJson(
+    return AbortablePromise.run<AnnotationCreateResult>(async (signal) => {
+      const result = await this.http.postJson(
         wirePaths.layerPageAnnotationsCreate(this.docId, this.layerName, this.pageObjectNumber),
         draft,
         (raw) => AnnotationCreateResultSchema.parse(raw),
         signal,
-      ),
-    );
+      );
+      return this.absorbMutation(result);
+    });
   }
 
   update(ref: AnnotationRef, patch: AnnotationPatch): AbortablePromise<AnnotationUpdateResult> {
@@ -118,14 +120,15 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         ref.pageObjectNumber,
         'index',
       );
-      return AbortablePromise.run<AnnotationUpdateResult>(async (signal) =>
-        this.http.patchJson(
+      return AbortablePromise.run<AnnotationUpdateResult>(async (signal) => {
+        const result = await this.http.patchJson(
           path,
           { ref, patch },
           (raw) => AnnotationUpdateResultSchema.parse(raw),
           signal,
-        ),
-      );
+        );
+        return this.absorbMutation(result);
+      });
     }
     const stableKey = encodeStableIdKey(refToStableId(ref));
     const path = wirePaths.layerAnnotationByKey(
@@ -134,14 +137,15 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       ref.pageObjectNumber,
       stableKey,
     );
-    return AbortablePromise.run<AnnotationUpdateResult>(async (signal) =>
-      this.http.patchJson(
+    return AbortablePromise.run<AnnotationUpdateResult>(async (signal) => {
+      const result = await this.http.patchJson(
         path,
         { patch },
         (raw) => AnnotationUpdateResultSchema.parse(raw),
         signal,
-      ),
-    );
+      );
+      return this.absorbMutation(result);
+    });
   }
 
   delete(ref: AnnotationRef): AbortablePromise<AnnotationDeleteResult> {
@@ -168,14 +172,15 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         ref.pageObjectNumber,
         'index',
       );
-      return AbortablePromise.run<AnnotationDeleteResult>(async (signal) =>
-        this.http.patchJson(
+      return AbortablePromise.run<AnnotationDeleteResult>(async (signal) => {
+        const result = await this.http.patchJson(
           path,
           { ref, op: 'delete' },
           (raw) => AnnotationDeleteResultSchema.parse(raw),
           signal,
-        ),
-      );
+        );
+        return this.absorbMutation(result);
+      });
     }
     const stableKey = encodeStableIdKey(refToStableId(ref));
     const path = wirePaths.layerAnnotationByKey(
@@ -184,9 +189,14 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       ref.pageObjectNumber,
       stableKey,
     );
-    return AbortablePromise.run<AnnotationDeleteResult>(async (signal) =>
-      this.http.deleteJson(path, (raw) => AnnotationDeleteResultSchema.parse(raw), signal),
-    );
+    return AbortablePromise.run<AnnotationDeleteResult>(async (signal) => {
+      const result = await this.http.deleteJson(
+        path,
+        (raw) => AnnotationDeleteResultSchema.parse(raw),
+        signal,
+      );
+      return this.absorbMutation(result);
+    });
   }
 
   move(refs: AnnotationRef[], toIndex: number): AbortablePromise<AnnotationMoveResult> {
@@ -212,14 +222,20 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       this.layerName,
       this.pageObjectNumber,
     );
-    return AbortablePromise.run<AnnotationMoveResult>(async (signal) =>
-      this.http.postJson(
+    return AbortablePromise.run<AnnotationMoveResult>(async (signal) => {
+      const result = await this.http.postJson(
         path,
         { refs, toIndex },
         (raw) => AnnotationMoveResultSchema.parse(raw),
         signal,
-      ),
-    );
+      );
+      return this.absorbMutation(result);
+    });
+  }
+
+  private absorbMutation<T extends { meta: MutationMeta }>(result: T): T {
+    this.manifest.apply(result.meta);
+    return result;
   }
 }
 

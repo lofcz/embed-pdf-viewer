@@ -10,7 +10,6 @@ import {
   EngineErrorCode,
   knownWeakAnnotationState,
   isValidPageObjectNumber,
-  weakAnnotationStateToLegacyBoolean,
 } from '@embedpdf/engine-core/runtime';
 import { MetadataServiceImpl } from '../MetadataServiceImpl';
 import {
@@ -198,7 +197,6 @@ export class DocumentSession {
       pageIndex: record.pageIndex,
       revision: this.requireRevisions().token(pageObjectNumber),
       weakAnnotationState,
-      hasAnyWeakAnnotations: weakAnnotationStateToLegacyBoolean(weakAnnotationState),
     };
   }
 

@@ -108,6 +108,9 @@ export function runAnnotationMutationConformance(
         };
         const result = await page.annotations.create(draft);
         expect(AnnotationCreateResultSchema.safeParse(result).success).toBe(true);
+        expect(result.meta.affectedPages.length).toBe(1);
+        expect(result.meta.affectedPages[0].pageObjectNumber).toBe(fix.pageObjectNumber);
+        expect('cacheDelta' in result.meta).toBe(true);
 
         // Always durable (engine uses the EPDFPage_CreateAnnot fork helper).
         expect(result.created.identityQuality).toBe('durable');
@@ -117,7 +120,7 @@ export function runAnnotationMutationConformance(
         // Locked rule: create is append-only, so the page revision does
         // NOT bump and no weak refs become stale — regardless of whether
         // the page had pre-existing weak annotations.
-        expect(result.meta.pageState.revision.generation).toBe(
+        expect(result.meta.affectedPages[0].revision.generation).toBe(
           before.pageState.revision.generation,
         );
         expect(result.meta.shouldRefetch).toBe(null);
@@ -154,13 +157,16 @@ export function runAnnotationMutationConformance(
 
         const result = await page.annotations.update(ref, patch);
         expect(AnnotationUpdateResultSchema.safeParse(result).success).toBe(true);
+        expect(result.meta.affectedPages.length).toBe(1);
+        expect(result.meta.affectedPages[0].pageObjectNumber).toBe(fix.pageObjectNumber);
+        expect('cacheDelta' in result.meta).toBe(true);
 
         // Same identity, /NM untouched.
         expect(result.updated.ref.kind).toBe(target.ref.kind);
         expect(result.updated.nm).toBe(target.nm);
 
         // Update never bumps the revision.
-        expect(result.meta.pageState.revision.generation).toBe(
+        expect(result.meta.affectedPages[0].revision.generation).toBe(
           before.pageState.revision.generation,
         );
         expect(result.meta.shouldRefetch).toBe(null);
@@ -191,6 +197,9 @@ export function runAnnotationMutationConformance(
 
           const result = await page.annotations.update(weak.ref, patch);
           expect(AnnotationUpdateResultSchema.safeParse(result).success).toBe(true);
+          expect(result.meta.affectedPages.length).toBe(1);
+          expect(result.meta.affectedPages[0].pageObjectNumber).toBe(fix.pageObjectNumber);
+          expect('cacheDelta' in result.meta).toBe(true);
 
           // The ref is upgraded to durable. Either nm (engine-stamped) or
           // objectNumber (if the annotation surprisingly had one) is fine.
@@ -211,7 +220,7 @@ export function runAnnotationMutationConformance(
           }
 
           // Still non-structural.
-          expect(result.meta.pageState.revision.generation).toBe(
+          expect(result.meta.affectedPages[0].revision.generation).toBe(
             before.pageState.revision.generation,
           );
           expect(result.meta.shouldRefetch).toBe(null);
@@ -238,13 +247,16 @@ export function runAnnotationMutationConformance(
         const result = await page.annotations.delete(created.created.ref);
         try {
           expect(AnnotationDeleteResultSchema.safeParse(result).success).toBe(true);
+          expect(result.meta.affectedPages.length).toBe(1);
+          expect(result.meta.affectedPages[0].pageObjectNumber).toBe(fix.pageObjectNumber);
+          expect('cacheDelta' in result.meta).toBe(true);
 
           // Stable id is reported (we created it; it's durable).
           expect(result.deleted !== null).toBe(true);
           expect(result.deleted?.kind).toBe('objectNumber');
 
           // Structural: revision bumped.
-          expect(result.meta.pageState.revision.generation).toBe(
+          expect(result.meta.affectedPages[0].revision.generation).toBe(
             before.pageState.revision.generation + 1,
           );
 
@@ -281,6 +293,9 @@ export function runAnnotationMutationConformance(
                 result.deleted.kind === 'objectNumber' ||
                 result.deleted.kind === 'nm',
             ).toBe(true);
+            expect(result.meta.affectedPages.length).toBe(1);
+            expect(result.meta.affectedPages[0].pageObjectNumber).toBe(fix.pageObjectNumber);
+            expect('cacheDelta' in result.meta).toBe(true);
 
             // The page had weak refs before, structural mutation,
             // therefore: shouldRefetch is set.
@@ -405,10 +420,13 @@ export function runAnnotationMutationConformance(
         const result = await page.annotations.move([a.created.ref], bIdx);
         try {
           expect(AnnotationMoveResultSchema.safeParse(result).success).toBe(true);
+          expect(result.meta.affectedPages.length).toBe(1);
+          expect(result.meta.affectedPages[0].pageObjectNumber).toBe(fix.pageObjectNumber);
+          expect('cacheDelta' in result.meta).toBe(true);
           expect(result.moved.length).toBe(1);
 
           // Single revision bump per batch.
-          expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+          expect(result.meta.affectedPages[0].revision.generation).toBe(beforeRev + 1);
 
           // The moved DTO sits at toIndex.
           if (result.moved[0].ref.kind === 'objectNumber') {
@@ -454,7 +472,7 @@ export function runAnnotationMutationConformance(
         const result = await page.annotations.move(callerOrder, 0);
         try {
           // One revision bump even though three annotations moved.
-          expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+          expect(result.meta.affectedPages[0].revision.generation).toBe(beforeRev + 1);
           expect(result.moved.length).toBe(3);
           expect(result.meta.changed.length).toBe(3);
 
@@ -495,7 +513,7 @@ export function runAnnotationMutationConformance(
           const weakSession = await beginWeakEditIfRequired(doc, fix.pageObjectNumber, fix);
           const result = await page.annotations.move([weak.ref], target);
           try {
-            expect(result.meta.pageState.revision.generation).toBe(beforeRev + 1);
+            expect(result.meta.affectedPages[0].revision.generation).toBe(beforeRev + 1);
             expect(result.moved.length).toBe(1);
             expect(result.moved[0].identityQuality).toBe('durable');
             expect(

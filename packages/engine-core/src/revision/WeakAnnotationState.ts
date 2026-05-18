@@ -15,7 +15,3 @@ export const UNKNOWN_WEAK_ANNOTATION_STATE: WeakAnnotationState = { kind: 'unkno
 export function knownWeakAnnotationState(hasAnyWeakAnnotations: boolean): WeakAnnotationState {
   return { kind: 'known', hasAnyWeakAnnotations };
 }
-
-export function weakAnnotationStateToLegacyBoolean(state: WeakAnnotationState): boolean {
-  return state.kind === 'known' ? state.hasAnyWeakAnnotations : false;
-}

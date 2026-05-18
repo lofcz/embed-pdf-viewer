@@ -2,8 +2,9 @@ import type {
   AnnotationDTO,
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
-  Engine,
+  PageState,
 } from '@embedpdf/engine-core';
+import type { Engine } from '@embedpdf/engine-core/runtime';
 
 /**
  * What we collect from a single engine for the annotations fixture: the
@@ -55,7 +56,7 @@ export interface AnnotationsSummary {
   pages: Array<{
     pageObjectNumber: number;
     pageIndex: number;
-    hasAnyWeakAnnotations: boolean;
+    hasAnyWeakAnnotations: boolean | null;
     annotations: Array<{
       index: number;
       subtype: string;
@@ -71,7 +72,7 @@ export function summarizeRawAll(snap: AnnotationListSnapshotAllPages): Annotatio
     pages: snap.pages.map((p) => ({
       pageObjectNumber: p.pageState.pageObjectNumber,
       pageIndex: p.pageState.pageIndex,
-      hasAnyWeakAnnotations: p.pageState.hasAnyWeakAnnotations,
+      hasAnyWeakAnnotations: knownWeakFlag(p.pageState),
       annotations: p.annotations.map((a) => ({
         index: a.index,
         subtype: a.subtype,
@@ -81,6 +82,12 @@ export function summarizeRawAll(snap: AnnotationListSnapshotAllPages): Annotatio
       })),
     })),
   };
+}
+
+function knownWeakFlag(pageState: PageState): boolean | null {
+  return pageState.weakAnnotationState.kind === 'known'
+    ? pageState.weakAnnotationState.hasAnyWeakAnnotations
+    : null;
 }
 
 function describeRef(a: AnnotationDTO): string {

@@ -167,13 +167,10 @@ describe('DocumentSession open ownership', () => {
 
     const initial = session.pageState(1101);
     expect(initial.weakAnnotationState).toEqual({ kind: 'unknown' });
-    expect(initial.hasAnyWeakAnnotations).toBe(false);
     expect(
       ManifestPageSchema.safeParse({
-        ...initial,
-        contentVersion: 1,
-        annotationVersion: 1,
-        hasWeakAnnotations: false,
+        state: initial,
+        cache: { contentVersion: 1, annotationVersion: 1 },
       }).success,
     ).toBe(false);
 
@@ -185,10 +182,8 @@ describe('DocumentSession open ownership', () => {
     });
     expect(
       ManifestPageSchema.safeParse({
-        ...known,
-        contentVersion: 1,
-        annotationVersion: 1,
-        hasWeakAnnotations: false,
+        state: known,
+        cache: { contentVersion: 1, annotationVersion: 1 },
       }).success,
     ).toBe(true);
 

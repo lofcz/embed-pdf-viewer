@@ -39,7 +39,6 @@ function pageState(pon, generation = 0, hasWeak = false) {
     pageIndex: pon - 1,
     revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation },
     weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: hasWeak },
-    hasAnyWeakAnnotations: hasWeak,
   };
 }
 
@@ -76,8 +75,10 @@ function annotation(pon, index = 0) {
 
 function mutationMeta(pon, generation, hasWeak = false) {
   const ann = annotation(pon);
+  const state = pageState(pon, generation, hasWeak);
   return {
-    pageState: pageState(pon, generation, hasWeak),
+    affectedPages: [state],
+    cacheDelta: null,
     changed: [{ kind: 'objectNumber', value: ann.ref.annotObjectNumber }],
     weakRefsInvalidated: false,
     shouldRefetch: null,
@@ -86,8 +87,9 @@ function mutationMeta(pon, generation, hasWeak = false) {
 
 function layerArtifact(msg, meta) {
   if (!msg.layerName) return undefined;
-  const pon = meta?.pageState?.pageObjectNumber ?? 0;
-  const generation = meta?.pageState?.revision?.generation ?? 0;
+  const state = meta?.affectedPages?.[0];
+  const pon = state?.pageObjectNumber ?? 0;
+  const generation = state?.revision?.generation ?? 0;
   const view = new Uint8Array([
     0x4c,
     pon & 0xff,
@@ -169,7 +171,6 @@ parentPort.on('message', (msg) => {
           pageIndex: i,
           revision: { docSessionId: 'stub-session', pageObjectNumber: i + 1, generation: 0 },
           weakAnnotationState: { kind: 'unknown' },
-          hasAnyWeakAnnotations: false,
         });
       }
       parentPort.postMessage({
@@ -200,7 +201,6 @@ parentPort.on('message', (msg) => {
             pageIndex: i,
             revision: { docSessionId: 'stub-session', pageObjectNumber: i + 1, generation: 0 },
             weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-            hasAnyWeakAnnotations: false,
           },
           annotations: [],
         });
@@ -254,7 +254,6 @@ parentPort.on('message', (msg) => {
               pageIndex: pon - 1,
               revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
               weakAnnotationState: { kind: 'unknown' },
-              hasAnyWeakAnnotations: false,
             },
             text,
             charCount: text.length,
@@ -297,7 +296,6 @@ parentPort.on('message', (msg) => {
               pageIndex: pon - 1,
               revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
               weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-              hasAnyWeakAnnotations: false,
             },
             annotations: [],
           },
@@ -366,14 +364,14 @@ parentPort.on('message', (msg) => {
         ...remaining.slice(msg.destIndex),
       ];
       meta.pageOrder = next;
-      const result = {
-        pageOrder: next.map((pon, pageIndex) => ({
+      const affectedPages = next.map((pon, pageIndex) => ({
           pageObjectNumber: pon,
           pageIndex,
           revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
           weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-          hasAnyWeakAnnotations: false,
-        })),
+        }));
+      const result = {
+        meta: { affectedPages, cacheDelta: null },
       };
       resolveMutation(msg, {
         tag: 'pages.move',

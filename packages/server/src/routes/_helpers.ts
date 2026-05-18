@@ -74,13 +74,7 @@ export function parsePageObjectNumber(raw: string): number {
 }
 
 export function toPageState(page: ManifestPage): PageState {
-  return {
-    pageObjectNumber: page.pageObjectNumber,
-    pageIndex: page.pageIndex,
-    revision: page.revision,
-    weakAnnotationState: page.weakAnnotationState,
-    hasAnyWeakAnnotations: page.hasAnyWeakAnnotations,
-  };
+  return page.state;
 }
 
 /**

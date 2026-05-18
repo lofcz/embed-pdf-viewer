@@ -20,8 +20,12 @@ import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutat
 import type { RefetchReason } from '../mutation/RefetchReason';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
+import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
+import type { CachePins } from '../dto/CachePins';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
+import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
+export type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
 
 export const DocumentMetadataSchema: z.ZodType<DocumentMetadata> = z.object({
   title: z.string().nullable(),
@@ -92,7 +96,11 @@ export const PageStateSchema: z.ZodType<PageState> = z.object({
   pageIndex: z.number().int().nonnegative(),
   revision: RevisionTokenSchema,
   weakAnnotationState: WeakAnnotationStateSchema,
-  hasAnyWeakAnnotations: z.boolean(),
+});
+
+export const CachePinsSchema: z.ZodType<CachePins> = z.object({
+  contentVersion: z.number().int().positive(),
+  annotationVersion: z.number().int().positive(),
 });
 
 /**
@@ -110,49 +118,33 @@ export const PageStateSchema: z.ZodType<PageState> = z.object({
  * Phase 4 hard-codes all three to (1, 1, false); Phase 5's
  * `layer_pages` table drives the real values.
  */
-export const ManifestPageSchema = PageStateSchema.and(
-  z.object({
-    contentVersion: z.number().int().positive(),
-    annotationVersion: z.number().int().positive(),
-    hasWeakAnnotations: z.boolean(),
-  }),
-).superRefine((page, ctx) => {
-  if (page.weakAnnotationState.kind !== 'known') {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['weakAnnotationState'],
-      message: 'manifest pages must have a known weak annotation state',
-    });
-    return;
-  }
-  if (page.hasWeakAnnotations !== page.weakAnnotationState.hasAnyWeakAnnotations) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['hasWeakAnnotations'],
-      message: 'hasWeakAnnotations must match the known weak annotation state',
-    });
-  }
-  if (page.hasAnyWeakAnnotations !== page.weakAnnotationState.hasAnyWeakAnnotations) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['hasAnyWeakAnnotations'],
-      message: 'hasAnyWeakAnnotations must match the known weak annotation state',
-    });
-  }
-});
-export type ManifestPage = z.infer<typeof ManifestPageSchema>;
+export const ManifestPageSchema: z.ZodType<ManifestPage> = z
+  .object({
+    state: PageStateSchema,
+    cache: CachePinsSchema,
+  })
+  .superRefine((page, ctx) => {
+    if (page.state.weakAnnotationState.kind !== 'known') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['state', 'weakAnnotationState'],
+        message: 'manifest pages must have a known weak annotation state',
+      });
+    }
+  }) as z.ZodType<ManifestPage>;
+export type { ManifestPage } from '../dto/DocumentManifest';
 
 /**
  * Wire shape of `GET /v1/docs/:docId/v:D/manifest`. Content-addressed
  * by `docVersion`; safe to cache with `Cache-Control: public,
  * max-age=31536000, immutable`.
  */
-export const DocumentManifestSchema = z.object({
+export const DocumentManifestSchema: z.ZodType<DocumentManifest> = z.object({
   docVersion: z.number().int().positive(),
   baseSha: z.string(),
   pages: z.array(ManifestPageSchema),
 });
-export type DocumentManifest = z.infer<typeof DocumentManifestSchema>;
+export type { DocumentManifest } from '../dto/DocumentManifest';
 
 export const AnnotationListPageSnapshotSchema: z.ZodType<AnnotationListPageSnapshot> = z.object({
   pageState: PageStateSchema,
@@ -187,6 +179,22 @@ export const RefetchReasonSchema: z.ZodType<RefetchReason> = z.enum([
   'pageRebuilt',
 ]);
 
+export const CacheDeltaSchema: z.ZodType<CacheDelta> = z.object({
+  previousDocVersion: z.number().int().positive(),
+  docVersion: z.number().int().positive(),
+  pages: z.array(
+    z.object({
+      pageObjectNumber: z.number().int().positive(),
+      cache: CachePinsSchema,
+    }),
+  ),
+});
+
+export const MutationMetaSchema: z.ZodType<MutationMeta> = z.object({
+  affectedPages: z.array(PageStateSchema),
+  cacheDelta: CacheDeltaSchema.nullable(),
+});
+
 /**
  * Per-page side-effect envelope every annotation mutation returns. Mirrors
  * `AnnotationListMutationMeta`. The `shouldRefetch` field is `null` when the
@@ -194,7 +202,8 @@ export const RefetchReasonSchema: z.ZodType<RefetchReason> = z.enum([
  * the engine knows for sure the snapshot is stale.
  */
 export const AnnotationListMutationMetaSchema: z.ZodType<AnnotationListMutationMeta> = z.object({
-  pageState: PageStateSchema,
+  affectedPages: z.array(PageStateSchema),
+  cacheDelta: CacheDeltaSchema.nullable(),
   changed: z.array(AnnotationStableIdSchema),
   weakRefsInvalidated: z.boolean(),
   shouldRefetch: z.object({ reason: RefetchReasonSchema }).nullable(),
@@ -255,7 +264,7 @@ export const PageMoveInputSchema: z.ZodType<PageMoveInput> = z.object({
  * post-move order is returned so callers can swap their snapshot directly.
  */
 export const PageMoveResultSchema: z.ZodType<PageMoveResult> = z.object({
-  pageOrder: z.array(PageStateSchema),
+  meta: MutationMetaSchema,
 });
 
 export const WeakAnnotationSessionResponseSchema = z.object({

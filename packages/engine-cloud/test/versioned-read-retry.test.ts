@@ -38,6 +38,7 @@ interface ServerState {
   docVersion: number;
   pageContentVersion: number;
   pageAnnotationVersion: number;
+  annotationCount: number;
   text: string;
 }
 
@@ -48,6 +49,7 @@ interface CallLog {
 
 interface StubbedFixture {
   http: HttpClient;
+  fetch: typeof globalThis.fetch;
   state: ServerState;
   /** Mutate state to simulate the server bumping versions. */
   bump(opts: Partial<ServerState>): void;
@@ -58,6 +60,65 @@ interface StubbedFixture {
 const DOC_ID = 'doc-retry-stub';
 const LAYER_NAME = 'default';
 const PAGE_OBJECT_NUMBER = 5;
+
+function docToken(): string {
+  return [
+    base64UrlJson({ alg: 'none', typ: 'JWT' }),
+    base64UrlJson({ doc_id: DOC_ID, layer_name: LAYER_NAME, sub: 'stub-user' }),
+    'sig',
+  ].join('.');
+}
+
+function base64UrlJson(value: unknown): string {
+  return btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function annotation(index: number) {
+  return {
+    subtype: 'unsupported',
+    ref: {
+      kind: 'objectNumber',
+      pageObjectNumber: PAGE_OBJECT_NUMBER,
+      annotObjectNumber: 10_000 + index,
+    },
+    pageObjectNumber: PAGE_OBJECT_NUMBER,
+    index,
+    identityQuality: 'durable',
+    nm: `stub-${index}`,
+    flags: {
+      invisible: false,
+      hidden: false,
+      print: true,
+      noZoom: false,
+      noRotate: false,
+      noView: false,
+      readOnly: false,
+      locked: false,
+      toggleNoView: false,
+      lockedContents: false,
+    },
+    rect: { left: 0, top: 0, right: 10, bottom: 10 },
+    contents: null,
+    author: null,
+    created: null,
+    modified: null,
+    rawSubtypeCode: 0,
+    rawSubtypeName: null,
+  };
+}
+
+function pageState(generation = 0) {
+  return {
+    pageObjectNumber: PAGE_OBJECT_NUMBER,
+    pageIndex: 0,
+    revision: {
+      docSessionId: 'stub-session',
+      pageObjectNumber: PAGE_OBJECT_NUMBER,
+      generation,
+    },
+    weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
+  };
+}
 
 function buildStub(initial: ServerState): StubbedFixture {
   const state: ServerState = { ...initial };
@@ -100,18 +161,11 @@ function buildStub(initial: ServerState): StubbedFixture {
           baseSha: 'stub-sha',
           pages: [
             {
-              pageObjectNumber: PAGE_OBJECT_NUMBER,
-              pageIndex: 0,
-              revision: {
-                docSessionId: 'stub-session',
-                pageObjectNumber: PAGE_OBJECT_NUMBER,
-                generation: 0,
+              state: pageState(),
+              cache: {
+                contentVersion: state.pageContentVersion,
+                annotationVersion: state.pageAnnotationVersion,
               },
-              weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-              hasAnyWeakAnnotations: false,
-              contentVersion: state.pageContentVersion,
-              annotationVersion: state.pageAnnotationVersion,
-              hasWeakAnnotations: false,
             },
           ],
         }),
@@ -139,17 +193,7 @@ function buildStub(initial: ServerState): StubbedFixture {
       }
       return new Response(
         JSON.stringify({
-          pageState: {
-            pageObjectNumber: PAGE_OBJECT_NUMBER,
-            pageIndex: 0,
-            revision: {
-              docSessionId: 'stub-session',
-              pageObjectNumber: PAGE_OBJECT_NUMBER,
-              generation: 0,
-            },
-            weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-            hasAnyWeakAnnotations: false,
-          },
+          pageState: pageState(),
           text: state.text,
           charCount: state.text.length,
         }),
@@ -177,18 +221,53 @@ function buildStub(initial: ServerState): StubbedFixture {
       }
       return new Response(
         JSON.stringify({
-          pageState: {
-            pageObjectNumber: PAGE_OBJECT_NUMBER,
-            pageIndex: 0,
-            revision: {
-              docSessionId: 'stub-session',
-              pageObjectNumber: PAGE_OBJECT_NUMBER,
-              generation: 0,
+          pageState: pageState(),
+          annotations: Array.from({ length: state.annotationCount }, (_, index) =>
+            annotation(index),
+          ),
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }
+
+    const annotationCreateMatch = path.match(
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/pages\/(\d+)\/annotations$/,
+    );
+    if (annotationCreateMatch && method === 'POST') {
+      const requestedPon = Number(annotationCreateMatch[3]);
+      if (requestedPon !== PAGE_OBJECT_NUMBER) {
+        return new Response(
+          JSON.stringify({ error: { code: 'NotFound', message: 'unknown page' } }),
+          { status: 404, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      const previousDocVersion = state.docVersion;
+      state.docVersion += 1;
+      state.pageAnnotationVersion += 1;
+      const created = annotation(state.annotationCount);
+      state.annotationCount += 1;
+      return new Response(
+        JSON.stringify({
+          created,
+          meta: {
+            cacheDelta: {
+              previousDocVersion,
+              docVersion: state.docVersion,
+              pages: [
+                {
+                  pageObjectNumber: PAGE_OBJECT_NUMBER,
+                  cache: {
+                    contentVersion: state.pageContentVersion,
+                    annotationVersion: state.pageAnnotationVersion,
+                  },
+                },
+              ],
             },
-            weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-            hasAnyWeakAnnotations: false,
+            affectedPages: [pageState()],
+            changed: [{ kind: 'objectNumber', value: created.ref.annotObjectNumber }],
+            weakRefsInvalidated: false,
+            shouldRefetch: null,
           },
-          annotations: [],
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
@@ -201,6 +280,7 @@ function buildStub(initial: ServerState): StubbedFixture {
   };
 
   return {
+    fetch: stubFetch,
     http: new HttpClient({
       baseUrl: 'http://stub',
       token: 'stub-token',
@@ -297,6 +377,7 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       docVersion: 1,
       pageContentVersion: 1,
       pageAnnotationVersion: 1,
+      annotationCount: 0,
       text: 'initial',
     });
   });
@@ -316,6 +397,76 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       ]);
     } finally {
       await doc.close();
+    }
+  });
+
+  test('open token seeds the first manifest fetch so pages.list does not repeat /head', async () => {
+    const engine = createCloudEngine({
+      baseUrl: 'http://stub',
+      fetch: fx.fetch,
+    });
+    const doc = await engine.open({ kind: 'token', token: docToken() });
+    try {
+      const list = await doc.pages.list();
+      expect(list.pages.map((page) => page.pageObjectNumber)).toEqual([PAGE_OBJECT_NUMBER]);
+      const paths = fx.calls.map((call) => call.path);
+      expect(paths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v1/manifest`,
+      ]);
+      expect(paths.filter((path) => path.endsWith('/head'))).toHaveLength(1);
+    } finally {
+      await doc.close();
+      await engine.destroy();
+    }
+  });
+
+  test('stale open seed falls back to /head before surfacing pages.list', async () => {
+    const engine = createCloudEngine({
+      baseUrl: 'http://stub',
+      fetch: fx.fetch,
+    });
+    const doc = await engine.open({ kind: 'token', token: docToken() });
+    try {
+      fx.bump({ docVersion: 2, pageContentVersion: 2, pageAnnotationVersion: 2 });
+      const list = await doc.pages.list();
+      expect(list.pages.map((page) => page.pageObjectNumber)).toEqual([PAGE_OBJECT_NUMBER]);
+      const paths = fx.calls.map((call) => call.path);
+      expect(paths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v1/manifest`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v2/manifest`,
+      ]);
+    } finally {
+      await doc.close();
+      await engine.destroy();
+    }
+  });
+
+  test('refreshManifest still re-fetches /head after the open seed is consumed', async () => {
+    const engine = createCloudEngine({
+      baseUrl: 'http://stub',
+      fetch: fx.fetch,
+    });
+    const doc = await engine.open({ kind: 'token', token: docToken() });
+    try {
+      await doc.pages.list();
+      fx.bump({ docVersion: 2, pageContentVersion: 2, pageAnnotationVersion: 2 });
+      const callsBeforeRefresh = fx.calls.length;
+      const page = doc.page(PAGE_OBJECT_NUMBER);
+      const snap = await page.text.read();
+      expect(snap.text).toBe('initial');
+      const paths = fx.calls.slice(callsBeforeRefresh).map((call) => call.path);
+      expect(paths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v1/text`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v2/manifest`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v2/text`,
+      ]);
+    } finally {
+      await doc.close();
+      await engine.destroy();
     }
   });
 
@@ -404,6 +555,77 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
     }
   });
 
+  test('mutation manifest delta moves the next annotation list to the fresh URL without 404 refresh', async () => {
+    const doc = new CloudDocumentHandle(fx.http, DOC_ID);
+    try {
+      const page = doc.page(PAGE_OBJECT_NUMBER);
+      const first = await page.annotations.list();
+      expect(first.annotations).toEqual([]);
+
+      const created = await page.annotations.create({
+        subtype: 'highlight',
+        contents: 'delta-driven-create',
+        quadPoints: [
+          {
+            topLeft: { x: 0, y: 0 },
+            topRight: { x: 10, y: 0 },
+            bottomLeft: { x: 0, y: 10 },
+            bottomRight: { x: 10, y: 10 },
+          },
+        ],
+      });
+      expect(created.meta.cacheDelta?.previousDocVersion).toBe(1);
+      expect(created.meta.cacheDelta?.docVersion).toBe(2);
+
+      const callsBeforeList = fx.calls.length;
+      const second = await page.annotations.list();
+      expect(second.annotations).toHaveLength(1);
+      const paths = fx.calls.slice(callsBeforeList).map((call) => call.path);
+      expect(paths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v2/annotations`,
+      ]);
+    } finally {
+      await doc.close();
+    }
+  });
+
+  test('partial manifest delta with a skipped docVersion invalidates instead of manufacturing a mixed manifest', async () => {
+    const doc = new CloudDocumentHandle(fx.http, DOC_ID);
+    try {
+      const page = doc.page(PAGE_OBJECT_NUMBER);
+      await page.annotations.list();
+
+      doc.absorbMutation({
+        affectedPages: [pageState()],
+        cacheDelta: {
+          previousDocVersion: 2,
+          docVersion: 3,
+          pages: [
+            {
+              pageObjectNumber: PAGE_OBJECT_NUMBER,
+              cache: {
+                contentVersion: 1,
+                annotationVersion: 3,
+              },
+            },
+          ],
+        },
+      });
+
+      fx.bump({ docVersion: 3, pageAnnotationVersion: 3 });
+      const callsBeforeList = fx.calls.length;
+      await page.annotations.list();
+      const paths = fx.calls.slice(callsBeforeList).map((call) => call.path);
+      expect(paths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/v3/manifest`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/v3/annotations`,
+      ]);
+    } finally {
+      await doc.close();
+    }
+  });
+
   test('two concurrent first-reads share a single head+manifest round-trip (singleflight)', async () => {
     const doc = new CloudDocumentHandle(fx.http, DOC_ID);
     try {
@@ -470,14 +692,16 @@ describe('CloudEngine schema parity — DocumentHeadSchema / DocumentManifestSch
       baseSha: 'sha',
       pages: [
         {
-          pageObjectNumber: 5,
-          pageIndex: 0,
-          revision: { docSessionId: 's', pageObjectNumber: 5, generation: 0 },
-          weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-          hasAnyWeakAnnotations: false,
-          contentVersion: 1,
-          annotationVersion: 1,
-          hasWeakAnnotations: false,
+          state: {
+            pageObjectNumber: 5,
+            pageIndex: 0,
+            revision: { docSessionId: 's', pageObjectNumber: 5, generation: 0 },
+            weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
+          },
+          cache: {
+            contentVersion: 1,
+            annotationVersion: 1,
+          },
         },
       ],
     });

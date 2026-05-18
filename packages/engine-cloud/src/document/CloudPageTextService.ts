@@ -37,7 +37,7 @@ export class CloudPageTextService implements PageTextService {
     return AbortablePromise.run<PageTextSnapshot>(async (signal) => {
       const buildPath = async (s: AbortSignal): Promise<string> => {
         const manifest = await this.manifest.get(s);
-        const page = manifest.pages.find((p) => p.pageObjectNumber === this.pageObjectNumber);
+        const page = manifest.pages.find((p) => p.state.pageObjectNumber === this.pageObjectNumber);
         if (!page) {
           throw new EngineError(
             EngineErrorCode.NotFound,
@@ -48,7 +48,7 @@ export class CloudPageTextService implements PageTextService {
           this.docId,
           this.layerName,
           this.pageObjectNumber,
-          page.contentVersion,
+          page.cache.contentVersion,
         );
       };
       return this.http.getJsonWithRefresh(

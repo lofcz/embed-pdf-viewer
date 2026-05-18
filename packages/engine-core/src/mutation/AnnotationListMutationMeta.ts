@@ -1,6 +1,6 @@
-import type { PageState } from '../revision/PageState';
 import type { AnnotationStableId } from '../identity/AnnotationStableId';
 import type { RefetchReason } from './RefetchReason';
+import type { MutationMeta } from './MutationMeta';
 
 /**
  * Per-page side-effect envelope every annotation mutation returns. The
@@ -10,9 +10,7 @@ import type { RefetchReason } from './RefetchReason';
  *
  * Wire-stable, identical between local and cloud engines.
  */
-export interface AnnotationListMutationMeta {
-  /** New revision after the mutation; supersedes the prior PageState. */
-  pageState: PageState;
+export interface AnnotationListMutationMeta extends MutationMeta {
   /**
    * Stable IDs of annotations actually touched by the mutation. Includes
    * created, updated, and deleted; the per-mutation result types pin
@@ -23,7 +21,7 @@ export interface AnnotationListMutationMeta {
    * `true` if any weak `AnnotationRef.kind === 'index'` references the
    * client may still be holding became invalid as a result of this
    * mutation. Set by the engine based on the page's
-   * `hasAnyWeakAnnotations` flag and the structural shape of the change.
+   * `affectedPages[0].weakAnnotationState` and the structural shape of the change.
    * Mutation paths ensure the weak-annotation state is known before computing
    * this value.
    */

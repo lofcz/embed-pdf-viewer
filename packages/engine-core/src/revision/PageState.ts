@@ -3,13 +3,9 @@ import type { RevisionToken } from './RevisionToken';
 import type { WeakAnnotationState } from './WeakAnnotationState';
 
 /**
- * Per-page state envelope returned with every annotation list and every
- * mutation result. Carries the current revision (so clients can hand it
- * back as part of a weak `AnnotationRef.kind === 'index'`) and a flag
- * telling the client whether any annotation on this page lacks a durable
- * id. That flag is what lets the engine compute
- * `AnnotationListMutationMeta.weakRefsInvalidated` without the client
- * having to reason about it.
+ * Per-page state envelope returned with reads and mutation metadata. This is
+ * deliberately cache-agnostic: it carries page identity, display position,
+ * weak-ref revision state, and explicit knowledge about weak annotations.
  */
 export interface PageState {
   pageObjectNumber: PageObjectNumber;
@@ -22,12 +18,4 @@ export interface PageState {
    * boolean.
    */
   weakAnnotationState: WeakAnnotationState;
-  /**
-   * `true` when at least one annotation on this page has
-   * `identityQuality === 'weak'`. Drives the mutation-impact computation.
-   * Kept as a compatibility/convenience mirror for local transient results;
-   * cacheable manifests must derive their boolean from `weakAnnotationState`
-   * only when it is `known`.
-   */
-  hasAnyWeakAnnotations: boolean;
 }

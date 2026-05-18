@@ -35,7 +35,7 @@ export class CloudDocumentAnnotationsService implements DocumentAnnotationsServi
     return AbortablePromise.run<AnnotationListSnapshotAllPages>(async (signal) => {
       const manifest = await this.manifest.get(signal);
       const pages = await Promise.all(
-        manifest.pages.map((page) => this.readCurrentPage(page.pageObjectNumber, signal)),
+        manifest.pages.map((page) => this.readCurrentPage(page.state.pageObjectNumber, signal)),
       );
       return { pages };
     });

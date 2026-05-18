@@ -63,8 +63,8 @@ export interface AnnotationDeleteResult {
  * post-move index, which is exactly `toIndex + i`.
  *
  * Move is structural for the per-page index space — bumps the page
- * revision once per batch, and `meta.shouldRefetch` is set iff
- * `pageStateBefore.hasAnyWeakAnnotations` (same rule as create/delete).
+ * revision once per batch, and `meta.shouldRefetch` is set iff the prior
+ * `weakAnnotationState` was known to contain weak annotations.
  */
 export interface AnnotationMoveResult {
   /**

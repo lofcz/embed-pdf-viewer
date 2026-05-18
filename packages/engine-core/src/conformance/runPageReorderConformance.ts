@@ -57,7 +57,7 @@ const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
  *
  *   1. `pages.list()` returns every page in display order, addressed
  *      by indirect `pageObjectNumber`.
- *   2. `pages.move()` returns the full new `pageOrder` directly. There
+ *   2. `pages.move()` returns the full new order via `meta.affectedPages`. There
  *      is no document-level revision; the wire never asks the caller
  *      for one. Per-page `RevisionToken`s are NOT bumped on a page
  *      move (this is the cornerstone of the design).
@@ -130,17 +130,17 @@ export function runPageReorderConformance(
         const target = pons[pons.length - 1];
         const result = await doc.pages.move([target], 0);
         expect(PageMoveResultSchema.safeParse(result).success).toBe(true);
-        expect(result.pageOrder.length).toBe(before.pages.length);
-        expect(result.pageOrder[0].pageObjectNumber).toBe(target);
+        expect(result.meta.affectedPages.length).toBe(before.pages.length);
+        expect(result.meta.affectedPages[0].pageObjectNumber).toBe(target);
 
         // Indices are recomputed and dense.
-        for (let i = 0; i < result.pageOrder.length; i++) {
-          expect(result.pageOrder[i].pageIndex).toBe(i);
+        for (let i = 0; i < result.meta.affectedPages.length; i++) {
+          expect(result.meta.affectedPages[i].pageIndex).toBe(i);
         }
 
         // Set of PONs is preserved (no page lost or fabricated).
         const beforePons = new Set(before.pages.map((p) => p.pageObjectNumber));
-        const afterPons = new Set(result.pageOrder.map((p) => p.pageObjectNumber));
+        const afterPons = new Set(result.meta.affectedPages.map((p) => p.pageObjectNumber));
         expect(beforePons.size).toBe(afterPons.size);
         for (const pon of beforePons) expect(afterPons.has(pon)).toBe(true);
       } finally {
@@ -166,7 +166,7 @@ export function runPageReorderConformance(
         const result = await doc.pages.move([target], 0);
 
         // Every page's revision is unchanged.
-        for (const p of result.pageOrder) {
+        for (const p of result.meta.affectedPages) {
           expect(p.revision.generation).toBe(beforeByPon.get(p.pageObjectNumber));
         }
       } finally {

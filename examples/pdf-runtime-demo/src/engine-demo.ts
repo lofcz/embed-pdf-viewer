@@ -1,4 +1,5 @@
-import type { DocumentMetadata, Engine } from '@embedpdf/engine-core';
+import type { DocumentMetadata } from '@embedpdf/engine-core';
+import type { Engine } from '@embedpdf/engine-core/runtime';
 
 export interface EngineDemoResult {
   label: string;

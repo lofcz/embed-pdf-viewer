@@ -12,9 +12,6 @@ import type { PageState } from '../revision/PageState';
  *     liveness; intentionally untouched by `pages.move()`.
  *   - `weakAnnotationState`: whether the engine has actually scanned
  *     annotations for weak identities on this page.
- *   - `hasAnyWeakAnnotations`: compatibility mirror for local transient
- *     reads. Cacheable/cloud state must use `weakAnnotationState` and may
- *     only publish a boolean when it is `known`.
  */
 export interface PageListSnapshot {
   pages: PageState[];

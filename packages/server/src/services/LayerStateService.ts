@@ -1,10 +1,16 @@
 import type {
   AnnotationMutationKind,
+  CacheDelta,
+  DocumentManifest,
+  ManifestPage,
   PageState,
   PageTextSnapshot,
 } from '@embedpdf/engine-core/runtime';
-import { changesAnnotationList, invalidatesWeakIndexRefs } from '@embedpdf/engine-core/runtime';
-import type { DocumentManifest, ManifestPage } from '@embedpdf/engine-core/wire';
+import {
+  changesAnnotationList,
+  invalidatesWeakIndexRefs,
+  knownWeakAnnotationState,
+} from '@embedpdf/engine-core/runtime';
 import type {
   DocumentPagesRepo,
   DurablePageRow,
@@ -94,6 +100,23 @@ export class LayerStateService {
     };
   }
 
+  buildCacheDelta(input: {
+    docId: string;
+    layerName: string;
+    previousDocVersion: number;
+    docVersion: number;
+    pages: DurablePageRow[];
+  }): CacheDelta {
+    return {
+      previousDocVersion: input.previousDocVersion,
+      docVersion: input.docVersion,
+      pages: input.pages.map((page) => ({
+        pageObjectNumber: page.pageObjectNumber,
+        cache: this.toCachePins(page),
+      })),
+    };
+  }
+
   decorateBasePageState(docId: string, page: DurablePageRow): PageState {
     return this.toPageState(`cloud:base:${docId}`, page);
   }
@@ -113,6 +136,10 @@ export class LayerStateService {
     return this.toPageState(this.layerRevisionScopeId(docId, layerName), page);
   }
 
+  toLayerManifestPage(docId: string, layerName: string, page: DurablePageRow): ManifestPage {
+    return this.toManifestPage(this.layerRevisionScopeId(docId, layerName), page);
+  }
+
   layerRevisionScopeId(docId: string, layerName: string): string {
     return `cloud:layer:${docId}:${layerName}`;
   }
@@ -127,7 +154,10 @@ export class LayerStateService {
     bumpAnnotationGeneration: boolean;
     weakRefsInvalidated: boolean;
   } {
-    const weakRefsInvalidated = invalidatesWeakIndexRefs(kind, pageBefore.hasWeakAnnotations);
+    const weakRefsInvalidated = invalidatesWeakIndexRefs(
+      kind,
+      knownWeakAnnotationState(pageBefore.hasWeakAnnotations),
+    );
     const shiftsAnnotationIndexes = kind === 'delete' || kind === 'move';
     return {
       bumpLayerDocVersion: true,
@@ -151,12 +181,16 @@ export class LayerStateService {
   }
 
   private toManifestPage(scopeId: string, page: DurablePageRow): ManifestPage {
-    const state = this.toPageState(scopeId, page);
     return {
-      ...state,
+      state: this.toPageState(scopeId, page),
+      cache: this.toCachePins(page),
+    };
+  }
+
+  private toCachePins(page: DurablePageRow): { contentVersion: number; annotationVersion: number } {
+    return {
       contentVersion: page.contentVersion,
       annotationVersion: page.annotationVersion,
-      hasWeakAnnotations: page.hasWeakAnnotations,
     };
   }
 
@@ -173,7 +207,6 @@ export class LayerStateService {
         kind: 'known',
         hasAnyWeakAnnotations: page.hasWeakAnnotations,
       },
-      hasAnyWeakAnnotations: page.hasWeakAnnotations,
     };
   }
 }

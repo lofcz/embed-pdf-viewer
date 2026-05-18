@@ -38,14 +38,14 @@ export type MutationKind = AnnotationMutationKind;
 /**
  * Inputs that decide whether a mutation should make a client refetch.
  *
- *   `pageStateBefore` is captured BEFORE the mutation. Its
- *   `hasAnyWeakAnnotations` flag drives the locked rule:
+ *   `pageStateBefore` is captured BEFORE the mutation. Its known
+ *   `weakAnnotationState` drives the locked rule:
  *     index-shifting mutation × any weak annotation on the page  ⇒  refetch.
  *
  *   `pageStateAfter` is captured AFTER the mutation. It carries the
  *   bumped revision token (for index-shifting ops) and the recomputed
- *   `hasAnyWeakAnnotations` flag (for any op that might have changed
- *   it, e.g. opportunistic /NM stamping during update).
+ *   weak-annotation state (for any op that might have changed it, e.g.
+ *   opportunistic /NM stamping during update).
  *
  *   `changed` is the list of stable ids the mutation actually touched.
  *   Empty for a weak delete (we have no durable id to report).
@@ -119,7 +119,8 @@ export class ImpactComputer {
 
     if (!shiftsExistingAnnotationIndices(mutation)) {
       return {
-        pageState: pageStateAfter,
+        affectedPages: [pageStateAfter],
+        cacheDelta: null,
         changed,
         weakRefsInvalidated: false,
         shouldRefetch: null,
@@ -127,10 +128,13 @@ export class ImpactComputer {
     }
 
     // delete / move: index-shifting.
-    const hadWeakBefore = pageStateBefore.hasAnyWeakAnnotations;
-    const weakRefsInvalidated = invalidatesWeakIndexRefs(mutation, hadWeakBefore);
+    const weakRefsInvalidated = invalidatesWeakIndexRefs(
+      mutation,
+      pageStateBefore.weakAnnotationState,
+    );
     return {
-      pageState: pageStateAfter,
+      affectedPages: [pageStateAfter],
+      cacheDelta: null,
       changed,
       weakRefsInvalidated,
       shouldRefetch: weakRefsInvalidated ? { reason: 'weakRefsInvalidated' } : null,

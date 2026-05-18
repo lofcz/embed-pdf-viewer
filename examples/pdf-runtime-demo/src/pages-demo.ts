@@ -1,4 +1,5 @@
-import type { Engine, PageListSnapshot, PageMoveResult } from '@embedpdf/engine-core';
+import type { PageListSnapshot, PageMoveResult } from '@embedpdf/engine-core';
+import type { Engine } from '@embedpdf/engine-core/runtime';
 
 /**
  * Engine-agnostic page-reorder walkthrough. Drives `pages.list()`,
@@ -59,12 +60,10 @@ export async function runPagesDemo(
     //    semantics — the block is detached and re-inserted at the
     //    destination in the post-removal index space, preserving
     //    caller order.
-    if (movedSingle.pageOrder.length >= 3) {
-      const block = [
-        movedSingle.pageOrder[0].pageObjectNumber,
-        movedSingle.pageOrder[1].pageObjectNumber,
-      ];
-      const dest = movedSingle.pageOrder.length - block.length;
+    const singlePageOrder = movedSingle.meta.affectedPages;
+    if (singlePageOrder.length >= 3) {
+      const block = [singlePageOrder[0].pageObjectNumber, singlePageOrder[1].pageObjectNumber];
+      const dest = singlePageOrder.length - block.length;
       const movedBatch = await doc.pages.move(block, dest);
       const after = await doc.pages.list();
 
@@ -143,12 +142,12 @@ export function summarizePages(result: PagesDemoResult) {
       idx: p.pageIndex,
       gen: p.revision.generation,
     })),
-    movedSingle: result.movedSingle.pageOrder.map((p) => ({
+    movedSingle: result.movedSingle.meta.affectedPages.map((p) => ({
       pon: p.pageObjectNumber,
       idx: p.pageIndex,
       gen: p.revision.generation,
     })),
-    movedBatch: result.movedBatch.pageOrder.map((p) => ({
+    movedBatch: result.movedBatch.meta.affectedPages.map((p) => ({
       pon: p.pageObjectNumber,
       idx: p.pageIndex,
       gen: p.revision.generation,

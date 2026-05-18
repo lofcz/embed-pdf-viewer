@@ -63,38 +63,38 @@ try {
   const errs: string[] = [];
   diffNum(
     'createA.meta.generation',
-    localResult.createdA.meta.pageState.revision.generation,
-    cloudResult.createdA.meta.pageState.revision.generation,
+    mutationGeneration(localResult.createdA.meta),
+    mutationGeneration(cloudResult.createdA.meta),
     errs,
   );
   diffNum(
     'createB.meta.generation',
-    localResult.createdB.meta.pageState.revision.generation,
-    cloudResult.createdB.meta.pageState.revision.generation,
+    mutationGeneration(localResult.createdB.meta),
+    mutationGeneration(cloudResult.createdB.meta),
     errs,
   );
   diffNum(
     'moveSingle.meta.generation',
-    localResult.movedSingle.meta.pageState.revision.generation,
-    cloudResult.movedSingle.meta.pageState.revision.generation,
+    mutationGeneration(localResult.movedSingle.meta),
+    mutationGeneration(cloudResult.movedSingle.meta),
     errs,
   );
   diffNum(
     'moveBatch.meta.generation',
-    localResult.movedBatch.meta.pageState.revision.generation,
-    cloudResult.movedBatch.meta.pageState.revision.generation,
+    mutationGeneration(localResult.movedBatch.meta),
+    mutationGeneration(cloudResult.movedBatch.meta),
     errs,
   );
   diffNum(
     'deleteA.meta.generation',
-    localResult.deletedA.meta.pageState.revision.generation,
-    cloudResult.deletedA.meta.pageState.revision.generation,
+    mutationGeneration(localResult.deletedA.meta),
+    mutationGeneration(cloudResult.deletedA.meta),
     errs,
   );
   diffNum(
     'deleteB.meta.generation',
-    localResult.deletedB.meta.pageState.revision.generation,
-    cloudResult.deletedB.meta.pageState.revision.generation,
+    mutationGeneration(localResult.deletedB.meta),
+    mutationGeneration(cloudResult.deletedB.meta),
     errs,
   );
   diffStr(
@@ -147,4 +147,7 @@ function diffNum(label: string, a: number, b: number, errs: string[]): void {
 }
 function diffStr(label: string, a: string | null, b: string | null, errs: string[]): void {
   if (a !== b) errs.push(`${label}: local=${a ?? 'null'}, cloud=${b ?? 'null'}`);
+}
+function mutationGeneration(meta: { affectedPages: Array<{ revision: { generation: number } }> }) {
+  return meta.affectedPages[0]?.revision.generation ?? -1;
 }

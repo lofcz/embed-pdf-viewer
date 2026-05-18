@@ -27,7 +27,10 @@ try {
         {
           pageObjectNumber: page.pageState.pageObjectNumber,
           pageIndex: page.pageState.pageIndex,
-          hasAnyWeakAnnotations: page.pageState.hasAnyWeakAnnotations,
+          hasAnyWeakAnnotations:
+            page.pageState.weakAnnotationState.kind === 'known'
+              ? page.pageState.weakAnnotationState.hasAnyWeakAnnotations
+              : null,
           generation: page.pageState.revision.generation,
           count: page.annotations.length,
         },

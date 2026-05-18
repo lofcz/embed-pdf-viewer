@@ -27,9 +27,14 @@ export function diffAnnotationListSnapshot(
   if (a.pageState.pageIndex !== b.pageState.pageIndex) {
     errs.push(`pageState.pageIndex mismatch: ${a.pageState.pageIndex} vs ${b.pageState.pageIndex}`);
   }
-  if (a.pageState.hasAnyWeakAnnotations !== b.pageState.hasAnyWeakAnnotations) {
+  if (
+    JSON.stringify(a.pageState.weakAnnotationState) !==
+    JSON.stringify(b.pageState.weakAnnotationState)
+  ) {
     errs.push(
-      `pageState.hasAnyWeakAnnotations mismatch: ${a.pageState.hasAnyWeakAnnotations} vs ${b.pageState.hasAnyWeakAnnotations}`,
+      `pageState.weakAnnotationState mismatch: ${JSON.stringify(
+        a.pageState.weakAnnotationState,
+      )} vs ${JSON.stringify(b.pageState.weakAnnotationState)}`,
     );
   }
   if (a.pageState.revision.generation !== b.pageState.revision.generation) {

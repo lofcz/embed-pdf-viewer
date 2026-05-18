@@ -20,6 +20,7 @@ export type {
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
 export type { PageTextSnapshot } from './dto/PageTextSnapshot';
+export type { CachePins } from './dto/CachePins';
 
 export { EngineError, serializeError, deserializeError } from './errors/EngineError';
 export type { SerializedEngineError, EngineErrorOptions } from './errors/EngineError';
@@ -38,7 +39,6 @@ export type { PageState } from './revision/PageState';
 export {
   UNKNOWN_WEAK_ANNOTATION_STATE,
   knownWeakAnnotationState,
-  weakAnnotationStateToLegacyBoolean,
 } from './revision/WeakAnnotationState';
 export type { WeakAnnotationState } from './revision/WeakAnnotationState';
 
@@ -100,6 +100,8 @@ export type {
   AnnotationListSnapshotAllPages,
 } from './annotation/AnnotationListSnapshot';
 
+export type { DocumentManifest, ManifestPage } from './dto/DocumentManifest';
+export type { CacheDelta, MutationMeta } from './mutation/MutationMeta';
 export type { AnnotationListMutationMeta } from './mutation/AnnotationListMutationMeta';
 export {
   changesAnnotationList,

@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLocalEngine } from '@embedpdf/engine-local';
 import { createCloudEngine } from '@embedpdf/engine-cloud';
-import { diffAnnotationListSnapshotAll } from '@embedpdf/engine-core';
+import { diffAnnotationListSnapshotAll } from '@embedpdf/engine-core/conformance';
 import { buildApp, signDevToken, defaultWorkerEntryUrl, type AppBundle } from '@embedpdf/server';
 import { runAnnotationsDemo, summarizeRawAll } from './annotations-demo.ts';
 

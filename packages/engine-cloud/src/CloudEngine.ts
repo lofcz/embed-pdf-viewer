@@ -64,7 +64,7 @@ export class CloudEngine implements Engine {
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        return new CloudDocumentHandle(docHttp, head.id, layerName);
+        return new CloudDocumentHandle(docHttp, head.id, layerName, head);
       });
     }
 
@@ -89,7 +89,7 @@ export class CloudEngine implements Engine {
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        return new CloudDocumentHandle(docHttp, head.id, layerName);
+        return new CloudDocumentHandle(docHttp, head.id, layerName, head);
       });
     }
 

@@ -92,7 +92,6 @@ function pageState(docSessionId: string, generation: number): PageState {
     pageIndex: 0,
     revision: { docSessionId, pageObjectNumber: 3, generation },
     weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: true },
-    hasAnyWeakAnnotations: true,
   };
 }
 

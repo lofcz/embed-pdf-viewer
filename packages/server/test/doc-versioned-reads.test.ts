@@ -352,7 +352,7 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     await tearDown(fx);
   });
 
-  test('every manifest page reports (contentVersion: 1, annotationVersion: 1, hasWeakAnnotations: false)', async () => {
+  test('every manifest page reports state and cache pins separately', async () => {
     const tenantId = 'tenant-m-pp';
     const docId = 'docmpp001';
     await seedDocument(fx, tenantId, docId, { pageCount: 5 });
@@ -364,32 +364,34 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     const body = (await res.json()) as {
       docVersion: number;
       pages: Array<{
-        pageObjectNumber: number;
-        pageIndex: number;
-        revision: { docSessionId: string; generation: number };
-        weakAnnotationState: { kind: string; hasAnyWeakAnnotations: boolean };
-        contentVersion: number;
-        annotationVersion: number;
-        hasWeakAnnotations: boolean;
+        state: {
+          pageObjectNumber: number;
+          pageIndex: number;
+          revision: { docSessionId: string; generation: number };
+          weakAnnotationState: { kind: string; hasAnyWeakAnnotations: boolean };
+        };
+        cache: {
+          contentVersion: number;
+          annotationVersion: number;
+        };
       }>;
     };
     expect(body.docVersion).toBe(1);
     expect(body.pages).toHaveLength(5);
     for (let i = 0; i < body.pages.length; i++) {
       const page = body.pages[i]!;
-      expect(page.pageIndex).toBe(i);
-      expect(page.revision).toEqual({
+      expect(page.state.pageIndex).toBe(i);
+      expect(page.state.revision).toEqual({
         docSessionId: `cloud:base:${docId}`,
-        pageObjectNumber: page.pageObjectNumber,
+        pageObjectNumber: page.state.pageObjectNumber,
         generation: 0,
       });
-      expect(page.weakAnnotationState).toEqual({
+      expect(page.state.weakAnnotationState).toEqual({
         kind: 'known',
         hasAnyWeakAnnotations: false,
       });
-      expect(page.contentVersion).toBe(1);
-      expect(page.annotationVersion).toBe(1);
-      expect(page.hasWeakAnnotations).toBe(false);
+      expect(page.cache.contentVersion).toBe(1);
+      expect(page.cache.annotationVersion).toBe(1);
     }
 
     const documentPageCount = await fx.db
@@ -439,17 +441,21 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     expect(second.status).toBe(200);
     const body = (await second.json()) as {
       pages: Array<{
-        pageObjectNumber: number;
-        annotationVersion: number;
-        hasWeakAnnotations: boolean;
-        revision: { docSessionId: string; generation: number };
+        state: {
+          pageObjectNumber: number;
+          revision: { docSessionId: string; generation: number };
+          weakAnnotationState: { kind: string; hasAnyWeakAnnotations: boolean };
+        };
+        cache: { annotationVersion: number };
       }>;
     };
-    const page = body.pages.find((p) => p.pageObjectNumber === 1);
+    const page = body.pages.find((p) => p.state.pageObjectNumber === 1);
     expect(page).toMatchObject({
-      annotationVersion: 7,
-      hasWeakAnnotations: true,
-      revision: { docSessionId: `cloud:base:${docId}`, generation: 3 },
+      cache: { annotationVersion: 7 },
+      state: {
+        revision: { docSessionId: `cloud:base:${docId}`, generation: 3 },
+        weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: true },
+      },
     });
   });
 
@@ -516,20 +522,22 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     const body = (await res.json()) as {
       docVersion: number;
       pages: Array<{
-        pageObjectNumber: number;
-        contentVersion: number;
-        annotationVersion: number;
-        hasWeakAnnotations: boolean;
-        revision: { docSessionId: string; generation: number };
+        state: {
+          pageObjectNumber: number;
+          revision: { docSessionId: string; generation: number };
+          weakAnnotationState: { kind: string; hasAnyWeakAnnotations: boolean };
+        };
+        cache: { contentVersion: number; annotationVersion: number };
       }>;
     };
     expect(body.docVersion).toBe(4);
     expect(body.pages[0]).toMatchObject({
-      pageObjectNumber: 1,
-      contentVersion: 2,
-      annotationVersion: 5,
-      hasWeakAnnotations: true,
-      revision: { docSessionId: `cloud:layer:${docId}:${layerName}`, generation: 9 },
+      state: {
+        pageObjectNumber: 1,
+        revision: { docSessionId: `cloud:layer:${docId}:${layerName}`, generation: 9 },
+        weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: true },
+      },
+      cache: { contentVersion: 2, annotationVersion: 5 },
     });
   });
 
@@ -543,9 +551,9 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as {
-      pages: Array<{ revision: { docSessionId: string } }>;
+      pages: Array<{ state: { revision: { docSessionId: string } } }>;
     };
-    expect(body.pages[0]?.revision.docSessionId).toBe(`cloud:layer:${docId}:bob`);
+    expect(body.pages[0]?.state.revision.docSessionId).toBe(`cloud:layer:${docId}:bob`);
 
     const layerCount = await fx.db
       .selectFrom('layers')
@@ -848,16 +856,14 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     const manifestBody = (await manifest.json()) as {
       docVersion: number;
       pages: Array<{
-        contentVersion: number;
-        annotationVersion: number;
-        revision: { generation: number };
+        state: { revision: { generation: number } };
+        cache: { contentVersion: number; annotationVersion: number };
       }>;
     };
     expect(manifestBody.docVersion).toBe(5);
     expect(manifestBody.pages[0]).toMatchObject({
-      contentVersion: 7,
-      annotationVersion: 9,
-      revision: { generation: 4 },
+      state: { revision: { generation: 4 } },
+      cache: { contentVersion: 7, annotationVersion: 9 },
     });
 
     const text = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/text`, {

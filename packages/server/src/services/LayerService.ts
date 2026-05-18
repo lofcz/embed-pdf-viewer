@@ -378,14 +378,23 @@ export class LayerService {
       docId,
       layerName,
       layer,
-      pageObjectNumber: input.result.meta.pageState.pageObjectNumber,
+      pageObjectNumber: requireSingleAffectedPage(input.result.meta.affectedPages).pageObjectNumber,
       kind,
       artifactKey,
       artifactSha: putResult.sha256,
       artifactSize: input.artifact.size,
       nextVersion,
-      hasWeakAnnotations: input.result.meta.pageState.hasAnyWeakAnnotations,
+      hasWeakAnnotations: requireKnownWeakAnnotationBoolean(
+        requireSingleAffectedPage(input.result.meta.affectedPages),
+      ),
       payload: input.result,
+    });
+    const cacheDelta = this.layerState.buildCacheDelta({
+      docId,
+      layerName,
+      previousDocVersion: durable.previousLayerDocVersion,
+      docVersion: durable.layerDocVersion,
+      pages: [durable.page],
     });
 
     const pageState = this.layerState.decorateLayerPageState(docId, layerName, durable.page);
@@ -393,14 +402,15 @@ export class LayerService {
       ...input.result,
       meta: {
         ...input.result.meta,
-        pageState,
+        cacheDelta,
+        affectedPages: [pageState],
         weakRefsInvalidated: durable.weakRefsInvalidated,
         shouldRefetch: durable.weakRefsInvalidated
           ? { reason: 'weakRefsInvalidated' as const }
           : null,
       },
     };
-    return this.requireRevisionBridge().decorateAnnotationMutationResult(pageState, result);
+    return this.requireRevisionBridge().decorateAnnotationMutationResult([pageState], result);
   }
 
   private async persistPageMove(
@@ -431,18 +441,28 @@ export class LayerService {
       docId,
       layerName,
       layer,
-      pageOrder: input.result.pageOrder.map((page) => page.pageObjectNumber),
+      pageOrder: input.result.meta.affectedPages.map((page) => page.pageObjectNumber),
       artifactKey,
       artifactSha: putResult.sha256,
       artifactSize: input.artifact.size,
       nextVersion,
       payload: input.result,
     });
+    const cacheDelta = this.layerState.buildCacheDelta({
+      docId,
+      layerName,
+      previousDocVersion: committed.previousLayerDocVersion,
+      docVersion: committed.layerDocVersion,
+      pages: [],
+    });
 
     return {
-      pageOrder: committed.pages.map((page) =>
-        this.layerState.decorateLayerPageState(docId, layerName, page),
-      ),
+      meta: {
+        affectedPages: committed.pages.map((page) =>
+          this.layerState.decorateLayerPageState(docId, layerName, page),
+        ),
+        cacheDelta,
+      },
     };
   }
 
@@ -547,7 +567,12 @@ export class LayerService {
     nextVersion: number;
     hasWeakAnnotations: boolean;
     payload: unknown;
-  }): Promise<{ page: DurablePageRow; weakRefsInvalidated: boolean }> {
+  }): Promise<{
+    page: DurablePageRow;
+    weakRefsInvalidated: boolean;
+    previousLayerDocVersion: number;
+    layerDocVersion: number;
+  }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -595,10 +620,13 @@ export class LayerService {
           updatedAt: now,
         };
 
+        const previousLayerDocVersion = Number(currentLayer.doc_version);
+        const layerDocVersion = previousLayerDocVersion + (bumps.bumpLayerDocVersion ? 1 : 0);
+
         await trx
           .updateTable('layers')
           .set({
-            doc_version: Number(currentLayer.doc_version) + (bumps.bumpLayerDocVersion ? 1 : 0),
+            doc_version: layerDocVersion,
             current_version: input.nextVersion,
             current_artifact_key: input.artifactKey,
             current_artifact_sha: input.artifactSha,
@@ -638,7 +666,12 @@ export class LayerService {
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return { page: nextPage, weakRefsInvalidated: bumps.weakRefsInvalidated };
+        return {
+          page: nextPage,
+          weakRefsInvalidated: bumps.weakRefsInvalidated,
+          previousLayerDocVersion,
+          layerDocVersion,
+        };
       });
   }
 
@@ -653,7 +686,11 @@ export class LayerService {
     artifactSize: number;
     nextVersion: number;
     payload: unknown;
-  }): Promise<{ pages: DurablePageRow[] }> {
+  }): Promise<{
+    pages: DurablePageRow[];
+    previousLayerDocVersion: number;
+    layerDocVersion: number;
+  }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -705,10 +742,13 @@ export class LayerService {
           };
         });
 
+        const previousLayerDocVersion = Number(currentLayer.doc_version);
+        const layerDocVersion = previousLayerDocVersion + 1;
+
         await trx
           .updateTable('layers')
           .set({
-            doc_version: Number(currentLayer.doc_version) + 1,
+            doc_version: layerDocVersion,
             current_version: input.nextVersion,
             current_artifact_key: input.artifactKey,
             current_artifact_sha: input.artifactSha,
@@ -764,7 +804,7 @@ export class LayerService {
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return { pages: nextPages };
+        return { pages: nextPages, previousLayerDocVersion, layerDocVersion };
       });
   }
 
@@ -884,4 +924,24 @@ function requireLayerArtifact(payload: unknown): { bytes: ArrayBuffer; size: num
     );
   }
   return artifact;
+}
+
+function requireSingleAffectedPage(pages: readonly PageState[]): PageState {
+  if (pages.length !== 1) {
+    throw new EngineError(
+      EngineErrorCode.WireFormat,
+      `annotation mutation expected exactly one affected page, got ${pages.length}`,
+    );
+  }
+  return pages[0];
+}
+
+function requireKnownWeakAnnotationBoolean(page: PageState): boolean {
+  if (page.weakAnnotationState.kind !== 'known') {
+    throw new EngineError(
+      EngineErrorCode.WireFormat,
+      `annotation mutation returned unknown weak annotation state for page ${page.pageObjectNumber}`,
+    );
+  }
+  return page.weakAnnotationState.hasAnyWeakAnnotations;
 }

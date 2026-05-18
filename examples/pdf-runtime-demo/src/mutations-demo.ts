@@ -3,10 +3,11 @@ import type {
   AnnotationDeleteResult,
   AnnotationListPageSnapshot,
   AnnotationMoveResult,
+  AnnotationRef,
   AnnotationUpdateResult,
-  Engine,
   HighlightDraft,
 } from '@embedpdf/engine-core';
+import type { Engine } from '@embedpdf/engine-core/runtime';
 
 /**
  * Engine-agnostic mutation walkthrough. Drives `update` (weak →
@@ -148,7 +149,7 @@ export function summarizeMutations(result: MutationsDemoResult) {
     elapsedMs: result.elapsedMs,
     before: {
       generation: result.before.pageState.revision.generation,
-      hasWeak: result.before.pageState.hasAnyWeakAnnotations,
+      hasWeak: knownWeakFlag(result.before.pageState),
       count: result.before.annotations.length,
     },
     update: result.updated
@@ -188,30 +189,48 @@ export function summarizeMutations(result: MutationsDemoResult) {
     },
     after: {
       generation: result.after.pageState.revision.generation,
-      hasWeak: result.after.pageState.hasAnyWeakAnnotations,
+      hasWeak: knownWeakFlag(result.after.pageState),
       count: result.after.annotations.length,
     },
   };
 }
 
-function refSummary(ref: { kind: string } & Record<string, unknown>): string {
+function refSummary(ref: AnnotationRef): string {
   switch (ref.kind) {
     case 'objectNumber':
-      return `objectNumber=${(ref as { annotObjectNumber: number }).annotObjectNumber}`;
+      return `objectNumber=${ref.annotObjectNumber}`;
     case 'nm':
-      return `nm=${(ref as { nm: string }).nm}`;
+      return `nm=${ref.nm}`;
     case 'index':
-      return `index=${(ref as { index: number }).index}`;
+      return `index=${ref.index}`;
     default:
-      return ref.kind;
+      return exhaustiveRef(ref);
   }
 }
 
+function exhaustiveRef(ref: never): string {
+  return String(ref);
+}
+
 function metaSummary(meta: AnnotationCreateResult['meta']) {
+  const pageState = meta.affectedPages[0];
   return {
-    generation: meta.pageState.revision.generation,
+    generation: pageState?.revision.generation ?? null,
     weakRefsInvalidated: meta.weakRefsInvalidated,
     shouldRefetch: meta.shouldRefetch?.reason ?? null,
     changed: meta.changed.map((c) => `${c.kind}=${String(c.value)}`),
+    cacheDelta: meta.cacheDelta
+      ? {
+          previousDocVersion: meta.cacheDelta.previousDocVersion,
+          docVersion: meta.cacheDelta.docVersion,
+          pages: meta.cacheDelta.pages.length,
+        }
+      : null,
   };
+}
+
+function knownWeakFlag(pageState: AnnotationListPageSnapshot['pageState']): boolean | null {
+  return pageState.weakAnnotationState.kind === 'known'
+    ? pageState.weakAnnotationState.hasAnyWeakAnnotations
+    : null;
 }
