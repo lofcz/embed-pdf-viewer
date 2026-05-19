@@ -21,6 +21,14 @@ export interface PdfPageObject {
    * Rotation of this page
    */
   rotation: Rotation;
+
+  /**
+   * PDF indirect-object number of this page's Page dictionary, as returned by
+   * `EPDFDoc_GetPageObjectNumberByIndex`. Useful for correlating pages with
+   * raw PDF references. Will be `0` when PDFium cannot resolve the page
+   * dictionary (e.g. XFA pages, which have no `CPDF_Page`).
+   */
+  objectNumber: number;
 }
 
 /**

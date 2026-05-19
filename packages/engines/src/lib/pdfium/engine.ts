@@ -384,6 +384,7 @@ export class PdfiumNative implements IPdfiumExecutor {
       }
 
       const rotation = this.pdfiumModule.EPDF_GetPageRotationByIndex(docPtr, index) as Rotation;
+      const objectNumber = this.pdfiumModule.EPDFDoc_GetPageObjectNumberByIndex(docPtr, index);
 
       const page = {
         index,
@@ -392,6 +393,7 @@ export class PdfiumNative implements IPdfiumExecutor {
           height: this.pdfiumModule.pdfium.getValue(sizePtr + 4, 'float'),
         },
         rotation,
+        objectNumber,
       };
 
       pages.push(page);
@@ -2738,6 +2740,10 @@ export class PdfiumNative implements IPdfiumExecutor {
         destCtx.docPtr,
         newPageIndex,
       ) as Rotation;
+      const objectNumber = this.pdfiumModule.EPDFDoc_GetPageObjectNumberByIndex(
+        destCtx.docPtr,
+        newPageIndex,
+      );
 
       newPages.push({
         index: newPageIndex,
@@ -2746,6 +2752,7 @@ export class PdfiumNative implements IPdfiumExecutor {
           height: this.pdfiumModule.pdfium.getValue(sizePtr + 4, 'float'),
         },
         rotation,
+        objectNumber,
       });
     }
 
