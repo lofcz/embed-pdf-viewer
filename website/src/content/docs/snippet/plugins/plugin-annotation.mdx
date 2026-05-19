@@ -100,7 +100,8 @@ const pngBuffer = await fetch('/my-stamp.png').then(r => r.arrayBuffer());
 annotationApi.importAnnotations([
   {
     annotation: {
-      type: 26, // PdfAnnotationSubtype.STAMP
+      id: "fd6605fe-8deb-4596-8984-eb04c8a4f2b0",
+      type: 13, // PdfAnnotationSubtype.STAMP
       rect: { origin: { x: 100, y: 200 }, size: { width: 50, height: 50 } },
       // ... other annotation properties
     },
