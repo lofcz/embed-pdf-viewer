@@ -48,6 +48,16 @@ export class HttpClient {
     });
   }
 
+  absoluteUrl(path: string): string {
+    return `${this.baseUrl}${path}`;
+  }
+
+  async getBlob(path: string, signal: AbortSignal): Promise<Blob> {
+    const res = await this.request(path, { method: 'GET', signal });
+    if (!res.ok) await this.throwFromBody(res);
+    return await res.blob();
+  }
+
   /**
    * Resolve the current bearer token. Awaits the user-supplied
    * token factory if it returns a promise. Used by the cloud

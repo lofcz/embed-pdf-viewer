@@ -15,6 +15,7 @@ export { CloudDocumentPagesService } from './document/CloudDocumentPagesService'
 export { CloudPageHandle } from './document/CloudPageHandle';
 export { CloudPageAnnotationsService } from './document/CloudPageAnnotationsService';
 export { CloudPageGeometryService } from './document/CloudPageGeometryService';
+export { CloudPageRenderService } from './document/CloudPageRenderService';
 export { HttpClient } from './transport/HttpClient';
 export type { HttpClientOptions } from './transport/HttpClient';
 export { decodeUnverifiedClaims } from './transport/decodeUnverifiedClaims';

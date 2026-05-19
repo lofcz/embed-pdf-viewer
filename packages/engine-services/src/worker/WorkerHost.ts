@@ -18,6 +18,7 @@ import {
   type PagesListWorkerRequest,
   type PagesGeometryWorkerRequest,
   type PagesMoveWorkerRequest,
+  type PagesRenderWorkerRequest,
   type PagesTextWorkerRequest,
   type SerializedEngineError,
   type ShutdownWorkerRequest,
@@ -33,6 +34,7 @@ import { RawAnnotationReader } from '../readers/annotations/RawAnnotationReader'
 import { FullAnnotationReader } from '../readers/annotations/FullAnnotationReader';
 import { PageTextReader } from '../readers/text/PageTextReader';
 import { PageGeometryReader } from '../readers/geometry/PageGeometryReader';
+import { PageRasterReader } from '../readers/render/PageRasterReader';
 import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
 import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
 import { BaseDocumentRegistry } from '../session/BaseDocumentRegistry';
@@ -122,6 +124,9 @@ export class WorkerHost {
           break;
         case 'pages.geometry':
           resultPack = this.handlePagesGeometry(msg, ctrl.signal);
+          break;
+        case 'pages.render':
+          resultPack = this.handlePagesRender(msg, ctrl.signal);
           break;
         case 'close':
           resultPack = this.handleClose(msg);
@@ -320,6 +325,16 @@ export class WorkerHost {
     const reader = new PageGeometryReader(this.runtime, session);
     const snapshot = reader.read(req.pageObjectNumber, signal);
     return wirePack({ tag: 'pages.geometry', snapshot });
+  }
+
+  private handlePagesRender(
+    req: PagesRenderWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const reader = new PageRasterReader(this.runtime, session);
+    const raster = reader.render(req.pageObjectNumber, req.options ?? {}, signal);
+    return wirePack({ tag: 'pages.render', raster }, [raster.data]);
   }
 
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {

@@ -13,10 +13,12 @@ import { WorkerQueue } from './worker/WorkerQueue';
 import { Priority } from './worker/Priority';
 import type { JobId, WorkerResultPayload } from './worker/protocol';
 import { LocalDocumentHandle } from './document/LocalDocumentHandle';
+import { BrowserImageEncoder, type LocalImageEncoder } from './render/BrowserImageEncoder';
 
 export interface LocalEngineOptions {
   transport: Transport;
   concurrency?: number;
+  imageEncoder?: LocalImageEncoder;
 }
 
 /**
@@ -26,14 +28,20 @@ export interface LocalEngineOptions {
  */
 export class LocalEngine implements Engine {
   static fromTransport(opts: LocalEngineOptions): LocalEngine {
-    return new LocalEngine(opts.transport, opts.concurrency ?? 1);
+    return new LocalEngine(opts.transport, opts.concurrency ?? 1, opts.imageEncoder);
   }
 
   private readonly queue: WorkerQueue;
+  private readonly imageEncoder: LocalImageEncoder;
   private destroyed = false;
 
-  private constructor(transport: Transport, concurrency: number) {
+  private constructor(
+    transport: Transport,
+    concurrency: number,
+    imageEncoder: LocalImageEncoder | undefined,
+  ) {
     this.queue = new WorkerQueue(transport, { concurrency });
+    this.imageEncoder = imageEncoder ?? new BrowserImageEncoder();
   }
 
   open(input: OpenInput, options?: OpenOptions): AbortablePromise<DocumentHandle> {
@@ -136,7 +144,7 @@ export class LocalEngine implements Engine {
       if (payload.tag !== 'open') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
-      return new LocalDocumentHandle(payload.docId, queue);
+      return new LocalDocumentHandle(payload.docId, queue, this.imageEncoder);
     });
   }
 
@@ -147,6 +155,7 @@ export class LocalEngine implements Engine {
     this.destroyed = true;
     return AbortablePromise.run<void>(async () => {
       await this.queue.shutdown();
+      this.imageEncoder.destroy?.();
     });
   }
 }

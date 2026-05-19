@@ -25,6 +25,24 @@ export type {
   PageGeometryRun,
   PageGeometrySnapshot,
 } from './dto/PageGeometrySnapshot';
+export type {
+  PageImageHandle,
+  PageImageBlobSource,
+  PageImageOptions,
+  PageImageObjectUrl,
+  PageImageResult,
+  PageImageSource,
+  PageNetworkRenderFormat,
+  PageRaster,
+  PageRenderBackground,
+  PageRenderEncodedFormat,
+  PageRenderFormat,
+  PageRenderOptions,
+  PageRenderQuery,
+  PageRenderTarget,
+  PageRenderViewport,
+} from './dto/PageRender';
+export { createPageImageHandle } from './dto/PageRender';
 export type { CachePins } from './dto/CachePins';
 
 export { EngineError, serializeError, deserializeError } from './errors/EngineError';

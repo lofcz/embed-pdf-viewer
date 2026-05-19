@@ -73,6 +73,17 @@ export const wirePaths = {
   docPageGeometryCurrent: (docId: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/geometry`,
 
+  docPageRender: (
+    docId: string,
+    pageObjectNumber: number,
+    contentVersion: number,
+    format: 'png' | 'webp',
+  ) =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${contentVersion}/render/${format}`,
+
+  docPageRenderCurrent: (docId: string, pageObjectNumber: number, format: 'png' | 'webp') =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/render/${format}`,
+
   layerPageGeometry: (
     docId: string,
     layerName: string,
@@ -83,6 +94,33 @@ export const wirePaths = {
 
   layerPageGeometryCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/geometry`,
+
+  layerPageRender: (
+    docId: string,
+    layerName: string,
+    pageObjectNumber: number,
+    contentVersion: number,
+    format: 'png' | 'webp',
+  ) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${contentVersion}/render/${format}`,
+
+  layerPageRenderWithAnnotations: (
+    docId: string,
+    layerName: string,
+    pageObjectNumber: number,
+    contentVersion: number,
+    annotationVersion: number,
+    format: 'png' | 'webp',
+  ) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${contentVersion}/a/${annotationVersion}/render/${format}`,
+
+  layerPageRenderCurrent: (
+    docId: string,
+    layerName: string,
+    pageObjectNumber: number,
+    format: 'png' | 'webp',
+  ) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/render/${format}`,
 
   /**
    * GET: full annotation list for a single page at a specific

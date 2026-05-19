@@ -22,6 +22,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -41,6 +42,7 @@ button:hover {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid #b8c8cc;
@@ -135,6 +137,56 @@ h2 {
   gap: 8px;
 }
 
+.render-tools {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(120px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #d7e1e4;
+  border-radius: 6px;
+  background: #f8fbfb;
+}
+
+.render-preview {
+  display: none;
+  margin: 0;
+  border: 1px solid #d7e1e4;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #eef3f5;
+}
+
+.render-preview.has-image {
+  display: grid;
+}
+
+.render-preview img {
+  display: block;
+  width: 100%;
+  max-height: 520px;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, #d9e2e5 25%, transparent 25%),
+    linear-gradient(-45deg, #d9e2e5 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #d9e2e5 75%),
+    linear-gradient(-45deg, transparent 75%, #d9e2e5 75%);
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  background-size: 16px 16px;
+}
+
+.render-preview figcaption {
+  padding: 8px 10px;
+  border-top: 1px solid #d7e1e4;
+  color: #58686d;
+  background: #ffffff;
+  font-size: 12px;
+}
+
 .list {
   display: grid;
   gap: 8px;
@@ -203,6 +255,10 @@ pre {
   }
 
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .render-tools {
     grid-template-columns: 1fr;
   }
 }

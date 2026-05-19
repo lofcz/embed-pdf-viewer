@@ -20,6 +20,8 @@ export {
   AnnotationListSnapshotAllPagesSchema,
   PageTextSnapshotSchema,
   PageGeometrySnapshotSchema,
+  PageNetworkRenderFormatSchema,
+  PageRenderQuerySchema,
   RefetchReasonSchema,
   AnnotationListMutationMetaSchema,
   AnnotationCreateResultSchema,

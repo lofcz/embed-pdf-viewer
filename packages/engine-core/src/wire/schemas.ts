@@ -7,7 +7,11 @@ import { AnnotationDTOSchema } from '../annotation/kinds';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
-import { AnnotationStableIdSchema, RevisionTokenSchema } from '../annotation/base.schema';
+import {
+  AnnotationStableIdSchema,
+  RectSchema,
+  RevisionTokenSchema,
+} from '../annotation/base.schema';
 import type { PageState } from '../revision/PageState';
 import type { WeakAnnotationState } from '../revision/WeakAnnotationState';
 import type {
@@ -21,6 +25,11 @@ import type { RefetchReason } from '../mutation/RefetchReason';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
+import type {
+  PageNetworkRenderFormat,
+  PageRenderOptions,
+  PageRenderQuery,
+} from '../dto/PageRender';
 import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
 import type { CachePins } from '../dto/CachePins';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
@@ -198,6 +207,131 @@ export const PageGeometrySnapshotSchema: z.ZodType<PageGeometrySnapshot> = z.obj
   pageState: PageStateSchema,
   runs: z.array(PageGeometryRunSchema),
 });
+
+export const PageNetworkRenderFormatSchema: z.ZodType<PageNetworkRenderFormat> = z.enum([
+  'png',
+  'webp',
+]);
+
+const QueryStringSchema = z.preprocess(
+  (value) => (Array.isArray(value) ? value[0] : value),
+  z.string().optional(),
+);
+
+const RenderWidthQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'render width must be positive' });
+    return z.NEVER;
+  }
+  return value;
+});
+
+const RenderScaleQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'render scale must be positive' });
+    return z.NEVER;
+  }
+  return value;
+});
+
+const RenderRectQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+  if (raw === undefined) return undefined;
+  const parts = raw.split(',').map((part) => Number(part.trim()));
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'render rect must be "left,top,right,bottom"',
+    });
+    return z.NEVER;
+  }
+  return RectSchema.parse({ left: parts[0], top: parts[1], right: parts[2], bottom: parts[3] });
+});
+
+const RenderRotationQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (value === 0 || value === 90 || value === 180 || value === 270) return value;
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: 'render rotation must be 0, 90, 180, or 270',
+  });
+  return z.NEVER;
+});
+
+const RenderBackgroundQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+  if (raw === undefined || raw === 'white' || raw === 'transparent') return raw;
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: 'render background must be "white" or "transparent"',
+  });
+  return z.NEVER;
+});
+
+const RenderQualityQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 1 || value > 100) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'render quality must be between 1 and 100',
+    });
+    return z.NEVER;
+  }
+  return value;
+});
+
+const RenderAnnotationsQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+  if (raw === undefined) return undefined;
+  if (raw === '1' || raw === 'true') return true;
+  if (raw === '0' || raw === 'false') return false;
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    message: 'annotations must be true/false or 1/0',
+  });
+  return z.NEVER;
+});
+
+export const PageRenderQuerySchema = z
+  .object({
+    width: RenderWidthQuerySchema,
+    scale: RenderScaleQuerySchema,
+    rect: RenderRectQuerySchema,
+    rotation: RenderRotationQuerySchema,
+    background: RenderBackgroundQuerySchema,
+    quality: RenderQualityQuerySchema,
+    annotations: RenderAnnotationsQuerySchema,
+  })
+  .passthrough()
+  .superRefine((query, ctx) => {
+    if (query.width !== undefined && query.scale !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['scale'],
+        message: 'render query accepts either width or scale, not both',
+      });
+    }
+  })
+  .transform((query) => {
+    const options: PageRenderOptions = {
+      includeAnnotations: query.annotations ?? true,
+      ...(query.rect ? { target: { kind: 'rect' as const, rect: query.rect } } : {}),
+      ...(query.width !== undefined
+        ? { viewport: { kind: 'width' as const, width: query.width } }
+        : query.scale !== undefined
+          ? { viewport: { kind: 'scale' as const, scale: query.scale } }
+          : {}),
+      ...(query.rotation !== undefined ? { rotation: query.rotation } : {}),
+      ...(query.background ? { background: query.background } : {}),
+    };
+    return {
+      options,
+      ...(query.quality !== undefined ? { quality: query.quality } : {}),
+    };
+  }) as unknown as z.ZodType<PageRenderQuery>;
 
 /**
  * Reasons a mutation tells the client its old snapshot is stale. Wire-stable;

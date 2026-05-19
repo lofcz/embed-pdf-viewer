@@ -7,6 +7,7 @@ import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
+import type { PageRaster, PageRenderOptions } from '../dto/PageRender';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
@@ -178,6 +179,15 @@ export interface PagesGeometryWorkerRequest {
   pageObjectNumber: PageObjectNumber;
 }
 
+export interface PagesRenderWorkerRequest {
+  kind: 'pages.render';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumber: PageObjectNumber;
+  options?: PageRenderOptions;
+}
+
 export interface PagesMoveWorkerRequest {
   kind: 'pages.move';
   jobId: WorkerJobId;
@@ -222,6 +232,7 @@ export type WorkerRequest =
   | PagesMoveWorkerRequest
   | PagesTextWorkerRequest
   | PagesGeometryWorkerRequest
+  | PagesRenderWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -256,6 +267,7 @@ export type WorkerResultPayload =
   | { tag: 'pages.move'; result: PageMoveResult; artifact?: LayerArtifactWorkerPayload }
   | { tag: 'pages.text'; snapshot: PageTextSnapshot }
   | { tag: 'pages.geometry'; snapshot: PageGeometrySnapshot }
+  | { tag: 'pages.render'; raster: PageRaster }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

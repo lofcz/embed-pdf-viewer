@@ -5,6 +5,7 @@ import type {
   AnnotationRef,
   DocumentHandle,
   PageGeometrySnapshot,
+  PageImageHandle,
   PageListSnapshot,
   PageObjectNumber,
   WeakAnnotationEditSession,
@@ -95,6 +96,32 @@ app.innerHTML = `
           <button id="moveFirst" type="button">Move First To End</button>
         </div>
 
+        <div class="render-tools">
+          <label>Render Format
+            <select id="renderFormat">
+              <option value="webp">WebP</option>
+              <option value="png">PNG</option>
+            </select>
+          </label>
+          <label>Width <input id="renderWidth" inputmode="numeric" value="720" /></label>
+          <label>Background
+            <select id="renderBackground">
+              <option value="white">White</option>
+              <option value="transparent">Transparent</option>
+            </select>
+          </label>
+          <label class="check">
+            <input id="renderAnnotations" type="checkbox" checked />
+            <span>Include annotations</span>
+          </label>
+          <button id="renderPage" type="button">Render Page</button>
+        </div>
+
+        <figure id="renderPreview" class="render-preview">
+          <img id="renderImage" alt="Rendered page preview" />
+          <figcaption id="renderMeta">No render yet.</figcaption>
+        </figure>
+
         <pre id="output"></pre>
       </section>
     </section>
@@ -122,6 +149,14 @@ const els = {
   readText: must<HTMLButtonElement>('readText'),
   readGeometry: must<HTMLButtonElement>('readGeometry'),
   listAnnots: must<HTMLButtonElement>('listAnnots'),
+  renderFormat: must<HTMLSelectElement>('renderFormat'),
+  renderWidth: must<HTMLInputElement>('renderWidth'),
+  renderBackground: must<HTMLSelectElement>('renderBackground'),
+  renderAnnotations: must<HTMLInputElement>('renderAnnotations'),
+  renderPage: must<HTMLButtonElement>('renderPage'),
+  renderPreview: must<HTMLElement>('renderPreview'),
+  renderImage: must<HTMLImageElement>('renderImage'),
+  renderMeta: must<HTMLElement>('renderMeta'),
   createHighlight: must<HTMLButtonElement>('createHighlight'),
   beginWeakEdit: must<HTMLButtonElement>('beginWeakEdit'),
   heartbeatWeakEdit: must<HTMLButtonElement>('heartbeatWeakEdit'),
@@ -137,6 +172,7 @@ let doc: DocumentHandle | null = null;
 let pages: PageListSnapshot | null = null;
 let annotations: AnnotationListPageSnapshot | null = null;
 let weakSession: WeakAnnotationEditSession | null = null;
+let renderObjectUrl: string | null = null;
 
 void boot();
 
@@ -157,6 +193,7 @@ els.listPages.addEventListener('click', () => void run(listPages));
 els.readText.addEventListener('click', () => void run(readText));
 els.readGeometry.addEventListener('click', () => void run(readGeometry));
 els.listAnnots.addEventListener('click', () => void run(listAnnotations));
+els.renderPage.addEventListener('click', () => void run(renderPage));
 els.createHighlight.addEventListener('click', () => void run(createHighlight));
 els.beginWeakEdit.addEventListener('click', () => void run(beginWeakEdit));
 els.heartbeatWeakEdit.addEventListener('click', () => void run(heartbeatWeakEdit));
@@ -225,6 +262,7 @@ async function openToken(): Promise<void> {
   weakSession = null;
   pages = null;
   annotations = null;
+  clearRenderPreview();
   const engine = createCloudEngine({ baseUrl: config.engineBaseUrl });
   doc = await engine.open({ kind: 'token', token });
   renderClaims(token);
@@ -249,6 +287,19 @@ async function readText(): Promise<void> {
 async function readGeometry(): Promise<void> {
   const page = requireDoc().page(selectedPage());
   setOutput(summarizeGeometry(await page.geometry.read()));
+}
+
+async function renderPage(): Promise<void> {
+  const opened = requireDoc();
+  const page = opened.page(selectedPage());
+  const width = readPositiveInteger(els.renderWidth.value, 'Render width');
+  const image = await page.render.image({
+    format: renderFormat(),
+    viewport: { kind: 'width', width },
+    background: renderBackground(),
+    includeAnnotations: els.renderAnnotations.checked,
+  });
+  await showRenderedImage(image);
 }
 
 async function listAnnotations(): Promise<void> {
@@ -348,11 +399,7 @@ function firstAnnotationRef(): AnnotationRef {
 }
 
 function selectedPage(): PageObjectNumber {
-  const value = Number(els.pageObjectNumber.value);
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new Error('Page object number must be a positive integer.');
-  }
-  return value as PageObjectNumber;
+  return readPositiveInteger(els.pageObjectNumber.value, 'Page object number') as PageObjectNumber;
 }
 
 function requireDoc(): DocumentHandle {
@@ -370,6 +417,61 @@ function layerName(): string {
 
 function subject(): string {
   return els.subject.value.trim() || 'demo-user';
+}
+
+function renderFormat(): 'png' | 'webp' {
+  if (els.renderFormat.value === 'png' || els.renderFormat.value === 'webp') {
+    return els.renderFormat.value;
+  }
+  throw new Error('Render format must be PNG or WebP.');
+}
+
+function renderBackground(): 'white' | 'transparent' {
+  if (els.renderBackground.value === 'white' || els.renderBackground.value === 'transparent') {
+    return els.renderBackground.value;
+  }
+  throw new Error('Render background must be white or transparent.');
+}
+
+function readPositiveInteger(raw: string, label: string): number {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${label} must be a positive integer.`);
+  }
+  return value;
+}
+
+async function showRenderedImage(image: PageImageHandle): Promise<void> {
+  clearRenderPreview();
+  const objectUrl = await image.objectUrl();
+  renderObjectUrl = objectUrl.url;
+
+  els.renderImage.src = renderObjectUrl;
+  els.renderPreview.classList.add('has-image');
+  els.renderMeta.textContent = [
+    `${image.format.toUpperCase()} page ${image.pageState.pageObjectNumber}`,
+    image.width && image.height
+      ? `${image.width}x${image.height}`
+      : `width ${els.renderWidth.value}`,
+    els.renderAnnotations.checked ? 'annotations on' : 'annotations off',
+  ].join(' | ');
+  setOutput({
+    pageState: image.pageState,
+    format: image.format,
+    contentType: image.contentType,
+    source:
+      image.source.kind === 'url' ? image.source.url : `${image.source.bytes.byteLength} bytes`,
+  });
+}
+
+function clearRenderPreview(): void {
+  if (renderObjectUrl) {
+    URL.revokeObjectURL(renderObjectUrl);
+    renderObjectUrl = null;
+  }
+  els.renderImage.removeAttribute('src');
+  els.renderPreview.classList.remove('has-image');
+  els.renderMeta.textContent = 'No render yet.';
 }
 
 function renderClaims(token: string): void {

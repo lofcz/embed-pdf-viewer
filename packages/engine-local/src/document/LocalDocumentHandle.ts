@@ -11,6 +11,7 @@ import {
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
 import { LocalMetadataService } from './LocalMetadataService';
 import { LocalDocumentAnnotationsService } from './LocalDocumentAnnotationsService';
 import { LocalDocumentPagesService } from './LocalDocumentPagesService';
@@ -29,6 +30,7 @@ export class LocalDocumentHandle implements DocumentHandle {
   constructor(
     readonly id: string,
     private readonly queue: WorkerQueue,
+    private readonly imageEncoder: LocalImageEncoder,
   ) {
     const view = { isClosed: () => this.closed };
     this.metadata = new LocalMetadataService(id, queue, view);
@@ -47,9 +49,16 @@ export class LocalDocumentHandle implements DocumentHandle {
    * accurate display order should read from `snapshot.pageState`.
    */
   page(pageObjectNumber: PageObjectNumber): PageHandle {
-    return new LocalPageHandle(pageObjectNumber, -1, this.id, this.queue, {
-      isClosed: () => this.closed,
-    });
+    return new LocalPageHandle(
+      pageObjectNumber,
+      -1,
+      this.id,
+      this.queue,
+      {
+        isClosed: () => this.closed,
+      },
+      this.imageEncoder,
+    );
   }
 
   close(): AbortablePromise<void> {

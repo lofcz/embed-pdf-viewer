@@ -26,6 +26,9 @@ export { LocalDocumentPagesService } from './document/LocalDocumentPagesService'
 export { LocalPageHandle } from './document/LocalPageHandle';
 export { LocalPageAnnotationsService } from './document/LocalPageAnnotationsService';
 export { LocalPageGeometryService } from './document/LocalPageGeometryService';
+export { LocalPageRenderService } from './document/LocalPageRenderService';
+export { BrowserImageEncoder } from './render/BrowserImageEncoder';
+export type { LocalImageEncoder } from './render/BrowserImageEncoder';
 
 export interface CreateLocalEngineOptions extends Omit<LocalEngineOptions, 'transport'> {
   /** Forwarded to @embedpdf/pdf-runtime when no transport is provided. */

@@ -23,6 +23,7 @@ export type { DocumentPagesService } from './engine/DocumentPagesService';
 export type { PageAnnotationsService } from './engine/PageAnnotationsService';
 export type { PageTextService } from './engine/PageTextService';
 export type { PageGeometryService } from './engine/PageGeometryService';
+export type { PageRenderService } from './engine/PageRenderService';
 
 export { wirePack, EMPTY_TRANSFER } from './wire/WirePack';
 export type { WirePack } from './wire/WirePack';
@@ -50,6 +51,7 @@ export type {
   PagesMoveWorkerRequest,
   PagesTextWorkerRequest,
   PagesGeometryWorkerRequest,
+  PagesRenderWorkerRequest,
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,

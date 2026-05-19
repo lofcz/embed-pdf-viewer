@@ -29,6 +29,7 @@ import { registerMetadataRoutes } from '../routes/metadata';
 import { registerPageRoutes } from '../routes/pages';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
 import { registerAdminTokensRoutes } from '../routes/admin/tokens';
+import { SharpImageEncoder } from '../render/SharpImageEncoder';
 
 export interface BuildAppOptions {
   /**
@@ -312,6 +313,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         documentService,
         layerService,
         pool,
+        imageEncoder: new SharpImageEncoder(),
       });
       await registerAnnotationRoutes(app, {
         documentService,
