@@ -1,5 +1,23 @@
 # @embedpdf/engines
 
+## 2.14.3
+
+### Patch Changes
+
+- [#638](https://github.com/embedpdf/embed-pdf-viewer/pull/638) by [@bobsingor](https://github.com/bobsingor) – Fix two bugs that caused polygon (and square/circle) annotations created via the `createAnnotation` API with `strokeStyle: PdfAnnotationBorderStyle.CLOUDY` to be saved as a half-built stub missing `/C`, `/IC`, `/CA`, `/F`, `/BE`, `/RD`, and `/AP`:
+  - Normalise `PdfAnnotationBorderStyle.CLOUDY` to `SOLID` inside `setBorderStyle` before calling PDFium's `EPDFAnnot_SetBorderStyle`. Cloudy is not a `/BS/S` value — it is conveyed via the separate `/BE` (border effect) dict, which `setBorderEffect` already writes. PDFium previously rejected the call and aborted the rest of `addPolyContent` / `addShapeContent`, so the cloudy effect, colors, opacity, flags, and appearance stream were never written.
+  - Fix the rollback path in `createPageAnnotation` so failed content-add calls actually remove the partially-built annotation. The previous code called `FPDFPage_RemoveAnnot(pagePtr, annotationPtr)`, but PDFium's C signature is `FPDFPage_RemoveAnnot(FPDF_PAGE, int index)` — the annotation pointer was interpreted as an out-of-range index and silently no-op'd, leaving the stub annotation in the page. It now uses `removeAnnotationByName` (via `EPDFPage_RemoveAnnotByName`) and closes the annotation handle.
+
+  The `PdfAnnotationBorderStyle.CLOUDY` enum value is now treated as a deprecated alias for `SOLID + cloudyBorderIntensity` and is slated for removal in the next major release.
+
+- [#641](https://github.com/embedpdf/embed-pdf-viewer/pull/641) by [@bobsingor](https://github.com/bobsingor) – Populate `PdfPageObject.objectNumber` from PDFium's `EPDFDoc_GetPageObjectNumberByIndex` in `openDocumentBuffer` and `importPages`, so pages now expose their PDF indirect-object number alongside their index, size, and rotation.
+
+- [#642](https://github.com/embedpdf/embed-pdf-viewer/pull/642) by [@bobsingor](https://github.com/bobsingor) – Preserve custom annotation `/NM` values instead of rewriting them to a UUID v4.
+
+  The engine previously overwrote any `/NM` (annotation name) that wasn't a UUID v4 — both when creating new annotations (rewriting the caller's `annotation.id`) and when reading existing ones (mutating the on-disk value as a side effect of opening a PDF). This broke any consumer using a custom identity scheme (e.g. ULIDs, `firm-2024-001`, etc.).
+
+  The engine now only generates a UUID v4 when `/NM` is empty or missing; any non-empty value is kept as-is. PDFium's `EPDFPage_GetAnnotByName` lookup only needs a unique string, so no functional behaviour changes for callers that don't supply a custom id.
+
 ## 2.14.2
 
 ## 2.14.1

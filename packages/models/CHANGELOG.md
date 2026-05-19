@@ -1,5 +1,11 @@
 # @embedpdf/models
 
+## 2.14.3
+
+### Patch Changes
+
+- [#641](https://github.com/embedpdf/embed-pdf-viewer/pull/641) by [@bobsingor](https://github.com/bobsingor) – Add `objectNumber: number` to `PdfPageObject`, populated by the engine from `EPDFDoc_GetPageObjectNumberByIndex`. Lets consumers correlate pages with their PDF indirect-object numbers (e.g. for linking, debugging, or round-tripping raw object references). `PdfPageObject` is engine-owned — only the engine constructs it — so this is additive for all practical consumers.
+
 ## 2.14.2
 
 ## 2.14.1

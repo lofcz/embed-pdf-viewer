@@ -1,5 +1,17 @@
 # @embedpdf/pdfium
 
+## 2.14.3
+
+### Patch Changes
+
+- [#638](https://github.com/embedpdf/embed-pdf-viewer/pull/638) by [@bobsingor](https://github.com/bobsingor) – Fix callout FreeText annotations rendering with a black background when the fill color is transparent.
+
+  In `GenerateFreeTextAP`'s callout branch, the text-box rectangle was painted unconditionally with operator `B` (fill + stroke). When `/C` was absent, no fill colour was emitted, so `B` fell back to PDF's default black fill. Now the fill defaults to transparent via `GetColorStringWithDefault` and the paint operator is picked dynamically with `GetPaintOperatorString`, mirroring `GenerateCircleAP` / `GenerateSquareAP`.
+
+- [#640](https://github.com/embedpdf/embed-pdf-viewer/pull/640) by [@bobsingor](https://github.com/bobsingor) – Fix page layout shifting after editing PDFs whose `/Contents` is a split-stream array (e.g. after redaction).
+
+  PDF renders `/Contents` as one continuous program, so graphics state set in one stream carries into the next. The previous behaviour rewrote only the dirty streams while keeping the original split boundaries, which could corrupt the graphics-state handoff between streams and shift the visible layout. `CPDF_PageContentGenerator::GenerateContent` now collapses all active page objects into a single canonical content stream when the page has been edited, via `GenerateCanonicalPageStream` + `CPDF_PageContentManager::ReplaceWithSingleStream`. Form XObjects keep their existing single-stream behaviour.
+
 ## 2.14.2
 
 ## 2.14.1
