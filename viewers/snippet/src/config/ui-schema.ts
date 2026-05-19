@@ -66,8 +66,8 @@ export const viewerUISchema: UISchema = {
               },
             },
             {
-              id: 'germanic-languages',
-              locales: ['de', 'nl'],
+              id: 'wide-label-languages',
+              locales: ['de', 'nl', 'pt-BR'],
               breakpoints: {
                 md: {
                   replaceShow: [
@@ -1056,11 +1056,11 @@ export const viewerUISchema: UISchema = {
               },
             },
             {
-              id: 'germanic-languages',
-              locales: ['de', 'nl'],
+              id: 'wide-label-languages',
+              locales: ['de', 'nl', 'pt-BR'],
               breakpoints: {
                 md: {
-                  // Germanic languages hide shapes from toolbar at md, so show it in overflow
+                  // Wide-label languages hide some modes from the toolbar at md, so show them in overflow
                   replaceHide: ['mode:view', 'mode:annotate'],
                 },
               },
