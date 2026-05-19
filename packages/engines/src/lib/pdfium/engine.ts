@@ -106,7 +106,6 @@ import {
   PdfVerticalAlignment,
   AnnotationCreateContext,
   getImageMetadata,
-  isUuidV4,
   uuidV4,
   PdfAnnotationName,
   PdfAnnotationReplyType,
@@ -1004,7 +1003,7 @@ export class PdfiumNative implements IPdfiumExecutor {
             if (subtype !== PdfAnnotationSubtype.WIDGET) return;
 
             let annotationId = this.getAnnotString(annotPtr, 'NM');
-            if (!annotationId || !isUuidV4(annotationId)) {
+            if (!annotationId) {
               annotationId = uuidV4();
               this.setAnnotString(annotPtr, 'NM', annotationId);
             }
@@ -1245,7 +1244,7 @@ export class PdfiumNative implements IPdfiumExecutor {
       });
     }
 
-    if (!isUuidV4(annotation.id)) {
+    if (!annotation.id) {
       annotation.id = uuidV4();
     }
 
@@ -5671,7 +5670,7 @@ export class PdfiumNative implements IPdfiumExecutor {
     formHandle: number,
   ): PdfWidgetAnnoObject | undefined {
     let index = this.getAnnotString(annotationPtr, 'NM');
-    if (!index || !isUuidV4(index)) {
+    if (!index) {
       index = uuidV4();
       this.setAnnotString(annotationPtr, 'NM', index);
     }
@@ -5761,7 +5760,7 @@ export class PdfiumNative implements IPdfiumExecutor {
     formHandle?: number,
   ) {
     let index = this.getAnnotString(annotationPtr, 'NM');
-    if (!index || !isUuidV4(index)) {
+    if (!index) {
       index = uuidV4();
       this.setAnnotString(annotationPtr, 'NM', index);
     }
@@ -8667,7 +8666,7 @@ export class PdfiumNative implements IPdfiumExecutor {
     if (!parentPtr) return;
 
     let nm = this.getAnnotString(parentPtr, 'NM');
-    if (!nm || !isUuidV4(nm)) {
+    if (!nm) {
       nm = uuidV4();
       this.setAnnotString(parentPtr, 'NM', nm);
     }
