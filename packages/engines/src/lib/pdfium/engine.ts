@@ -1408,7 +1408,13 @@ export class PdfiumNative implements IPdfiumExecutor {
     }
 
     if (!isSucceed) {
-      this.pdfiumModule.FPDFPage_RemoveAnnot(pageCtx.pagePtr, annotationPtr);
+      // FPDFPage_RemoveAnnot's C signature is (FPDF_PAGE, int index), not
+      // (FPDF_PAGE, FPDF_ANNOTATION). Passing the annotation pointer here is
+      // interpreted as an out-of-range index and silently no-ops, leaving the
+      // half-built annotation in the page. Use the name-based remover instead,
+      // which matches how /NM was set above.
+      this.removeAnnotationByName(pageCtx.pagePtr, annotation.id);
+      this.pdfiumModule.FPDFPage_CloseAnnot(annotationPtr);
       pageCtx.release();
       this.logger.perf(
         LOG_SOURCE,
@@ -6410,7 +6416,20 @@ export class PdfiumNative implements IPdfiumExecutor {
     style: PdfAnnotationBorderStyle,
     width: number,
   ): boolean {
-    return this.pdfiumModule.EPDFAnnot_SetBorderStyle(annotationPtr, style, width);
+    // PDFium's EPDFAnnot_SetBorderStyle (and the PDF spec) only accept the
+    // /BS /S names S/D/B/I/U. CLOUDY isn't a /BS/S value — it's conveyed via
+    // the separate /BE (border effect) dict, which setBorderEffect() writes
+    // later for polygon/square/circle. Normalise CLOUDY to SOLID here so a
+    // caller passing strokeStyle: CLOUDY (sponsor API convention) doesn't
+    // make PDFium reject the call and abort the rest of the save.
+    //
+    // TODO(next-major): remove the PdfAnnotationBorderStyle.CLOUDY enum value
+    // entirely. Cloudy is not a border-style; callers should use
+    // strokeStyle: SOLID + cloudyBorderIntensity: N. Once the enum value is
+    // gone, this normalisation can be deleted.
+    const effectiveStyle =
+      style === PdfAnnotationBorderStyle.CLOUDY ? PdfAnnotationBorderStyle.SOLID : style;
+    return this.pdfiumModule.EPDFAnnot_SetBorderStyle(annotationPtr, effectiveStyle, width);
   }
 
   /**

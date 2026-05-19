@@ -267,7 +267,66 @@ export {
 } from '@embedpdf/plugin-signature/preact';
 
 // Re-export from models
-export { Rotation, ignore, PdfAnnotationSubtype, type PdfStampAnnoObject } from '@embedpdf/models';
+export { Rotation, ignore } from '@embedpdf/models';
+
+// Annotation enums
+export {
+  PdfAnnotationSubtype,
+  PdfAnnotationBorderStyle,
+  PdfAnnotationLineEnding,
+  PdfAnnotationFlags,
+  PdfAnnotationName,
+  PdfAnnotationIcon,
+  PdfAnnotationState,
+  PdfAnnotationStateModel,
+  PdfAnnotationReplyType,
+  PdfAnnotationObjectStatus,
+  PdfBlendMode,
+  PdfStampFit,
+  AppearanceMode,
+} from '@embedpdf/models';
+
+// Annotation flag-name helpers (string union + maps)
+export type { PdfAnnotationFlagName } from '@embedpdf/models';
+export { flagsToNames, namesToFlags } from '@embedpdf/models';
+
+// Annotation object types
+export type {
+  PdfAnnotationObjectBase,
+  PdfAnnotationObject,
+  PdfSupportedAnnoObject,
+  PdfUnsupportedAnnoObject,
+  PdfStampAnnoObject,
+  PdfTextAnnoObject,
+  PdfLinkAnnoObject,
+  PdfFreeTextAnnoObject,
+  PdfLineAnnoObject,
+  PdfSquareAnnoObject,
+  PdfCircleAnnoObject,
+  PdfPolygonAnnoObject,
+  PdfPolylineAnnoObject,
+  PdfHighlightAnnoObject,
+  PdfUnderlineAnnoObject,
+  PdfSquigglyAnnoObject,
+  PdfStrikeOutAnnoObject,
+  PdfCaretAnnoObject,
+  PdfInkAnnoObject,
+  PdfInkListObject,
+  PdfPopupAnnoObject,
+  PdfFileAttachmentAnnoObject,
+  PdfWidgetAnnoObject,
+  PdfRedactAnnoObject,
+  PdfRectDifferences,
+  LinePoints,
+  LineEndings,
+  PdfAnnotationOf,
+} from '@embedpdf/models';
+
+// Annotation create-context (needed to call createAnnotation(pageIndex, anno, ctx))
+export type { AnnotationCreateContext, AnnotationContextMap } from '@embedpdf/models';
+
+// Geometry + color used in annotation rect/vertices/styling
+export type { Position, Size, Rect, WebColor } from '@embedpdf/models';
 
 // Re-export PluginRegistry for typing
 export type { PluginRegistry } from '@embedpdf/core';
