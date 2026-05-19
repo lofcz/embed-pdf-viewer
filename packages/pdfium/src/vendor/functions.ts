@@ -116,6 +116,7 @@ export const functions = {
   EPDFDest_CreateRemoteXYZ: [["number","number","boolean","number","boolean","number","boolean","number"] as const, 'number'] as const,
   EPDFDest_CreateView: [["number","number","number","number"] as const, 'number'] as const,
   EPDFDest_CreateXYZ: [["number","boolean","number","boolean","number","boolean","number"] as const, 'number'] as const,
+  EPDFDoc_GetPageObjectNumberByIndex: [["number","number"] as const, 'number'] as const,
   EPDFDoc_LoadPageByObjectNumber: [["number","number"] as const, 'number'] as const,
   EPDFImageObj_SetJpeg: [["number","number","number","number","number"] as const, 'boolean'] as const,
   EPDFImageObj_SetPng: [["number","number","number","number","number"] as const, 'boolean'] as const,
