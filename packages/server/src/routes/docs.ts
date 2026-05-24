@@ -1,8 +1,19 @@
-import type { FastifyInstance } from 'fastify';
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
-import { decodeDocToken, wirePaths } from '@embedpdf/engine-core/wire';
+import { createReadStream } from 'node:fs';
+import type { FastifyInstance, FastifyReply } from 'fastify';
+import {
+  DEFAULT_PDF_SAVE_MODE,
+  EngineError,
+  EngineErrorCode,
+  type PdfSaveMode,
+} from '@embedpdf/engine-core/runtime';
+import {
+  decodeDocToken,
+  decodeDownloadToken,
+  PdfSaveModeSchema,
+  wirePaths,
+} from '@embedpdf/engine-core/wire';
 import { requireDocAccess, requireLayerDocAccess } from '../app/jwt-plugin';
-import type { DocumentService } from '../services/DocumentService';
+import type { DocumentService, SavedPdfFile } from '../services/DocumentService';
 import { parseTokenOrInvalidArg, setImmutableCache, setNoStore } from './_helpers';
 
 export interface DocsRouteDeps {
@@ -86,6 +97,35 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     return manifest;
   });
 
+  app.get('/v1/docs/:docId/layers/:layerName/download@:token', async (req, reply) => {
+    const { docId, layerName, token } = req.params as {
+      docId: string;
+      layerName: string;
+      token: string;
+    };
+    rejectQueryParamsOnTokenUrl(req.query);
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.download']);
+    const requested = parseTokenOrInvalidArg(decodeDownloadToken, token, 'download token');
+    const head = await service.getLayerHead(ctx, docId, layerName);
+    if (requested.docVersion !== head.docVersion) {
+      setNoStore(reply);
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `download version ${requested.docVersion} no longer current (current=${head.docVersion})`,
+      );
+    }
+    const file = await service.saveLayerDownloadToTemp(ctx, docId, layerName, requested.mode);
+    return sendDownload(reply, file, docId, layerName, requested.mode, 'immutable');
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/download', async (req, reply) => {
+    const { docId, layerName } = req.params as { docId: string; layerName: string };
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.download']);
+    const mode = parseDownloadMode(req.query);
+    const file = await service.saveLayerDownloadToTemp(ctx, docId, layerName, mode);
+    return sendDownload(reply, file, docId, layerName, mode, 'no-store');
+  });
+
   app.post(wirePaths.docWarm, async (req) => {
     const body = (req.body ?? {}) as { docId?: unknown };
     if (typeof body.docId !== 'string' || body.docId.length === 0) {
@@ -96,4 +136,64 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     const head = await service.warm(ctx, docId);
     return { warmed: true, head };
   });
+}
+
+function rejectQueryParamsOnTokenUrl(query: unknown): void {
+  if (query && typeof query === 'object' && Object.keys(query).length > 0) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      'versioned download URLs must encode download options in the path token, not query params',
+    );
+  }
+}
+
+function sendDownload(
+  reply: FastifyReply,
+  file: SavedPdfFile,
+  docId: string,
+  layerName: string,
+  mode: PdfSaveMode,
+  cache: 'immutable' | 'no-store',
+) {
+  cache === 'immutable' ? setImmutableCache(reply) : setNoStore(reply);
+  reply.header('Content-Type', 'application/pdf');
+  reply.header('Content-Length', String(file.size));
+  reply.header(
+    'Content-Disposition',
+    `attachment; filename="${downloadFileName(docId, layerName, mode)}"`,
+  );
+
+  const stream = createReadStream(file.path);
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    void file.cleanup();
+  };
+  stream.once('close', cleanup);
+  stream.once('error', cleanup);
+  reply.raw.once('close', cleanup);
+  return reply.send(stream);
+}
+
+function parseDownloadMode(query: unknown): PdfSaveMode {
+  const mode = query && typeof query === 'object' ? (query as { mode?: unknown }).mode : undefined;
+  if (mode === undefined) return DEFAULT_PDF_SAVE_MODE;
+  const parsed = PdfSaveModeSchema.safeParse(mode);
+  if (!parsed.success) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      'query.mode must be either "incremental" or "rewrite"',
+    );
+  }
+  return parsed.data;
+}
+
+function downloadFileName(docId: string, layerName: string, mode: PdfSaveMode): string {
+  return `${safeHeaderFilePart(docId)}-${safeHeaderFilePart(layerName)}-${mode}.pdf`;
+}
+
+function safeHeaderFilePart(value: string): string {
+  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
+  return cleaned.length > 0 ? cleaned : 'document';
 }

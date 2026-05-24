@@ -1,5 +1,8 @@
 import {
   AbortablePromise,
+  DEFAULT_PDF_SAVE_MODE,
+  EngineError,
+  EngineErrorCode,
   wirePack,
   type DocumentAnnotationsService,
   type DocumentHandle,
@@ -7,6 +10,7 @@ import {
   type MetadataService,
   type PageHandle,
   type PageObjectNumber,
+  type PdfSaveMode,
 } from '@embedpdf/engine-core/runtime';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
@@ -59,6 +63,38 @@ export class LocalDocumentHandle implements DocumentHandle {
       },
       this.imageEncoder,
     );
+  }
+
+  download(opts: { mode?: PdfSaveMode } = {}): AbortablePromise<Uint8Array> {
+    if (this.closed) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.id}`),
+      );
+    }
+    const docId = this.id;
+    const mode = opts.mode ?? DEFAULT_PDF_SAVE_MODE;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'document.saveBuffer',
+            jobId,
+            docId,
+            mode,
+          }),
+      },
+      { priority: Priority.HIGH },
+    );
+    return AbortablePromise.run<Uint8Array>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'document.saveBuffer') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return new Uint8Array(payload.bytes);
+    });
   }
 
   close(): AbortablePromise<void> {

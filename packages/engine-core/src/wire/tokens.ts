@@ -5,8 +5,15 @@ import {
   AnnotationTokenSchema,
   ContentTokenSchema,
   DocTokenSchema,
+  DownloadTokenSchema,
   RenderTokenSchema,
 } from './tokenSchemas';
+import type { PdfSaveMode } from '../dto/PdfSaveMode';
+
+export interface DownloadToken {
+  docVersion: number;
+  mode: PdfSaveMode;
+}
 
 export const encodeDocToken = (docVersion: number): string =>
   encodeToken(DocTokenSchema, { docVersion });
@@ -25,6 +32,16 @@ export const decodeAnnotationToken = (raw: string): number =>
     decodeToken(AnnotationTokenSchema, raw).annotationVersion,
     'annotationVersion',
   );
+
+export const encodeDownloadToken = (input: DownloadToken): string =>
+  encodeToken(DownloadTokenSchema, { docVersion: input.docVersion, mode: input.mode });
+export const decodeDownloadToken = (raw: string): DownloadToken => {
+  const decoded = decodeToken(DownloadTokenSchema, raw);
+  return {
+    docVersion: decodePositiveInteger(decoded.docVersion, 'docVersion'),
+    mode: decodePdfSaveMode(decoded.mode),
+  };
+};
 
 /**
  * Encode a render token from a flat wire-shape input. The input is the
@@ -53,4 +70,9 @@ function decodePositiveInteger(raw: string | undefined, field: string): number {
     throw new Error(`token field "${field}" must be a positive integer`);
   }
   return value;
+}
+
+function decodePdfSaveMode(raw: string | undefined): PdfSaveMode {
+  if (raw === 'incremental' || raw === 'rewrite') return raw;
+  throw new Error(`token field "mode" must be "incremental" or "rewrite"`);
 }

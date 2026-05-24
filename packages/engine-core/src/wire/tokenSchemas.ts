@@ -12,6 +12,11 @@ export const AnnotationTokenSchema = {
   fields: ['annotationVersion'],
 } as const satisfies TokenSchema;
 
+export const DownloadTokenSchema = {
+  fields: ['docVersion', 'mode'],
+  maxLength: 128,
+} as const satisfies TokenSchema;
+
 /**
  * Allowed flat keys for the render token, expressed as dotted paths that
  * mirror the SDK `PageImageOptions` shape 1:1. The token codec is fully

@@ -58,6 +58,16 @@ export class HttpClient {
     return await res.blob();
   }
 
+  async getBytes(path: string, signal: AbortSignal): Promise<Uint8Array> {
+    const res = await this.request(path, {
+      method: 'GET',
+      headers: new Headers({ Accept: 'application/pdf' }),
+      signal,
+    });
+    if (!res.ok) await this.throwFromBody(res);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
   /**
    * Resolve the current bearer token. Awaits the user-supplied
    * token factory if it returns a promise. Used by the cloud

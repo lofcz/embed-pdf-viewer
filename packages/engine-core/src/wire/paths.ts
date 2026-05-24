@@ -6,7 +6,9 @@ import {
   encodeAnnotationToken,
   encodeContentToken,
   encodeDocToken,
+  encodeDownloadToken,
   encodeRenderToken,
+  type DownloadToken,
   type TokenInput,
 } from './tokens';
 
@@ -139,6 +141,12 @@ export const wirePaths = {
 
   layerPagesMove: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/move`,
+
+  layerDownload: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/download`,
+
+  layerDownloadVersioned: (docId: string, layerName: string, token: DownloadToken) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/download@${encodeDownloadToken(token)}`,
 
   layerWeakAnnotationSession: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session`,

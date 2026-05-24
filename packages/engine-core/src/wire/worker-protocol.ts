@@ -8,6 +8,7 @@ import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { PageRaster, PageRenderOptions } from '../dto/PageRender';
+import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
@@ -41,7 +42,8 @@ export interface OpenFatMemoryWorkerRequest {
 export type LayerOpenSource =
   | { kind: 'fresh' }
   | { kind: 'raw-delta'; bytes: ArrayBuffer }
-  | { kind: 'artifact'; bytes: ArrayBuffer };
+  | { kind: 'artifact'; bytes: ArrayBuffer }
+  | { kind: 'artifact-file'; path: string };
 
 export interface OpenLayerMemoryBaseWorkerRequest {
   kind: 'open.layerMemBase';
@@ -116,6 +118,7 @@ export interface AnnotationsCreateWorkerRequest {
   layerName?: string;
   pageObjectNumber: PageObjectNumber;
   draft: AnnotationDraft;
+  artifactPath?: string;
 }
 
 export interface AnnotationsUpdateWorkerRequest {
@@ -125,6 +128,7 @@ export interface AnnotationsUpdateWorkerRequest {
   layerName?: string;
   ref: AnnotationRef;
   patch: AnnotationPatch;
+  artifactPath?: string;
 }
 
 export interface AnnotationsDeleteWorkerRequest {
@@ -133,6 +137,7 @@ export interface AnnotationsDeleteWorkerRequest {
   docId: string;
   layerName?: string;
   ref: AnnotationRef;
+  artifactPath?: string;
 }
 
 /**
@@ -148,6 +153,7 @@ export interface AnnotationsMoveWorkerRequest {
   pageObjectNumber: PageObjectNumber;
   refs: AnnotationRef[];
   toIndex: number;
+  artifactPath?: string;
 }
 
 export interface PagesListWorkerRequest {
@@ -195,6 +201,24 @@ export interface PagesMoveWorkerRequest {
   layerName?: string;
   pageObjectNumbers: PageObjectNumber[];
   destIndex: number;
+  artifactPath?: string;
+}
+
+export interface DocumentSaveBufferWorkerRequest {
+  kind: 'document.saveBuffer';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  mode: PdfSaveMode;
+}
+
+export interface DocumentSaveFileWorkerRequest {
+  kind: 'document.saveFile';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  mode: PdfSaveMode;
+  path: string;
 }
 
 export interface CloseWorkerRequest {
@@ -218,6 +242,10 @@ export interface LayerArtifactWorkerPayload {
   size: number;
 }
 
+export interface LayerArtifactFileWorkerPayload {
+  path: string;
+}
+
 export type WorkerRequest =
   | OpenWorkerRequest
   | MetadataReadWorkerRequest
@@ -233,6 +261,8 @@ export type WorkerRequest =
   | PagesTextWorkerRequest
   | PagesGeometryWorkerRequest
   | PagesRenderWorkerRequest
+  | DocumentSaveBufferWorkerRequest
+  | DocumentSaveFileWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -247,27 +277,38 @@ export type WorkerResultPayload =
       tag: 'annotations.create';
       result: AnnotationCreateResult;
       artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
     }
   | {
       tag: 'annotations.update';
       result: AnnotationUpdateResult;
       artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
     }
   | {
       tag: 'annotations.delete';
       result: AnnotationDeleteResult;
       artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
     }
   | {
       tag: 'annotations.move';
       result: AnnotationMoveResult;
       artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
     }
   | { tag: 'pages.list'; snapshot: PageListSnapshot }
-  | { tag: 'pages.move'; result: PageMoveResult; artifact?: LayerArtifactWorkerPayload }
+  | {
+      tag: 'pages.move';
+      result: PageMoveResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
   | { tag: 'pages.text'; snapshot: PageTextSnapshot }
   | { tag: 'pages.geometry'; snapshot: PageGeometrySnapshot }
   | { tag: 'pages.render'; raster: PageRaster }
+  | { tag: 'document.saveBuffer'; bytes: ArrayBuffer; size: number }
+  | { tag: 'document.saveFile'; path: string }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

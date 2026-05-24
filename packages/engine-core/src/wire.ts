@@ -9,6 +9,7 @@ export {
   DocumentMetadataSchema,
   OpenDocumentResponseSchema,
   DocumentHeadSchema,
+  PdfSaveModeSchema,
   DocumentManifestSchema,
   ManifestPageSchema,
   CachePinsSchema,
@@ -57,12 +58,15 @@ export {
   decodeAnnotationToken,
   decodeContentToken,
   decodeDocToken,
+  decodeDownloadToken,
   decodeRenderToken,
   encodeAnnotationToken,
   encodeContentToken,
   encodeDocToken,
+  encodeDownloadToken,
   encodeRenderToken,
 } from './wire/tokens';
+export type { DownloadToken } from './wire/tokens';
 export { flatten, unflatten } from './wire/flatten';
 export type { WireFlat, WireScalar } from './wire/flatten';
 export {

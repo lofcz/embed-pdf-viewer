@@ -1,5 +1,6 @@
 import { AbortablePromise } from '../promise/AbortablePromise';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
+import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { DocumentAnnotationsService } from './DocumentAnnotationsService';
 import type { DocumentPagesService } from './DocumentPagesService';
 import type { MetadataService } from './MetadataService';
@@ -33,5 +34,6 @@ export interface DocumentHandle {
    * tokens already carry it internally; we will plumb it through then.
    */
   page(pageObjectNumber: PageObjectNumber): PageHandle;
+  download(opts?: { mode?: PdfSaveMode }): AbortablePromise<Uint8Array>;
   close(): AbortablePromise<void>;
 }

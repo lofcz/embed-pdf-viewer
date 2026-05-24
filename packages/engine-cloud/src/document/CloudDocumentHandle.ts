@@ -1,6 +1,7 @@
 import {
   AbortError,
   AbortablePromise,
+  DEFAULT_PDF_SAVE_MODE,
   EngineError,
   EngineErrorCode,
   type DocumentAnnotationsService,
@@ -9,6 +10,7 @@ import {
   type MutationMeta,
   type PageHandle,
   type PageObjectNumber,
+  type PdfSaveMode,
 } from '@embedpdf/engine-core/runtime';
 import {
   DEFAULT_LAYER_NAME,
@@ -114,6 +116,31 @@ export class CloudDocumentHandle implements DocumentHandle {
       () => this.closed,
       this.manifestAccessor,
     );
+  }
+
+  download(opts: { mode?: PdfSaveMode } = {}): AbortablePromise<Uint8Array> {
+    if (this.closed) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document ${this.id} is closed`),
+      );
+    }
+    const mode = opts.mode ?? DEFAULT_PDF_SAVE_MODE;
+    return AbortablePromise.run<Uint8Array>(async (signal) => {
+      const buildPath = async () => {
+        const manifest = await this.getManifest(signal);
+        return wirePaths.layerDownloadVersioned(this.id, this.layerName, {
+          docVersion: manifest.docVersion,
+          mode,
+        });
+      };
+      try {
+        return await this.http.getBytes(await buildPath(), signal);
+      } catch (err) {
+        if (!EngineError.is(err, EngineErrorCode.NotFound)) throw err;
+        await this.refreshManifest(signal);
+        return this.http.getBytes(await buildPath(), signal);
+      }
+    });
   }
 
   /**

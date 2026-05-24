@@ -7,6 +7,8 @@ import {
   wirePack,
   type AnnotationsCreateWorkerRequest,
   type AnnotationsDeleteWorkerRequest,
+  type DocumentSaveBufferWorkerRequest,
+  type DocumentSaveFileWorkerRequest,
   type AnnotationsListFullPageWorkerRequest,
   type AnnotationsListRawAllWorkerRequest,
   type AnnotationsListRawPageWorkerRequest,
@@ -128,6 +130,12 @@ export class WorkerHost {
         case 'pages.render':
           resultPack = this.handlePagesRender(msg, ctrl.signal);
           break;
+        case 'document.saveBuffer':
+          resultPack = this.handleDocumentSaveBuffer(msg);
+          break;
+        case 'document.saveFile':
+          resultPack = this.handleDocumentSaveFile(msg);
+          break;
         case 'close':
           resultPack = this.handleClose(msg);
           break;
@@ -237,8 +245,8 @@ export class WorkerHost {
     if (session.kind !== 'layer') {
       return wirePack({ tag: 'annotations.create', result });
     }
-    const artifact = session.saveLayerArtifact();
-    return wirePack({ tag: 'annotations.create', result, artifact }, [artifact.bytes]);
+    const saved = this.saveLayerArtifact(session, req.artifactPath);
+    return wirePack({ tag: 'annotations.create', result, ...saved.payload }, saved.transfer);
   }
 
   private handleAnnotationsUpdate(
@@ -251,8 +259,8 @@ export class WorkerHost {
     if (session.kind !== 'layer') {
       return wirePack({ tag: 'annotations.update', result });
     }
-    const artifact = session.saveLayerArtifact();
-    return wirePack({ tag: 'annotations.update', result, artifact }, [artifact.bytes]);
+    const saved = this.saveLayerArtifact(session, req.artifactPath);
+    return wirePack({ tag: 'annotations.update', result, ...saved.payload }, saved.transfer);
   }
 
   private handleAnnotationsDelete(
@@ -265,8 +273,8 @@ export class WorkerHost {
     if (session.kind !== 'layer') {
       return wirePack({ tag: 'annotations.delete', result });
     }
-    const artifact = session.saveLayerArtifact();
-    return wirePack({ tag: 'annotations.delete', result, artifact }, [artifact.bytes]);
+    const saved = this.saveLayerArtifact(session, req.artifactPath);
+    return wirePack({ tag: 'annotations.delete', result, ...saved.payload }, saved.transfer);
   }
 
   private handleAnnotationsMove(
@@ -279,8 +287,8 @@ export class WorkerHost {
     if (session.kind !== 'layer') {
       return wirePack({ tag: 'annotations.move', result });
     }
-    const artifact = session.saveLayerArtifact();
-    return wirePack({ tag: 'annotations.move', result, artifact }, [artifact.bytes]);
+    const saved = this.saveLayerArtifact(session, req.artifactPath);
+    return wirePack({ tag: 'annotations.move', result, ...saved.payload }, saved.transfer);
   }
 
   private handlePagesList(
@@ -303,8 +311,8 @@ export class WorkerHost {
     if (session.kind !== 'layer') {
       return wirePack({ tag: 'pages.move', result });
     }
-    const artifact = session.saveLayerArtifact();
-    return wirePack({ tag: 'pages.move', result, artifact }, [artifact.bytes]);
+    const saved = this.saveLayerArtifact(session, req.artifactPath);
+    return wirePack({ tag: 'pages.move', result, ...saved.payload }, saved.transfer);
   }
 
   private handlePagesText(
@@ -337,6 +345,24 @@ export class WorkerHost {
     return wirePack({ tag: 'pages.render', raster }, [raster.data]);
   }
 
+  private handleDocumentSaveBuffer(
+    req: DocumentSaveBufferWorkerRequest,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const saved = session.saveStandaloneToBuffer(req.mode);
+    return wirePack({ tag: 'document.saveBuffer', bytes: saved.bytes, size: saved.size }, [
+      saved.bytes,
+    ]);
+  }
+
+  private handleDocumentSaveFile(
+    req: DocumentSaveFileWorkerRequest,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const saved = session.saveStandaloneToFile(req.path, req.mode);
+    return wirePack({ tag: 'document.saveFile', path: saved.path });
+  }
+
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {
     for (const [key, session] of Array.from(this.sessions.entries())) {
       if (!sessionKeyBelongsToDoc(key, req.docId)) continue;
@@ -364,6 +390,23 @@ export class WorkerHost {
       throw new EngineError(EngineErrorCode.DocNotOpen, `document session not open: ${key}`);
     }
     return session;
+  }
+
+  private saveLayerArtifact(
+    session: DocumentSession,
+    artifactPath?: string,
+  ): {
+    payload:
+      | { artifact: { bytes: ArrayBuffer; size: number } }
+      | { artifactFile: { path: string } };
+    transfer: ArrayBuffer[];
+  } {
+    if (artifactPath) {
+      const artifactFile = session.saveLayerArtifactToFile(artifactPath);
+      return { payload: { artifactFile }, transfer: [] };
+    }
+    const artifact = session.saveLayerArtifact();
+    return { payload: { artifact }, transfer: [artifact.bytes] };
   }
 }
 

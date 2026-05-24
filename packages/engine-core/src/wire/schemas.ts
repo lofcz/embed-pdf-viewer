@@ -13,6 +13,7 @@ import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
+import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
 import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
@@ -70,6 +71,8 @@ export const DocumentHeadSchema = z.object({
   state: z.enum(['pending', 'ready', 'failed', 'deleting']),
 });
 export type DocumentHead = z.infer<typeof DocumentHeadSchema>;
+
+export const PdfSaveModeSchema: z.ZodType<PdfSaveMode> = z.enum(['incremental', 'rewrite']);
 
 const engineErrorCodeValues = Object.values(EngineErrorCode) as [
   EngineErrorCode,

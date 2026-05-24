@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { Kysely } from 'kysely';
 import {
   EngineError,
@@ -28,6 +32,8 @@ import type { AuditEvent, EventLogService } from './EventLogService';
 import type { LayerStateService } from './LayerStateService';
 import type { MutationImpactKind } from './LayerStateService';
 import type { WeakAnnotationSessionService } from './WeakAnnotationSessionService';
+
+type LayerArtifactInput = { bytes: ArrayBuffer; size: number } | { path: string };
 
 export interface LayerServiceOptions {
   db?: Kysely<Schema>;
@@ -138,25 +144,28 @@ export class LayerService {
   ): Promise<AnnotationCreateResult> {
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
-      const build = (jobId: WorkerJobId) =>
-        wirePack({
-          kind: 'annotations.create' as const,
-          jobId,
-          docId: input.docId,
-          layerName: input.layerName,
-          pageObjectNumber: input.pageObjectNumber,
-          draft: input.draft,
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'annotations.create' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            pageObjectNumber: input.pageObjectNumber,
+            draft: input.draft,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'annotations.create') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected annotations.create payload: ${payload.tag}`,
+          );
+        }
+        return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'create', {
+          result: payload.result,
+          artifact: requireLayerArtifact(payload as unknown),
         });
-      const payload = await this.requirePool().run(input.docId, build, signal);
-      if (payload.tag !== 'annotations.create') {
-        throw new EngineError(
-          EngineErrorCode.WireFormat,
-          `unexpected annotations.create payload: ${payload.tag}`,
-        );
-      }
-      return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'create', {
-        result: payload.result,
-        artifact: requireLayerArtifact(payload as unknown),
       });
     });
   }
@@ -180,25 +189,28 @@ export class LayerService {
         input.ref,
         signal,
       );
-      const build = (jobId: WorkerJobId) =>
-        wirePack({
-          kind: 'annotations.update' as const,
-          jobId,
-          docId: input.docId,
-          layerName: input.layerName,
-          ref,
-          patch: input.patch,
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'annotations.update' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref,
+            patch: input.patch,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'annotations.update') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected annotations.update payload: ${payload.tag}`,
+          );
+        }
+        return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'update', {
+          result: payload.result,
+          artifact: requireLayerArtifact(payload as unknown),
         });
-      const payload = await this.requirePool().run(input.docId, build, signal);
-      if (payload.tag !== 'annotations.update') {
-        throw new EngineError(
-          EngineErrorCode.WireFormat,
-          `unexpected annotations.update payload: ${payload.tag}`,
-        );
-      }
-      return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'update', {
-        result: payload.result,
-        artifact: requireLayerArtifact(payload as unknown),
       });
     });
   }
@@ -227,24 +239,27 @@ export class LayerService {
         input.ref,
         signal,
       );
-      const build = (jobId: WorkerJobId) =>
-        wirePack({
-          kind: 'annotations.delete' as const,
-          jobId,
-          docId: input.docId,
-          layerName: input.layerName,
-          ref,
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'annotations.delete' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'annotations.delete') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected annotations.delete payload: ${payload.tag}`,
+          );
+        }
+        return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'delete', {
+          result: payload.result,
+          artifact: requireLayerArtifact(payload as unknown),
         });
-      const payload = await this.requirePool().run(input.docId, build, signal);
-      if (payload.tag !== 'annotations.delete') {
-        throw new EngineError(
-          EngineErrorCode.WireFormat,
-          `unexpected annotations.delete payload: ${payload.tag}`,
-        );
-      }
-      return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'delete', {
-        result: payload.result,
-        artifact: requireLayerArtifact(payload as unknown),
       });
     });
   }
@@ -273,26 +288,29 @@ export class LayerService {
           this.rewriteRefForWorker(input.docId, input.layerName, layer, ref, signal),
         ),
       );
-      const build = (jobId: WorkerJobId) =>
-        wirePack({
-          kind: 'annotations.move' as const,
-          jobId,
-          docId: input.docId,
-          layerName: input.layerName,
-          pageObjectNumber: input.pageObjectNumber,
-          refs,
-          toIndex: input.toIndex,
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'annotations.move' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            pageObjectNumber: input.pageObjectNumber,
+            refs,
+            toIndex: input.toIndex,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'annotations.move') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected annotations.move payload: ${payload.tag}`,
+          );
+        }
+        return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'move', {
+          result: payload.result,
+          artifact: requireLayerArtifact(payload as unknown),
         });
-      const payload = await this.requirePool().run(input.docId, build, signal);
-      if (payload.tag !== 'annotations.move') {
-        throw new EngineError(
-          EngineErrorCode.WireFormat,
-          `unexpected annotations.move payload: ${payload.tag}`,
-        );
-      }
-      return this.persistAnnotationMutation(ctx, input.docId, input.layerName, layer, 'move', {
-        result: payload.result,
-        artifact: requireLayerArtifact(payload as unknown),
       });
     });
   }
@@ -309,25 +327,28 @@ export class LayerService {
   ): Promise<PageMoveResult> {
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
-      const build = (jobId: WorkerJobId) =>
-        wirePack({
-          kind: 'pages.move' as const,
-          jobId,
-          docId: input.docId,
-          layerName: input.layerName,
-          pageObjectNumbers: input.pageObjectNumbers,
-          destIndex: input.destIndex,
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'pages.move' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            pageObjectNumbers: input.pageObjectNumbers,
+            destIndex: input.destIndex,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'pages.move') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected pages.move payload: ${payload.tag}`,
+          );
+        }
+        return this.persistPageMove(ctx, input.docId, input.layerName, layer, {
+          result: payload.result,
+          artifact: requireLayerArtifact(payload as unknown),
         });
-      const payload = await this.requirePool().run(input.docId, build, signal);
-      if (payload.tag !== 'pages.move') {
-        throw new EngineError(
-          EngineErrorCode.WireFormat,
-          `unexpected pages.move payload: ${payload.tag}`,
-        );
-      }
-      return this.persistPageMove(ctx, input.docId, input.layerName, layer, {
-        result: payload.result,
-        artifact: requireLayerArtifact(payload as unknown),
       });
     });
   }
@@ -358,21 +379,12 @@ export class LayerService {
     kind: MutationImpactKind,
     input: {
       result: TResult;
-      artifact: { bytes: ArrayBuffer; size: number };
+      artifact: LayerArtifactInput;
     },
   ): Promise<TResult> {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
-    const artifactBytes = new Uint8Array(input.artifact.bytes);
-    if (artifactBytes.byteLength !== input.artifact.size) {
-      throw new EngineError(
-        EngineErrorCode.WireFormat,
-        `layer artifact size mismatch: payload=${artifactBytes.byteLength}, declared=${input.artifact.size}`,
-      );
-    }
-    const putResult = await this.requireStorage().put(artifactKey, artifactBytes, {
-      contentLength: input.artifact.size,
-    });
+    const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
     const durable = await this.commitAnnotationMutation({
       ctx,
       docId,
@@ -381,8 +393,8 @@ export class LayerService {
       pageObjectNumber: requireSingleAffectedPage(input.result.meta.affectedPages).pageObjectNumber,
       kind,
       artifactKey,
-      artifactSha: putResult.sha256,
-      artifactSize: input.artifact.size,
+      artifactSha: uploaded.sha256,
+      artifactSize: uploaded.size,
       nextVersion,
       hasWeakAnnotations: requireKnownWeakAnnotationBoolean(
         requireSingleAffectedPage(input.result.meta.affectedPages),
@@ -420,22 +432,12 @@ export class LayerService {
     layer: LayerRow,
     input: {
       result: PageMoveResult;
-      artifact: { bytes: ArrayBuffer; size: number };
+      artifact: LayerArtifactInput;
     },
   ): Promise<PageMoveResult> {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
-    const artifactBytes = new Uint8Array(input.artifact.bytes);
-    if (artifactBytes.byteLength !== input.artifact.size) {
-      throw new EngineError(
-        EngineErrorCode.WireFormat,
-        `layer artifact size mismatch: payload=${artifactBytes.byteLength}, declared=${input.artifact.size}`,
-      );
-    }
-
-    const putResult = await this.requireStorage().put(artifactKey, artifactBytes, {
-      contentLength: input.artifact.size,
-    });
+    const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
     const committed = await this.commitPageMove({
       ctx,
       docId,
@@ -443,8 +445,8 @@ export class LayerService {
       layer,
       pageOrder: input.result.meta.affectedPages.map((page) => page.pageObjectNumber),
       artifactKey,
-      artifactSha: putResult.sha256,
-      artifactSize: input.artifact.size,
+      artifactSha: uploaded.sha256,
+      artifactSize: uploaded.size,
       nextVersion,
       payload: input.result,
     });
@@ -464,6 +466,55 @@ export class LayerService {
         cacheDelta,
       },
     };
+  }
+
+  private async uploadLayerArtifact(
+    artifactKey: string,
+    artifact: LayerArtifactInput,
+  ): Promise<{ sha256: string; size: number }> {
+    if ('path' in artifact) {
+      const info = await stat(artifact.path);
+      if (info.size <= 0) {
+        throw new EngineError(
+          EngineErrorCode.WireFormat,
+          `layer artifact file is empty: ${artifact.path}`,
+        );
+      }
+      const putResult = await this.requireStorage().put(
+        artifactKey,
+        createReadStream(artifact.path),
+        {
+          contentLength: info.size,
+        },
+      );
+      return { sha256: putResult.sha256, size: info.size };
+    }
+
+    const artifactBytes = new Uint8Array(artifact.bytes);
+    if (artifactBytes.byteLength !== artifact.size) {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `layer artifact size mismatch: payload=${artifactBytes.byteLength}, declared=${artifact.size}`,
+      );
+    }
+    const putResult = await this.requireStorage().put(artifactKey, artifactBytes, {
+      contentLength: artifact.size,
+    });
+    return { sha256: putResult.sha256, size: artifact.size };
+  }
+
+  private async withTempWorkerFile<T>(
+    prefix: string,
+    filename: string,
+    fn: (path: string) => Promise<T>,
+  ): Promise<T> {
+    const dir = await mkdtemp(join(tmpdir(), `embedpdf-${prefix}-`));
+    const path = join(dir, filename);
+    try {
+      return await fn(path);
+    } finally {
+      await rm(dir, { recursive: true, force: true }).catch(() => undefined);
+    }
   }
 
   private async rewriteRefForWorker(
@@ -912,11 +963,15 @@ function makeAuditEvent(input: {
   };
 }
 
-function requireLayerArtifact(payload: unknown): { bytes: ArrayBuffer; size: number } {
-  const artifact =
+function requireLayerArtifact(payload: unknown): LayerArtifactInput {
+  const source =
     payload && typeof payload === 'object'
-      ? (payload as { artifact?: { bytes: ArrayBuffer; size: number } }).artifact
+      ? (payload as {
+          artifact?: { bytes: ArrayBuffer; size: number };
+          artifactFile?: { path: string };
+        })
       : undefined;
+  const artifact = source?.artifact ?? source?.artifactFile;
   if (!artifact) {
     throw new EngineError(
       EngineErrorCode.WireFormat,

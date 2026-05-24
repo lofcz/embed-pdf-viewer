@@ -19,7 +19,8 @@ export interface AcquiredBaseDocument {
 export type LayerSource =
   | { readonly kind: 'fresh' }
   | { readonly kind: 'raw-delta'; readonly bytes: Uint8Array | ArrayBuffer }
-  | { readonly kind: 'artifact'; readonly bytes: Uint8Array | ArrayBuffer };
+  | { readonly kind: 'artifact'; readonly bytes: Uint8Array | ArrayBuffer }
+  | { readonly kind: 'artifact-file'; readonly path: string };
 
 export class CloseStack {
   private readonly actions: Array<() => void> = [];
@@ -91,10 +92,13 @@ export function openLayerDocument(
     if (layer.kind === 'fresh') {
       docPtr = fn.EPDFLayer_OpenLayer(base.basePtr, NULL_PTR, password ?? '', statusPtr);
     } else {
-      layerAccess = runtime.fileAccess.fromMemory(layer.bytes);
+      layerAccess =
+        layer.kind === 'artifact-file'
+          ? runtime.fileAccess.fromNodeFile(layer.path)
+          : runtime.fileAccess.fromMemory(layer.bytes);
       stack.push(() => layerAccess?.close());
       docPtr =
-        layer.kind === 'artifact'
+        layer.kind === 'artifact' || layer.kind === 'artifact-file'
           ? fn.EPDFLayer_OpenLayerArtifact(base.basePtr, layerAccess.ptr, password ?? '', statusPtr)
           : fn.EPDFLayer_OpenLayer(base.basePtr, layerAccess.ptr, password ?? '', statusPtr);
     }

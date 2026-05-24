@@ -47,6 +47,8 @@ export type {
   AnnotationsUpdateWorkerRequest,
   AnnotationsDeleteWorkerRequest,
   AnnotationsMoveWorkerRequest,
+  DocumentSaveBufferWorkerRequest,
+  DocumentSaveFileWorkerRequest,
   PagesListWorkerRequest,
   PagesMoveWorkerRequest,
   PagesTextWorkerRequest,
@@ -55,4 +57,6 @@ export type {
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,
+  LayerArtifactWorkerPayload,
+  LayerArtifactFileWorkerPayload,
 } from './wire/worker-protocol';

@@ -2,6 +2,7 @@ import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import type {
   PageObjectNumber,
   PageState,
+  PdfSaveMode,
   RevisionToken,
   WeakAnnotationState,
 } from '@embedpdf/engine-core/runtime';
@@ -270,6 +271,77 @@ export class DocumentSession {
     }
   }
 
+  saveLayerArtifactToFile(path: string): { path: string } {
+    if (this._kind !== 'layer') {
+      throw new EngineError(EngineErrorCode.InvalidArg, 'document session is not a layer');
+    }
+
+    const { mem, fn } = this.runtime;
+    const statusPtr = mem.alloc(4);
+    const writer = this.runtime.fileWrite.toNodeFile(path);
+    try {
+      mem.poke(statusPtr, 'i32', -1);
+      const ok = fn.EPDFLayer_SaveLayerArtifact(this.requireDocPtr(), writer.ptr, statusPtr);
+      const status = Number(mem.peek(statusPtr, 'i32'));
+      if (!ok || status !== 0) {
+        throw layerSaveError(status);
+      }
+      return { path };
+    } finally {
+      writer.close();
+      mem.free(statusPtr);
+    }
+  }
+
+  saveStandaloneToBuffer(mode: PdfSaveMode): { bytes: ArrayBuffer; size: number } {
+    const { mem, fn } = this.runtime;
+    const sizePtr = mem.alloc(4);
+    let pdfPtr: Ptr | null = null;
+    try {
+      mem.poke(sizePtr, 'i32', 0);
+      // Standalone saves are not layer artifacts. For a CPDF_LayerDocument,
+      // FPDF_INCREMENTAL copies the base bytes through and appends the layer
+      // delta as a normal PDF revision. The EPDFLayer_* artifact APIs are only
+      // for internal server storage.
+      pdfPtr = fn.EPDF_SaveDocumentToOwnedBuffer(
+        this.requireDocPtr(),
+        pdfSaveModeFlags(mode),
+        sizePtr,
+      );
+      const size = Number(mem.peek(sizePtr, 'i32'));
+      if (!pdfPtr || size <= 0) {
+        throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to save document');
+      }
+
+      const bytes = mem.readBytes(pdfPtr, size);
+      const buffer = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(buffer).set(bytes);
+      return { bytes: buffer, size };
+    } finally {
+      if (pdfPtr) fn.EPDF_FreeBuffer(pdfPtr);
+      mem.free(sizePtr);
+    }
+  }
+
+  saveStandaloneToFile(path: string, mode: PdfSaveMode): { path: string } {
+    const writer = this.runtime.fileWrite.toNodeFile(path);
+    try {
+      // See saveStandaloneToBuffer(): this exports a standalone PDF view,
+      // not the storage-optimized `.layer` artifact.
+      const ok = this.runtime.fn.FPDF_SaveAsCopy(
+        this.requireDocPtr(),
+        writer.ptr,
+        pdfSaveModeFlags(mode),
+      );
+      if (!ok) {
+        throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to save document');
+      }
+      return { path };
+    } finally {
+      writer.close();
+    }
+  }
+
   close(): void {
     let firstError: unknown = null;
     try {
@@ -326,4 +398,11 @@ function layerSaveError(status: number): EngineError {
     );
   }
   return new EngineError(EngineErrorCode.DocOpenFailed, 'failed to save layer artifact');
+}
+
+const FPDF_INCREMENTAL = 1 << 0;
+const FPDF_NO_INCREMENTAL = 1 << 1;
+
+function pdfSaveModeFlags(mode: PdfSaveMode): number {
+  return mode === 'incremental' ? FPDF_INCREMENTAL : FPDF_NO_INCREMENTAL;
 }

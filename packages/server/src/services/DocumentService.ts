@@ -1,10 +1,13 @@
-import { createHash } from 'node:crypto';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   EngineError,
   EngineErrorCode,
   wirePack,
   type DocumentMetadata,
   type PageState,
+  type PdfSaveMode,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import type { ManifestPage } from '@embedpdf/engine-core/wire';
@@ -65,6 +68,12 @@ export interface OpenContext {
   sub: string;
 }
 
+export interface SavedPdfFile {
+  path: string;
+  size: number;
+  cleanup(): Promise<void>;
+}
+
 /**
  * Orchestrates a doc-scoped request from the moment the SDK calls
  * `/head` until the worker holds the PDFium document open.
@@ -97,6 +106,7 @@ export class DocumentService {
   private readonly heads = new Map<string, DocumentHead>();
   private readonly opens = new Map<string, Promise<DocumentHead>>();
   private readonly baseHandles = new Map<string, LocalFileHandle>();
+  private readonly layerArtifactHandles = new Map<string, LocalFileHandle>();
   private readonly openedLayerSessions = new Set<string>();
   private readonly layerOpens = new Map<string, Promise<void>>();
 
@@ -287,6 +297,62 @@ export class DocumentService {
     return this.openOnPool(ctx, docId);
   }
 
+  async saveLayerDownloadToTemp(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string,
+    mode: PdfSaveMode,
+    signal?: AbortSignal,
+  ): Promise<SavedPdfFile> {
+    await this.ensureLayerOnPool(ctx, docId, layerName);
+    const dir = await mkdtemp(join(tmpdir(), 'embedpdf-download-'));
+    const path = join(dir, `${safeFilePart(docId)}-${safeFilePart(layerName)}.pdf`);
+
+    try {
+      // Cloud downloads use file-backed FPDF_FILEWRITE so large PDFs never cross
+      // the worker boundary as ArrayBuffers. Fastify streams this completed temp
+      // file and the returned cleanup callback removes the whole temp directory.
+      const build = (jobId: WorkerJobId) =>
+        wirePack({
+          kind: 'document.saveFile' as const,
+          jobId,
+          docId,
+          layerName,
+          mode,
+          path,
+        });
+      const result = await this.pool.run(docId, build, signal);
+      if (result.tag !== 'document.saveFile') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected save payload: ${result.tag}`);
+      }
+      if (result.path !== path) {
+        throw new EngineError(
+          EngineErrorCode.WireFormat,
+          `worker saved unexpected path: ${result.path}`,
+        );
+      }
+
+      const info = await stat(path);
+      if (!info.isFile() || info.size <= 0) {
+        throw new EngineError(EngineErrorCode.DocOpenFailed, `saved PDF is empty: ${docId}`);
+      }
+
+      let cleaned = false;
+      return {
+        path,
+        size: info.size,
+        async cleanup() {
+          if (cleaned) return;
+          cleaned = true;
+          await rm(dir, { recursive: true, force: true });
+        },
+      };
+    } catch (err) {
+      await rm(dir, { recursive: true, force: true });
+      throw err;
+    }
+  }
+
   /**
    * Pool-eviction callback. Wired into `WorkerThreadPool.onEvict`;
    * when the pool drops a doc from a slot, the cached head is no
@@ -322,14 +388,23 @@ export class DocumentService {
     for (const docId of Array.from(this.baseHandles.keys())) {
       this.releaseBaseHandle(docId);
     }
+    for (const key of Array.from(this.layerArtifactHandles.keys())) {
+      this.releaseLayerArtifactHandle(key);
+    }
   }
 
   /** Diagnostic snapshot for tests + ops dashboards. */
-  stats(): { openHeads: number; inflightOpens: number; pinnedBaseFiles: number } {
+  stats(): {
+    openHeads: number;
+    inflightOpens: number;
+    pinnedBaseFiles: number;
+    pinnedLayerArtifacts: number;
+  } {
     return {
       openHeads: this.heads.size,
       inflightOpens: this.opens.size,
       pinnedBaseFiles: this.baseHandles.size,
+      pinnedLayerArtifacts: this.layerArtifactHandles.size,
     };
   }
 
@@ -356,8 +431,14 @@ export class DocumentService {
       );
     }
 
+    const sessionKey = layerSessionKey(docId, layerName);
     const layer = await this.layerState.repos.layers.findByDocAndName(docId, layerName);
-    const layerSource = layer ? await this.readLayerOpenSource(layer) : { kind: 'fresh' as const };
+    let layerHandle: LocalFileHandle | null = null;
+    const layerOpen = layer
+      ? await this.readLayerOpenSource(layer)
+      : { source: { kind: 'fresh' as const }, handle: null };
+    layerHandle = layerOpen.handle;
+    const layerSource = layerOpen.source;
     const build = (jobId: WorkerJobId) => {
       const request = {
         kind: 'open.layerFileBase' as const,
@@ -369,16 +450,20 @@ export class DocumentService {
         layer: layerSource,
         password: null,
       };
-      return layerSource.kind === 'artifact'
-        ? wirePack(request, [layerSource.bytes])
-        : wirePack(request);
+      return wirePack(request);
     };
-    const result = await this.pool.run(docId, build);
-    if (result.tag !== 'open') {
-      throw new EngineError(
-        EngineErrorCode.WireFormat,
-        `unexpected layer open payload: ${result.tag}`,
-      );
+    try {
+      const result = await this.pool.run(docId, build);
+      if (result.tag !== 'open') {
+        throw new EngineError(
+          EngineErrorCode.WireFormat,
+          `unexpected layer open payload: ${result.tag}`,
+        );
+      }
+      this.replaceLayerArtifactHandle(sessionKey, layerHandle);
+      layerHandle = null;
+    } finally {
+      layerHandle?.release();
     }
   }
 
@@ -387,9 +472,12 @@ export class DocumentService {
     currentArtifactKey: string | null;
     currentArtifactSha: string | null;
     currentArtifactSize: number | null;
-  }): Promise<{ kind: 'fresh' } | { kind: 'artifact'; bytes: ArrayBuffer }> {
+  }): Promise<{
+    source: { kind: 'fresh' } | { kind: 'artifact-file'; path: string };
+    handle: LocalFileHandle | null;
+  }> {
     if (layer.currentVersion === 0 && !layer.currentArtifactKey) {
-      return { kind: 'fresh' };
+      return { source: { kind: 'fresh' }, handle: null };
     }
     if (!layer.currentArtifactKey) {
       throw new EngineError(
@@ -397,36 +485,34 @@ export class DocumentService {
         `layer version ${layer.currentVersion} is missing its artifact key`,
       );
     }
-
-    const bytes = await this.storage.get(layer.currentArtifactKey);
-    if (!bytes) {
+    if (!layer.currentArtifactSha) {
       throw new EngineError(
         EngineErrorCode.DocOpenFailed,
-        `layer artifact not found: ${layer.currentArtifactKey}`,
+        `layer version ${layer.currentVersion} is missing its artifact sha`,
       );
     }
-    if (layer.currentArtifactSize !== null && bytes.byteLength !== layer.currentArtifactSize) {
+
+    const handle = await this.cache.acquire({
+      sha: layer.currentArtifactSha,
+      key: layer.currentArtifactKey,
+    });
+    if (layer.currentArtifactSize !== null && handle.size !== layer.currentArtifactSize) {
+      handle.release();
       throw new EngineError(
         EngineErrorCode.MalformedPdf,
         `layer artifact size mismatch for ${layer.currentArtifactKey}`,
       );
     }
-    if (layer.currentArtifactSha) {
-      const actualSha = createHash('sha256').update(bytes).digest('hex');
-      if (actualSha !== layer.currentArtifactSha) {
-        throw new EngineError(
-          EngineErrorCode.MalformedPdf,
-          `layer artifact sha mismatch for ${layer.currentArtifactKey}`,
-        );
-      }
-    }
 
-    return { kind: 'artifact', bytes: toOwnedArrayBuffer(bytes) };
+    return { source: { kind: 'artifact-file', path: handle.path }, handle };
   }
 
   private forgetLayerSessions(docId: string): void {
     for (const key of Array.from(this.openedLayerSessions)) {
       if (key.startsWith(`${docId}::`)) this.openedLayerSessions.delete(key);
+    }
+    for (const key of Array.from(this.layerArtifactHandles.keys())) {
+      if (key.startsWith(`${docId}::`)) this.releaseLayerArtifactHandle(key);
     }
     for (const key of Array.from(this.layerOpens.keys())) {
       if (key.startsWith(`${docId}::`)) this.layerOpens.delete(key);
@@ -444,10 +530,25 @@ export class DocumentService {
     this.baseHandles.delete(docId);
     handle.release();
   }
+
+  private replaceLayerArtifactHandle(key: string, handle: LocalFileHandle | null): void {
+    this.releaseLayerArtifactHandle(key);
+    if (handle) this.layerArtifactHandles.set(key, handle);
+  }
+
+  private releaseLayerArtifactHandle(key: string): void {
+    const handle = this.layerArtifactHandles.get(key);
+    if (!handle) return;
+    this.layerArtifactHandles.delete(key);
+    handle.release();
+  }
 }
 
-function toOwnedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  const buffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(buffer).set(bytes);
-  return buffer;
+function layerSessionKey(docId: string, layerName: string): string {
+  return `${docId}::${layerName}`;
+}
+
+function safeFilePart(value: string): string {
+  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
+  return cleaned.length > 0 ? cleaned : 'document';
 }

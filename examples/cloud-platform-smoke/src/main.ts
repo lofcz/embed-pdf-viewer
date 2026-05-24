@@ -8,6 +8,7 @@ import type {
   PageImageHandle,
   PageListSnapshot,
   PageObjectNumber,
+  PdfSaveMode,
   WeakAnnotationEditSession,
 } from '@embedpdf/engine-core/runtime';
 import './styles.css';
@@ -96,6 +97,16 @@ app.innerHTML = `
           <button id="moveFirst" type="button">Move First To End</button>
         </div>
 
+        <div class="download-tools">
+          <label>Save Mode
+            <select id="downloadMode">
+              <option value="incremental">Incremental</option>
+              <option value="rewrite">Rewrite</option>
+            </select>
+          </label>
+          <button id="downloadPdf" type="button">Download PDF</button>
+        </div>
+
         <div class="render-tools">
           <label>Render Format
             <select id="renderFormat">
@@ -163,6 +174,8 @@ const els = {
   releaseWeakEdit: must<HTMLButtonElement>('releaseWeakEdit'),
   deleteFirst: must<HTMLButtonElement>('deleteFirst'),
   moveFirst: must<HTMLButtonElement>('moveFirst'),
+  downloadMode: must<HTMLSelectElement>('downloadMode'),
+  downloadPdf: must<HTMLButtonElement>('downloadPdf'),
   refreshDocs: must<HTMLButtonElement>('refreshDocs'),
   output: must<HTMLPreElement>('output'),
 };
@@ -200,6 +213,7 @@ els.heartbeatWeakEdit.addEventListener('click', () => void run(heartbeatWeakEdit
 els.releaseWeakEdit.addEventListener('click', () => void run(releaseWeakEdit));
 els.deleteFirst.addEventListener('click', () => void run(deleteFirstAnnotation));
 els.moveFirst.addEventListener('click', () => void run(moveFirstAnnotation));
+els.downloadPdf.addEventListener('click', () => void run(downloadPdf));
 
 async function uploadPdf(): Promise<void> {
   const file = els.pdfFile.files?.[0];
@@ -373,6 +387,25 @@ async function moveFirstAnnotation(): Promise<void> {
   await listAnnotations();
 }
 
+async function downloadPdf(): Promise<void> {
+  const opened = requireDoc();
+  const mode = downloadMode();
+  const bytes = await opened.download({ mode });
+  const tokenClaims = decodeJwtPayload(els.tokenBox.value.trim());
+  const docId = typeof tokenClaims.doc_id === 'string' ? tokenClaims.doc_id : opened.id;
+  const layer =
+    typeof tokenClaims.layer_name === 'string' && tokenClaims.layer_name.length > 0
+      ? tokenClaims.layer_name
+      : layerName();
+  saveBytesAsPdf(bytes, `${safeFilePart(docId)}-${safeFilePart(layer)}-${mode}.pdf`);
+  setOutput({
+    downloaded: true,
+    mode,
+    bytes: bytes.byteLength,
+    fileName: `${safeFilePart(docId)}-${safeFilePart(layer)}-${mode}.pdf`,
+  });
+}
+
 async function refreshDocs(): Promise<void> {
   const params = new URLSearchParams({ tenantId: tenantId() || config?.tenantId || 'tenant-demo' });
   const result = await getJson<{ documents: UploadResponse['document'][] }>(
@@ -433,6 +466,13 @@ function renderBackground(): 'white' | 'transparent' {
   throw new Error('Render background must be white or transparent.');
 }
 
+function downloadMode(): PdfSaveMode {
+  if (els.downloadMode.value === 'incremental' || els.downloadMode.value === 'rewrite') {
+    return els.downloadMode.value;
+  }
+  throw new Error('Download mode must be incremental or rewrite.');
+}
+
 function readPositiveInteger(raw: string, label: string): number {
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
@@ -486,6 +526,25 @@ function renderClaims(token: string): void {
 
 function setOutput(value: unknown): void {
   els.output.textContent = JSON.stringify(value, null, 2);
+}
+
+function saveBytesAsPdf(bytes: Uint8Array, fileName: string): void {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  const blob = new Blob([buffer], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function safeFilePart(value: string): string {
+  const cleaned = value.replace(/[^a-zA-Z0-9._-]+/g, '_').slice(0, 120);
+  return cleaned.length > 0 ? cleaned : 'document';
 }
 
 function summarizeGeometry(snapshot: PageGeometrySnapshot): unknown {
