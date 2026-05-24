@@ -187,14 +187,20 @@ describe('Phase 5 layer mutation pipeline', () => {
       annotation_generation: 0,
     });
 
-    const stale = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/v1/manifest`, {
-      headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
-    });
+    const stale = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/manifest@docVersion=1`,
+      {
+        headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
+      },
+    );
     expect(stale.status).toBe(404);
 
-    const fresh = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/v2/manifest`, {
-      headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
-    });
+    const fresh = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/manifest@docVersion=2`,
+      {
+        headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
+      },
+    );
     expect(fresh.status).toBe(200);
     const manifest = (await fresh.json()) as {
       pages: Array<{

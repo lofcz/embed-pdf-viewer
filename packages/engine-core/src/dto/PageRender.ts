@@ -58,8 +58,9 @@ export interface PageImageOptions extends PageRenderOptions {
 }
 
 export interface PageRenderQuery {
-  options: PageRenderOptions;
-  quality?: number;
+  options: PageImageOptions;
+  contentVersion?: number;
+  annotationVersion?: number;
 }
 
 /**

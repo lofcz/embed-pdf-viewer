@@ -21,7 +21,7 @@ import type { LayerStateService } from './LayerStateService';
  * `docVersion` is the single monotonic integer per document — bumps
  * on ANY mutation that could change the manifest's content (page
  * list, per-page content, per-page annotations, per-page weak-flag).
- * That makes `/v:D/manifest` content-addressed and CDN-cacheable for
+ * That makes `/manifest@docVersion=N` content-addressed and CDN-cacheable for
  * a year. Phase 4 hard-codes it to `1`; Phase 5's mutation handler
  * is what actually bumps it.
  */
@@ -38,7 +38,7 @@ export interface DocumentHead {
 
 /**
  * Versioned manifest. Each page reports the cache-busting integers
- * that drive `/pages/:pon/v:P/text` and `/pages/:pon/v:A/annotations`,
+ * that drive `/pages/:pon/text@contentVersion=N` and `/pages/:pon/annotations@annotationVersion=N`,
  * so the SDK can build leaf URLs without further round-trips.
  *
  * Hard-coded `(contentVersion: 1, annotationVersion: 1)` in Phase 4.

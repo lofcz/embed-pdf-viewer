@@ -3,14 +3,19 @@ import {
   EngineError,
   EngineErrorCode,
   wirePack,
+  type PageImageOptions,
   type PageNetworkRenderFormat,
   type PageMoveInput,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import {
+  decodeContentToken,
+  decodeRenderToken,
+  pageRenderOptionsFromImageOptions,
   PageMoveInputSchema,
   PageNetworkRenderFormatSchema,
   PageRenderQuerySchema,
+  unflatten,
   type ManifestPage,
 } from '@embedpdf/engine-core/wire';
 import { requireDocAccess, requireLayerDocAccess } from '../app/jwt-plugin';
@@ -22,7 +27,7 @@ import {
   abortSignalFromRequest,
   parseOrInvalidArg,
   parsePageObjectNumber,
-  parseVersionPathSegment,
+  parseTokenOrInvalidArg,
   setImmutableCache,
   setNoStore,
   toPageState,
@@ -43,8 +48,8 @@ type ReadScope =
 export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDeps): Promise<void> {
   const { documentService, layerService, pool, imageEncoder } = deps;
 
-  app.get('/v1/docs/:docId/pages/:pon/v:P/text', async (req, reply) => {
-    const { docId, pon, P } = req.params as { docId: string; pon: string; P: string };
+  app.get('/v1/docs/:docId/pages/:pon/text@:token', async (req, reply) => {
+    const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
     const ctx = requireDocAccess(req, docId, ['doc.read']);
     return readPageText({
       documentService,
@@ -53,7 +58,7 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseVersionPathSegment(P, 'contentVersion'),
+      requestedVersion: parseTokenOrInvalidArg(decodeContentToken, token, 'contentVersion token'),
     });
   });
 
@@ -70,8 +75,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     });
   });
 
-  app.get('/v1/docs/:docId/pages/:pon/v:P/geometry', async (req, reply) => {
-    const { docId, pon, P } = req.params as { docId: string; pon: string; P: string };
+  app.get('/v1/docs/:docId/pages/:pon/geometry@:token', async (req, reply) => {
+    const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
     const ctx = requireDocAccess(req, docId, ['doc.read']);
     return readPageGeometry({
       documentService,
@@ -80,7 +85,7 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseVersionPathSegment(P, 'contentVersion'),
+      requestedVersion: parseTokenOrInvalidArg(decodeContentToken, token, 'contentVersion token'),
     });
   });
 
@@ -97,13 +102,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     });
   });
 
-  app.get('/v1/docs/:docId/pages/:pon/v:P/render/:fmt', async (req, reply) => {
-    const { docId, pon, P, fmt } = req.params as {
-      docId: string;
-      pon: string;
-      P: string;
-      fmt: string;
-    };
+  app.get('/v1/docs/:docId/pages/:pon/render@:token', async (req, reply) => {
+    const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
     const ctx = requireDocAccess(req, docId, ['doc.read']);
     return renderPageImage({
       documentService,
@@ -113,15 +113,13 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedContentVersion: parseVersionPathSegment(P, 'contentVersion'),
-      requestedAnnotationVersion: undefined,
-      format: parseOrInvalidArg(PageNetworkRenderFormatSchema, fmt, 'render format'),
+      tokenQuery: parseTokenOrInvalidArg(decodeRenderToken, token, 'render token'),
       query: req.query,
     });
   });
 
-  app.get('/v1/docs/:docId/pages/:pon/render/:fmt', async (req, reply) => {
-    const { docId, pon, fmt } = req.params as { docId: string; pon: string; fmt: string };
+  app.get('/v1/docs/:docId/pages/:pon/render', async (req, reply) => {
+    const { docId, pon } = req.params as { docId: string; pon: string };
     const ctx = requireDocAccess(req, docId, ['doc.read']);
     return renderPageImage({
       documentService,
@@ -131,19 +129,16 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedContentVersion: undefined,
-      requestedAnnotationVersion: undefined,
-      format: parseOrInvalidArg(PageNetworkRenderFormatSchema, fmt, 'render format'),
       query: req.query,
     });
   });
 
-  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:P/text', async (req, reply) => {
-    const { docId, layerName, pon, P } = req.params as {
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/text@:token', async (req, reply) => {
+    const { docId, layerName, pon, token } = req.params as {
       docId: string;
       layerName: string;
       pon: string;
-      P: string;
+      token: string;
     };
     const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     return readPageText({
@@ -153,7 +148,7 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseVersionPathSegment(P, 'contentVersion'),
+      requestedVersion: parseTokenOrInvalidArg(decodeContentToken, token, 'contentVersion token'),
     });
   });
 
@@ -174,12 +169,12 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     });
   });
 
-  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:P/geometry', async (req, reply) => {
-    const { docId, layerName, pon, P } = req.params as {
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/geometry@:token', async (req, reply) => {
+    const { docId, layerName, pon, token } = req.params as {
       docId: string;
       layerName: string;
       pon: string;
-      P: string;
+      token: string;
     };
     const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     return readPageGeometry({
@@ -189,7 +184,7 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseVersionPathSegment(P, 'contentVersion'),
+      requestedVersion: parseTokenOrInvalidArg(decodeContentToken, token, 'contentVersion token'),
     });
   });
 
@@ -210,13 +205,12 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     });
   });
 
-  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:P/render/:fmt', async (req, reply) => {
-    const { docId, layerName, pon, P, fmt } = req.params as {
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/render@:token', async (req, reply) => {
+    const { docId, layerName, pon, token } = req.params as {
       docId: string;
       layerName: string;
       pon: string;
-      P: string;
-      fmt: string;
+      token: string;
     };
     const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     return renderPageImage({
@@ -227,47 +221,16 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedContentVersion: parseVersionPathSegment(P, 'contentVersion'),
-      requestedAnnotationVersion: null,
-      format: parseOrInvalidArg(PageNetworkRenderFormatSchema, fmt, 'render format'),
+      tokenQuery: parseTokenOrInvalidArg(decodeRenderToken, token, 'render token'),
       query: req.query,
     });
   });
 
-  app.get(
-    '/v1/docs/:docId/layers/:layerName/pages/:pon/v:P/a/:A/render/:fmt',
-    async (req, reply) => {
-      const { docId, layerName, pon, P, A, fmt } = req.params as {
-        docId: string;
-        layerName: string;
-        pon: string;
-        P: string;
-        A: string;
-        fmt: string;
-      };
-      const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
-      return renderPageImage({
-        documentService,
-        pool,
-        imageEncoder,
-        reply,
-        signal: abortSignalFromRequest(req),
-        scope: { kind: 'layer', ctx, docId, layerName },
-        pageObjectNumber: parsePageObjectNumber(pon),
-        requestedContentVersion: parseVersionPathSegment(P, 'contentVersion'),
-        requestedAnnotationVersion: parseVersionPathSegment(A, 'annotationVersion'),
-        format: parseOrInvalidArg(PageNetworkRenderFormatSchema, fmt, 'render format'),
-        query: req.query,
-      });
-    },
-  );
-
-  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/render/:fmt', async (req, reply) => {
-    const { docId, layerName, pon, fmt } = req.params as {
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/render', async (req, reply) => {
+    const { docId, layerName, pon } = req.params as {
       docId: string;
       layerName: string;
       pon: string;
-      fmt: string;
     };
     const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     return renderPageImage({
@@ -278,9 +241,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedContentVersion: undefined,
-      requestedAnnotationVersion: undefined,
-      format: parseOrInvalidArg(PageNetworkRenderFormatSchema, fmt, 'render format'),
       query: req.query,
     });
   });
@@ -311,6 +271,15 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
   });
 }
 
+function rejectQueryParamsOnTokenUrl(query: unknown): void {
+  if (query && typeof query === 'object' && Object.keys(query).length > 0) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      'versioned render URLs must encode render options in the path token, not query params',
+    );
+  }
+}
+
 async function renderPageImage(input: {
   documentService: DocumentService;
   pool: WorkerThreadPool;
@@ -319,38 +288,54 @@ async function renderPageImage(input: {
   signal: AbortSignal;
   scope: ReadScope;
   pageObjectNumber: number;
-  requestedContentVersion?: number;
-  requestedAnnotationVersion?: number | null;
-  format: PageNetworkRenderFormat;
+  tokenQuery?: Record<string, string>;
   query: unknown;
 }) {
   const page = await resolvePageForRead(input);
-  const parsedQuery = parseOrInvalidArg(PageRenderQuerySchema, input.query, 'render query');
-  const includeAnnotations =
-    input.requestedAnnotationVersion === undefined
-      ? (parsedQuery.options.includeAnnotations ?? true)
-      : input.requestedAnnotationVersion !== null;
+  if (input.tokenQuery !== undefined) rejectQueryParamsOnTokenUrl(input.query);
+  // Both token and query strings arrive as flat string maps. Generic
+  // `unflatten` turns dotted keys (`viewport.kind`, `target.rect.left`) into
+  // the nested object `PageRenderQuerySchema` expects. The schema then
+  // coerces, validates, and shapes the result into `PageRenderQuery`.
+  const flatInput = (input.tokenQuery ?? input.query) as Record<string, unknown>;
+  const nested = unflatten(flatInput);
+  const parsedQuery = parseOrInvalidArg(
+    PageRenderQuerySchema,
+    nested,
+    input.tokenQuery === undefined ? 'render query' : 'render token',
+  );
+  const imageOptions: PageImageOptions = parsedQuery.options;
+  const requestedContentVersion = parsedQuery.contentVersion;
+  const requestedAnnotationVersion = parsedQuery.annotationVersion;
+  const includeAnnotations = imageOptions.includeAnnotations ?? true;
+  // Format lives in the token (versioned) or query (unversioned). The Zod
+  // schema enforces "format required when versioned", so the unversioned
+  // fallback is the only place a default applies.
+  const format: PageNetworkRenderFormat = parseOrInvalidArg(
+    PageNetworkRenderFormatSchema,
+    imageOptions.format ?? 'webp',
+    'render format',
+  );
 
   if (
-    input.requestedContentVersion !== undefined &&
-    input.requestedContentVersion !== page.cache.contentVersion
+    requestedContentVersion !== undefined &&
+    requestedContentVersion !== page.cache.contentVersion
   ) {
     setNoStore(input.reply);
     throw new EngineError(
       EngineErrorCode.NotFound,
-      `render contentVersion ${input.requestedContentVersion} no longer current (current=${page.cache.contentVersion}) for page ${input.pageObjectNumber}`,
+      `render contentVersion ${requestedContentVersion} no longer current (current=${page.cache.contentVersion}) for page ${input.pageObjectNumber}`,
     );
   }
 
   if (
-    input.requestedAnnotationVersion !== undefined &&
-    input.requestedAnnotationVersion !== null &&
-    input.requestedAnnotationVersion !== page.cache.annotationVersion
+    requestedAnnotationVersion !== undefined &&
+    requestedAnnotationVersion !== page.cache.annotationVersion
   ) {
     setNoStore(input.reply);
     throw new EngineError(
       EngineErrorCode.NotFound,
-      `render annotationVersion ${input.requestedAnnotationVersion} no longer current (current=${page.cache.annotationVersion}) for page ${input.pageObjectNumber}`,
+      `render annotationVersion ${requestedAnnotationVersion} no longer current (current=${page.cache.annotationVersion}) for page ${input.pageObjectNumber}`,
     );
   }
 
@@ -362,7 +347,7 @@ async function renderPageImage(input: {
     );
   }
 
-  const renderOptions = { ...parsedQuery.options, includeAnnotations };
+  const renderOptions = pageRenderOptionsFromImageOptions(imageOptions, includeAnnotations);
   const build = (jobId: WorkerJobId) =>
     wirePack({
       kind: 'pages.render' as const,
@@ -381,12 +366,10 @@ async function renderPageImage(input: {
   }
 
   const encoded = input.imageEncoder.encode(result.raster, {
-    format: input.format,
-    quality: parsedQuery.quality,
+    format,
+    quality: imageOptions.quality,
   });
-  input.requestedContentVersion === undefined
-    ? setNoStore(input.reply)
-    : setImmutableCache(input.reply);
+  requestedContentVersion === undefined ? setNoStore(input.reply) : setImmutableCache(input.reply);
   input.reply.type(encoded.contentType);
   input.reply.header('X-EmbedPDF-Image-Width', String(result.raster.width));
   input.reply.header('X-EmbedPDF-Image-Height', String(result.raster.height));

@@ -12,7 +12,7 @@ import {
   type PageRenderOptions,
   type PageRenderService,
 } from '@embedpdf/engine-core/runtime';
-import { wirePaths } from '@embedpdf/engine-core/wire';
+import { renderImageOptionsToWire, wirePaths } from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
 import type { ManifestAccessor } from './CloudDocumentHandle';
 
@@ -43,23 +43,22 @@ export class CloudPageRenderService implements PageRenderService {
         );
       }
       const includeAnnotations = options.includeAnnotations ?? true;
-      const path = includeAnnotations
-        ? wirePaths.layerPageRenderWithAnnotations(
-            this.docId,
-            this.layerName,
-            this.pageObjectNumber,
-            page.cache.contentVersion,
-            page.cache.annotationVersion,
-            format,
-          )
-        : wirePaths.layerPageRender(
-            this.docId,
-            this.layerName,
-            this.pageObjectNumber,
-            page.cache.contentVersion,
-            format,
-          );
-      const requestPath = `${path}${renderQuery(options)}`;
+      // `format` flows through `options` and ends up in the token like every
+      // other render option — the wire format treats it uniformly. Normalize
+      // here first so the URL always carries an explicit, network-supported
+      // format (PNG or WebP), defaulting to WebP when the caller omits it.
+      const requestPath = wirePaths.layerPageRender(
+        this.docId,
+        this.layerName,
+        this.pageObjectNumber,
+        renderImageOptionsToWire(
+          { ...options, format },
+          {
+            contentVersion: page.cache.contentVersion,
+            annotationVersion: includeAnnotations ? page.cache.annotationVersion : undefined,
+          },
+        ),
+      );
       return createCloudPageImageHandle(
         {
           pageState: page.state,
@@ -100,19 +99,4 @@ function normalizeFormat(format: PageImageOptions['format']): PageNetworkRenderF
     EngineErrorCode.InvalidArg,
     `cloud render.image() supports only "png" and "webp" (got "${format}")`,
   );
-}
-
-function renderQuery(options: PageImageOptions): string {
-  const params = new URLSearchParams();
-  if (options.viewport?.kind === 'width') params.set('width', String(options.viewport.width));
-  if (options.viewport?.kind === 'scale') params.set('scale', String(options.viewport.scale ?? 1));
-  if (options.target?.kind === 'rect') {
-    const r = options.target.rect;
-    params.set('rect', `${r.left},${r.top},${r.right},${r.bottom}`);
-  }
-  if (options.rotation !== undefined) params.set('rotation', String(options.rotation));
-  if (options.background !== undefined) params.set('background', options.background);
-  if (options.quality !== undefined) params.set('quality', String(options.quality));
-  const query = params.toString();
-  return query ? `?${query}` : '';
 }

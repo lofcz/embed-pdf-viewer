@@ -149,6 +149,20 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       level: process.env['LOG_LEVEL'] ?? 'info',
     },
     bodyLimit: opts.bodyLimit ?? 50 * 1024 * 1024,
+    // Use Fastify's default (`fast-querystring`) which yields a FLAT
+    // Record<string, string> — `?viewport.kind=width` parses as
+    // `{ "viewport.kind": "width" }`, not `{ viewport: { kind: "width" } }`.
+    // The render wire format depends on this: dotted keys are reassembled
+    // into nested objects by `unflatten()` in the route handler. DO NOT
+    // switch to `qs` or another nesting parser — it would silently pre-nest
+    // these keys and break the wire-roundtrip property.
+    //
+    // Bump the router's default `maxParamLength` (find-my-way's hard cap is
+    // 100 chars by default) so render tokens like
+    // `render@annotationVersion=N,background=X,contentVersion=N,format=webp,…`
+    // can exceed that ceiling without 404-ing at the router. The token
+    // codec separately enforces a 512-char limit, so this stays bounded.
+    maxParamLength: 512,
   });
 
   await app.register(compress, {

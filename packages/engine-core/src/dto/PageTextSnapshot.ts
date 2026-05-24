@@ -2,7 +2,7 @@ import type { PageState } from '../revision/PageState';
 
 /**
  * Per-page text snapshot returned by `PageHandle.text.read()` and over
- * the wire as the `GET /v1/docs/:docId/pages/:pon/v:P/text` body.
+ * the wire as the `GET /v1/docs/:docId/pages/:pon/text@contentVersion=N` body.
  *
  * `pageState` carries the same identity envelope every page-scoped read
  * returns (pageObjectNumber, pageIndex, revision, weak-annotation flag),

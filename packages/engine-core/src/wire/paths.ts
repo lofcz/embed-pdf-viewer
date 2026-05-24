@@ -2,6 +2,14 @@
  * Single source of truth for cloud HTTP paths. Both engine-cloud and
  * @embedpdf/server import these so they cannot drift.
  */
+import {
+  encodeAnnotationToken,
+  encodeContentToken,
+  encodeDocToken,
+  encodeRenderToken,
+  type TokenInput,
+} from './tokens';
+
 export const DEFAULT_LAYER_NAME = 'default';
 
 export const wirePaths = {
@@ -29,7 +37,7 @@ export const wirePaths = {
    * version, then re-requests the manifest at the new URL.
    */
   docManifest: (docId: string, docVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/v${docVersion}/manifest`,
+    `/v1/docs/${encodeURIComponent(docId)}/manifest@${encodeDocToken(docVersion)}`,
 
   /**
    * GET: full layer manifest at a specific layer document version.
@@ -38,10 +46,10 @@ export const wirePaths = {
    * drive the response.
    */
   layerManifest: (docId: string, layerName: string, docVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/v${docVersion}/manifest`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/manifest@${encodeDocToken(docVersion)}`,
 
   layerMetadata: (docId: string, layerName: string, docVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/v${docVersion}/metadata`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/metadata@${encodeDocToken(docVersion)}`,
 
   layerMetadataCurrent: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/metadata`,
@@ -50,11 +58,11 @@ export const wirePaths = {
    * GET: full plain-text extraction for a single page at a specific
    * `contentVersion`. Content-addressed; CDN may cache forever.
    * Stale-version requests return 404 and the SDK's transparent
-   * retry walks `/head` → `/v:D/manifest` to learn the new
+   * retry walks `/head` → `/manifest@docVersion=N` to learn the new
    * `contentVersion`.
    */
   docPageText: (docId: string, pageObjectNumber: number, contentVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${contentVersion}/text`,
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/text@${encodeContentToken(contentVersion)}`,
 
   layerPageText: (
     docId: string,
@@ -62,27 +70,22 @@ export const wirePaths = {
     pageObjectNumber: number,
     contentVersion: number,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${contentVersion}/text`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/text@${encodeContentToken(contentVersion)}`,
 
   layerPageTextCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/text`,
 
   docPageGeometry: (docId: string, pageObjectNumber: number, contentVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${contentVersion}/geometry`,
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/geometry@${encodeContentToken(contentVersion)}`,
 
   docPageGeometryCurrent: (docId: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/geometry`,
 
-  docPageRender: (
-    docId: string,
-    pageObjectNumber: number,
-    contentVersion: number,
-    format: 'png' | 'webp',
-  ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${contentVersion}/render/${format}`,
+  docPageRender: (docId: string, pageObjectNumber: number, token: TokenInput) =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/render@${encodeRenderToken(token)}`,
 
-  docPageRenderCurrent: (docId: string, pageObjectNumber: number, format: 'png' | 'webp') =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/render/${format}`,
+  docPageRenderCurrent: (docId: string, pageObjectNumber: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/render`,
 
   layerPageGeometry: (
     docId: string,
@@ -90,7 +93,7 @@ export const wirePaths = {
     pageObjectNumber: number,
     contentVersion: number,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${contentVersion}/geometry`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/geometry@${encodeContentToken(contentVersion)}`,
 
   layerPageGeometryCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/geometry`,
@@ -99,28 +102,12 @@ export const wirePaths = {
     docId: string,
     layerName: string,
     pageObjectNumber: number,
-    contentVersion: number,
-    format: 'png' | 'webp',
+    token: TokenInput,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${contentVersion}/render/${format}`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/render@${encodeRenderToken(token)}`,
 
-  layerPageRenderWithAnnotations: (
-    docId: string,
-    layerName: string,
-    pageObjectNumber: number,
-    contentVersion: number,
-    annotationVersion: number,
-    format: 'png' | 'webp',
-  ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${contentVersion}/a/${annotationVersion}/render/${format}`,
-
-  layerPageRenderCurrent: (
-    docId: string,
-    layerName: string,
-    pageObjectNumber: number,
-    format: 'png' | 'webp',
-  ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/render/${format}`,
+  layerPageRenderCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/render`,
 
   /**
    * GET: full annotation list for a single page at a specific
@@ -128,7 +115,7 @@ export const wirePaths = {
    * semantics as `docPageText`.
    */
   docPageAnnotations: (docId: string, pageObjectNumber: number, annotationVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/v${annotationVersion}/annotations`,
+    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations@${encodeAnnotationToken(annotationVersion)}`,
 
   layerPageAnnotations: (
     docId: string,
@@ -136,7 +123,7 @@ export const wirePaths = {
     pageObjectNumber: number,
     annotationVersion: number,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/v${annotationVersion}/annotations`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/annotations@${encodeAnnotationToken(annotationVersion)}`,
 
   layerPageAnnotationsCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/annotations`,

@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
-import { wirePaths } from '@embedpdf/engine-core/wire';
+import { decodeDocToken, wirePaths } from '@embedpdf/engine-core/wire';
 import { requireDocAccess, requireLayerDocAccess } from '../app/jwt-plugin';
 import type { DocumentService } from '../services/DocumentService';
-import { parseVersionPathSegment, setImmutableCache, setNoStore } from './_helpers';
+import { parseTokenOrInvalidArg, setImmutableCache, setNoStore } from './_helpers';
 
 export interface DocsRouteDeps {
   service: DocumentService;
@@ -26,10 +26,10 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     return head;
   });
 
-  app.get('/v1/docs/:docId/v:D/manifest', async (req, reply) => {
-    const { docId, D } = req.params as { docId: string; D: string };
+  app.get('/v1/docs/:docId/manifest@:token', async (req, reply) => {
+    const { docId, token } = req.params as { docId: string; token: string };
     const ctx = requireDocAccess(req, docId, ['doc.read']);
-    const requested = parseVersionPathSegment(D, 'docVersion');
+    const requested = parseTokenOrInvalidArg(decodeDocToken, token, 'docVersion token');
     const manifest = await service.getManifest(ctx, docId);
     if (requested !== manifest.docVersion) {
       setNoStore(reply);
@@ -58,14 +58,14 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     return head;
   });
 
-  app.get('/v1/docs/:docId/layers/:layerName/v:D/manifest', async (req, reply) => {
-    const { docId, layerName, D } = req.params as {
+  app.get('/v1/docs/:docId/layers/:layerName/manifest@:token', async (req, reply) => {
+    const { docId, layerName, token } = req.params as {
       docId: string;
       layerName: string;
-      D: string;
+      token: string;
     };
     const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
-    const requested = parseVersionPathSegment(D, 'layerDocVersion');
+    const requested = parseTokenOrInvalidArg(decodeDocToken, token, 'layerDocVersion token');
     const manifest = await service.getLayerManifest(ctx, docId, layerName);
     if (requested !== manifest.docVersion) {
       setNoStore(reply);

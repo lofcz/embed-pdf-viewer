@@ -312,7 +312,7 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
   });
 });
 
-describe('Phase 3 doc routes — GET /v1/docs/:docId/v:D/manifest', () => {
+describe('Phase 3 doc routes — GET /v1/docs/:docId/manifest@dN', () => {
   let fx: Fixture;
   beforeEach(async () => {
     fx = await buildFixture();
@@ -326,7 +326,7 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/v:D/manifest', () => {
     const docId = 'docmmm111';
     await seedDocument(fx, tenantId, docId, { pageCount: 4 });
 
-    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v1/manifest`, {
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/manifest@docVersion=1`, {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(200);
@@ -354,7 +354,7 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/v:D/manifest', () => {
     const docId = 'docstal111';
     await seedDocument(fx, tenantId, docId);
 
-    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/v2/manifest`, {
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/manifest@docVersion=2`, {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(404);
@@ -366,7 +366,7 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/v:D/manifest', () => {
     const docId = 'docbad1111';
     await seedDocument(fx, tenantId, docId);
 
-    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/vXX/manifest`, {
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/manifest@docVersion=XX`, {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(400);

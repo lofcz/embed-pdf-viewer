@@ -12,6 +12,7 @@ import {
   AnnotationDraftSchema,
   AnnotationPatchSchema,
   AnnotationRefSchema,
+  decodeAnnotationToken,
   WeakAnnotationSessionPagesRequestSchema,
   type ManifestPage,
 } from '@embedpdf/engine-core/wire';
@@ -25,7 +26,7 @@ import {
   abortSignalFromRequest,
   parseOrInvalidArg,
   parsePageObjectNumber,
-  parseVersionPathSegment,
+  parseTokenOrInvalidArg,
   setImmutableCache,
   setNoStore,
   toPageState,
@@ -51,8 +52,8 @@ export async function registerAnnotationRoutes(
 ): Promise<void> {
   const { documentService, layerService, pool, revisionBridge, weakAnnotationSessions } = deps;
 
-  app.get('/v1/docs/:docId/pages/:pon/v:A/annotations', async (req, reply) => {
-    const { docId, pon, A } = req.params as { docId: string; pon: string; A: string };
+  app.get('/v1/docs/:docId/pages/:pon/annotations@:token', async (req, reply) => {
+    const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
     const ctx = requireDocAccess(req, docId, ['doc.read']);
     return readAnnotations({
       documentService,
@@ -62,7 +63,11 @@ export async function registerAnnotationRoutes(
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseVersionPathSegment(A, 'annotationVersion'),
+      requestedVersion: parseTokenOrInvalidArg(
+        decodeAnnotationToken,
+        token,
+        'annotationVersion token',
+      ),
     });
   });
 
@@ -80,12 +85,12 @@ export async function registerAnnotationRoutes(
     });
   });
 
-  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/v:A/annotations', async (req, reply) => {
-    const { docId, layerName, pon, A } = req.params as {
+  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/annotations@:token', async (req, reply) => {
+    const { docId, layerName, pon, token } = req.params as {
       docId: string;
       layerName: string;
       pon: string;
-      A: string;
+      token: string;
     };
     const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
     return readAnnotations({
@@ -96,7 +101,11 @@ export async function registerAnnotationRoutes(
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
       pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseVersionPathSegment(A, 'annotationVersion'),
+      requestedVersion: parseTokenOrInvalidArg(
+        decodeAnnotationToken,
+        token,
+        'annotationVersion token',
+      ),
     });
   });
 

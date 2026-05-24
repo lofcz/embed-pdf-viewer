@@ -1,37 +1,30 @@
 import { z } from 'zod';
+
 import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
 } from '../annotation/AnnotationListSnapshot';
+import { AnnotationStableIdSchema, RevisionTokenSchema } from '../annotation/base.schema';
 import { AnnotationDTOSchema } from '../annotation/kinds';
+import type { CachePins } from '../dto/CachePins';
+import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
+import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
+import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
-import {
-  AnnotationStableIdSchema,
-  RectSchema,
-  RevisionTokenSchema,
-} from '../annotation/base.schema';
-import type { PageState } from '../revision/PageState';
-import type { WeakAnnotationState } from '../revision/WeakAnnotationState';
+import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
 import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
   AnnotationMoveResult,
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
-import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
 import type { RefetchReason } from '../mutation/RefetchReason';
-import type { PageListSnapshot } from '../dto/PageListSnapshot';
-import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
-import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
-import type {
-  PageNetworkRenderFormat,
-  PageRenderOptions,
-  PageRenderQuery,
-} from '../dto/PageRender';
-import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
-import type { CachePins } from '../dto/CachePins';
+import type { PageState } from '../revision/PageState';
+import type { WeakAnnotationState } from '../revision/WeakAnnotationState';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
@@ -64,7 +57,7 @@ export type OpenDocumentResponse = z.infer<typeof OpenDocumentResponseSchema>;
  * `docVersion` is the single monotonic integer per doc; it bumps on
  * ANY mutation that could change the manifest's content (page list,
  * per-page content, per-page annotations, per-page weak-flag), which
- * makes `/v:D/manifest` fully content-addressed and cache-friendly.
+ * makes `/manifest@docVersion=N` fully content-addressed and cache-friendly.
  * Phase 4 hard-codes it to `1`; Phase 5's mutation handler is what
  * actually bumps it.
  */
@@ -116,7 +109,7 @@ export const CachePinsSchema: z.ZodType<CachePins> = z.object({
 /**
  * Per-page envelope inside `DocumentManifest`. Carries the full
  * `PageState` plus the cache-busting integers the SDK embeds in
- * leaf URLs (`/pages/:pon/v:P/text`, `/pages/:pon/v:A/annotations`).
+ * leaf URLs (`/pages/:pon/text@contentVersion=N`, `/pages/:pon/annotations@annotationVersion=N`).
  *
  * `contentVersion` bumps when the page's content stream changes
  * (text, page reorder doesn't, the pon is durable). `annotationVersion`
@@ -145,7 +138,7 @@ export const ManifestPageSchema: z.ZodType<ManifestPage> = z
 export type { ManifestPage } from '../dto/DocumentManifest';
 
 /**
- * Wire shape of `GET /v1/docs/:docId/v:D/manifest`. Content-addressed
+ * Wire shape of `GET /v1/docs/:docId/manifest@docVersion=N`. Content-addressed
  * by `docVersion`; safe to cache with `Cache-Control: public,
  * max-age=31536000, immutable`.
  */
@@ -167,7 +160,7 @@ export const AnnotationListSnapshotAllPagesSchema: z.ZodType<AnnotationListSnaps
   });
 
 /**
- * Wire shape of `GET /v1/docs/:docId/pages/:pon/v:P/text` and the
+ * Wire shape of `GET /v1/docs/:docId/pages/:pon/text@contentVersion=N` and the
  * `pages.text` worker result. Carries the same `pageState` envelope
  * every page-scoped read returns, plus the full plain-text extraction
  * in display order and PDFium's char-count (which may exceed
@@ -213,123 +206,141 @@ export const PageNetworkRenderFormatSchema: z.ZodType<PageNetworkRenderFormat> =
   'webp',
 ]);
 
-const QueryStringSchema = z.preprocess(
-  (value) => (Array.isArray(value) ? value[0] : value),
-  z.string().optional(),
+/**
+ * Wire schema for the cloud render endpoints, applied to the **nested**
+ * shape produced by `unflatten(...)` of the parsed token or query string.
+ *
+ * Adding a new render option is one change here (a new field plus any
+ * cross-field rule in `superRefine`) plus one entry in
+ * `RenderTokenSchema.fields`. The token codec, flatten/unflatten helpers,
+ * route handlers, and SDK URL builder are all generic and pick the new
+ * field up automatically.
+ *
+ * Coercion: token fields and query strings both arrive as strings, so every
+ * scalar uses `z.coerce.*`. Discriminated unions on `viewport.kind` and
+ * `target.kind` enforce viewport / rect coherence by construction — no
+ * superRefine for "fields must appear together" rules.
+ */
+
+const RenderViewportSchema = z.discriminatedUnion('kind', [
+  z
+    .object({
+      kind: z.literal('width'),
+      width: z.coerce.number().positive().finite(),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal('scale'),
+      scale: z.coerce.number().positive().finite().optional(),
+    })
+    .strict(),
+]);
+
+const RenderTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('page') }).strict(),
+  z
+    .object({
+      kind: z.literal('rect'),
+      rect: z
+        .object({
+          left: z.coerce.number().finite(),
+          bottom: z.coerce.number().finite(),
+          right: z.coerce.number().finite(),
+          top: z.coerce.number().finite(),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
+
+const RenderRotationSchema = z.preprocess(
+  (raw) => (raw === undefined ? undefined : Number(raw)),
+  z.number().refine((n) => n === 0 || n === 90 || n === 180 || n === 270, {
+    message: 'render rotation must be 0, 90, 180, or 270',
+  }),
 );
 
-const RenderWidthQuerySchema = QueryStringSchema.transform((raw, ctx) => {
-  if (raw === undefined) return undefined;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'render width must be positive' });
-    return z.NEVER;
-  }
-  return value;
-});
+const RenderBackgroundSchema = z.enum(['white', 'transparent']);
 
-const RenderScaleQuerySchema = QueryStringSchema.transform((raw, ctx) => {
-  if (raw === undefined) return undefined;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value <= 0) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'render scale must be positive' });
-    return z.NEVER;
-  }
-  return value;
-});
+const RenderQualitySchema = z.coerce.number().int().min(1).max(100);
 
-const RenderRectQuerySchema = QueryStringSchema.transform((raw, ctx) => {
+// z.coerce.boolean() uses Boolean(value) which turns the string "false" into
+// true. Explicit string→boolean handling is the only safe way to read this
+// from a query string or token value.
+const RenderIncludeAnnotationsSchema = z.preprocess((raw) => {
   if (raw === undefined) return undefined;
-  const parts = raw.split(',').map((part) => Number(part.trim()));
-  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'render rect must be "left,top,right,bottom"',
-    });
-    return z.NEVER;
-  }
-  return RectSchema.parse({ left: parts[0], top: parts[1], right: parts[2], bottom: parts[3] });
-});
-
-const RenderRotationQuerySchema = QueryStringSchema.transform((raw, ctx) => {
-  if (raw === undefined) return undefined;
-  const value = Number(raw);
-  if (value === 0 || value === 90 || value === 180 || value === 270) return value;
-  ctx.addIssue({
-    code: z.ZodIssueCode.custom,
-    message: 'render rotation must be 0, 90, 180, or 270',
-  });
-  return z.NEVER;
-});
-
-const RenderBackgroundQuerySchema = QueryStringSchema.transform((raw, ctx) => {
-  if (raw === undefined || raw === 'white' || raw === 'transparent') return raw;
-  ctx.addIssue({
-    code: z.ZodIssueCode.custom,
-    message: 'render background must be "white" or "transparent"',
-  });
-  return z.NEVER;
-});
-
-const RenderQualityQuerySchema = QueryStringSchema.transform((raw, ctx) => {
-  if (raw === undefined) return undefined;
-  const value = Number(raw);
-  if (!Number.isFinite(value) || value < 1 || value > 100) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'render quality must be between 1 and 100',
-    });
-    return z.NEVER;
-  }
-  return value;
-});
-
-const RenderAnnotationsQuerySchema = QueryStringSchema.transform((raw, ctx) => {
-  if (raw === undefined) return undefined;
-  if (raw === '1' || raw === 'true') return true;
-  if (raw === '0' || raw === 'false') return false;
-  ctx.addIssue({
-    code: z.ZodIssueCode.custom,
-    message: 'annotations must be true/false or 1/0',
-  });
-  return z.NEVER;
-});
+  if (typeof raw === 'boolean') return raw;
+  if (raw === 'true' || raw === '1') return true;
+  if (raw === 'false' || raw === '0') return false;
+  return raw;
+}, z.boolean());
 
 export const PageRenderQuerySchema = z
   .object({
-    width: RenderWidthQuerySchema,
-    scale: RenderScaleQuerySchema,
-    rect: RenderRectQuerySchema,
-    rotation: RenderRotationQuerySchema,
-    background: RenderBackgroundQuerySchema,
-    quality: RenderQualityQuerySchema,
-    annotations: RenderAnnotationsQuerySchema,
+    contentVersion: z.coerce.number().int().positive().optional(),
+    annotationVersion: z.coerce.number().int().positive().optional(),
+    format: PageNetworkRenderFormatSchema.optional(),
+    includeAnnotations: RenderIncludeAnnotationsSchema.optional(),
+    viewport: RenderViewportSchema.optional(),
+    target: RenderTargetSchema.optional(),
+    rotation: RenderRotationSchema.optional(),
+    background: RenderBackgroundSchema.optional(),
+    quality: RenderQualitySchema.optional(),
   })
-  .passthrough()
-  .superRefine((query, ctx) => {
-    if (query.width !== undefined && query.scale !== undefined) {
+  .strict()
+  .superRefine((v, ctx) => {
+    if (v.contentVersion !== undefined && v.includeAnnotations === undefined) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ['scale'],
-        message: 'render query accepts either width or scale, not both',
+        path: ['includeAnnotations'],
+        message: 'versioned render requires includeAnnotations',
+      });
+    }
+    if (v.contentVersion !== undefined && v.format === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['format'],
+        message: 'versioned render requires format',
+      });
+    }
+    if (v.annotationVersion !== undefined && v.contentVersion === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['annotationVersion'],
+        message: 'annotationVersion requires contentVersion',
+      });
+    }
+    const includeAnnotations = v.includeAnnotations ?? true;
+    if (v.contentVersion !== undefined && includeAnnotations && v.annotationVersion === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['annotationVersion'],
+        message: 'versioned render requires annotationVersion when includeAnnotations is true',
+      });
+    }
+    if (!includeAnnotations && v.annotationVersion !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['annotationVersion'],
+        message: 'annotationVersion is invalid when includeAnnotations is false',
       });
     }
   })
-  .transform((query) => {
-    const options: PageRenderOptions = {
-      includeAnnotations: query.annotations ?? true,
-      ...(query.rect ? { target: { kind: 'rect' as const, rect: query.rect } } : {}),
-      ...(query.width !== undefined
-        ? { viewport: { kind: 'width' as const, width: query.width } }
-        : query.scale !== undefined
-          ? { viewport: { kind: 'scale' as const, scale: query.scale } }
-          : {}),
-      ...(query.rotation !== undefined ? { rotation: query.rotation } : {}),
-      ...(query.background ? { background: query.background } : {}),
+  .transform((v) => {
+    const options: PageImageOptions = {
+      ...(v.target ? { target: v.target } : {}),
+      ...(v.viewport ? { viewport: v.viewport } : {}),
+      ...(v.rotation !== undefined ? { rotation: v.rotation } : {}),
+      ...(v.background !== undefined ? { background: v.background } : {}),
+      ...(v.quality !== undefined ? { quality: v.quality } : {}),
+      ...(v.format !== undefined ? { format: v.format } : {}),
+      includeAnnotations: v.includeAnnotations ?? true,
     };
     return {
       options,
-      ...(query.quality !== undefined ? { quality: query.quality } : {}),
+      ...(v.contentVersion !== undefined ? { contentVersion: v.contentVersion } : {}),
+      ...(v.annotationVersion !== undefined ? { annotationVersion: v.annotationVersion } : {}),
     };
   }) as unknown as z.ZodType<PageRenderQuery>;
 

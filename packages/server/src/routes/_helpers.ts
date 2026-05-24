@@ -45,23 +45,6 @@ export function setNoStore(reply: { header(name: 'Cache-Control', value: string)
   reply.header('Cache-Control', NO_STORE);
 }
 
-export function parseVersionPathSegment(raw: string, label: string): number {
-  if (!/^\d+$/.test(raw)) {
-    throw new EngineError(
-      EngineErrorCode.InvalidArg,
-      `${label} path expects an integer version, got "${raw}"`,
-    );
-  }
-  const n = parseInt(raw, 10);
-  if (!Number.isFinite(n) || n < 1) {
-    throw new EngineError(
-      EngineErrorCode.InvalidArg,
-      `${label} must be a positive integer, got ${raw}`,
-    );
-  }
-  return n;
-}
-
 export function parsePageObjectNumber(raw: string): number {
   const n = Number.parseInt(raw, 10);
   if (!Number.isInteger(n) || n <= 0) {
@@ -132,4 +115,19 @@ export function parseOrInvalidArg<T>(schema: SchemaLike<T>, raw: unknown, where:
     );
   }
   return result.data;
+}
+
+export function parseTokenOrInvalidArg<T>(
+  decode: (raw: string) => T,
+  raw: string,
+  where: string,
+): T {
+  try {
+    return decode(raw);
+  } catch (error) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `${where}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }

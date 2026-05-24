@@ -45,6 +45,32 @@ export type {
   WeakAnnotationSessionPagesRequest,
 } from './wire/schemas';
 export { DEFAULT_LAYER_NAME, wirePaths } from './wire/paths';
+export { decodeToken, encodeToken } from './wire/token';
+export type { TokenInput, TokenQuery, TokenScalar, TokenSchema } from './wire/token';
+export {
+  AnnotationTokenSchema,
+  ContentTokenSchema,
+  DocTokenSchema,
+  RenderTokenSchema,
+} from './wire/tokenSchemas';
+export {
+  decodeAnnotationToken,
+  decodeContentToken,
+  decodeDocToken,
+  decodeRenderToken,
+  encodeAnnotationToken,
+  encodeContentToken,
+  encodeDocToken,
+  encodeRenderToken,
+} from './wire/tokens';
+export { flatten, unflatten } from './wire/flatten';
+export type { WireFlat, WireScalar } from './wire/flatten';
+export {
+  pageRenderOptionsFromImageOptions,
+  renderImageOptionsToToken,
+  renderImageOptionsToWire,
+} from './wire/renderOptionsCodec';
+export type { RenderVersions } from './wire/renderOptionsCodec';
 
 export {
   AnnotationStableIdSchema,

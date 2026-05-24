@@ -33,7 +33,7 @@ import { CloudPageHandle } from './CloudPageHandle';
 export interface ManifestAccessor {
   /** Cached manifest (cold-fetched once, kept across requests). */
   get(signal: AbortSignal): Promise<DocumentManifest>;
-  /** Force re-fetch of `/head` + `/v:D/manifest`; replaces the cache. */
+  /** Force re-fetch of `/head` + `/manifest@docVersion=N`; replaces the cache. */
   refresh(signal: AbortSignal): Promise<DocumentManifest>;
   /** Absorb mutation-returned state/cache deltas when safe. */
   apply(meta: MutationMeta): void;
@@ -120,7 +120,7 @@ export class CloudDocumentHandle implements DocumentHandle {
    * Return the cached manifest, fetching cold-cache once if needed.
    * Concurrent callers share a single inflight request (singleflight)
    * so an N-page handle that opens N services in parallel still
-   * triggers exactly one `/head` + `/v:D/manifest` round-trip.
+   * triggers exactly one `/head` + `/manifest@docVersion=N` round-trip.
    */
   async getManifest(signal: AbortSignal): Promise<DocumentManifest> {
     if (this.manifestCache) return this.manifestCache;
