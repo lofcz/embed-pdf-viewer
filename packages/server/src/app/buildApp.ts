@@ -30,20 +30,14 @@ import { registerPageRoutes } from '../routes/pages';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
 import { registerAdminTokensRoutes } from '../routes/admin/tokens';
 import { SharpImageEncoder } from '../render/SharpImageEncoder';
+import type { KmsKeyring } from '../security';
 
 export interface BuildAppOptions {
   /**
-   * HS256 shared secret. Convenience alias for
-   * `verifier: { mode: 'hs256', secret }`. Required when `verifier`
-   * is not supplied; ignored otherwise.
+   * JWT verifier config. Use `{ mode: 'hs256', secret }` for Tiny/dev
+   * deployments, or RS/ES/JWKS modes for production IdP integration.
    */
-  jwtSecret?: string;
-  /**
-   * Full verifier config. Use this for production (RS256 PEM /
-   * ES256 PEM / multi-tenant JWKS). When omitted, `jwtSecret` is
-   * used to construct an HS256 verifier.
-   */
-  verifier?: JwtVerifierConfig;
+  verifier: JwtVerifierConfig;
   /**
    * If true and `db` is supplied, wire a `RevokedJtisGuard` into the
    * verifier so revoked `jti`s are rejected at request time. Off by
@@ -78,6 +72,13 @@ export interface BuildAppOptions {
    */
   db?: Kysely<Schema>;
   objectStore?: ObjectStoreWithInfo;
+  /**
+   * Optional envelope keyring for features that need short-lived
+   * encrypted server state (for example encrypted PDF password
+   * sessions in the CDN phase). Presently stored on the app bundle
+   * so future services can consume it without changing boot wiring.
+   */
+  kms?: KmsKeyring;
   /**
    * If true and an admin call arrives for a tenant that doesn't have a
    * `tenants` row, lazily create one. Convenient for dev / single-tenant
@@ -135,6 +136,8 @@ export interface AppBundle {
   layerService?: LayerService;
   /** Phase 3 — the base-file cache backing `documentService`. */
   baseFileCache?: BaseFileCache;
+  /** Security substrate keyring, when configured by the caller. */
+  kms?: KmsKeyring;
   shutdown: () => Promise<void>;
 }
 
@@ -204,27 +207,15 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     jwksCacheStore = new DbJwksCacheStore(opts.db);
   }
 
-  let verifierConfig: JwtVerifierConfig;
-  if (opts.verifier) {
-    // Inject the revocation + cache store into whichever mode the
-    // caller picked. We don't overwrite if they're already set.
-    verifierConfig = {
-      ...opts.verifier,
-      revocation: opts.verifier.revocation ?? revocation,
-      ...(opts.verifier.mode === 'jwks' && !opts.verifier.cacheStore
-        ? { cacheStore: jwksCacheStore }
-        : {}),
-    } as JwtVerifierConfig;
-  } else {
-    if (!opts.jwtSecret) {
-      throw new Error('buildApp: either `verifier` or `jwtSecret` must be supplied');
-    }
-    verifierConfig = {
-      mode: 'hs256',
-      secret: opts.jwtSecret,
-      ...(revocation ? { revocation } : {}),
-    };
-  }
+  // Inject the revocation + cache store into whichever mode the
+  // caller picked. We don't overwrite if they're already set.
+  const verifierConfig = {
+    ...opts.verifier,
+    revocation: opts.verifier.revocation ?? revocation,
+    ...(opts.verifier.mode === 'jwks' && !opts.verifier.cacheStore
+      ? { cacheStore: jwksCacheStore }
+      : {}),
+  } as JwtVerifierConfig;
   await registerJwtAuth(app, { verifier: verifierConfig });
 
   // `documentService` is allocated below, but the pool's onEvict
@@ -406,6 +397,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     documentService,
     layerService,
     baseFileCache,
+    kms: opts.kms,
     shutdown,
   };
 }

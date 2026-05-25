@@ -53,7 +53,7 @@ export function runAdminE2e(dialect: AdminE2eDialectFixture): void {
     const store = new FsObjectStore({ root: storageRoot });
 
     const bundle = await buildApp({
-      jwtSecret: SECRET,
+      verifier: { mode: 'hs256', secret: SECRET },
       workerEntry: null,
       db,
       objectStore: store,

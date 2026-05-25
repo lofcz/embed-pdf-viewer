@@ -46,7 +46,7 @@ export async function buildDbSeededFixture(
   await migrate(db, { source: { kind: 'inline', migrations: sqliteMigrations } });
   const store = new FsObjectStore({ root: storageRoot });
   const bundle = await buildApp({
-    jwtSecret: opts.secret,
+    verifier: { mode: 'hs256', secret: opts.secret },
     workerEntry: defaultWorkerEntryUrl,
     poolSize: 1,
     db,

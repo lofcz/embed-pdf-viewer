@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { createCloudAdmin } from '@embedpdf/cloud-admin';
 import {
   buildApp,
+  createSecurityRuntime,
   createSqliteDb,
   defaultWorkerEntryUrl,
   EventLogService,
@@ -14,6 +15,7 @@ import {
   sqliteMigrations,
   type AppBundle,
   type DocScope,
+  type SecurityConfig,
   type TenantScope,
 } from '@embedpdf/server';
 
@@ -22,14 +24,33 @@ const dataRoot = resolve(process.env['EMBEDPDF_SMOKE_DATA_ROOT'] ?? `${root}/.da
 const enginePort = Number(process.env['EMBEDPDF_SMOKE_ENGINE_PORT'] ?? 3210);
 const apiPort = Number(process.env['EMBEDPDF_SMOKE_API_PORT'] ?? 3211);
 const host = process.env['EMBEDPDF_SMOKE_HOST'] ?? '127.0.0.1';
-const jwtSecret = process.env['EMBEDPDF_SMOKE_JWT_SECRET'] ?? 'embedpdf-dev-secret-change-me';
 const defaultTenant = process.env['EMBEDPDF_SMOKE_TENANT'] ?? 'tenant-demo';
+const staticKmsKek =
+  process.env['EMBEDPDF_SMOKE_STATIC_KMS_KEK'] ?? Buffer.alloc(32, 7).toString('base64');
+const smokeSecretRefs = {
+  jwtSigningSecret: { provider: 'env', name: 'EMBEDPDF_SMOKE_JWT_SECRET' },
+  staticKmsKek: { provider: 'env', name: 'EMBEDPDF_SMOKE_STATIC_KMS_KEK', encoding: 'base64' },
+} as const;
+const smokeSecurityConfig = {
+  secrets: {
+    providers: {
+      env: { kind: 'env' },
+    },
+    cache: { ttlSec: 3600 },
+  },
+  kms: {
+    kind: 'static',
+    keyId: 'cloud-smoke-static',
+    kek: smokeSecretRefs.staticKmsKek,
+  },
+} satisfies SecurityConfig;
 
 const engineBaseUrl = `http://${host}:${enginePort}`;
 
 let db: ReturnType<typeof createSqliteDb>;
 let embedpdf: AppBundle;
 let storage: FsObjectStore;
+let jwtSigningSecret: string;
 
 await startEmbedPdfServer();
 await startApiServer();
@@ -42,9 +63,26 @@ async function startEmbedPdfServer(): Promise<void> {
   db = createSqliteDb({ path: `${dataRoot}/embedpdf.db` });
   await migrate(db, { source: { kind: 'inline', migrations: sqliteMigrations } });
   storage = new FsObjectStore({ root: `${dataRoot}/objects` });
+  const securityEnv = {
+    ...process.env,
+    EMBEDPDF_SMOKE_JWT_SECRET:
+      process.env['EMBEDPDF_SMOKE_JWT_SECRET'] ?? 'embedpdf-dev-secret-change-me',
+    EMBEDPDF_SMOKE_STATIC_KMS_KEK: staticKmsKek,
+  };
+  const security = await createSecurityRuntime(smokeSecurityConfig, {
+    env: securityEnv,
+  });
+  const secrets = await security.resolve({
+    jwtSecret: {
+      ref: smokeSecretRefs.jwtSigningSecret,
+      as: 'string',
+    },
+  });
+  jwtSigningSecret = secrets.jwtSecret;
 
   embedpdf = await buildApp({
-    jwtSecret,
+    verifier: { mode: 'hs256', secret: jwtSigningSecret },
+    kms: security.kms,
     workerEntry: defaultWorkerEntryUrl,
     poolSize: 1,
     db,
@@ -173,7 +211,7 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
 function adminForTenant(tenantId: string) {
   return createCloudAdmin({
     baseUrl: engineBaseUrl,
-    tenantToken: signDevToken(jwtSecret, {
+    tenantToken: signDevToken(jwtSigningSecret, {
       sub: 'cloud-smoke-admin',
       tenant_id: tenantId,
       scope: ['*'] satisfies TenantScope[],
@@ -189,7 +227,7 @@ function mintDocToken(input: {
   sub: string;
   ttlSeconds?: number;
 }): string {
-  return signDevToken(jwtSecret, {
+  return signDevToken(jwtSigningSecret, {
     sub: input.sub,
     tenant_id: input.tenantId,
     doc_id: input.docId,

@@ -161,7 +161,7 @@ export interface JwtAudienceProfile {
 export type JwtVerifierConfig =
   | (JwtAudienceProfile & {
       mode: 'hs256';
-      secret: string;
+      secret: string | Buffer;
       revocation?: RevocationCheck;
     })
   | (JwtAudienceProfile & {
@@ -232,12 +232,14 @@ const HEADER_HS256 = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
  * identical to jose for the HS256 subset we use.
  */
 export class Hs256Verifier implements JwtVerifier {
-  private readonly secret: string;
+  private readonly secret: string | Buffer;
   private readonly skew: number;
   private readonly profile: JwtAudienceProfile;
   private readonly revocation: RevocationCheck | undefined;
 
-  constructor(opts: { secret: string; revocation?: RevocationCheck } & JwtAudienceProfile) {
+  constructor(
+    opts: { secret: string | Buffer; revocation?: RevocationCheck } & JwtAudienceProfile,
+  ) {
     this.secret = opts.secret;
     this.skew = opts.clockSkewSeconds ?? 30;
     this.profile = opts;
@@ -666,7 +668,7 @@ export interface SignDevTokenInput {
   extras?: JwtClaimsExtras;
 }
 
-export function signDevToken(secret: string, input: SignDevTokenInput): string {
+export function signDevToken(secret: string | Buffer, input: SignDevTokenInput): string {
   if (input.layer_name && !input.doc_id) {
     throw new Error('signDevToken: layer_name requires doc_id');
   }
@@ -689,7 +691,7 @@ export function signDevToken(secret: string, input: SignDevTokenInput): string {
   return `${data}.${sig}`;
 }
 
-function signHmac(secret: string, data: string): string {
+function signHmac(secret: string | Buffer, data: string): string {
   return createHmac('sha256', secret).update(data).digest('base64url');
 }
 

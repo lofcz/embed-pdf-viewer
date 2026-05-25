@@ -38,6 +38,7 @@ export type { RevokedJtisGuardOptions } from './auth/RevokedJtisGuard';
 export { DbJwksCacheStore } from './auth/JwksCacheStore';
 export { WorkerThreadPool } from './runtime/WorkerThreadPool';
 export type { WorkerThreadPoolOptions } from './runtime/WorkerThreadPool';
+export * from './security/index';
 
 // Phase 1 cloud platform surfaces.
 export { createSqliteDb } from './db/drivers/sqlite';

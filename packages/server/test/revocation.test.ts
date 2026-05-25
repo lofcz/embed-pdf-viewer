@@ -94,7 +94,7 @@ describe('POST /v1/admin/tokens/:jti/revoke (E2E)', () => {
     const db = createSqliteDb({ path: ':memory:' });
     await migrate(db, { source: { kind: 'inline', migrations: sqliteMigrations } });
     bundle = await buildApp({
-      jwtSecret: SECRET,
+      verifier: { mode: 'hs256', secret: SECRET },
       workerEntry: null,
       db,
       objectStore: new FsObjectStore({ root: storageRoot }),

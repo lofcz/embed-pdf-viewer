@@ -16,7 +16,7 @@ const SECRET = 'pages-demo-secret';
 let bundle: AppBundle | undefined;
 try {
   bundle = await buildApp({
-    jwtSecret: SECRET,
+    verifier: { mode: 'hs256', secret: SECRET },
     poolSize: 1,
     workerEntry: defaultWorkerEntryUrl,
   });

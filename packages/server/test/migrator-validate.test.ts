@@ -159,7 +159,7 @@ describe('buildApp drift guard', () => {
     try {
       await expect(
         buildApp({
-          jwtSecret: 'x',
+          verifier: { mode: 'hs256', secret: 'x' },
           workerEntry: null,
           db,
           objectStore: new FsObjectStore({ root: dir }),

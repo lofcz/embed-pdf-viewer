@@ -344,7 +344,7 @@ async function cmdServe(): Promise<void> {
   }
 
   const bundle = await buildApp({
-    jwtSecret: JWT_SECRET,
+    verifier: { mode: 'hs256', secret: JWT_SECRET },
     poolSize: POOL_SIZE,
     workerEntry: WORKER_ENTRY_URL,
     db: dbCtx?.db,

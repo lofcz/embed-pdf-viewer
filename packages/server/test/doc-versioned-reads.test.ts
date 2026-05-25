@@ -38,7 +38,7 @@ async function buildFixture(): Promise<Fixture> {
   await migrate(db, { source: { kind: 'inline', migrations: sqliteMigrations } });
   const store = new FsObjectStore({ root: storageRoot });
   const bundle = await buildApp({
-    jwtSecret: SECRET,
+    verifier: { mode: 'hs256', secret: SECRET },
     workerEntry: STUB_ENTRY,
     poolSize: 2,
     db,
