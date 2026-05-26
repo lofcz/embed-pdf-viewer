@@ -144,7 +144,7 @@ export class LocalEngine implements Engine {
       if (payload.tag !== 'open') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
-      return new LocalDocumentHandle(payload.docId, queue, this.imageEncoder);
+      return new LocalDocumentHandle(payload.docId, queue, this.imageEncoder, payload.security);
     });
   }
 

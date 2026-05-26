@@ -6,6 +6,7 @@ import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 export interface DocumentSecurityProbeInput {
   key: string;
   expectedSha: string;
+  password?: string | null;
   signal?: AbortSignal;
 }
 
@@ -46,7 +47,7 @@ export class DocumentSecurityProbe {
             kind: 'document.probeSecurityFile' as const,
             jobId,
             path: handle!.path,
-            password: null,
+            password: input.password ?? null,
           }),
         input.signal,
       );

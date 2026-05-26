@@ -103,6 +103,11 @@ h2 {
   font-size: 16px;
 }
 
+h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
 #status {
   color: #58686d;
   margin-top: 4px;
@@ -146,6 +151,33 @@ h2 {
   border: 1px solid #d7e1e4;
   border-radius: 6px;
   background: #f8fbfb;
+}
+
+.security-tools {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d7e1e4;
+  border-radius: 6px;
+  background: #f8fbfb;
+}
+
+.security-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.security-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(150px, 220px) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.security-state {
+  background: #ffffff;
 }
 
 .render-tools {
@@ -274,6 +306,12 @@ pre {
   }
 
   .download-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .security-head,
+  .security-grid {
+    display: grid;
     grid-template-columns: 1fr;
   }
 }

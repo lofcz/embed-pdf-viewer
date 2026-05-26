@@ -7,6 +7,8 @@ import {
   type DocumentAnnotationsService,
   type DocumentHandle,
   type DocumentPagesService,
+  type DocumentSecurityProbeInfo,
+  type DocumentSecurityService,
   type MetadataService,
   type PageHandle,
   type PageObjectNumber,
@@ -20,6 +22,7 @@ import { LocalMetadataService } from './LocalMetadataService';
 import { LocalDocumentAnnotationsService } from './LocalDocumentAnnotationsService';
 import { LocalDocumentPagesService } from './LocalDocumentPagesService';
 import { LocalPageHandle } from './LocalPageHandle';
+import { LocalDocumentSecurityService } from './LocalDocumentSecurityService';
 
 export class LocalDocumentHandle implements DocumentHandle {
   readonly capabilities = {
@@ -29,14 +32,17 @@ export class LocalDocumentHandle implements DocumentHandle {
   readonly metadata: MetadataService;
   readonly annotations: DocumentAnnotationsService;
   readonly pages: DocumentPagesService;
+  readonly security: DocumentSecurityService;
   private closed = false;
 
   constructor(
     readonly id: string,
     private readonly queue: WorkerQueue,
     private readonly imageEncoder: LocalImageEncoder,
+    initialSecurity: DocumentSecurityProbeInfo,
   ) {
     const view = { isClosed: () => this.closed };
+    this.security = new LocalDocumentSecurityService(initialSecurity, id, queue, view);
     this.metadata = new LocalMetadataService(id, queue, view);
     this.annotations = new LocalDocumentAnnotationsService(id, queue, view);
     this.pages = new LocalDocumentPagesService(id, queue, view);

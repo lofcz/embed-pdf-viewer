@@ -120,6 +120,26 @@ function pageState(generation = 0) {
   };
 }
 
+function headPayload(id: string, docVersion: number, baseSha = 'stub-sha') {
+  return {
+    id,
+    baseSha,
+    storageSizeBytes: 1024,
+    docVersion,
+    state: 'ready',
+    encryption: { state: 'none', requiresPassword: false },
+    permissions: {
+      known: true,
+      bits: 0xffffffff,
+      allAllowed: true,
+      openedAs: 'none',
+      securityHandlerRevision: null,
+      canUpgradeToOwner: false,
+    },
+    access: { required: false, reasons: [] },
+  };
+}
+
 function buildStub(initial: ServerState): StubbedFixture {
   const state: ServerState = { ...initial };
   const calls: CallLog[] = [];
@@ -133,17 +153,10 @@ function buildStub(initial: ServerState): StubbedFixture {
 
     const headMatch = path.match(/^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/head$/);
     if (headMatch && method === 'GET') {
-      return new Response(
-        JSON.stringify({
-          id: headMatch[1],
-          baseSha: 'stub-sha',
-          pageCount: 1,
-          storageSizeBytes: 1024,
-          docVersion: state.docVersion,
-          state: 'ready',
-        }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      );
+      return new Response(JSON.stringify(headPayload(headMatch[1]!, state.docVersion)), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
 
     const manifestMatch = path.match(
@@ -680,12 +693,8 @@ describe('CloudEngine schema parity — DocumentHeadSchema / DocumentManifestSch
   // catches it before the cloud SDK silently regresses.
   test('schemas accept the stub fixture payloads', () => {
     const head = DocumentHeadSchema.safeParse({
-      id: DOC_ID,
-      baseSha: 'sha',
-      pageCount: 1,
+      ...headPayload(DOC_ID, 1, 'sha'),
       storageSizeBytes: 1,
-      docVersion: 1,
-      state: 'ready',
     });
     expect(head.success).toBe(true);
 

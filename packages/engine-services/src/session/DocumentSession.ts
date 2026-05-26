@@ -1,5 +1,6 @@
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import type {
+  DocumentSecurityProbeInfo,
   PageObjectNumber,
   PageState,
   PdfSaveMode,
@@ -21,6 +22,11 @@ import {
 import type { PageRecord } from './PageRecord';
 import { PagePtrPool } from './PagePtrPool';
 import { LocalRevisionAuthority, type RevisionAuthority } from './RevisionStore';
+
+// PDF Standard security handlers reserve bits 1-2 as 0. PDFium masks even
+// owner permissions through that convention, so full effective permissions for
+// an encrypted document are 0xFFFFFFFC rather than 0xFFFFFFFF.
+const ALL_STANDARD_SECURITY_PERMISSIONS = 0xfffffffc;
 
 /**
  * Owns the lifecycle of a single open PDFium document and the v3
@@ -90,6 +96,75 @@ export class DocumentSession {
   /** Number of pages in the document. */
   pageCount(): number {
     return this.runtime.fn.FPDF_GetPageCount(this.requireDocPtr());
+  }
+
+  currentSecurityInfo(): DocumentSecurityProbeInfo {
+    const docPtr = this.requireDocPtr();
+    const encrypted = this.runtime.fn.EPDF_IsEncrypted(docPtr);
+    const bits = normalizeU32(this.runtime.fn.FPDF_GetDocUserPermissions(docPtr));
+    return {
+      encryptionState: encrypted ? 'encrypted' : 'none',
+      encryptionRequiresPassword: false,
+      securityHandlerRevision: encrypted
+        ? this.runtime.fn.FPDF_GetSecurityHandlerRevision(docPtr)
+        : null,
+      pdfPermissionsBits: bits,
+      pdfPermissionsAllAllowed: hasAllStandardSecurityPermissions(bits),
+      pdfOpenedAs: encrypted
+        ? this.runtime.fn.EPDF_IsOwnerUnlocked(docPtr)
+          ? 'owner'
+          : 'user'
+        : 'none',
+      securityProbedAt: Date.now(),
+    };
+  }
+
+  checkPasswordPermissions(
+    password: string,
+    mode: 'any' | 'owner' = 'any',
+  ): DocumentSecurityProbeInfo {
+    const docPtr = this.requireDocPtr();
+    const { mem, fn } = this.runtime;
+    const kindPtr = mem.alloc(4);
+    const userPermissionsPtr = mem.alloc(4);
+    const effectivePermissionsPtr = mem.alloc(4);
+    const revisionPtr = mem.alloc(4);
+    try {
+      mem.poke(kindPtr, 'i32', 0);
+      mem.poke(userPermissionsPtr, 'i32', 0);
+      mem.poke(effectivePermissionsPtr, 'i32', 0);
+      mem.poke(revisionPtr, 'i32', 0);
+      const ok = fn.EPDF_CheckPasswordPermissions(
+        docPtr,
+        password,
+        kindPtr,
+        userPermissionsPtr,
+        effectivePermissionsPtr,
+        revisionPtr,
+      );
+      if (!ok) {
+        throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'incorrect document password');
+      }
+      const openedAs = openedAsFromCode(Number(mem.peek(kindPtr, 'i32')));
+      if (mode === 'owner' && openedAs !== 'owner') {
+        throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'owner password required');
+      }
+      const bits = normalizeU32(Number(mem.peek(effectivePermissionsPtr, 'i32')));
+      return {
+        encryptionState: openedAs === 'none' ? 'none' : 'encrypted',
+        encryptionRequiresPassword: false,
+        securityHandlerRevision: openedAs === 'none' ? null : Number(mem.peek(revisionPtr, 'i32')),
+        pdfPermissionsBits: bits,
+        pdfPermissionsAllAllowed: hasAllStandardSecurityPermissions(bits),
+        pdfOpenedAs: openedAs,
+        securityProbedAt: Date.now(),
+      };
+    } finally {
+      mem.free(revisionPtr);
+      mem.free(effectivePermissionsPtr);
+      mem.free(userPermissionsPtr);
+      mem.free(kindPtr);
+    }
   }
 
   /**
@@ -405,4 +480,23 @@ const FPDF_NO_INCREMENTAL = 1 << 1;
 
 function pdfSaveModeFlags(mode: PdfSaveMode): number {
   return mode === 'incremental' ? FPDF_INCREMENTAL : FPDF_NO_INCREMENTAL;
+}
+
+function normalizeU32(value: number): number {
+  return value >>> 0;
+}
+
+function hasAllStandardSecurityPermissions(bits: number): boolean {
+  return (
+    (normalizeU32(bits) & ALL_STANDARD_SECURITY_PERMISSIONS) >>> 0 ===
+    ALL_STANDARD_SECURITY_PERMISSIONS
+  );
+}
+
+function openedAsFromCode(code: number): 'none' | 'user' | 'owner' {
+  // Mirrors EPDF_PASSWORD_PERMISSION_* in public/fpdfview.h:
+  // invalid=0, none=1, user=2, owner=3.
+  if (code === 3) return 'owner';
+  if (code === 2) return 'user';
+  return 'none';
 }

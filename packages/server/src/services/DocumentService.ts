@@ -4,14 +4,18 @@ import { join } from 'node:path';
 import {
   EngineError,
   EngineErrorCode,
+  securityStateFromProbe,
   wirePack,
+  type DocumentSecurityState,
   type DocumentMetadata,
+  type DocumentSecurityProbeInfo,
   type PageState,
   type PdfSaveMode,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import type { ManifestPage } from '@embedpdf/engine-core/wire';
 import type { DocumentsRepo, DocumentRow } from '../db/repos/documents.repo';
+import type { PdfPasswordVerificationsRepo } from '../db/repos/pdf_password_verifications.repo';
 import type { BaseFileCache, LocalFileHandle } from '../storage/BaseFileCache';
 import type { ObjectStore } from '../storage/ObjectStore';
 import { StorageKeys } from '../storage/keys';
@@ -39,13 +43,14 @@ export interface DocumentHead {
   encryption: {
     state: DocumentRow['security']['encryptionState'];
     requiresPassword: boolean | null;
-    permissions: {
-      known: boolean;
-      allAllowed?: boolean;
-      bits?: number;
-      openedAs?: NonNullable<DocumentRow['security']['pdfOpenedAs']>;
-      securityHandlerRevision?: number;
-    } | null;
+  };
+  permissions: {
+    known: boolean;
+    bits: number | null;
+    allAllowed: boolean | null;
+    openedAs: NonNullable<DocumentRow['security']['pdfOpenedAs']> | null;
+    securityHandlerRevision: number | null;
+    canUpgradeToOwner: boolean;
   };
   access: {
     required: boolean;
@@ -76,6 +81,7 @@ export interface DocumentServiceOptions {
   storage: ObjectStore;
   pool: WorkerThreadPool;
   layerState: LayerStateService;
+  passwordVerifications?: PdfPasswordVerificationsRepo;
 }
 
 export interface OpenContext {
@@ -118,6 +124,7 @@ export class DocumentService {
   private readonly storage: ObjectStore;
   private readonly pool: WorkerThreadPool;
   private readonly layerState: LayerStateService;
+  private readonly passwordVerifications: PdfPasswordVerificationsRepo | null;
   private readonly heads = new Map<string, DocumentHead>();
   private readonly opens = new Map<string, Promise<DocumentHead>>();
   private readonly baseHandles = new Map<string, LocalFileHandle>();
@@ -131,6 +138,7 @@ export class DocumentService {
     this.storage = opts.storage;
     this.pool = opts.pool;
     this.layerState = opts.layerState;
+    this.passwordVerifications = opts.passwordVerifications ?? null;
   }
 
   /**
@@ -140,12 +148,16 @@ export class DocumentService {
    *
    * Concurrent first-callers share one open via singleflight.
    */
-  async openOnPool(ctx: OpenContext, docId: string): Promise<DocumentHead> {
+  async openOnPool(
+    ctx: OpenContext,
+    docId: string,
+    password: string | null = null,
+  ): Promise<DocumentHead> {
     const cached = this.heads.get(docId);
     if (cached) return cached;
     const inflight = this.opens.get(docId);
     if (inflight) return inflight;
-    const promise = this.doOpen(ctx, docId);
+    const promise = this.doOpen(ctx, docId, password);
     this.opens.set(docId, promise);
     try {
       const head = await promise;
@@ -163,10 +175,16 @@ export class DocumentService {
    */
   async getHead(ctx: OpenContext, docId: string): Promise<DocumentHead> {
     const row = await this.requireReadyRow(ctx, docId);
-    return buildHead(row);
+    const head = buildHead(row);
+    void this.warm(ctx, docId).catch(() => undefined);
+    return head;
   }
 
-  private async doOpen(ctx: OpenContext, docId: string): Promise<DocumentHead> {
+  private async doOpen(
+    ctx: OpenContext,
+    docId: string,
+    password: string | null = null,
+  ): Promise<DocumentHead> {
     const row = await this.requireReadyRow(ctx, docId);
     const baseSha = requireBaseSha(row);
 
@@ -183,7 +201,7 @@ export class DocumentService {
           baseKey: baseSha,
           basePath: handle!.path,
           layer: { kind: 'fresh' as const },
-          password: null,
+          password,
         });
       const result = await this.pool.runOpen(docId, baseSha, build);
       if (result.tag !== 'open') {
@@ -214,6 +232,7 @@ export class DocumentService {
 
   async getLayerHead(ctx: OpenContext, docId: string, layerName: string): Promise<DocumentHead> {
     const head = await this.getHead(ctx, docId);
+    void this.ensureLayerOnPool(ctx, docId, layerName).catch(() => undefined);
     const layer = await this.layerState.repos.layers.findByDocAndName(docId, layerName);
     return layer ? { ...head, docVersion: layer.docVersion } : head;
   }
@@ -243,13 +262,18 @@ export class DocumentService {
     return this.layerState.buildLayerManifest(docId, head.baseSha, layerName, layer, pages);
   }
 
-  async ensureLayerOnPool(ctx: OpenContext, docId: string, layerName: string): Promise<void> {
+  async ensureLayerOnPool(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string,
+    password: string | null = null,
+  ): Promise<void> {
     const key = `${docId}::${layerName}`;
     if (this.openedLayerSessions.has(key)) return;
     const existing = this.layerOpens.get(key);
     if (existing) return existing;
 
-    const promise = this.openLayerOnPool(ctx, docId, layerName)
+    const promise = this.openLayerOnPool(ctx, docId, layerName, password)
       .then(() => {
         this.openedLayerSessions.add(key);
       })
@@ -286,6 +310,83 @@ export class DocumentService {
    */
   async warm(ctx: OpenContext, docId: string): Promise<DocumentHead> {
     return this.openOnPool(ctx, docId);
+  }
+
+  async unlockLayerAccess(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string,
+    input: { password?: string | null; mode?: 'any' | 'owner' },
+  ): Promise<{ security: DocumentSecurityState; probe: DocumentSecurityProbeInfo }> {
+    const row = await this.requireReadyRow(ctx, docId);
+    const baseSha = requireBaseSha(row);
+    const password = input.password ?? null;
+    const mode = input.mode ?? 'any';
+
+    if (row.security.encryptionRequiresPassword === true && !password) {
+      throw new EngineError(EngineErrorCode.DocPasswordRequired, 'document password required');
+    }
+
+    if (password && this.passwordVerifications) {
+      const cached = await this.passwordVerifications.findValid({
+        tenantId: ctx.tenantId,
+        docId,
+        baseSha,
+        securityFingerprint: securityFingerprint(row),
+        password,
+      });
+      if (cached) {
+        if (mode === 'owner' && cached.openedAs !== 'owner') {
+          throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'owner password required');
+        }
+        const probe = securityInfoFromCachedVerification(cached);
+        return {
+          probe,
+          security: securityStateFromProbe(probe, { accessEndpoint: '/v1/access' }),
+        };
+      }
+    }
+
+    await this.ensureLayerOnPool(ctx, docId, layerName, password);
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'document.checkPasswordPermissions' as const,
+        jobId,
+        docId,
+        layerName,
+        password: password ?? '',
+        mode,
+      });
+    const result = await this.pool.run(docId, build);
+    if (result.tag !== 'document.checkPasswordPermissions') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected security payload: ${result.tag}`,
+      );
+    }
+
+    if (password && this.passwordVerifications && result.security.pdfPermissionsBits !== null) {
+      await this.passwordVerifications.upsert(
+        {
+          tenantId: ctx.tenantId,
+          docId,
+          baseSha,
+          securityFingerprint: securityFingerprint(row),
+          password,
+        },
+        {
+          openedAs: result.security.pdfOpenedAs ?? 'none',
+          pdfPermissionsBits: result.security.pdfPermissionsBits,
+          pdfPermissionsAllAllowed: result.security.pdfPermissionsAllAllowed ?? false,
+          securityHandlerRevision: result.security.securityHandlerRevision,
+        },
+      );
+    }
+
+    return {
+      probe: result.security,
+      security: securityStateFromProbe(result.security, { accessEndpoint: '/v1/access' }),
+    };
   }
 
   private async requireReadyRow(ctx: OpenContext, docId: string): Promise<DocumentRow> {
@@ -441,8 +542,13 @@ export class DocumentService {
     return annotationsResult.snapshot.pages.map((page) => page.pageState);
   }
 
-  private async openLayerOnPool(ctx: OpenContext, docId: string, layerName: string): Promise<void> {
-    const head = await this.openOnPool(ctx, docId);
+  private async openLayerOnPool(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string,
+    password: string | null = null,
+  ): Promise<void> {
+    const head = await this.openOnPool(ctx, docId, password);
     const handle = this.baseHandles.get(docId);
     if (!handle) {
       throw new EngineError(
@@ -468,7 +574,7 @@ export class DocumentService {
         baseKey: head.baseSha,
         basePath: handle.path,
         layer: layerSource,
-        password: null,
+        password,
       };
       return wirePack(request);
     };
@@ -570,22 +676,19 @@ function layerSessionKey(docId: string, layerName: string): string {
 
 function buildHead(row: DocumentRow): DocumentHead {
   const baseSha = requireBaseSha(row);
-  const permissions =
-    row.security.pdfPermissionsBits === null
-      ? null
-      : {
-          known: true,
-          ...(row.security.pdfPermissionsAllAllowed !== null
-            ? { allAllowed: row.security.pdfPermissionsAllAllowed }
-            : {}),
-          bits: row.security.pdfPermissionsBits,
-          ...(row.security.pdfOpenedAs ? { openedAs: row.security.pdfOpenedAs } : {}),
-          ...(row.security.securityHandlerRevision !== null
-            ? { securityHandlerRevision: row.security.securityHandlerRevision }
-            : {}),
-        };
+  const permissions = {
+    known: row.security.pdfPermissionsBits !== null,
+    bits: row.security.pdfPermissionsBits,
+    allAllowed: row.security.pdfPermissionsAllAllowed,
+    openedAs: row.security.pdfOpenedAs,
+    securityHandlerRevision: row.security.securityHandlerRevision,
+    canUpgradeToOwner:
+      row.security.encryptionState === 'encrypted' && row.security.pdfOpenedAs !== 'owner',
+  };
   const reasons: DocumentHead['access']['reasons'] = [];
-  if (row.security.encryptionRequiresPassword === true) reasons.push('password');
+  if (row.security.encryptionRequiresPassword === true && !permissions.known) {
+    reasons.push('password');
+  }
   if (row.security.encryptionState === 'unknown') reasons.push('permissions-unknown');
 
   return {
@@ -597,8 +700,8 @@ function buildHead(row: DocumentRow): DocumentHead {
     encryption: {
       state: row.security.encryptionState,
       requiresPassword: row.security.encryptionRequiresPassword,
-      permissions,
     },
+    permissions,
     access: {
       required: reasons.length > 0,
       reasons,
@@ -615,6 +718,35 @@ function requireBaseSha(row: DocumentRow): string {
     );
   }
   return row.baseSha;
+}
+
+function securityFingerprint(row: DocumentRow): string {
+  return [
+    row.security.encryptionState,
+    row.security.encryptionRequiresPassword === null
+      ? 'unknown'
+      : row.security.encryptionRequiresPassword
+        ? 'password'
+        : 'open',
+    row.security.securityHandlerRevision ?? 'none',
+  ].join(':');
+}
+
+function securityInfoFromCachedVerification(row: {
+  openedAs: 'none' | 'user' | 'owner';
+  pdfPermissionsBits: number;
+  pdfPermissionsAllAllowed: boolean;
+  securityHandlerRevision: number | null;
+}): DocumentSecurityProbeInfo {
+  return {
+    encryptionState: row.openedAs === 'none' ? 'none' : 'encrypted',
+    encryptionRequiresPassword: false,
+    securityHandlerRevision: row.securityHandlerRevision,
+    pdfPermissionsBits: row.pdfPermissionsBits,
+    pdfPermissionsAllAllowed: row.pdfPermissionsAllAllowed,
+    pdfOpenedAs: row.openedAs,
+    securityProbedAt: Date.now(),
+  };
 }
 
 function safeFilePart(value: string): string {

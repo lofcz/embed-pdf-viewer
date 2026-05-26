@@ -238,6 +238,15 @@ export interface DocumentProbeSecurityFileWorkerRequest {
   password: string | null;
 }
 
+export interface DocumentCheckPasswordPermissionsWorkerRequest {
+  kind: 'document.checkPasswordPermissions';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  password: string;
+  mode?: 'any' | 'owner';
+}
+
 export interface CloseWorkerRequest {
   kind: 'close';
   jobId: WorkerJobId;
@@ -281,12 +290,13 @@ export type WorkerRequest =
   | DocumentSaveBufferWorkerRequest
   | DocumentSaveFileWorkerRequest
   | DocumentProbeSecurityFileWorkerRequest
+  | DocumentCheckPasswordPermissionsWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
 
 export type WorkerResultPayload =
-  | { tag: 'open'; docId: string }
+  | { tag: 'open'; docId: string; security: DocumentSecurityProbeInfo }
   | { tag: 'metadata.read'; metadata: DocumentMetadata }
   | { tag: 'annotations.listRawAll'; snapshot: AnnotationListSnapshotAllPages }
   | { tag: 'annotations.listRawPage'; snapshot: AnnotationListPageSnapshot }
@@ -328,6 +338,7 @@ export type WorkerResultPayload =
   | { tag: 'document.saveBuffer'; bytes: ArrayBuffer; size: number }
   | { tag: 'document.saveFile'; path: string }
   | { tag: 'document.probeSecurityFile'; security: DocumentSecurityProbeInfo }
+  | { tag: 'document.checkPasswordPermissions'; security: DocumentSecurityProbeInfo }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

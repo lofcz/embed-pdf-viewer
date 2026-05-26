@@ -15,6 +15,9 @@ import {
 export const DEFAULT_LAYER_NAME = 'default';
 
 export const wirePaths = {
+  /** POST: grant document access/caching credentials for the current bearer. */
+  access: '/v1/access',
+
   /**
    * GET: open the document referenced by the doc-scoped JWT and
    * return its `DocumentHead`. The server materialises the base

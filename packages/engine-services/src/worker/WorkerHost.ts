@@ -7,6 +7,7 @@ import {
   wirePack,
   type AnnotationsCreateWorkerRequest,
   type AnnotationsDeleteWorkerRequest,
+  type DocumentCheckPasswordPermissionsWorkerRequest,
   type DocumentProbeSecurityFileWorkerRequest,
   type DocumentSaveBufferWorkerRequest,
   type DocumentSaveFileWorkerRequest,
@@ -141,6 +142,9 @@ export class WorkerHost {
         case 'document.probeSecurityFile':
           resultPack = this.handleDocumentProbeSecurityFile(msg);
           break;
+        case 'document.checkPasswordPermissions':
+          resultPack = this.handleDocumentCheckPasswordPermissions(msg);
+          break;
         case 'close':
           resultPack = this.handleClose(msg);
           break;
@@ -198,7 +202,11 @@ export class WorkerHost {
       session.openFromHandle(openLayerDocument(this.runtime, base, req.layer, req.password));
     }
     this.sessions.set(key, session);
-    return wirePack({ tag: 'open', docId: req.docId });
+    return wirePack({
+      tag: 'open',
+      docId: req.docId,
+      security: session.checkPasswordPermissions(req.password ?? ''),
+    });
   }
 
   private handleMetadataRead(
@@ -374,6 +382,14 @@ export class WorkerHost {
     const reader = new DocumentSecurityReader(this.runtime);
     const security = reader.probeFile(req.path, req.password);
     return wirePack({ tag: 'document.probeSecurityFile', security });
+  }
+
+  private handleDocumentCheckPasswordPermissions(
+    req: DocumentCheckPasswordPermissionsWorkerRequest,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const security = session.checkPasswordPermissions(req.password, req.mode ?? 'any');
+    return wirePack({ tag: 'document.checkPasswordPermissions', security });
   }
 
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {

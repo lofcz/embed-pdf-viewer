@@ -8,6 +8,7 @@ import { BaseFileCache } from '../storage/BaseFileCache';
 import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
 import type { Database as Schema } from '../db/schema';
 import { DocumentsRepo } from '../db/repos/documents.repo';
+import { PdfPasswordVerificationsRepo } from '../db/repos/pdf_password_verifications.repo';
 import { TenantsRepo } from '../db/repos/tenants.repo';
 import { DocumentPagesRepo, LayerPagesRepo, LayersRepo } from '../db/repos/page_state.repo';
 import { WeakAnnotationSessionsRepo } from '../db/repos/weak_annotation_sessions.repo';
@@ -25,6 +26,7 @@ import { DbJwksCacheStore } from '../auth/JwksCacheStore';
 import type { JwtVerifierConfig, RevocationCheck, JwksCacheStore } from '../auth/JwtVerifier';
 import { registerJwtAuth } from './jwt-plugin';
 import { registerDocsRoutes } from '../routes/docs';
+import { registerAccessRoutes } from '../routes/access';
 import { registerAnnotationRoutes } from '../routes/annotations';
 import { registerMetadataRoutes } from '../routes/metadata';
 import { registerPageRoutes } from '../routes/pages';
@@ -80,6 +82,13 @@ export interface BuildAppOptions {
    * so future services can consume it without changing boot wiring.
    */
   kms?: KmsKeyring;
+  /**
+   * HMAC secret for password verification cache rows. The cache stores a
+   * non-reversible proof, not the password; deployments should set this
+   * explicitly. Dev falls back to a local-only constant.
+   */
+  pdfPasswordVerificationHmacSecret?: string;
+  pdfPasswordVerificationTtlMs?: number;
   /**
    * If true and an admin call arrives for a tenant that doesn't have a
    * `tenants` row, lazily create one. Convenient for dev / single-tenant
@@ -305,6 +314,13 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         storage: opts.objectStore,
         pool,
         layerState: layerStateService,
+        passwordVerifications: new PdfPasswordVerificationsRepo(opts.db, {
+          hmacSecret:
+            opts.pdfPasswordVerificationHmacSecret ??
+            process.env['EMBEDPDF_PASSWORD_VERIFICATION_HMAC_SECRET'] ??
+            'embedpdf-dev-password-verification-secret',
+          ttlMs: opts.pdfPasswordVerificationTtlMs,
+        }),
       });
       layerService = new LayerService({
         db: opts.db,
@@ -317,6 +333,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         pool,
         storage: opts.objectStore,
       });
+      await registerAccessRoutes(app, { service: documentService });
       await registerDocsRoutes(app, { service: documentService });
       await registerMetadataRoutes(app, { service: documentService });
       await registerPageRoutes(app, {

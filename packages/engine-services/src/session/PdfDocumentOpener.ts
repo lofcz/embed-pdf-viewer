@@ -66,6 +66,7 @@ export function openFatMemoryDocument(
     if (!docPtr) {
       throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to open document');
     }
+    setRuntimeOwnerPermissionsIfEncrypted(runtime, docPtr);
     stack.push(() => fn.FPDF_CloseDocument(docPtr));
     return { kind: 'fat-memory', docPtr, close: () => stack.close() };
   } catch (error) {
@@ -108,6 +109,7 @@ export function openLayerDocument(
       throw layerOpenError(status);
     }
 
+    setRuntimeOwnerPermissionsIfEncrypted(runtime, docPtr);
     stack.push(() => fn.FPDF_CloseDocument(docPtr));
     return { kind: 'layer', docPtr, close: () => stack.close() };
   } catch (error) {
@@ -115,6 +117,16 @@ export function openLayerDocument(
     throw error;
   } finally {
     mem.free(statusPtr);
+  }
+}
+
+export function setRuntimeOwnerPermissionsIfEncrypted(
+  runtime: PdfRuntimeModule,
+  docPtr: Ptr,
+): void {
+  const { fn } = runtime;
+  if (fn.EPDF_IsEncrypted && fn.EPDF_SetRuntimeOwnerPermissions && fn.EPDF_IsEncrypted(docPtr)) {
+    fn.EPDF_SetRuntimeOwnerPermissions(docPtr, true);
   }
 }
 

@@ -79,6 +79,24 @@ app.innerHTML = `
         <button id="openToken" type="button">Open Token</button>
         <div id="claims" class="kv"></div>
 
+        <div class="security-tools">
+          <div class="security-head">
+            <h3>Security / Access</h3>
+            <button id="showSecurity" type="button">Show Current</button>
+          </div>
+          <div class="security-grid">
+            <label>Password <input id="documentPassword" type="password" autocomplete="current-password" /></label>
+            <label>Mode
+              <select id="unlockMode">
+                <option value="any">Any valid password</option>
+                <option value="owner">Owner password</option>
+              </select>
+            </label>
+            <button id="unlockDocument" type="button">Unlock / Access</button>
+          </div>
+          <div id="securityState" class="kv security-state"></div>
+        </div>
+
         <div class="split">
           <label>Page Object Number <input id="pageObjectNumber" inputmode="numeric" /></label>
           <button id="listPages" type="button">List Pages</button>
@@ -154,6 +172,11 @@ const els = {
   docs: must<HTMLDivElement>('docs'),
   openToken: must<HTMLButtonElement>('openToken'),
   claims: must<HTMLDivElement>('claims'),
+  documentPassword: must<HTMLInputElement>('documentPassword'),
+  unlockMode: must<HTMLSelectElement>('unlockMode'),
+  unlockDocument: must<HTMLButtonElement>('unlockDocument'),
+  showSecurity: must<HTMLButtonElement>('showSecurity'),
+  securityState: must<HTMLDivElement>('securityState'),
   pageObjectNumber: must<HTMLInputElement>('pageObjectNumber'),
   listPages: must<HTMLButtonElement>('listPages'),
   readText: must<HTMLButtonElement>('readText'),
@@ -201,6 +224,8 @@ els.uploadPdf.addEventListener('click', () => void run(uploadPdf));
 els.mintToken.addEventListener('click', () => void run(mintToken));
 els.exportAudit.addEventListener('click', () => void run(exportAudit));
 els.openToken.addEventListener('click', () => void run(openToken));
+els.showSecurity.addEventListener('click', () => void run(showSecurity));
+els.unlockDocument.addEventListener('click', () => void run(unlockDocument));
 els.listPages.addEventListener('click', () => void run(listPages));
 els.readText.addEventListener('click', () => void run(readText));
 els.readGeometry.addEventListener('click', () => void run(readGeometry));
@@ -279,7 +304,24 @@ async function openToken(): Promise<void> {
   const engine = createCloudEngine({ baseUrl: config.engineBaseUrl });
   doc = await engine.open({ kind: 'token', token });
   renderClaims(token);
+  renderSecurity(doc.security.current);
   await listPages();
+}
+
+async function showSecurity(): Promise<void> {
+  const opened = requireDoc();
+  renderSecurity(opened.security.current);
+  setOutput({ security: opened.security.current });
+}
+
+async function unlockDocument(): Promise<void> {
+  const opened = requireDoc();
+  const result = await opened.security.unlock({
+    password: els.documentPassword.value,
+    mode: unlockMode(),
+  });
+  renderSecurity(result.security);
+  setOutput(result);
 }
 
 async function listPages(): Promise<void> {
@@ -472,6 +514,13 @@ function downloadMode(): PdfSaveMode {
   throw new Error('Download mode must be incremental or rewrite.');
 }
 
+function unlockMode(): 'any' | 'owner' {
+  if (els.unlockMode.value === 'any' || els.unlockMode.value === 'owner') {
+    return els.unlockMode.value;
+  }
+  throw new Error('Unlock mode must be any or owner.');
+}
+
 function readPositiveInteger(raw: string, label: string): number {
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
@@ -520,6 +569,24 @@ function renderClaims(token: string): void {
     const row = document.createElement('div');
     row.innerHTML = `<span>${key}</span><strong>${JSON.stringify(claims[key])}</strong>`;
     els.claims.append(row);
+  }
+}
+
+function renderSecurity(value: DocumentHandle['security']['current']): void {
+  els.securityState.innerHTML = '';
+  const rows: Array<[string, unknown]> = [
+    ['encryption', value.encryption.state],
+    ['password', value.encryption.requiresPassword],
+    ['openedAs', value.permissions.openedAs],
+    ['permissions', value.permissions.known ? value.permissions.bits : 'unknown'],
+    ['allAllowed', value.permissions.allAllowed],
+    ['upgradeOwner', value.permissions.canUpgradeToOwner],
+    ['access', value.access.required ? value.access.reasons : false],
+  ];
+  for (const [key, rowValue] of rows) {
+    const row = document.createElement('div');
+    row.innerHTML = `<span>${key}</span><strong>${JSON.stringify(rowValue)}</strong>`;
+    els.securityState.append(row);
   }
 }
 

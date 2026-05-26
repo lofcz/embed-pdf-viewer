@@ -4,7 +4,10 @@ import { ensureInitialized } from '../../runtime-bootstrap';
 
 const FPDF_ERR_PASSWORD = 4;
 const FPDF_ERR_SECURITY = 5;
-const ALL_PERMISSIONS = 0xffffffff;
+// PDF Standard security handlers reserve bits 1-2 as 0. PDFium masks even
+// owner permissions through that convention, so full effective permissions for
+// an encrypted document are 0xFFFFFFFC rather than 0xFFFFFFFF.
+const ALL_STANDARD_SECURITY_PERMISSIONS = 0xfffffffc;
 
 export class DocumentSecurityReader {
   constructor(private readonly runtime: PdfRuntimeModule) {
@@ -62,7 +65,7 @@ export class DocumentSecurityReader {
           ? this.runtime.fn.FPDF_GetSecurityHandlerRevision(docPtr)
           : null,
         pdfPermissionsBits: bits,
-        pdfPermissionsAllAllowed: bits === ALL_PERMISSIONS,
+        pdfPermissionsAllAllowed: hasAllStandardSecurityPermissions(bits),
         pdfOpenedAs: openedAs,
         securityProbedAt: now,
       };
@@ -87,4 +90,11 @@ function unknownSecurity(now: number): DocumentSecurityProbeInfo {
 
 function normalizeU32(value: number): number {
   return value >>> 0;
+}
+
+function hasAllStandardSecurityPermissions(bits: number): boolean {
+  return (
+    (normalizeU32(bits) & ALL_STANDARD_SECURITY_PERMISSIONS) >>> 0 ===
+    ALL_STANDARD_SECURITY_PERMISSIONS
+  );
 }

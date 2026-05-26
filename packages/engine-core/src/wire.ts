@@ -7,8 +7,11 @@
 
 export {
   DocumentMetadataSchema,
+  AccessRequestSchema,
+  AccessResponseSchema,
   OpenDocumentResponseSchema,
   DocumentHeadSchema,
+  DocumentSecurityStateSchema,
   PdfSaveModeSchema,
   DocumentManifestSchema,
   ManifestPageSchema,
@@ -37,6 +40,8 @@ export {
 } from './wire/schemas';
 export type {
   OpenDocumentResponse,
+  AccessRequest,
+  AccessResponse,
   DocumentHead,
   DocumentManifest,
   ManifestPage,

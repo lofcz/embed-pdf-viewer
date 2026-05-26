@@ -62,6 +62,22 @@ async function tearDown(fx: Fixture | undefined): Promise<void> {
   await rm(fx.cacheRoot, { recursive: true, force: true });
 }
 
+async function waitFor(assertion: () => void): Promise<void> {
+  const deadline = Date.now() + 500;
+  let last: unknown;
+  while (Date.now() < deadline) {
+    try {
+      assertion();
+      return;
+    } catch (err) {
+      last = err;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+  }
+  if (last) throw last;
+  assertion();
+}
+
 function docToken(
   tenantId: string,
   docId: string,
@@ -186,12 +202,20 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
       baseSha: seed.sha,
       docVersion: 1,
       state: 'ready',
-      encryption: { state: 'unknown', requiresPassword: null, permissions: null },
+      encryption: { state: 'unknown', requiresPassword: null },
+      permissions: {
+        known: false,
+        bits: null,
+        allAllowed: null,
+        openedAs: null,
+        securityHandlerRevision: null,
+        canUpgradeToOwner: false,
+      },
       access: { required: true, reasons: ['permissions-unknown'], endpoint: '/v1/access' },
     });
   });
 
-  test('does not pin or materialise the base file for a head request', async () => {
+  test('returns head from DB and schedules a worker warm hint', async () => {
     const tenantId = 'tenant-pin';
     const docId = 'docpin111';
     await seedDocument(fx, tenantId, docId, { pageCount: 2 });
@@ -200,11 +224,13 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(200);
-    expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(0);
-    expect(fx.bundle.documentService!.stats().pinnedBaseFiles).toBe(0);
+    await waitFor(() => {
+      expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(1);
+      expect(fx.bundle.documentService!.stats().pinnedBaseFiles).toBe(1);
+    });
   });
 
-  test('head is DB-only and does not materialise on repeated calls', async () => {
+  test('repeated head calls share the same warm open', async () => {
     const tenantId = 'tenant-cache';
     const docId = 'docccc111';
     await seedDocument(fx, tenantId, docId);
@@ -223,15 +249,16 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
       headers: { Authorization: `Bearer ${tok}` },
     });
     expect(r1.status).toBe(200);
-    const materializes1 = events.filter((k) => k === 'materialize-start').length;
-    expect(materializes1).toBe(0);
+    await waitFor(() => {
+      expect(events.filter((k) => k === 'materialize-start').length).toBe(1);
+    });
 
     const r2 = await fetch(`${fx.baseUrl}/v1/docs/${docId}/head`, {
       headers: { Authorization: `Bearer ${tok}` },
     });
     expect(r2.status).toBe(200);
     const materializes2 = events.filter((k) => k === 'materialize-start').length;
-    expect(materializes2).toBe(0);
+    expect(materializes2).toBe(1);
   });
 
   test('accepts a tenant admin token (* scope) on doc routes (Model B)', async () => {
@@ -431,6 +458,74 @@ describe('Phase 3 doc routes — POST /v1/warm', () => {
   });
 });
 
+describe('Phase 6 access route — POST /v1/access', () => {
+  let fx: Fixture;
+  beforeEach(async () => {
+    fx = await buildFixture();
+  });
+  afterEach(async () => {
+    await tearDown(fx);
+  });
+
+  test('returns shared security state and none-CDN access info', async () => {
+    const tenantId = 'tenant-access';
+    const docId = 'docacc111';
+    await seedDocument(fx, tenantId, docId);
+
+    const res = await fetch(`${fx.baseUrl}/v1/access`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${docToken(tenantId, docId, { layer: 'default' })}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ docId, layerName: 'default' }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      security: { encryption: { state: string }; permissions: { known: boolean } };
+      cdn: { adapter: string; cache: { immutableVersionedReads: boolean } };
+    };
+    expect(body.security.encryption.state).toBe('none');
+    expect(body.security.permissions.known).toBe(true);
+    expect(body.cdn).toMatchObject({
+      adapter: 'none',
+      cache: { immutableVersionedReads: true },
+    });
+  });
+
+  test('verification cache stores SQLite-safe values and can be reused', async () => {
+    const tenantId = 'tenant-access-cache';
+    const docId = 'docacc222';
+    await seedDocument(fx, tenantId, docId);
+    const token = docToken(tenantId, docId, { layer: 'default' });
+    const body = { docId, layerName: 'default', password: 'Test', mode: 'any' };
+
+    const first = await fetch(`${fx.baseUrl}/v1/access`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    expect(first.status).toBe(200);
+
+    const second = await fetch(`${fx.baseUrl}/v1/access`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    expect(second.status).toBe(200);
+
+    const rows = await fx.db.selectFrom('pdf_password_verifications').selectAll().execute();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.pdf_permissions_all_allowed).toBe(1);
+  });
+});
+
 describe('Phase 3 doc routes — concurrency', () => {
   let fx: Fixture;
   beforeEach(async () => {
@@ -440,7 +535,7 @@ describe('Phase 3 doc routes — concurrency', () => {
     await tearDown(fx);
   });
 
-  test('concurrent /head calls stay DB-only', async () => {
+  test('concurrent /head calls share one warm open', async () => {
     const tenantId = 'tenant-concurrent';
     const docId = 'doccon1111';
     await seedDocument(fx, tenantId, docId);
@@ -458,8 +553,9 @@ describe('Phase 3 doc routes — concurrency', () => {
       ),
     );
     for (const r of responses) expect(r.status).toBe(200);
-    const materializes = events.filter((k) => k === 'materialize-start').length;
-    expect(materializes).toBe(0);
+    await waitFor(() => {
+      expect(events.filter((k) => k === 'materialize-start').length).toBe(1);
+    });
   });
 
   test('pool eviction releases the pinned base-file handle', async () => {

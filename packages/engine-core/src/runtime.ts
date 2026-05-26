@@ -14,6 +14,23 @@ export { AbortError, isAbortError } from './promise/AbortError';
 
 export type { Engine } from './engine/Engine';
 export type { DocumentHandle } from './engine/DocumentHandle';
+export {
+  permissionInfoFromProbe,
+  securityStateFromHead,
+  securityStateFromProbe,
+} from './engine/document-security-state';
+export type {
+  CdnAccessInfo,
+  DocumentAccessInfo,
+  DocumentAccessReason,
+  DocumentEncryptionState,
+  DocumentOpenMode,
+  DocumentSecurityService,
+  DocumentSecurityState,
+  DocumentUnlockInput,
+  DocumentUnlockResult,
+  PdfPermissionInfo,
+} from './engine/DocumentSecurityService';
 export type { DocumentCapabilities } from './engine/DocumentHandle';
 export type { MetadataService } from './engine/MetadataService';
 export type { PageHandle } from './engine/PageHandle';
@@ -49,6 +66,7 @@ export type {
   AnnotationsMoveWorkerRequest,
   DocumentSaveBufferWorkerRequest,
   DocumentSaveFileWorkerRequest,
+  DocumentCheckPasswordPermissionsWorkerRequest,
   DocumentProbeSecurityFileWorkerRequest,
   DocumentSecurityProbeInfo,
   PagesListWorkerRequest,

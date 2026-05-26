@@ -1,7 +1,7 @@
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import type { PdfFileAccessHandle, PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import type { AcquiredBaseDocument } from './PdfDocumentOpener';
-import { CloseStack } from './PdfDocumentOpener';
+import { CloseStack, setRuntimeOwnerPermissionsIfEncrypted } from './PdfDocumentOpener';
 
 interface BaseEntry {
   key: string;
@@ -38,6 +38,7 @@ export class BaseDocumentRegistry {
       if (!basePtr) {
         throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to open base document');
       }
+      setRuntimeOwnerPermissionsIfEncrypted(this.runtime, basePtr);
       stack.push(() => fn.EPDF_ReleaseBaseDocument(basePtr));
       return this.insert(opts.key, basePtr, () => stack.close());
     } catch (error) {
@@ -65,6 +66,7 @@ export class BaseDocumentRegistry {
       if (!basePtr) {
         throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to open base document');
       }
+      setRuntimeOwnerPermissionsIfEncrypted(this.runtime, basePtr);
       stack.push(() => fn.EPDF_ReleaseBaseDocument(basePtr));
       return this.insert(opts.key, basePtr, () => stack.close());
     } catch (error) {

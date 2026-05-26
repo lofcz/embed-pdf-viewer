@@ -14,6 +14,7 @@ import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
+import type { DocumentSecurityState, PdfPermissionInfo } from '../engine/DocumentSecurityService';
 import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
 import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
@@ -71,15 +72,14 @@ export const DocumentHeadSchema = z.object({
   encryption: z.object({
     state: z.enum(['unknown', 'none', 'encrypted', 'unsupported']),
     requiresPassword: z.boolean().nullable(),
-    permissions: z
-      .object({
-        known: z.boolean(),
-        allAllowed: z.boolean().optional(),
-        bits: z.number().int().nonnegative().optional(),
-        openedAs: z.enum(['none', 'user', 'owner']).optional(),
-        securityHandlerRevision: z.number().int().optional(),
-      })
-      .nullable(),
+  }),
+  permissions: z.object({
+    known: z.boolean(),
+    bits: z.number().int().nonnegative().nullable(),
+    allAllowed: z.boolean().nullable(),
+    openedAs: z.enum(['none', 'user', 'owner']).nullable(),
+    securityHandlerRevision: z.number().int().nullable(),
+    canUpgradeToOwner: z.boolean(),
   }),
   access: z.object({
     required: z.boolean(),
@@ -88,6 +88,80 @@ export const DocumentHeadSchema = z.object({
   }),
 });
 export type DocumentHead = z.infer<typeof DocumentHeadSchema>;
+
+export const AccessRequestSchema = z.object({
+  docId: z.string().min(1),
+  layerName: z.string().min(1).optional(),
+  password: z.string().optional(),
+  mode: z.enum(['any', 'owner']).optional(),
+});
+export type AccessRequest = z.infer<typeof AccessRequestSchema>;
+
+const PdfPermissionInfoObjectSchema: z.ZodType<PdfPermissionInfo> = z.object({
+  known: z.boolean(),
+  allAllowed: z.boolean().nullable(),
+  bits: z.number().int().nonnegative().nullable(),
+  openedAs: z.enum(['none', 'user', 'owner']).nullable(),
+  securityHandlerRevision: z.number().int().nullable(),
+});
+
+const PdfPermissionInfoSchema = PdfPermissionInfoObjectSchema.nullable();
+
+export const DocumentSecurityStateSchema: z.ZodType<DocumentSecurityState> = z.object({
+  encryption: z.object({
+    state: z.enum(['unknown', 'none', 'encrypted', 'unsupported']),
+    requiresPassword: z.boolean().nullable(),
+  }),
+  permissions: z.object({
+    known: z.boolean(),
+    bits: z.number().int().nonnegative().nullable(),
+    allAllowed: z.boolean().nullable(),
+    openedAs: z.enum(['none', 'user', 'owner']).nullable(),
+    securityHandlerRevision: z.number().int().nullable(),
+    canUpgradeToOwner: z.boolean(),
+  }),
+  access: z.object({
+    required: z.boolean(),
+    reasons: z.array(z.enum(['password', 'cdn', 'permissions-unknown'])),
+    endpoint: z.string().optional(),
+  }),
+});
+
+export const AccessResponseSchema = z.object({
+  security: DocumentSecurityStateSchema,
+  cdn: z.object({
+    adapter: z.enum([
+      'none',
+      'cloudfront',
+      'cloud-cdn',
+      'cloudflare',
+      'bunny',
+      'azure-fd',
+      'custom-hmac',
+    ]),
+    expiresAt: z.number().int().positive(),
+    cache: z.object({
+      scope: z.enum(['browser-private', 'edge-shared']),
+      immutableVersionedReads: z.boolean(),
+    }),
+    baseUrlOverrides: z.record(z.string(), z.string()).nullable(),
+    authHeader: z.object({ name: z.string(), value: z.string() }).nullable(),
+  }),
+  passwordGrant: z.string().nullable(),
+  pdfPermissions: PdfPermissionInfoSchema,
+  scope: z.array(z.string()),
+  identity: z.object({
+    user_id: z.string().optional(),
+    group_id: z.string().optional(),
+    groups: z.array(z.string()).optional(),
+    display_name: z.string().optional(),
+  }),
+  originPasswordPolicy: z.object({
+    mode: z.enum(['not-needed', 'client-retry', 'server-session']),
+  }),
+  expiresAt: z.number().int().positive(),
+});
+export type AccessResponse = z.infer<typeof AccessResponseSchema>;
 
 export const PdfSaveModeSchema: z.ZodType<PdfSaveMode> = z.enum(['incremental', 'rewrite']);
 

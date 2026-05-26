@@ -20,6 +20,18 @@ const { readFileSync } = require('node:fs');
 // in a per-process Map and serves `pages.list` from it.
 const openDocs = new Map();
 
+function openSecurity() {
+  return {
+    encryptionState: 'none',
+    encryptionRequiresPassword: false,
+    securityHandlerRevision: null,
+    pdfPermissionsBits: 0xffffffff,
+    pdfPermissionsAllAllowed: true,
+    pdfOpenedAs: 'none',
+    securityProbedAt: Date.now(),
+  };
+}
+
 function sessionKey(msg) {
   return msg.layerName ? `${msg.docId}::layer:${msg.layerName}` : msg.docId;
 }
@@ -127,7 +139,7 @@ parentPort.on('message', (msg) => {
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,
-        result: { tag: 'open', docId: msg.docId },
+        result: { tag: 'open', docId: msg.docId, security: openSecurity() },
       });
       return;
     }
@@ -140,7 +152,7 @@ parentPort.on('message', (msg) => {
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,
-        result: { tag: 'open', docId: msg.docId },
+        result: { tag: 'open', docId: msg.docId, security: openSecurity() },
       });
       return;
     }
@@ -154,7 +166,18 @@ parentPort.on('message', (msg) => {
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,
-        result: { tag: 'open', docId: msg.docId },
+        result: { tag: 'open', docId: msg.docId, security: openSecurity() },
+      });
+      return;
+    }
+    case 'document.checkPasswordPermissions': {
+      parentPort.postMessage({
+        kind: 'resolve',
+        jobId: msg.jobId,
+        result: {
+          tag: 'document.checkPasswordPermissions',
+          security: openSecurity(),
+        },
       });
       return;
     }

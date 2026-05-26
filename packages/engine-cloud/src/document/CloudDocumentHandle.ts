@@ -7,6 +7,7 @@ import {
   type DocumentAnnotationsService,
   type DocumentHandle,
   type DocumentPagesService,
+  type DocumentSecurityService,
   type MutationMeta,
   type PageHandle,
   type PageObjectNumber,
@@ -25,6 +26,7 @@ import { CloudMetadataService } from './CloudMetadataService';
 import { CloudDocumentAnnotationsService } from './CloudDocumentAnnotationsService';
 import { CloudDocumentPagesService } from './CloudDocumentPagesService';
 import { CloudPageHandle } from './CloudPageHandle';
+import { CloudDocumentSecurityService } from './CloudDocumentSecurityService';
 
 /**
  * Read accessor handed to every `CloudPage…Service`. The closure
@@ -50,6 +52,7 @@ export class CloudDocumentHandle implements DocumentHandle {
   readonly metadata: CloudMetadataService;
   readonly annotations: DocumentAnnotationsService;
   readonly pages: DocumentPagesService;
+  readonly security: DocumentSecurityService;
   private closed = false;
 
   /**
@@ -78,6 +81,13 @@ export class CloudDocumentHandle implements DocumentHandle {
   ) {
     this.id = id;
     this.pendingInitialHead = initialHead ?? null;
+    this.security = new CloudDocumentSecurityService(
+      http,
+      id,
+      layerName,
+      initialHead ?? fallbackUnknownHead(id),
+      { isClosed: () => this.closed },
+    );
     this.manifestAccessor = {
       get: (signal) => this.getManifest(signal),
       refresh: (signal) => this.refreshManifest(signal),
@@ -297,6 +307,26 @@ export class CloudDocumentHandle implements DocumentHandle {
     this.inflightManifest = null;
     return AbortablePromise.resolveValue<void>(undefined);
   }
+}
+
+function fallbackUnknownHead(id: string): DocumentHead {
+  return {
+    id,
+    baseSha: '',
+    storageSizeBytes: 0,
+    docVersion: 1,
+    state: 'ready',
+    encryption: { state: 'unknown', requiresPassword: null },
+    permissions: {
+      known: false,
+      bits: null,
+      allAllowed: null,
+      openedAs: null,
+      securityHandlerRevision: null,
+      canUpgradeToOwner: false,
+    },
+    access: { required: true, reasons: ['permissions-unknown'], endpoint: wirePaths.access },
+  };
 }
 
 function awaitSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {

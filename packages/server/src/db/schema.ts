@@ -152,6 +152,21 @@ export interface AuditExportsTable {
   updated_at: number;
 }
 
+export interface PdfPasswordVerificationsTable {
+  tenant_id: string;
+  doc_id: string;
+  base_sha: string;
+  security_fingerprint: string;
+  password_proof: string;
+  hmac_key_id: string;
+  opened_as: DocumentPdfOpenedAs;
+  pdf_permissions_bits: number;
+  pdf_permissions_all_allowed: boolean | number;
+  security_handler_revision: number | null;
+  verified_at: number;
+  expires_at: number;
+}
+
 export interface SchemaMigrationsTable {
   /** Monotonically-increasing version (zero-padded for lexical sort). */
   version: string;
@@ -212,6 +227,7 @@ export interface Database {
   weak_annotation_session_pages: WeakAnnotationSessionPagesTable;
   audit_log: AuditLogTable;
   audit_exports: AuditExportsTable;
+  pdf_password_verifications: PdfPasswordVerificationsTable;
   schema_migrations: SchemaMigrationsTable;
   revoked_jtis: RevokedJtisTable;
   jwks_cache: JwksCacheTable;

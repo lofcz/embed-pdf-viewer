@@ -3,6 +3,7 @@ import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { DocumentAnnotationsService } from './DocumentAnnotationsService';
 import type { DocumentPagesService } from './DocumentPagesService';
+import type { DocumentSecurityService } from './DocumentSecurityService';
 import type { MetadataService } from './MetadataService';
 import type { PageHandle } from './PageHandle';
 
@@ -14,6 +15,7 @@ export interface DocumentCapabilities {
 export interface DocumentHandle {
   readonly id: string;
   readonly capabilities: DocumentCapabilities;
+  readonly security: DocumentSecurityService;
   readonly metadata: MetadataService;
   readonly annotations: DocumentAnnotationsService;
   /**

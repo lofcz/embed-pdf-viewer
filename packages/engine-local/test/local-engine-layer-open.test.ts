@@ -7,6 +7,16 @@ import {
 import { LocalEngine } from '../src/LocalEngine';
 import type { Transport } from '../src/transport/Transport';
 
+const openSecurity = {
+  encryptionState: 'none',
+  encryptionRequiresPassword: false,
+  securityHandlerRevision: null,
+  pdfPermissionsBits: 0xffffffff,
+  pdfPermissionsAllAllowed: true,
+  pdfOpenedAs: 'none',
+  securityProbedAt: Date.now(),
+} as const;
+
 class RecordingTransport implements Transport {
   readonly sent: Array<WirePack<WorkerRequest>> = [];
   private readonly listeners = new Set<(msg: WorkerResponse) => void>();
@@ -19,7 +29,7 @@ class RecordingTransport implements Transport {
         this.deliver({
           kind: 'resolve',
           jobId: msg.jobId,
-          result: { tag: 'open', docId: msg.docId },
+          result: { tag: 'open', docId: msg.docId, security: openSecurity },
         });
         return;
       }
