@@ -28,7 +28,6 @@ CREATE TABLE documents (
   state              TEXT NOT NULL CHECK (state IN ('pending','ready','failed','deleting')),
   base_sha           TEXT,
   storage_size_bytes BIGINT,
-  page_count         INTEGER,
   metadata_json      TEXT,
   idempotency_key    TEXT,
   failure_reason     TEXT,

@@ -5,6 +5,7 @@ import sql003 from './003_layer_state.sql';
 import sql004 from './004_weak_annotation_sessions.sql';
 import sql005 from './005_audit_log.sql';
 import sql006 from './006_audit_exports.sql';
+import sql007 from './007_document_security.sql';
 
 /**
  * Postgres migration set, dialect-parallel to `./sqlite`. The `.sql`
@@ -24,4 +25,5 @@ export const postgresMigrations: ReadonlyArray<MigrationSource> = [
   { version: '004', name: '004_weak_annotation_sessions.sql', sql: sql004 },
   { version: '005', name: '005_audit_log.sql', sql: sql005 },
   { version: '006', name: '006_audit_exports.sql', sql: sql006 },
+  { version: '007', name: '007_document_security.sql', sql: sql007 },
 ];

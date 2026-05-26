@@ -3,6 +3,7 @@ import { DocumentsRepo, type DocumentRow } from '../db/repos/documents.repo';
 import { TenantsRepo } from '../db/repos/tenants.repo';
 import { StorageKeys } from '../storage/keys';
 import type { ObjectBody, ObjectStoreWithInfo, PresignedUpload } from '../storage/ObjectStore';
+import { DocumentSecurityProbe } from './DocumentSecurityProbe';
 
 export type DedupMode = 'always-create' | 'reuse-existing';
 
@@ -52,8 +53,6 @@ export interface CommitInput {
   tenantId: string;
   docId: string;
   sha256: string;
-  /** Optional page count, supplied by the SDK if it parsed the PDF. */
-  pageCount?: number;
 }
 
 export interface CommitResult {
@@ -78,6 +77,7 @@ export interface DocumentLifecycleOptions {
    * tenant provisioning.
    */
   autoProvisionTenant?: boolean;
+  securityProbe?: DocumentSecurityProbe;
 }
 
 /**
@@ -103,12 +103,14 @@ export class DocumentLifecycleService {
   private readonly tenants: TenantsRepo;
   private readonly storage: ObjectStoreWithInfo;
   private readonly autoProvisionTenant: boolean;
+  private readonly securityProbe: DocumentSecurityProbe;
 
   constructor(opts: DocumentLifecycleOptions) {
     this.documents = opts.documents;
     this.tenants = opts.tenants;
     this.storage = opts.storage;
     this.autoProvisionTenant = opts.autoProvisionTenant ?? false;
+    this.securityProbe = opts.securityProbe ?? new DocumentSecurityProbe();
   }
 
   async init(input: InitInput): Promise<InitResult> {
@@ -229,12 +231,17 @@ export class DocumentLifecycleService {
       );
     }
 
+    const probe = await this.securityProbe.probe({
+      key,
+      expectedSha: observedSha,
+    });
+
     const updated = await this.documents.commit({
       id: doc.id,
       tenantId: doc.tenantId,
       baseSha: observedSha,
       storageSizeBytes: stat.size,
-      pageCount: input.pageCount ?? null,
+      security: probe.security,
     });
     if (!updated) {
       throw conflict(`document ${doc.id} state changed during commit`);

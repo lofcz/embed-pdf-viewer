@@ -115,7 +115,6 @@ async function seedReadyDocument(db: Kysely<DbSchema>): Promise<void> {
       state: 'ready',
       base_sha: 'b'.repeat(64),
       storage_size_bytes: 10,
-      page_count: 2,
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,

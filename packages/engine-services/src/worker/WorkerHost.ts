@@ -7,6 +7,7 @@ import {
   wirePack,
   type AnnotationsCreateWorkerRequest,
   type AnnotationsDeleteWorkerRequest,
+  type DocumentProbeSecurityFileWorkerRequest,
   type DocumentSaveBufferWorkerRequest,
   type DocumentSaveFileWorkerRequest,
   type AnnotationsListFullPageWorkerRequest,
@@ -37,6 +38,7 @@ import { FullAnnotationReader } from '../readers/annotations/FullAnnotationReade
 import { PageTextReader } from '../readers/text/PageTextReader';
 import { PageGeometryReader } from '../readers/geometry/PageGeometryReader';
 import { PageRasterReader } from '../readers/render/PageRasterReader';
+import { DocumentSecurityReader } from '../readers/security/DocumentSecurityReader';
 import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
 import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
 import { BaseDocumentRegistry } from '../session/BaseDocumentRegistry';
@@ -135,6 +137,9 @@ export class WorkerHost {
           break;
         case 'document.saveFile':
           resultPack = this.handleDocumentSaveFile(msg);
+          break;
+        case 'document.probeSecurityFile':
+          resultPack = this.handleDocumentProbeSecurityFile(msg);
           break;
         case 'close':
           resultPack = this.handleClose(msg);
@@ -361,6 +366,14 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const saved = session.saveStandaloneToFile(req.path, req.mode);
     return wirePack({ tag: 'document.saveFile', path: saved.path });
+  }
+
+  private handleDocumentProbeSecurityFile(
+    req: DocumentProbeSecurityFileWorkerRequest,
+  ): WirePack<WorkerResultPayload> {
+    const reader = new DocumentSecurityReader(this.runtime);
+    const security = reader.probeFile(req.path, req.password);
+    return wirePack({ tag: 'document.probeSecurityFile', security });
   }
 
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {

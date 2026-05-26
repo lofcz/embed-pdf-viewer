@@ -126,7 +126,6 @@ async function seedDocument(
       state: 'ready',
       base_sha: sha,
       storage_size_bytes: bytes.byteLength,
-      page_count: pageCount,
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,
@@ -153,7 +152,6 @@ async function setPending(fx: Fixture, tenantId: string, docId: string): Promise
       state: 'pending',
       base_sha: null,
       storage_size_bytes: null,
-      page_count: null,
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,
@@ -186,13 +184,14 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
     expect(body).toMatchObject({
       id: docId,
       baseSha: seed.sha,
-      pageCount: 7,
       docVersion: 1,
       state: 'ready',
+      encryption: { state: 'unknown', requiresPassword: null, permissions: null },
+      access: { required: true, reasons: ['permissions-unknown'], endpoint: '/v1/access' },
     });
   });
 
-  test('pins the materialised base file while the worker session is open', async () => {
+  test('does not pin or materialise the base file for a head request', async () => {
     const tenantId = 'tenant-pin';
     const docId = 'docpin111';
     await seedDocument(fx, tenantId, docId, { pageCount: 2 });
@@ -201,16 +200,11 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(200);
-    expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(1);
-    expect(fx.bundle.documentService!.stats().pinnedBaseFiles).toBe(1);
-
-    await fx.bundle.documentService!.close(docId);
-
     expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(0);
     expect(fx.bundle.documentService!.stats().pinnedBaseFiles).toBe(0);
   });
 
-  test('second /head call is served from the head cache (no second materialise)', async () => {
+  test('head is DB-only and does not materialise on repeated calls', async () => {
     const tenantId = 'tenant-cache';
     const docId = 'docccc111';
     await seedDocument(fx, tenantId, docId);
@@ -230,17 +224,14 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
     });
     expect(r1.status).toBe(200);
     const materializes1 = events.filter((k) => k === 'materialize-start').length;
-    expect(materializes1).toBe(1);
+    expect(materializes1).toBe(0);
 
     const r2 = await fetch(`${fx.baseUrl}/v1/docs/${docId}/head`, {
       headers: { Authorization: `Bearer ${tok}` },
     });
     expect(r2.status).toBe(200);
     const materializes2 = events.filter((k) => k === 'materialize-start').length;
-    // Service-level head cache short-circuits BEFORE BaseFileCache
-    // is touched. If materialize-start fired again, the head cache
-    // didn't work.
-    expect(materializes2).toBe(1);
+    expect(materializes2).toBe(0);
   });
 
   test('accepts a tenant admin token (* scope) on doc routes (Model B)', async () => {
@@ -252,9 +243,8 @@ describe('Phase 3 doc routes — GET /v1/docs/:docId/head', () => {
       headers: { Authorization: `Bearer ${adminToken(tenantId)}` },
     });
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { id: string; pageCount: number };
+    const body = (await res.json()) as { id: string };
     expect(body.id).toBe(docId);
-    expect(body.pageCount).toBe(4);
   });
 
   test('rejects a tenant token with no scope', async () => {
@@ -450,7 +440,7 @@ describe('Phase 3 doc routes — concurrency', () => {
     await tearDown(fx);
   });
 
-  test('concurrent /head calls share a single materialise + worker open', async () => {
+  test('concurrent /head calls stay DB-only', async () => {
     const tenantId = 'tenant-concurrent';
     const docId = 'doccon1111';
     await seedDocument(fx, tenantId, docId);
@@ -469,7 +459,7 @@ describe('Phase 3 doc routes — concurrency', () => {
     );
     for (const r of responses) expect(r.status).toBe(200);
     const materializes = events.filter((k) => k === 'materialize-start').length;
-    expect(materializes).toBe(1);
+    expect(materializes).toBe(0);
   });
 
   test('pool eviction releases the pinned base-file handle', async () => {
@@ -482,13 +472,13 @@ describe('Phase 3 doc routes — concurrency', () => {
     await seedDocument(fx, tenantId, docA, { pageCount: 1 });
     await seedDocument(fx, tenantId, docB, { pageCount: 2 });
 
-    const resA = await fetch(`${fx.baseUrl}/v1/docs/${docA}/head`, {
+    const resA = await fetch(`${fx.baseUrl}/v1/docs/${docA}/manifest@docVersion=1`, {
       headers: { Authorization: `Bearer ${docToken(tenantId, docA)}` },
     });
     expect(resA.status).toBe(200);
     expect(fx.bundle.baseFileCache!.stats().refcounted).toBe(1);
 
-    const resB = await fetch(`${fx.baseUrl}/v1/docs/${docB}/head`, {
+    const resB = await fetch(`${fx.baseUrl}/v1/docs/${docB}/manifest@docVersion=1`, {
       headers: { Authorization: `Bearer ${docToken(tenantId, docB)}` },
     });
     expect(resB.status).toBe(200);

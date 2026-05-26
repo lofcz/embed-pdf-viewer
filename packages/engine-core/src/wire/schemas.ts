@@ -65,10 +65,27 @@ export type OpenDocumentResponse = z.infer<typeof OpenDocumentResponseSchema>;
 export const DocumentHeadSchema = z.object({
   id: z.string(),
   baseSha: z.string(),
-  pageCount: z.number().int().nonnegative(),
   storageSizeBytes: z.number().int().nonnegative(),
   docVersion: z.number().int().positive(),
   state: z.enum(['pending', 'ready', 'failed', 'deleting']),
+  encryption: z.object({
+    state: z.enum(['unknown', 'none', 'encrypted', 'unsupported']),
+    requiresPassword: z.boolean().nullable(),
+    permissions: z
+      .object({
+        known: z.boolean(),
+        allAllowed: z.boolean().optional(),
+        bits: z.number().int().nonnegative().optional(),
+        openedAs: z.enum(['none', 'user', 'owner']).optional(),
+        securityHandlerRevision: z.number().int().optional(),
+      })
+      .nullable(),
+  }),
+  access: z.object({
+    required: z.boolean(),
+    reasons: z.array(z.enum(['password', 'cdn', 'permissions-unknown'])),
+    endpoint: z.string().optional(),
+  }),
 });
 export type DocumentHead = z.infer<typeof DocumentHeadSchema>;
 

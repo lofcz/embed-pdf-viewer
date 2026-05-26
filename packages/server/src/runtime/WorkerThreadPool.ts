@@ -239,6 +239,22 @@ export class WorkerThreadPool {
     return this.dispatchToSlot(slot, build, signal);
   }
 
+  /**
+   * Run a one-shot worker job that does not open or bind a document
+   * session. Used for ingestion probes where PDFium should still live
+   * behind the worker boundary, but the request must not consume a
+   * long-lived doc slot.
+   */
+  async runAdHoc(
+    baseSha: string | undefined,
+    build: (jobId: WorkerJobId) => WirePack<WorkerRequest>,
+    signal?: AbortSignal,
+  ): Promise<WorkerResultPayload> {
+    if (this.destroyed) throw new EngineError(EngineErrorCode.RuntimeUnavailable, 'pool destroyed');
+    const slot = baseSha ? this.pickSlotForBase(baseSha) : this.pickLeastLoaded();
+    return this.dispatchToSlot(slot, build, signal);
+  }
+
   /** Close the document and release the sticky binding. */
   async close(docId: string, signal?: AbortSignal): Promise<WorkerResultPayload | null> {
     if (this.destroyed) return null;

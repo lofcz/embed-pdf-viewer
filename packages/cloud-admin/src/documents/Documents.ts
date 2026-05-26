@@ -58,7 +58,6 @@ export interface DocumentInitInput {
 export interface DocumentCommitInput {
   docId: string;
   sha256: string;
-  pageCount?: number;
 }
 
 /**
@@ -155,7 +154,7 @@ export class Documents {
   async commit(input: DocumentCommitInput): Promise<CommitResponse> {
     return this.http.postJson(
       adminWirePaths.documentCommit(input.docId),
-      { sha256: input.sha256, pageCount: input.pageCount },
+      { sha256: input.sha256 },
       (raw) => AdminDocumentCommitResponseSchema.parse(raw),
     );
   }

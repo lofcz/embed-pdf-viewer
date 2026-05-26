@@ -221,6 +221,23 @@ export interface DocumentSaveFileWorkerRequest {
   path: string;
 }
 
+export interface DocumentSecurityProbeInfo {
+  encryptionState: 'unknown' | 'none' | 'encrypted' | 'unsupported';
+  encryptionRequiresPassword: boolean | null;
+  securityHandlerRevision: number | null;
+  pdfPermissionsBits: number | null;
+  pdfPermissionsAllAllowed: boolean | null;
+  pdfOpenedAs: 'none' | 'user' | 'owner' | null;
+  securityProbedAt: number | null;
+}
+
+export interface DocumentProbeSecurityFileWorkerRequest {
+  kind: 'document.probeSecurityFile';
+  jobId: WorkerJobId;
+  path: string;
+  password: string | null;
+}
+
 export interface CloseWorkerRequest {
   kind: 'close';
   jobId: WorkerJobId;
@@ -263,6 +280,7 @@ export type WorkerRequest =
   | PagesRenderWorkerRequest
   | DocumentSaveBufferWorkerRequest
   | DocumentSaveFileWorkerRequest
+  | DocumentProbeSecurityFileWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -309,6 +327,7 @@ export type WorkerResultPayload =
   | { tag: 'pages.render'; raster: PageRaster }
   | { tag: 'document.saveBuffer'; bytes: ArrayBuffer; size: number }
   | { tag: 'document.saveFile'; path: string }
+  | { tag: 'document.probeSecurityFile'; security: DocumentSecurityProbeInfo }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

@@ -25,7 +25,6 @@ export const AdminDocumentRecordSchema = z.object({
   state: DocumentStateSchema,
   baseSha: z.string().nullable(),
   storageSizeBytes: z.number().nullable(),
-  pageCount: z.number().nullable(),
   metadata: z.record(z.string(), z.unknown()).nullable(),
   idempotencyKey: z.string().nullable(),
   failureReason: z.string().nullable(),
@@ -88,7 +87,6 @@ export type AdminDocumentInitResponse = z.infer<typeof AdminDocumentInitResponse
 
 export const AdminDocumentCommitRequestSchema = z.object({
   sha256: z.string().regex(sha256Hex),
-  pageCount: z.number().finite().min(0).optional(),
 });
 export type AdminDocumentCommitRequest = z.infer<typeof AdminDocumentCommitRequestSchema>;
 

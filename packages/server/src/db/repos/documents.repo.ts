@@ -1,5 +1,20 @@
 import type { Kysely } from 'kysely';
-import type { Database as Schema, DocumentState } from '../schema';
+import type {
+  Database as Schema,
+  DocumentEncryptionState,
+  DocumentPdfOpenedAs,
+  DocumentState,
+} from '../schema';
+
+export interface DocumentSecurityInfo {
+  encryptionState: DocumentEncryptionState;
+  encryptionRequiresPassword: boolean | null;
+  securityHandlerRevision: number | null;
+  pdfPermissionsBits: number | null;
+  pdfPermissionsAllAllowed: boolean | null;
+  pdfOpenedAs: DocumentPdfOpenedAs | null;
+  securityProbedAt: number | null;
+}
 
 export interface DocumentRow {
   id: string;
@@ -7,7 +22,7 @@ export interface DocumentRow {
   state: DocumentState;
   baseSha: string | null;
   storageSizeBytes: number | null;
-  pageCount: number | null;
+  security: DocumentSecurityInfo;
   docVersion: number;
   metadata: Record<string, unknown> | null;
   idempotencyKey: string | null;
@@ -30,8 +45,8 @@ export interface CommitInput {
   tenantId: string;
   baseSha: string;
   storageSizeBytes: number;
-  pageCount: number | null;
   docVersion?: number;
+  security?: Partial<DocumentSecurityInfo>;
 }
 
 /**
@@ -65,7 +80,13 @@ export class DocumentsRepo {
           state: 'pending',
           base_sha: null,
           storage_size_bytes: null,
-          page_count: null,
+          encryption_state: 'unknown',
+          encryption_requires_password: null,
+          security_handler_revision: null,
+          pdf_permissions_bits: null,
+          pdf_permissions_all_allowed: null,
+          pdf_opened_as: null,
+          security_probed_at: null,
           metadata_json: input.metadata ? JSON.stringify(input.metadata) : null,
           idempotency_key: input.idempotencyKey,
           failure_reason: null,
@@ -155,13 +176,20 @@ export class DocumentsRepo {
    */
   async commit(input: CommitInput): Promise<DocumentRow | null> {
     const now = Date.now();
+    const security = input.security ?? {};
     const res = await this.db
       .updateTable('documents')
       .set({
         state: 'ready',
         base_sha: input.baseSha,
         storage_size_bytes: input.storageSizeBytes,
-        page_count: input.pageCount,
+        encryption_state: security.encryptionState ?? 'unknown',
+        encryption_requires_password: nullableBool(security.encryptionRequiresPassword),
+        security_handler_revision: security.securityHandlerRevision ?? null,
+        pdf_permissions_bits: security.pdfPermissionsBits ?? null,
+        pdf_permissions_all_allowed: nullableBool(security.pdfPermissionsAllAllowed),
+        pdf_opened_as: security.pdfOpenedAs ?? null,
+        security_probed_at: security.securityProbedAt ?? null,
         doc_version: input.docVersion ?? 1,
         updated_at: now,
       })
@@ -234,7 +262,13 @@ function mapRow(r: {
   state: DocumentState;
   base_sha: string | null;
   storage_size_bytes: number | null;
-  page_count: number | null;
+  encryption_state?: DocumentEncryptionState | null;
+  encryption_requires_password?: boolean | number | null;
+  security_handler_revision?: number | null;
+  pdf_permissions_bits?: number | null;
+  pdf_permissions_all_allowed?: boolean | number | null;
+  pdf_opened_as?: DocumentPdfOpenedAs | null;
+  security_probed_at?: number | null;
   doc_version: number;
   metadata_json: string | null;
   idempotency_key: string | null;
@@ -249,7 +283,15 @@ function mapRow(r: {
     state: r.state,
     baseSha: r.base_sha,
     storageSizeBytes: r.storage_size_bytes,
-    pageCount: r.page_count,
+    security: {
+      encryptionState: r.encryption_state ?? 'unknown',
+      encryptionRequiresPassword: nullableBooleanFromDb(r.encryption_requires_password),
+      securityHandlerRevision: r.security_handler_revision ?? null,
+      pdfPermissionsBits: r.pdf_permissions_bits ?? null,
+      pdfPermissionsAllAllowed: nullableBooleanFromDb(r.pdf_permissions_all_allowed),
+      pdfOpenedAs: r.pdf_opened_as ?? null,
+      securityProbedAt: r.security_probed_at ?? null,
+    },
     docVersion: Number(r.doc_version),
     metadata: r.metadata_json ? (JSON.parse(r.metadata_json) as Record<string, unknown>) : null,
     idempotencyKey: r.idempotency_key,
@@ -258,6 +300,16 @@ function mapRow(r: {
     updatedAt: r.updated_at,
     createdBy: r.created_by,
   };
+}
+
+function nullableBool(value: boolean | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  return value ? 1 : 0;
+}
+
+function nullableBooleanFromDb(value: boolean | number | null | undefined): boolean | null {
+  if (value === null || value === undefined) return null;
+  return typeof value === 'number' ? value !== 0 : value;
 }
 
 function isUniqueViolation(err: unknown): boolean {

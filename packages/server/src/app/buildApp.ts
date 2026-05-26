@@ -13,6 +13,7 @@ import { DocumentPagesRepo, LayerPagesRepo, LayersRepo } from '../db/repos/page_
 import { WeakAnnotationSessionsRepo } from '../db/repos/weak_annotation_sessions.repo';
 import { DocumentLifecycleService } from '../services/DocumentLifecycleService';
 import { DocumentService } from '../services/DocumentService';
+import { DocumentSecurityProbe } from '../services/DocumentSecurityProbe';
 import { CloudRevisionBridge } from '../services/CloudRevisionBridge';
 import { EventLogService } from '../services/EventLogService';
 import { LayerStateService } from '../services/LayerStateService';
@@ -259,21 +260,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
   let sweeperTimer: NodeJS.Timeout | undefined;
   let baseFileCache: BaseFileCache | undefined;
   if (opts.db && opts.objectStore) {
-    lifecycle = new DocumentLifecycleService({
-      documents: new DocumentsRepo(opts.db),
-      tenants: new TenantsRepo(opts.db),
-      storage: opts.objectStore,
-      autoProvisionTenant: opts.autoProvisionTenant ?? false,
-    });
-    await registerAdminDocumentsRoutes(app, { lifecycle });
-    if (revokedJtisGuard) {
-      await registerAdminTokensRoutes(app, { guard: revokedJtisGuard });
-    }
-
-    // Phase 3: wire the doc-scoped routes when the operator has
-    // chosen a cache root. Requires the worker pool — admin-only
-    // deploys (no `workerEntry`) keep the legacy admin surface and
-    // skip the cloud open surface entirely.
     if (opts.cacheRoot && pool) {
       baseFileCache = new BaseFileCache({
         root: opts.cacheRoot,
@@ -284,6 +270,25 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       // leave `.partial.*` files behind. Better to clean them up
       // here than to surface bogus disk-usage stats to ops.
       await baseFileCache.sweepPartials();
+    }
+
+    lifecycle = new DocumentLifecycleService({
+      documents: new DocumentsRepo(opts.db),
+      tenants: new TenantsRepo(opts.db),
+      storage: opts.objectStore,
+      autoProvisionTenant: opts.autoProvisionTenant ?? false,
+      securityProbe: new DocumentSecurityProbe({ cache: baseFileCache, pool }),
+    });
+    await registerAdminDocumentsRoutes(app, { lifecycle });
+    if (revokedJtisGuard) {
+      await registerAdminTokensRoutes(app, { guard: revokedJtisGuard });
+    }
+
+    // Phase 3: wire the doc-scoped routes when the operator has
+    // chosen a cache root. Requires the worker pool — admin-only
+    // deploys (no `workerEntry`) keep the legacy admin surface and
+    // skip the cloud open surface entirely.
+    if (baseFileCache && pool) {
       const layerStateService = new LayerStateService({
         documentPages: new DocumentPagesRepo(opts.db),
         layers: new LayersRepo(opts.db),

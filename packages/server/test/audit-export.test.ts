@@ -109,7 +109,6 @@ async function seedAuditScope(
       state: 'ready',
       base_sha: 'base-sha',
       storage_size_bytes: 4,
-      page_count: 1,
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,

@@ -32,7 +32,7 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
   app.get('/v1/docs/:docId/head', async (req, reply) => {
     const { docId } = req.params as { docId: string };
     const ctx = requireDocAccess(req, docId, ['doc.read']);
-    const head = await service.openOnPool(ctx, docId);
+    const head = await service.getHead(ctx, docId);
     setNoStore(reply);
     return head;
   });

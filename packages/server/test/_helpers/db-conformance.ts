@@ -193,11 +193,9 @@ export function runDbConformance(fx: DialectFixture): void {
           tenantId: 'tenant-a',
           baseSha: 'a'.repeat(64),
           storageSizeBytes: 1024,
-          pageCount: 7,
         });
         expect(updated?.state).toBe('ready');
         expect(updated?.baseSha).toBe('a'.repeat(64));
-        expect(updated?.pageCount).toBe(7);
         expect(updated?.storageSizeBytes).toBe(1024);
 
         const second = await docs.commit({
@@ -205,9 +203,48 @@ export function runDbConformance(fx: DialectFixture): void {
           tenantId: 'tenant-a',
           baseSha: 'a'.repeat(64),
           storageSizeBytes: 1024,
-          pageCount: 7,
         });
         expect(second).toBeNull();
+      } finally {
+        await fx.destroyDb(db);
+      }
+    });
+
+    test('commit persists security probe booleans portably', async () => {
+      const db = await fx.makeDb();
+      try {
+        const tenants = new TenantsRepo(db);
+        const docs = new DocumentsRepo(db);
+        await tenants.ensure({ id: 'tenant-a' });
+        await docs.createPending({
+          id: 'docsecure',
+          tenantId: 'tenant-a',
+          metadata: null,
+          idempotencyKey: null,
+          createdBy: null,
+        });
+        const updated = await docs.commit({
+          id: 'docsecure',
+          tenantId: 'tenant-a',
+          baseSha: 'b'.repeat(64),
+          storageSizeBytes: 2048,
+          security: {
+            encryptionState: 'none',
+            encryptionRequiresPassword: false,
+            pdfPermissionsBits: 0xffffffff,
+            pdfPermissionsAllAllowed: true,
+            pdfOpenedAs: 'none',
+            securityProbedAt: 123,
+          },
+        });
+        expect(updated?.security).toMatchObject({
+          encryptionState: 'none',
+          encryptionRequiresPassword: false,
+          pdfPermissionsBits: 0xffffffff,
+          pdfPermissionsAllAllowed: true,
+          pdfOpenedAs: 'none',
+          securityProbedAt: 123,
+        });
       } finally {
         await fx.destroyDb(db);
       }
@@ -295,7 +332,6 @@ export function runDbConformance(fx: DialectFixture): void {
           tenantId: 'tenant-a',
           baseSha: 'b'.repeat(64),
           storageSizeBytes: 1,
-          pageCount: 1,
         });
         expect((await docs.findByBaseSha('tenant-a', 'b'.repeat(64)))?.id).toBe('doc12345');
         expect(await docs.findByBaseSha('tenant-a', 'c'.repeat(64))).toBeNull();

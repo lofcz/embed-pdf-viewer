@@ -26,7 +26,6 @@ interface UploadResponse {
     id: string;
     tenantId: string;
     state: string;
-    pageCount: number | null;
     metadata: Record<string, unknown> | null;
   };
   token: string;
@@ -416,7 +415,7 @@ async function refreshDocs(): Promise<void> {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'doc-row';
-    button.textContent = `${item.id} (${item.state}, pages ${item.pageCount ?? '?'})`;
+    button.textContent = `${item.id} (${item.state})`;
     button.addEventListener('click', () => {
       els.mintDocId.value = item.id;
       setOutput(item);

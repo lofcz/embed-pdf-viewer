@@ -49,6 +49,8 @@ export type {
   AnnotationsMoveWorkerRequest,
   DocumentSaveBufferWorkerRequest,
   DocumentSaveFileWorkerRequest,
+  DocumentProbeSecurityFileWorkerRequest,
+  DocumentSecurityProbeInfo,
   PagesListWorkerRequest,
   PagesMoveWorkerRequest,
   PagesTextWorkerRequest,

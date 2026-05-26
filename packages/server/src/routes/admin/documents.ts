@@ -26,7 +26,7 @@ export interface AdminDocumentsRouteDeps {
  *      fallback / customers behind strict egress).
  *
  *   3. POST /v1/admin/documents/:id/commit
- *      body: { sha256, pageCount? }
+ *      body: { sha256 }
  *      -> { id, state, baseSha, ... }
  *
  * Listing / deleting / downloading are flat REST against `/v1/admin/documents`.
@@ -89,7 +89,6 @@ export async function registerAdminDocumentsRoutes(
       tenantId: ctx.tenantId,
       docId: id,
       sha256: body.sha256,
-      pageCount: body.pageCount,
     });
     return reply.send({ document: docPublic(result.doc) });
   });
@@ -217,7 +216,6 @@ function docPublic(d: {
   state: string;
   baseSha: string | null;
   storageSizeBytes: number | null;
-  pageCount: number | null;
   metadata: Record<string, unknown> | null;
   idempotencyKey: string | null;
   failureReason: string | null;
@@ -231,7 +229,6 @@ function docPublic(d: {
     state: d.state,
     baseSha: d.baseSha,
     storageSizeBytes: d.storageSizeBytes,
-    pageCount: d.pageCount,
     metadata: d.metadata,
     idempotencyKey: d.idempotencyKey,
     failureReason: d.failureReason,

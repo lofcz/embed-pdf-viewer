@@ -23,6 +23,8 @@ import type { Generated } from 'kysely';
  * - `deleting` - cascade-delete in progress; storage prefix being torn down.
  */
 export type DocumentState = 'pending' | 'ready' | 'failed' | 'deleting';
+export type DocumentEncryptionState = 'unknown' | 'none' | 'encrypted' | 'unsupported';
+export type DocumentPdfOpenedAs = 'none' | 'user' | 'owner';
 
 export interface TenantsTable {
   id: string;
@@ -37,7 +39,13 @@ export interface DocumentsTable {
   state: DocumentState;
   base_sha: string | null;
   storage_size_bytes: number | null;
-  page_count: number | null;
+  encryption_state: DocumentEncryptionState;
+  encryption_requires_password: boolean | number | null;
+  security_handler_revision: number | null;
+  pdf_permissions_bits: number | null;
+  pdf_permissions_all_allowed: boolean | number | null;
+  pdf_opened_as: DocumentPdfOpenedAs | null;
+  security_probed_at: number | null;
   doc_version: Generated<number>;
   metadata_json: string | null;
   /** Customer-supplied retry key; unique per `(tenant_id, idempotency_key)`. */

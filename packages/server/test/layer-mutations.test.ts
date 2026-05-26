@@ -673,7 +673,6 @@ async function seedDocument(
       state: 'ready',
       base_sha: sha,
       storage_size_bytes: bytes.byteLength,
-      page_count: opts.pageCount,
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,

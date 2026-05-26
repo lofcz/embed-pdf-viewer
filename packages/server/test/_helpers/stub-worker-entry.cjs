@@ -30,6 +30,10 @@ function layerMeta(msg) {
     const view = msg.layer.bytes ? new Uint8Array(msg.layer.bytes) : new Uint8Array(0);
     return { layerKind: kind, layerByte0: view.byteLength > 0 ? view[0] : null };
   }
+  if (kind === 'artifact-file') {
+    const bytes = msg.layer.path ? readFileSync(msg.layer.path) : Buffer.alloc(0);
+    return { layerKind: 'artifact', layerByte0: bytes.byteLength > 0 ? bytes[0] : null };
+  }
   return { layerKind: 'fresh', layerByte0: null };
 }
 
@@ -151,6 +155,25 @@ parentPort.on('message', (msg) => {
         kind: 'resolve',
         jobId: msg.jobId,
         result: { tag: 'open', docId: msg.docId },
+      });
+      return;
+    }
+    case 'document.probeSecurityFile': {
+      parentPort.postMessage({
+        kind: 'resolve',
+        jobId: msg.jobId,
+        result: {
+          tag: 'document.probeSecurityFile',
+          security: {
+            encryptionState: 'none',
+            encryptionRequiresPassword: false,
+            securityHandlerRevision: null,
+            pdfPermissionsBits: 0xffffffff,
+            pdfPermissionsAllAllowed: true,
+            pdfOpenedAs: 'none',
+            securityProbedAt: Date.now(),
+          },
+        },
       });
       return;
     }

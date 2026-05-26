@@ -40,7 +40,6 @@ describe('LayerStateService durable authority', () => {
         state: 'ready',
         base_sha: 'a'.repeat(64),
         storage_size_bytes: 10,
-        page_count: 2,
         metadata_json: null,
         idempotency_key: null,
         failure_reason: null,

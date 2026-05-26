@@ -31,12 +31,27 @@ import type { LayerStateService } from './LayerStateService';
 export interface DocumentHead {
   id: string;
   baseSha: string;
-  pageCount: number;
   storageSizeBytes: number;
   /** Cache-busting integer; bumps on EVERY content-changing mutation. */
   docVersion: number;
   /** Lifecycle state, exposed so the SDK can render "deleting" / "failed" UI. */
   state: DocumentRow['state'];
+  encryption: {
+    state: DocumentRow['security']['encryptionState'];
+    requiresPassword: boolean | null;
+    permissions: {
+      known: boolean;
+      allAllowed?: boolean;
+      bits?: number;
+      openedAs?: NonNullable<DocumentRow['security']['pdfOpenedAs']>;
+      securityHandlerRevision?: number;
+    } | null;
+  };
+  access: {
+    required: boolean;
+    reasons: Array<'password' | 'cdn' | 'permissions-unknown'>;
+    endpoint?: string;
+  };
 }
 
 /**
@@ -141,42 +156,25 @@ export class DocumentService {
     }
   }
 
+  /**
+   * Cheap DB-only head. It intentionally does not materialise the base
+   * or open PDFium; ingestion owns the best-effort security probe, and
+   * manifest/page endpoints own page discovery.
+   */
+  async getHead(ctx: OpenContext, docId: string): Promise<DocumentHead> {
+    const row = await this.requireReadyRow(ctx, docId);
+    return buildHead(row);
+  }
+
   private async doOpen(ctx: OpenContext, docId: string): Promise<DocumentHead> {
-    const row = await this.documents.requireOwned(docId, ctx.tenantId);
-    if (row.state === 'pending') {
-      throw new EngineError(
-        EngineErrorCode.DocOpenFailed,
-        `document is still pending upload: ${docId}`,
-      );
-    }
-    if (row.state === 'failed') {
-      throw new EngineError(
-        EngineErrorCode.DocOpenFailed,
-        `document failed at commit: ${docId} (${row.failureReason ?? 'unknown'})`,
-      );
-    }
-    if (row.state === 'deleting') {
-      throw new EngineError(EngineErrorCode.NotFound, `document is being deleted: ${docId}`);
-    }
-    if (row.state !== 'ready') {
-      throw new EngineError(EngineErrorCode.DocOpenFailed, `document not ready: ${row.state}`);
-    }
-    if (!row.baseSha) {
-      // Bug-class assertion: a `ready` doc must have a base_sha (the
-      // commit path sets both atomically). If we see this, the DB row
-      // is corrupted — fail loudly so it shows up in audit.
-      throw new EngineError(
-        EngineErrorCode.DocOpenFailed,
-        `document is ready but has no base_sha: ${docId}`,
-      );
-    }
+    const row = await this.requireReadyRow(ctx, docId);
+    const baseSha = requireBaseSha(row);
 
     let handle: LocalFileHandle | null = await this.cache.acquire({
-      sha: row.baseSha,
+      sha: baseSha,
       key: StorageKeys.basePdf(row.tenantId, row.id),
     });
     try {
-      const baseSha = row.baseSha;
       const build = (jobId: WorkerJobId) =>
         wirePack({
           kind: 'open.layerFileBase' as const,
@@ -191,14 +189,7 @@ export class DocumentService {
       if (result.tag !== 'open') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected open payload: ${result.tag}`);
       }
-      const head: DocumentHead = {
-        id: docId,
-        baseSha,
-        pageCount: row.pageCount ?? 0,
-        storageSizeBytes: row.storageSizeBytes ?? 0,
-        docVersion: row.docVersion,
-        state: row.state,
-      };
+      const head = buildHead(row);
       this.replaceBaseHandle(docId, handle);
       handle = null;
       return head;
@@ -222,7 +213,7 @@ export class DocumentService {
   }
 
   async getLayerHead(ctx: OpenContext, docId: string, layerName: string): Promise<DocumentHead> {
-    const head = await this.openOnPool(ctx, docId);
+    const head = await this.getHead(ctx, docId);
     const layer = await this.layerState.repos.layers.findByDocAndName(docId, layerName);
     return layer ? { ...head, docVersion: layer.docVersion } : head;
   }
@@ -295,6 +286,35 @@ export class DocumentService {
    */
   async warm(ctx: OpenContext, docId: string): Promise<DocumentHead> {
     return this.openOnPool(ctx, docId);
+  }
+
+  private async requireReadyRow(ctx: OpenContext, docId: string): Promise<DocumentRow> {
+    const row = await this.documents.requireOwned(docId, ctx.tenantId);
+    if (row.state === 'pending') {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `document is still pending upload: ${docId}`,
+      );
+    }
+    if (row.state === 'failed') {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `document failed at commit: ${docId} (${row.failureReason ?? 'unknown'})`,
+      );
+    }
+    if (row.state === 'deleting') {
+      throw new EngineError(EngineErrorCode.NotFound, `document is being deleted: ${docId}`);
+    }
+    if (row.state !== 'ready') {
+      throw new EngineError(EngineErrorCode.DocOpenFailed, `document not ready: ${row.state}`);
+    }
+    if (!row.baseSha) {
+      throw new EngineError(
+        EngineErrorCode.DocOpenFailed,
+        `document is ready but has no base_sha: ${docId}`,
+      );
+    }
+    return row;
   }
 
   async saveLayerDownloadToTemp(
@@ -546,6 +566,55 @@ export class DocumentService {
 
 function layerSessionKey(docId: string, layerName: string): string {
   return `${docId}::${layerName}`;
+}
+
+function buildHead(row: DocumentRow): DocumentHead {
+  const baseSha = requireBaseSha(row);
+  const permissions =
+    row.security.pdfPermissionsBits === null
+      ? null
+      : {
+          known: true,
+          ...(row.security.pdfPermissionsAllAllowed !== null
+            ? { allAllowed: row.security.pdfPermissionsAllAllowed }
+            : {}),
+          bits: row.security.pdfPermissionsBits,
+          ...(row.security.pdfOpenedAs ? { openedAs: row.security.pdfOpenedAs } : {}),
+          ...(row.security.securityHandlerRevision !== null
+            ? { securityHandlerRevision: row.security.securityHandlerRevision }
+            : {}),
+        };
+  const reasons: DocumentHead['access']['reasons'] = [];
+  if (row.security.encryptionRequiresPassword === true) reasons.push('password');
+  if (row.security.encryptionState === 'unknown') reasons.push('permissions-unknown');
+
+  return {
+    id: row.id,
+    baseSha,
+    storageSizeBytes: row.storageSizeBytes ?? 0,
+    docVersion: row.docVersion,
+    state: row.state,
+    encryption: {
+      state: row.security.encryptionState,
+      requiresPassword: row.security.encryptionRequiresPassword,
+      permissions,
+    },
+    access: {
+      required: reasons.length > 0,
+      reasons,
+      ...(reasons.length > 0 ? { endpoint: '/v1/access' } : {}),
+    },
+  };
+}
+
+function requireBaseSha(row: DocumentRow): string {
+  if (!row.baseSha) {
+    throw new EngineError(
+      EngineErrorCode.DocOpenFailed,
+      `document is ready but has no base_sha: ${row.id}`,
+    );
+  }
+  return row.baseSha;
 }
 
 function safeFilePart(value: string): string {
