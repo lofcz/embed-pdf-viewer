@@ -51,13 +51,24 @@ export function checkAnyCapability(
 /**
  * True iff the scope grants the collab action against the target record.
  *
- * Resolution order:
- *   1. wildcard `*` → true
- *   2. `doc.annotate.modify` (explicit or via `pdf.permissions`) → true
- *      (broad write capability bypasses per-record filters)
- *   3. any collab scope whose action matches AND whose filter matches
- *      the target/identity → true
- *   4. otherwise → false
+ * Narrowing model. For each action independently:
+ *   1. wildcard `*` → allow (global escape hatch)
+ *   2. if any collab scope applies to this action → NARROW: only those
+ *      collab filters decide. If none match the target, deny — even if
+ *      `doc.annotate.modify` is also present. This is what makes
+ *      `[modify, update:self]` correctly mean "edit own only" rather
+ *      than "edit anyone via modify-bypass."
+ *   3. otherwise, if `doc.annotate.modify` is present → allow. This is
+ *      the broad PDF-bit-derived default for create/update/delete when
+ *      no per-action collab filter has been written.
+ *   4. otherwise → deny.
+ *
+ * For create: `target` should be built by the caller from JWT identity
+ * (`{ userId: caller.user_id, groupId: caller.group_id }`). `:self` and
+ * `:all` then trivially pass; `:group=X` is the meaningful filter (only
+ * matches when the caller's default group is X).
+ *
+ * For update / delete: `target` is the existing row's owner.
  */
 export function checkCollab(
   action: CollabAction,
@@ -69,14 +80,21 @@ export function checkCollab(
   const parsed = rawScope.map(parseScope);
   if (parsed.some((s) => s.kind === 'wildcard')) return true;
 
-  if (expandedCapabilities(parsed, pdfBits).has('doc.annotate.modify')) return true;
+  const applicableCollab = parsed.filter(
+    (s): s is Extract<ParsedScope, { kind: 'collab' }> =>
+      s.kind === 'collab' &&
+      s.entity === 'annotations' &&
+      (s.action === action || s.action === '*'),
+  );
 
-  for (const s of parsed) {
-    if (s.kind !== 'collab') continue;
-    if (s.action !== '*' && s.action !== action) continue;
-    if (filterMatches(s.filter, target, identity)) return true;
+  if (applicableCollab.length > 0) {
+    // Narrow: presence of any applicable collab scope shadows
+    // `modify`-as-default for this action.
+    return applicableCollab.some((s) => filterMatches(s.filter, target, identity));
   }
-  return false;
+
+  // No collab scope for this action — fall back to the broad default.
+  return expandedCapabilities(parsed, pdfBits).has('doc.annotate.modify');
 }
 
 /**
@@ -84,8 +102,10 @@ export function checkCollab(
  * `pdf.permissions` and applying implication rules.
  *
  * Implications applied:
- *   - `doc.annotate.modify` is the broad annotation-write capability
- *     and implies both `doc.annotate.read` and `doc.annotate.create`.
+ *   - `doc.annotate.modify` implies `doc.annotate.read` (you can't
+ *     sensibly modify what you can't see).
+ *   - `doc.forms.modify` implies `doc.forms.fill` and `doc.forms.read`.
+ *   - `doc.forms.fill`   implies `doc.forms.read`.
  *   - any annotation collab scope implies `doc.annotate.read`, because
  *     mutation routes need to see the target row to evaluate the
  *     collab filter against its current owner.
@@ -112,10 +132,12 @@ export function expandedCapabilities(
   }
 
   // Implications (apply after the explicit additions above)
-  if (out.has('doc.annotate.modify')) {
-    out.add('doc.annotate.read');
-    out.add('doc.annotate.create');
+  if (out.has('doc.annotate.modify')) out.add('doc.annotate.read');
+  if (out.has('doc.forms.modify')) {
+    out.add('doc.forms.fill');
+    out.add('doc.forms.read');
   }
+  if (out.has('doc.forms.fill')) out.add('doc.forms.read');
   if (hasAnnotationCollab) out.add('doc.annotate.read');
 
   return out;
@@ -150,24 +172,24 @@ export function expandRawScope(
 /**
  * Authority to assign a specific groupId to an annotation.
  *
- * Fires ONLY when the caller is setting groupId to something other than
- * their JWT-default `group_id`. The "set-group is just about group
- * assignment authority" semantic is independent from create/update/delete
- * collab — a user might be allowed to create annotations (via collab
- * filter) but not allowed to assign them to a non-default group (without
- * a separate `annotations:set-group:*` grant).
+ * Set-group is decoupled from `doc.annotate.modify`. The reasoning:
+ * capabilities like `modify` describe row access — what kind of write
+ * you can do to which existing rows — and map to PDF permission bits.
+ * Set-group is a cloud-only *assignment authority*: which destination
+ * group can you put an annotation into? There is no PDF-bit
+ * counterpart, so it doesn't inherit from `modify`.
  *
  * Resolution order:
- *   1. wildcard `*` → true
- *   2. newGroupId === callerDefaultGroupId → true (no group-assignment
- *      authority needed; the annotation gets the caller's default group)
+ *   1. newGroupId === callerDefaultGroupId → true (no real reassignment
+ *      is happening; the annotation gets the caller's default group)
+ *   2. wildcard `*` → true (global escape hatch)
  *   3. `annotations:set-group:all` → true
  *   4. `annotations:set-group:group=<newGroupId>` → true
  *   5. `annotations:*:all` or `annotations:*:group=<newGroupId>` → true
  *      (action wildcard includes set-group)
  *   6. otherwise → false
  *
- * Note: this is intentionally independent from membership. A user with
+ * Note: independent from membership. A user with
  * `set-group:group=legal` can assign annotations to the legal group
  * even if they're not a member — that's the whole point.
  */
@@ -175,19 +197,13 @@ export function checkSetGroup(
   newGroupId: string,
   callerDefaultGroupId: string | undefined,
   rawScope: ReadonlyArray<string>,
-  pdfBits: PdfBits,
+  _pdfBits: PdfBits,
 ): boolean {
   // No authority needed when the caller is assigning their default group.
   if (newGroupId === callerDefaultGroupId) return true;
 
   const parsed = rawScope.map(parseScope);
   if (parsed.some((s) => s.kind === 'wildcard')) return true;
-
-  // doc.annotate.modify is the broad annotation-write capability and
-  // bypasses collab filters (existing rule); apply the same bypass to
-  // set-group so admin-style tokens behave consistently across all
-  // annotation-mutating concerns.
-  if (expandedCapabilities(parsed, pdfBits).has('doc.annotate.modify')) return true;
 
   for (const s of parsed) {
     if (s.kind !== 'collab') continue;
@@ -229,13 +245,17 @@ export function filterMatches(
  * the "give the user a working session" shorthand. Without them, a
  * token with just `['pdf.permissions']` would be useless.
  *
+ * Reads are unconditional: ISO 32000 / Acrobat let any reader see
+ * existing annotations and form values regardless of permission bits.
+ * Bit 6 governs *writing*, not visibility.
+ *
  * Bit-derived expansions follow ISO 32000:
  *   bit 5   → doc.text.{select, copy, search}, doc.content.copy
  *   bit 3   → doc.print
  *   bit 12  → doc.print.high (requires bit 3 also set)
  *   bit 4   → doc.pages.modify, doc.redact
  *   bit 11  → doc.pages.assemble
- *   bit 6   → doc.annotate.read, doc.annotate.create, doc.annotate.modify
+ *   bit 6   → doc.annotate.modify
  *   bit 6/9 → doc.forms.fill
  *   bit 6+4 → doc.forms.modify
  *
@@ -247,6 +267,10 @@ function addPdfPermissions(out: Set<DocCapability>, b: PdfBits): void {
   // Always — pdf.permissions means "give me a working session"
   out.add('doc.open');
   out.add('doc.render');
+  // Reading existing annotations and form values is unconditional —
+  // PDF bit 6 governs writes, not visibility.
+  out.add('doc.annotate.read');
+  out.add('doc.forms.read');
 
   if (b.bit5) {
     out.add('doc.text.select');
@@ -262,8 +286,6 @@ function addPdfPermissions(out: Set<DocCapability>, b: PdfBits): void {
   }
   if (b.bit11) out.add('doc.pages.assemble');
   if (b.bit6) {
-    out.add('doc.annotate.read');
-    out.add('doc.annotate.create');
     out.add('doc.annotate.modify');
   }
   if (b.bit6 || b.bit9) out.add('doc.forms.fill');

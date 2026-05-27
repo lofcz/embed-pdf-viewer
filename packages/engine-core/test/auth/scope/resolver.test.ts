@@ -187,15 +187,15 @@ describe('checkAnyCapability', () => {
 // ============================================================================
 
 describe('expandedCapabilities — implications', () => {
-  it('doc.annotate.modify implies doc.annotate.read AND doc.annotate.create', () => {
+  it('doc.annotate.modify implies doc.annotate.read', () => {
     const set = expandRawScope(['doc.annotate.modify'], NO_BITS);
     expect(set.has('doc.annotate.modify')).toBe(true);
     expect(set.has('doc.annotate.read')).toBe(true);
-    expect(set.has('doc.annotate.create')).toBe(true);
   });
 
-  it('any annotation collab scope (update/delete/set-group) implies doc.annotate.read', () => {
+  it('any annotation collab scope (create/update/delete/set-group) implies doc.annotate.read', () => {
     const cases = [
+      ['annotations:create:self'],
       ['annotations:update:group=4'],
       ['annotations:delete:createdBy=alice'],
       ['annotations:set-group:all'],
@@ -207,20 +207,31 @@ describe('expandedCapabilities — implications', () => {
     }
   });
 
-  it('doc.annotate.create on its own does NOT imply doc.annotate.read', () => {
-    // Creation does not need to see other people's annotations to
-    // create your own; read is a separately-granted capability.
-    const set = expandRawScope(['doc.annotate.create'], NO_BITS);
-    expect(set.has('doc.annotate.create')).toBe(true);
-    expect(set.has('doc.annotate.read')).toBe(false);
+  it('doc.forms.modify implies doc.forms.fill and doc.forms.read', () => {
+    const set = expandRawScope(['doc.forms.modify'], NO_BITS);
+    expect(set.has('doc.forms.modify')).toBe(true);
+    expect(set.has('doc.forms.fill')).toBe(true);
+    expect(set.has('doc.forms.read')).toBe(true);
+  });
+
+  it('doc.forms.fill implies doc.forms.read', () => {
+    const set = expandRawScope(['doc.forms.fill'], NO_BITS);
+    expect(set.has('doc.forms.fill')).toBe(true);
+    expect(set.has('doc.forms.read')).toBe(true);
+  });
+
+  it('pdf.permissions adds annotate.read and forms.read unconditionally', () => {
+    const set = expandRawScope(['pdf.permissions'], NO_BITS);
+    expect(set.has('doc.annotate.read')).toBe(true);
+    expect(set.has('doc.forms.read')).toBe(true);
+    // No bit 6, so no annotate.modify
     expect(set.has('doc.annotate.modify')).toBe(false);
   });
 
-  it('pdf.permissions + bit 6 implies all three annotate capabilities', () => {
+  it('pdf.permissions + bit 6 implies annotate.modify (read already unconditional)', () => {
     const bits = decodePdfBits(PDF_BITS.ANNOTATE_FILL);
     const set = expandRawScope(['pdf.permissions'], bits);
     expect(set.has('doc.annotate.read')).toBe(true);
-    expect(set.has('doc.annotate.create')).toBe(true);
     expect(set.has('doc.annotate.modify')).toBe(true);
   });
 
@@ -230,27 +241,100 @@ describe('expandedCapabilities — implications', () => {
 });
 
 // ============================================================================
-// checkCollab — wildcard and broad-modify bypass
+// checkCollab — narrowing model
+//
+// Rule for each action independently:
+//   1. wildcard *                          → allow
+//   2. any collab scope applies to action  → narrow: only collab decides
+//   3. else if doc.annotate.modify present → allow (broad default)
+//   4. else                                → deny
 // ============================================================================
 
-describe('checkCollab — bypass paths', () => {
+describe('checkCollab — narrowing model', () => {
   it('wildcard grants every collab action', () => {
     const target = { userId: 'bob', groupId: '5' };
+    expect(checkCollab('create', target, ['*'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('update', target, ['*'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('delete', target, ['*'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('set-group', target, ['*'], ALICE, NO_BITS)).toBe(true);
   });
 
-  it('doc.annotate.modify bypasses collab filters for any target', () => {
+  it('doc.annotate.modify alone covers create/update/delete on any target', () => {
     const target = { userId: 'bob', groupId: '5' };
+    expect(checkCollab('create', target, ['doc.annotate.modify'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('update', target, ['doc.annotate.modify'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('delete', target, ['doc.annotate.modify'], ANON, NO_BITS)).toBe(true);
   });
 
-  it('pdf.permissions bit 6 grants doc.annotate.modify → bypasses filters', () => {
+  it('pdf.permissions bit 6 → modify → covers any target (no collab present)', () => {
     const bits = decodePdfBits(PDF_BITS.ANNOTATE_FILL);
     const target = { userId: 'bob', groupId: '5' };
     expect(checkCollab('delete', target, ['pdf.permissions'], ALICE, bits)).toBe(true);
+  });
+
+  it('NARROWING: [modify, update:self] restricts update to own row', () => {
+    const ownRow = { userId: 'alice', groupId: '4' };
+    const othersRow = { userId: 'bob', groupId: '5' };
+    const scope = ['doc.annotate.modify', 'annotations:update:self'];
+    // update narrowed by :self
+    expect(checkCollab('update', ownRow, scope, ALICE, NO_BITS)).toBe(true);
+    expect(checkCollab('update', othersRow, scope, ALICE, NO_BITS)).toBe(false);
+    // delete still covered by modify (no delete-collab present)
+    expect(checkCollab('delete', othersRow, scope, ALICE, NO_BITS)).toBe(true);
+  });
+
+  it('NARROWING: [modify, update:self, delete:self] restricts both', () => {
+    const ownRow = { userId: 'alice', groupId: '4' };
+    const othersRow = { userId: 'bob', groupId: '5' };
+    const scope = ['doc.annotate.modify', 'annotations:update:self', 'annotations:delete:self'];
+    expect(checkCollab('update', ownRow, scope, ALICE, NO_BITS)).toBe(true);
+    expect(checkCollab('update', othersRow, scope, ALICE, NO_BITS)).toBe(false);
+    expect(checkCollab('delete', ownRow, scope, ALICE, NO_BITS)).toBe(true);
+    expect(checkCollab('delete', othersRow, scope, ALICE, NO_BITS)).toBe(false);
+  });
+
+  it('NARROWING: [modify, *:self] action-wildcard narrows every action', () => {
+    const ownRow = { userId: 'alice' };
+    const othersRow = { userId: 'bob' };
+    const scope = ['doc.annotate.modify', 'annotations:*:self'];
+    expect(checkCollab('update', ownRow, scope, ALICE, NO_BITS)).toBe(true);
+    expect(checkCollab('update', othersRow, scope, ALICE, NO_BITS)).toBe(false);
+    expect(checkCollab('delete', ownRow, scope, ALICE, NO_BITS)).toBe(true);
+    expect(checkCollab('delete', othersRow, scope, ALICE, NO_BITS)).toBe(false);
+  });
+
+  it('NARROWING: collab without modify still works (each action evaluated independently)', () => {
+    const ownRow = { userId: 'alice' };
+    const scope = ['annotations:update:self'];
+    expect(checkCollab('update', ownRow, scope, ALICE, NO_BITS)).toBe(true);
+    // No modify and no delete-collab → deny
+    expect(checkCollab('delete', ownRow, scope, ALICE, NO_BITS)).toBe(false);
+  });
+
+  it('CREATE: filter evaluated against caller-built target', () => {
+    // POST handler builds target = { userId: jwt.user_id, groupId: jwt.group_id }
+    const selfTarget = { userId: 'alice', groupId: '4' };
+    // :self always passes (target.userId === caller.user_id)
+    expect(checkCollab('create', selfTarget, ['annotations:create:self'], ALICE, NO_BITS)).toBe(
+      true,
+    );
+    // :all always passes
+    expect(checkCollab('create', selfTarget, ['annotations:create:all'], ALICE, NO_BITS)).toBe(
+      true,
+    );
+    // :group=X passes only when caller's default group is X
+    expect(checkCollab('create', selfTarget, ['annotations:create:group=4'], ALICE, NO_BITS)).toBe(
+      true,
+    );
+    expect(
+      checkCollab(
+        'create',
+        { userId: 'alice', groupId: '99' },
+        ['annotations:create:group=4'],
+        { ...ALICE, group_id: '99', groups: ['99'] },
+        NO_BITS,
+      ),
+    ).toBe(false);
   });
 });
 
@@ -442,13 +526,35 @@ describe('checkSetGroup', () => {
     expect(checkSetGroup('legal', 'engineering', ['*'], NO_BITS)).toBe(true);
   });
 
-  it('doc.annotate.modify bypasses set-group (admin-style)', () => {
-    expect(checkSetGroup('legal', 'engineering', ['doc.annotate.modify'], NO_BITS)).toBe(true);
+  it('doc.annotate.modify alone does NOT grant cross-group set-group (decoupled)', () => {
+    // Set-group is a cloud-only assignment authority — it does not inherit
+    // from modify (which is row-access). To reassign across groups you need
+    // an explicit set-group scope or the wildcard.
+    expect(checkSetGroup('legal', 'engineering', ['doc.annotate.modify'], NO_BITS)).toBe(false);
   });
 
-  it('pdf.permissions + bit 6 grants doc.annotate.modify → bypasses set-group', () => {
+  it('pdf.permissions + bit 6 grants modify but NOT cross-group set-group', () => {
     const bits = decodePdfBits(PDF_BITS.ANNOTATE_FILL);
-    expect(checkSetGroup('legal', 'engineering', ['pdf.permissions'], bits)).toBe(true);
+    expect(checkSetGroup('legal', 'engineering', ['pdf.permissions'], bits)).toBe(false);
+  });
+
+  it('modify combined with an explicit set-group scope works as expected', () => {
+    expect(
+      checkSetGroup(
+        'legal',
+        'engineering',
+        ['doc.annotate.modify', 'annotations:set-group:group=legal'],
+        NO_BITS,
+      ),
+    ).toBe(true);
+    expect(
+      checkSetGroup(
+        'marketing',
+        'engineering',
+        ['doc.annotate.modify', 'annotations:set-group:group=legal'],
+        NO_BITS,
+      ),
+    ).toBe(false);
   });
 
   it('set-group:all allows any group assignment regardless of membership', () => {

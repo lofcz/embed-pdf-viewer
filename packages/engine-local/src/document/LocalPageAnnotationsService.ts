@@ -85,10 +85,13 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
     }
-    // Cloud parity for POST /annotations: creation is gated by the
-    // `doc.annotate.create` capability and stamps the caller's identity.
+    // Cloud parity for POST /annotations: creation is gated by an
+    // `annotations:create:filter` collab scope (target is the handle's
+    // own identity). Under the narrowing model, presence of `modify`
+    // also satisfies create when no create-collab is given.
     try {
-      this.guard.assertCapability('doc.annotate.create');
+      const target = this.guard.targetForSelfCreate();
+      this.guard.assertCollab('create', target);
     } catch (err) {
       return AbortablePromise.rejectReason(err);
     }

@@ -37,13 +37,13 @@ describe('caps — capability builders return the expected literal strings', () 
   it('pages + forms capabilities', () => {
     expect(caps.doc.pages.modify()).toBe('doc.pages.modify');
     expect(caps.doc.pages.assemble()).toBe('doc.pages.assemble');
+    expect(caps.doc.forms.read()).toBe('doc.forms.read');
     expect(caps.doc.forms.fill()).toBe('doc.forms.fill');
     expect(caps.doc.forms.modify()).toBe('doc.forms.modify');
   });
 
-  it('annotate read/create/modify split + redact', () => {
+  it('annotate read/modify split + redact', () => {
     expect(caps.doc.annotate.read()).toBe('doc.annotate.read');
-    expect(caps.doc.annotate.create()).toBe('doc.annotate.create');
     expect(caps.doc.annotate.modify()).toBe('doc.annotate.modify');
     expect(caps.doc.redact()).toBe('doc.redact');
   });
@@ -62,10 +62,10 @@ describe('caps — capability builders return the expected literal strings', () 
       caps.doc.print.high(),
       caps.doc.pages.modify(),
       caps.doc.pages.assemble(),
+      caps.doc.forms.read(),
       caps.doc.forms.fill(),
       caps.doc.forms.modify(),
       caps.doc.annotate.read(),
-      caps.doc.annotate.create(),
       caps.doc.annotate.modify(),
       caps.doc.redact(),
     ];
@@ -77,7 +77,9 @@ describe('caps — capability builders return the expected literal strings', () 
 });
 
 describe('collab — filter builders', () => {
-  it('all/self filters (update/delete only; create is a capability, not collab)', () => {
+  it('all/self filters cover create/update/delete', () => {
+    expect(collab.annotations.create.self()).toBe('annotations:create:self');
+    expect(collab.annotations.create.all()).toBe('annotations:create:all');
     expect(collab.annotations.update.self()).toBe('annotations:update:self');
     expect(collab.annotations.delete.self()).toBe('annotations:delete:self');
     expect(collab.annotations.update.all()).toBe('annotations:update:all');
@@ -111,6 +113,8 @@ describe('collab — filter builders', () => {
 
   it('every output parses back as a collab scope', () => {
     const samples = [
+      collab.annotations.create.self(),
+      collab.annotations.create.group('legal'),
       collab.annotations.update.self(),
       collab.annotations.delete.createdBy('alice'),
       collab.annotations.update.group('engineering'),
@@ -141,16 +145,20 @@ describe('pdfPermissions virtual builder', () => {
 });
 
 describe('materializePdfPermissions', () => {
-  it('always includes doc.open and doc.render (regardless of bits)', () => {
+  it('always includes doc.open, doc.render, and the unconditional reads', () => {
     const set = new Set(materializePdfPermissions(decodePdfBits(null)));
     expect(set.has('doc.open')).toBe(true);
     expect(set.has('doc.render')).toBe(true);
+    expect(set.has('doc.annotate.read')).toBe(true);
+    expect(set.has('doc.forms.read')).toBe(true);
   });
 
   it('null bits yields ONLY the always-on capabilities', () => {
     const list = materializePdfPermissions(decodePdfBits(null));
-    expect(list).toEqual(expect.arrayContaining(['doc.open', 'doc.render']));
-    expect(list).toHaveLength(2);
+    expect(list).toEqual(
+      expect.arrayContaining(['doc.open', 'doc.render', 'doc.annotate.read', 'doc.forms.read']),
+    );
+    expect(list).toHaveLength(4);
   });
 
   it('bit 5 adds text.{select,copy,search} + content.copy', () => {
@@ -161,17 +169,16 @@ describe('materializePdfPermissions', () => {
     expect(set.has('doc.content.copy')).toBe(true);
   });
 
-  it('bit 6 adds doc.annotate.read, doc.annotate.create AND doc.annotate.modify', () => {
+  it('bit 6 adds doc.annotate.modify (reads are unconditional, not bit-gated)', () => {
     const set = new Set(materializePdfPermissions(decodePdfBits(PDF_BITS.ANNOTATE_FILL)));
-    expect(set.has('doc.annotate.read')).toBe(true);
-    expect(set.has('doc.annotate.create')).toBe(true);
     expect(set.has('doc.annotate.modify')).toBe(true);
+    expect(set.has('doc.annotate.read')).toBe(true); // unconditional, already in set
   });
 
-  it('bit 9 adds doc.forms.fill without bit 6', () => {
+  it('bit 9 adds doc.forms.fill; doc.forms.read is unconditional', () => {
     const set = new Set(materializePdfPermissions(decodePdfBits(PDF_BITS.FILL_FORMS)));
     expect(set.has('doc.forms.fill')).toBe(true);
-    expect(set.has('doc.annotate.read')).toBe(false);
+    expect(set.has('doc.forms.read')).toBe(true); // unconditional
   });
 
   it('bit 6 AND bit 4 required for doc.forms.modify', () => {

@@ -29,14 +29,14 @@ export type DocCapability =
   | 'doc.pages.modify'
   | 'doc.pages.assemble'
 
-  // Forms (PDF bit 6 / bit 9)
-  | 'doc.forms.fill'
-  | 'doc.forms.modify'
+  // Forms
+  | 'doc.forms.read' // structured read of form field definitions/values (cloud-only; no PDF-bit gate — reading is unconditional)
+  | 'doc.forms.fill' // set form field values (PDF bit 9, also implied by bit 6)
+  | 'doc.forms.modify' // create/restructure/delete fields (PDF bit 6 + bit 4)
 
   // Annotations
-  | 'doc.annotate.read' // cloud-only read of annotation lists (PDF bit 6 in pdf.permissions)
-  | 'doc.annotate.create' // create new annotations stamped with the caller's identity (PDF bit 6)
-  | 'doc.annotate.modify' // broad write incl. update/delete (bypasses per-record collab filters) (PDF bit 6)
+  | 'doc.annotate.read' // structured read of annotation lists (cloud-only; no PDF-bit gate — reading is unconditional)
+  | 'doc.annotate.modify' // broad write default for create/update/delete (PDF bit 6); narrowed per-action by collab scopes when present
 
   // Redaction apply (destructive content modification, PDF bit 4)
   | 'doc.redact';
@@ -48,12 +48,20 @@ export type DocCapability =
 export type CollabEntity = 'annotations';
 
 /**
- * Collab actions describe operations against an existing annotation row
- * whose owner identity may differ from the caller. Creation is gated by
- * the `doc.annotate.create` capability — it always stamps the caller's
- * JWT identity and has no other-target dimension to qualify.
+ * Collab actions for annotations. Each can be qualified by a filter that
+ * narrows authority per-row.
+ *
+ * On `create`, the target evaluated against the filter is built from the
+ * caller's JWT identity (no impersonation surface). So `:self` and `:all`
+ * trivially pass; `:group=X` is the meaningful one — it constrains
+ * creation to callers whose default group is X.
+ *
+ * On `update` / `delete`, the target is the existing row's owner.
+ *
+ * On `set-group`, the filter is an assignment-authority check against
+ * the destination group, not the row.
  */
-export type CollabAction = 'update' | 'delete' | 'set-group';
+export type CollabAction = 'create' | 'update' | 'delete' | 'set-group';
 
 export type CollabFilter =
   | { kind: 'all' }

@@ -24,10 +24,10 @@ const KNOWN_CAPABILITIES: ReadonlySet<DocCapability> = new Set([
   'doc.print.high',
   'doc.pages.modify',
   'doc.pages.assemble',
+  'doc.forms.read',
   'doc.forms.fill',
   'doc.forms.modify',
   'doc.annotate.read',
-  'doc.annotate.create',
   'doc.annotate.modify',
   'doc.redact',
 ]);
@@ -77,7 +77,13 @@ function parseCollab(raw: string): ParsedScope {
   if (entity !== 'annotations') {
     throw new InvalidScope(raw, `unknown collab entity: ${entity}`);
   }
-  if (action !== 'update' && action !== 'delete' && action !== 'set-group' && action !== '*') {
+  if (
+    action !== 'create' &&
+    action !== 'update' &&
+    action !== 'delete' &&
+    action !== 'set-group' &&
+    action !== '*'
+  ) {
     throw new InvalidScope(raw, `unknown collab action: ${action}`);
   }
   const filter = parseFilter(filterStr, raw);

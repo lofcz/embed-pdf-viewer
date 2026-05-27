@@ -245,9 +245,13 @@ export async function registerAnnotationRoutes(
     const pageObjectNumber = parsePageObjectNumber(pon);
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
     const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
-    // Creation stamps the caller's JWT identity — the worker writes
-    // /T, /M, and /EMBD_Metadata from the actor we build below.
-    const ctx = requireLayerCapability(req, docId, layerName, 'doc.annotate.create', pdfBits);
+    // Creation is a collab check against the caller's own identity
+    // (no impersonation). `:self`/`:all` trivially pass; `:group=X`
+    // constrains creators to those whose default group is X. Under
+    // the narrowing model, `doc.annotate.modify` covers create when
+    // no create-collab filter is present.
+    const target = targetForSelfCreate(accessCtx.jwt);
+    const ctx = requireLayerCollabAction(req, docId, layerName, 'create', target, pdfBits);
     const draft = parseOrInvalidArg<AnnotationDraft>(
       AnnotationDraftSchema as unknown as SchemaLike<AnnotationDraft>,
       req.body,
@@ -439,13 +443,31 @@ function requireWeakAnnotationSessions(
 // ----------------------------------------------------------------------
 // Annotation identity helpers
 //
-// Two pure helpers — one per mutation shape:
-//   - actorFromJwt:     build the create actor from JWT identity.
-//                       Creation always stamps the caller;
-//                       `doc.annotate.create` is the gate.
-//   - buildUpdateActor: build the update actor (modification trail +
-//                       optional group reassignment gated by :set-group).
+// Three small pure helpers, one per mutation shape:
+//   - targetForSelfCreate: build the CollabTarget for create checks
+//                          from JWT identity (no impersonation).
+//   - actorFromJwt:        build the worker actor for create from JWT
+//                          identity. The worker stamps /T,
+//                          /EMBD_Metadata/UserID,CreatedBy,UpdatedBy,
+//                          and /EMBD_Metadata/GroupID.
+//   - buildUpdateActor:    build the update actor (modification trail
+//                          + optional group reassignment gated by
+//                          :set-group).
 // ----------------------------------------------------------------------
+
+/**
+ * Build the CollabTarget for a create check. Targets the caller's own
+ * identity — no impersonation, no draft-side override. `:self`/`:all`
+ * pass trivially; `:group=X` is the meaningful filter (matches only
+ * when the caller's default group is X).
+ */
+function targetForSelfCreate(jwt: RequestJwtContext): CollabTarget {
+  const id = jwt.identity;
+  return {
+    ...(id.user_id !== undefined ? { userId: id.user_id } : {}),
+    ...(id.group_id !== undefined ? { groupId: id.group_id } : {}),
+  };
+}
 
 /**
  * Build the CREATE actor from the caller's JWT identity. The worker

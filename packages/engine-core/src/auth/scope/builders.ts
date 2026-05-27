@@ -37,12 +37,12 @@ export const caps = {
       assemble: () => 'doc.pages.assemble' as const,
     },
     forms: {
+      read: () => 'doc.forms.read' as const,
       fill: () => 'doc.forms.fill' as const,
       modify: () => 'doc.forms.modify' as const,
     },
     annotate: {
       read: () => 'doc.annotate.read' as const,
-      create: () => 'doc.annotate.create' as const,
       modify: () => 'doc.annotate.modify' as const,
     },
     redact: () => 'doc.redact' as const,
@@ -53,21 +53,25 @@ export const caps = {
  * Builder factory for collab scope filters. Each entity:action pair
  * gets a sub-object with the four filter constructors.
  *
+ *   collab.annotations.create.self()           → "annotations:create:self"
+ *   collab.annotations.create.group("legal")   → "annotations:create:group=legal"
  *   collab.annotations.update.group("4")       → "annotations:update:group=4"
  *   collab.annotations.delete.createdBy("u-7") → "annotations:delete:createdBy=u-7"
  *   collab.annotations.setGroup.group("legal") → "annotations:set-group:group=legal"
  *   collab.annotations.all.all()               → "annotations:*:all"  (action wildcard)
  *
- * Creation is gated by the `caps.doc.annotate.create()` capability —
- * creation always stamps the caller's JWT identity and has no
- * other-target dimension to qualify.
+ * On create, the filter is evaluated against the caller's own identity
+ * (no impersonation), so `:self` and `:all` trivially pass; `:group=X`
+ * is the meaningful filter — it constrains creation to callers whose
+ * default group is X.
  */
 export const collab = {
   annotations: {
+    create: makeFilterBuilder('annotations', 'create'),
     update: makeFilterBuilder('annotations', 'update'),
     delete: makeFilterBuilder('annotations', 'delete'),
     setGroup: makeSetGroupBuilder(),
-    /** Action wildcard — matches update, delete, AND set-group with the given filter. */
+    /** Action wildcard — matches create, update, delete, AND set-group with the given filter. */
     all: makeFilterBuilder('annotations', '*'),
   },
 } as const;
@@ -137,6 +141,10 @@ export function materializePdfPermissions(b: PdfBits): DocCapability[] {
   // Always — pdf.permissions means "give me a working session"
   out.add('doc.open');
   out.add('doc.render');
+  // Reading existing annotations and form values is unconditional —
+  // PDF bit 6 governs writes, not visibility.
+  out.add('doc.annotate.read');
+  out.add('doc.forms.read');
 
   if (b.bit5) {
     out.add('doc.text.select');
@@ -151,11 +159,7 @@ export function materializePdfPermissions(b: PdfBits): DocCapability[] {
     out.add('doc.redact');
   }
   if (b.bit11) out.add('doc.pages.assemble');
-  if (b.bit6) {
-    out.add('doc.annotate.read');
-    out.add('doc.annotate.create');
-    out.add('doc.annotate.modify');
-  }
+  if (b.bit6) out.add('doc.annotate.modify');
   if (b.bit6 || b.bit9) out.add('doc.forms.fill');
   if (b.bit6 && b.bit4) out.add('doc.forms.modify');
 

@@ -119,6 +119,20 @@ export class ScopeGuard {
   }
 
   /**
+   * Build the CollabTarget for CREATE — the handle's own identity.
+   * Fed to `assertCollab('create', target)` so `:self`/`:all` trivially
+   * pass and `:group=X` is meaningful (matches when the handle's
+   * default group is X).
+   */
+  targetForSelfCreate(): CollabTarget {
+    const id = this.ctx.identity;
+    return {
+      ...(id.user_id !== undefined ? { userId: id.user_id } : {}),
+      ...(id.group_id !== undefined ? { groupId: id.group_id } : {}),
+    };
+  }
+
+  /**
    * Build the actor for an annotation UPDATE.
    *   - userId      → caller's identity (UpdatedBy stamp)
    *   - groupId     → ONLY when the patch reassigns it (differs from current)
