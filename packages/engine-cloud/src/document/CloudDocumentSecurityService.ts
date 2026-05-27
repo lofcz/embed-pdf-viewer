@@ -58,11 +58,15 @@ export class CloudDocumentSecurityService implements DocumentSecurityService {
         passwordGrant: response.passwordGrant,
         pdfPermissions: response.pdfPermissions,
         scope: response.scope,
+        effectiveScope: response.effectiveScope,
         identity: response.identity,
         originPasswordPolicy: response.originPasswordPolicy,
         expiresAt: response.expiresAt,
       };
-      return { security: this.state, access: this.access };
+      // DocumentUnlockResult.access is `DocumentAccessInfo | undefined`,
+      // not `| null`. We carry the local cache as `| null` (clearer
+      // "not yet unlocked" semantic); coerce at the boundary.
+      return { security: this.state, access: this.access ?? undefined };
     });
   }
 }

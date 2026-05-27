@@ -4,12 +4,14 @@ import { join } from 'node:path';
 import {
   EngineError,
   EngineErrorCode,
+  decodePdfBits,
   securityStateFromProbe,
   wirePack,
   type DocumentSecurityState,
   type DocumentMetadata,
   type DocumentSecurityProbeInfo,
   type PageState,
+  type PdfBits,
   type PdfSaveMode,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
@@ -210,6 +212,73 @@ export class DocumentService {
     } finally {
       this.opens.delete(docId);
     }
+  }
+
+  /**
+   * Raw DB-row accessor for the document's PDFium permission bits.
+   *
+   * For unencrypted documents this is the right value — the bits are
+   * a property of the static PDF and don't change per caller.
+   *
+   * For ENCRYPTED documents this is stale: the row was populated by an
+   * anonymous probe at ingest, so it reflects either "no permissions"
+   * (probe rejected by password) or restrictive user-mode bits, NEVER
+   * the actual bits the caller sees with their unlocked session. Route
+   * guards should prefer {@link getEffectivePdfBits} which consults the
+   * active password session first.
+   *
+   * Kept exposed as a focused primitive for cases that genuinely want
+   * the document-row state regardless of session (e.g. /head's advisory
+   * display BEFORE any unlock happens).
+   */
+  async getPdfBits(tenantId: string, docId: string) {
+    return this.documents.getPdfBits(docId, tenantId);
+  }
+
+  /**
+   * Authorization-aware accessor for the bits the caller's CURRENT
+   * session sees. This is what route guards should use to expand
+   * `pdf.permissions` and run capability/collab checks — the
+   * difference matters for encrypted documents, where the DB row and
+   * the post-unlock session disagree.
+   *
+   * Precedence (one source of truth per caller, per moment):
+   *   1. Unencrypted doc                  → DB row bits
+   *   2. Encrypted doc + active session   → session.pdf_permissions_bits
+   *   3. Encrypted doc + no session       → DB row bits (typically
+   *      null/restrictive); the route's `assertPasswordSession` guard
+   *      refuses the request before any work happens, so this path is
+   *      defensive rather than expected.
+   *
+   * `securityFingerprint` is part of the session binding, so a
+   * re-uploaded PDF (changes the fingerprint) automatically invalidates
+   * the cached session — readers fall back to the new DB row bits and
+   * the caller has to /access again to refresh.
+   *
+   * `/access` itself does NOT call this — it has `unlocked.probe` in
+   * hand from `unlockLayerAccess`, which is the authoritative source
+   * for the moment it just unlocked. Use that probe directly.
+   */
+  async getEffectivePdfBits(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string = 'default',
+  ): Promise<PdfBits> {
+    const row = await this.requireReadyRow(ctx, docId);
+    const fromRow = decodePdfBits(row.security.pdfPermissionsBits ?? null);
+
+    if (!requiresPasswordSession(row) || !this.passwordSessions) {
+      return fromRow;
+    }
+    // Encrypted: prefer the active password session's post-unlock bits.
+    // openedAs (user vs owner) is already reflected in the bits the
+    // worker recorded at unlock time, so no extra branching here.
+    const binding = this.passwordSessionBinding(ctx, row, layerName);
+    const session = await this.passwordSessions.findActive(binding);
+    if (session) {
+      return decodePdfBits(session.pdfPermissionsBits);
+    }
+    return fromRow;
   }
 
   /**

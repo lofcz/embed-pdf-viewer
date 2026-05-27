@@ -1,5 +1,17 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
+  checkAnyCapability,
+  checkCapability,
+  checkCollab,
+  checkResourceAccess,
+  type CollabAction,
+  type CollabTarget,
+  type DocCapability,
+  type DocResourceId,
+  type PdfBits,
+} from '@embedpdf/engine-core/runtime';
+
+import {
   createJwtVerifier,
   hasDocScope,
   hasTenantScope,
@@ -197,6 +209,237 @@ export function requireLayerDocAccess(
   needed: ReadonlyArray<DocScope>,
 ): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
   const ctx = requireDocAccess(req, docId, needed);
+  enforceLayerPin(req, layerName);
+  return ctx;
+}
+
+// ============================================================================
+// Capability + collab helpers (engine-core scope vocabulary)
+// ============================================================================
+//
+// These replace the `requireDocAccess(req, docId, ['doc.read'])` style.
+// Route handlers migrate to them in two stages:
+//   1. Read routes call `requireResource(req, docId, '<id>', pdfBits)` — the
+//      DOC_RESOURCES table is the source of truth for capability checks
+//      AND CDN coverage.
+//   2. Mutation routes that have collab semantics call `requireCollab(...)`
+//      with the target row's userId/groupId.
+//
+// Tenant tokens still bypass capability checks here — a tenant owns every
+// doc in their tenant, and the service-layer `requireOwned` enforces the
+// doc-tenant binding. This mirrors the existing `requireDocAccess` policy
+// for the tenant branch.
+
+/**
+ * Doc-scope-only preHandler that performs NO capability check. Verifies
+ * the JWT is doc-scoped to this `docId` (or that the bearer is a tenant
+ * token with `docs.read`). Used by the next-layer capability/collab
+ * helpers; the tenant branch they exit through is the same as the legacy
+ * `requireDocAccess`.
+ *
+ * Reading is implicit only in the sense that having a valid doc-scoped
+ * token gets you THIS far — the capability/collab/resource helper layered
+ * on top then decides whether the actual operation is allowed.
+ */
+export function requireDocAccessOnly(
+  req: FastifyRequest,
+  docId: string,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const t = req.tenant;
+  if (!t) {
+    const err = new Error('doc-access token required') as Error & {
+      code: string;
+      status: number;
+    };
+    err.code = 'Unauthenticated';
+    err.status = 401;
+    throw err;
+  }
+
+  if (isDocUserClaims(t.claims)) {
+    if (t.claims.doc_id !== docId) {
+      const err = new Error('token grants access to a different document') as Error & {
+        code: string;
+        status: number;
+      };
+      err.code = 'Forbidden';
+      err.status = 403;
+      throw err;
+    }
+    return { tenantId: t.id, sub: t.sub, mode: 'doc', jwt: jwtContext(t.claims) };
+  }
+
+  // Tenant branch — same policy as the legacy requireDocAccess.
+  if (!hasTenantScope(t.claims, ['*', 'docs.read'])) {
+    const err = new Error('tenant scope required: one of [*, docs.read]') as Error & {
+      code: string;
+      status: number;
+    };
+    err.code = 'Forbidden';
+    err.status = 403;
+    throw err;
+  }
+  return { tenantId: t.id, sub: t.sub, mode: 'tenant', jwt: jwtContext(t.claims) };
+}
+
+/**
+ * Assert the bearer's scope grants the named capability for the given
+ * document. Throws `Forbidden` on deny.
+ *
+ * Tenant tokens bypass the capability check entirely (existing policy:
+ * tenant owns every doc in the tenant). Doc-scoped tokens evaluate the
+ * capability against their JWT scope array + the document's PDF bits
+ * (the bits matter for `pdf.permissions` expansion only).
+ */
+export function requireCapability(
+  req: FastifyRequest,
+  docId: string,
+  capability: DocCapability,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireDocAccessOnly(req, docId);
+  if (ctx.mode === 'tenant') return ctx;
+  if (!checkCapability(capability, ctx.jwt.scope, pdfBits)) {
+    throwForbidden(`capability required: ${capability}`);
+  }
+  return ctx;
+}
+
+/**
+ * Assert the bearer's scope grants AT LEAST ONE of the listed capabilities.
+ * Currently unused by the resource table (every entry maps to a single cap),
+ * but kept available for routes that need the disjunction directly.
+ */
+export function requireAnyCapability(
+  req: FastifyRequest,
+  docId: string,
+  capabilities: ReadonlyArray<DocCapability>,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireDocAccessOnly(req, docId);
+  if (ctx.mode === 'tenant') return ctx;
+  if (!checkAnyCapability(capabilities, ctx.jwt.scope, pdfBits)) {
+    throwForbidden(`one of: ${capabilities.join(', ')}`);
+  }
+  return ctx;
+}
+
+/**
+ * Resource-table-driven guard. Routes pass the resource id (e.g.
+ * `'page-render'`) and the helper looks up the requirement in
+ * DOC_RESOURCES. Keeps the route→capability mapping in one place
+ * shared with the CDN signer.
+ */
+export function requireResource(
+  req: FastifyRequest,
+  docId: string,
+  resourceId: DocResourceId,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireDocAccessOnly(req, docId);
+  if (ctx.mode === 'tenant') return ctx;
+  if (!checkResourceAccess(resourceId, ctx.jwt.scope, pdfBits)) {
+    throwForbidden(`resource access denied: ${resourceId}`);
+  }
+  return ctx;
+}
+
+/**
+ * Annotation collab guard. PATCH/DELETE routes fetch the target
+ * annotation's `userId` / `groupId` from the EMBD_Metadata reader
+ * first, then call this. POST (create) passes the caller's own
+ * identity as the target since creators always act as themselves.
+ */
+export function requireCollabAction(
+  req: FastifyRequest,
+  docId: string,
+  action: CollabAction,
+  target: CollabTarget,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireDocAccessOnly(req, docId);
+  if (ctx.mode === 'tenant') return ctx;
+  if (!checkCollab(action, target, ctx.jwt.scope, ctx.jwt.identity, pdfBits)) {
+    throwForbidden(`annotations:${action} denied for target`);
+  }
+  return ctx;
+}
+
+// Layer-scoped variants — wrap the doc-only versions with the existing
+// layer pin check (the token's `layer_name` claim, defaulting to
+// 'default', must match the URL).
+
+/**
+ * Layer-scoped equivalent of `requireDocAccessOnly`. Verifies the JWT
+ * is doc-scoped to this `docId` AND that its `layer_name` claim (if
+ * present, defaulting to 'default') matches the URL layer. Performs
+ * NO capability check — used by /access and other endpoints where
+ * the work itself defines what's authorized.
+ */
+export function requireLayerDocAccessOnly(
+  req: FastifyRequest,
+  docId: string,
+  layerName: string,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireDocAccessOnly(req, docId);
+  enforceLayerPin(req, layerName);
+  return ctx;
+}
+
+export function requireLayerCapability(
+  req: FastifyRequest,
+  docId: string,
+  layerName: string,
+  capability: DocCapability,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireCapability(req, docId, capability, pdfBits);
+  enforceLayerPin(req, layerName);
+  return ctx;
+}
+
+export function requireLayerAnyCapability(
+  req: FastifyRequest,
+  docId: string,
+  layerName: string,
+  capabilities: ReadonlyArray<DocCapability>,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireAnyCapability(req, docId, capabilities, pdfBits);
+  enforceLayerPin(req, layerName);
+  return ctx;
+}
+
+export function requireLayerResource(
+  req: FastifyRequest,
+  docId: string,
+  layerName: string,
+  resourceId: DocResourceId,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireResource(req, docId, resourceId, pdfBits);
+  enforceLayerPin(req, layerName);
+  return ctx;
+}
+
+export function requireLayerCollabAction(
+  req: FastifyRequest,
+  docId: string,
+  layerName: string,
+  action: CollabAction,
+  target: CollabTarget,
+  pdfBits: PdfBits,
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+  const ctx = requireCollabAction(req, docId, action, target, pdfBits);
+  enforceLayerPin(req, layerName);
+  return ctx;
+}
+
+// ----------------------------------------------------------------------
+// internal helpers
+// ----------------------------------------------------------------------
+
+function enforceLayerPin(req: FastifyRequest, layerName: string): void {
   const claims = req.tenant?.claims;
   if (claims && isDocUserClaims(claims)) {
     const expected = claims.layer_name ?? 'default';
@@ -210,7 +453,13 @@ export function requireLayerDocAccess(
       throw err;
     }
   }
-  return ctx;
+}
+
+function throwForbidden(message: string): never {
+  const err = new Error(message) as Error & { code: string; status: number };
+  err.code = 'Forbidden';
+  err.status = 403;
+  throw err;
 }
 
 function jwtContext(claims: JwtClaims): RequestJwtContext {

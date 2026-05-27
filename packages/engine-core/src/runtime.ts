@@ -15,7 +15,9 @@ export { AbortError, isAbortError } from './promise/AbortError';
 export type { Engine } from './engine/Engine';
 export type { DocumentHandle } from './engine/DocumentHandle';
 export {
+  advisoryFromPdfBits,
   permissionInfoFromProbe,
+  permissionInfoWithAdvisory,
   securityStateFromHead,
   securityStateFromProbe,
 } from './engine/document-security-state';
@@ -29,6 +31,7 @@ export type {
   DocumentSecurityState,
   DocumentUnlockInput,
   DocumentUnlockResult,
+  PdfPermissionAdvisory,
   PdfPermissionInfo,
 } from './engine/DocumentSecurityService';
 export type { DocumentCapabilities } from './engine/DocumentHandle';

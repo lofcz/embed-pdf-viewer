@@ -51,6 +51,13 @@ export type {
   WeakAnnotationSessionPagesRequest,
 } from './wire/schemas';
 export { DEFAULT_LAYER_NAME, wirePaths } from './wire/paths';
+export { cdnCoverageForScope, checkResourceAccess, DOC_RESOURCES } from './wire/resources';
+export type {
+  CapabilityRequirement,
+  DocResourceDescriptor,
+  DocResourceId,
+  RouteKind,
+} from './wire/resources';
 export { decodeToken, encodeToken } from './wire/token';
 export type { TokenInput, TokenQuery, TokenScalar, TokenSchema } from './wire/token';
 export {

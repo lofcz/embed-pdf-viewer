@@ -599,7 +599,7 @@ function docToken(tenantId: string, docId: string, layerName: string, sub = 'use
     tenant_id: tenantId,
     doc_id: docId,
     layer_name: layerName,
-    scope: ['doc.read', 'doc.annotate', 'doc.edit-pages'],
+    scope: ['*'],
   });
 }
 

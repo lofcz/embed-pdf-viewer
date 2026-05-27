@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { InvalidScope, validateScopeArray } from '@embedpdf/engine-core/runtime';
 import {
   createLocalJWKSet,
   createRemoteJWKSet,
@@ -118,22 +119,23 @@ export type JwtClaims = TenantClaims | DocUserClaims;
 export type TenantScope = '*' | 'docs.create' | 'docs.read' | 'docs.delete' | 'tokens.mint';
 
 /**
- * Operations a doc-scoped principal can perform on the document
- * named by their `doc_id` claim. A tenant token with `docs.read`
- * (or `*`) implicitly satisfies every `DocScope` for any doc in
- * the tenant — the tenant owns the doc, so they can do anything to
- * it.
+ * Doc-scope strings on the wire. After the scope-vocabulary migration
+ * this type is intentionally loose (`string`) — the closed enum lives
+ * in `@embedpdf/engine-core/auth/scope` as `DocCapability`, and the
+ * authoritative check is `validateScopeArray()` called from
+ * `coerceClaims()` at verify time. Any string makes it through the
+ * type system; only valid scope-vocabulary strings make it through
+ * verification.
  *
- * `*` is the doc-level superset wildcard. New scopes go here and
- * have to be plumbed through `requireDocAccess` at every doc route.
+ * Legacy values (`doc.read`, `doc.edit-pages`, `doc.save`) are no
+ * longer recognised and cause verification to fail with a clear
+ * error naming the offending scope.
+ *
+ * @deprecated Routes should use `DocCapability` from engine-core and
+ * the resource/capability/collab helpers in `jwt-plugin.ts`. This
+ * alias remains only for legacy callers that haven't migrated yet.
  */
-export type DocScope =
-  | '*'
-  | 'doc.read'
-  | 'doc.annotate'
-  | 'doc.edit-pages'
-  | 'doc.download'
-  | 'doc.save';
+export type DocScope = string;
 
 export type JwtClaimsExtras = Record<string, unknown>;
 
@@ -578,6 +580,23 @@ function coerceClaims(payload: JWTPayload): JwtClaims {
   if (docId !== undefined) {
     // Doc-scoped class. We tolerate a missing `scope` field on the
     // wire and synthesize `[]`; the route guard then rejects it.
+    //
+    // Strict scope-vocabulary validation: every entry must parse as a
+    // capability, collab scope, virtual (`pdf.permissions`), or wildcard
+    // per @embedpdf/engine-core/auth/scope. Unknown strings — including
+    // removed legacy names like `doc.read`, `doc.edit-pages`, `doc.save`
+    // — cause the JWT to be rejected with a clear error naming the
+    // offending scope. The JWT plugin maps the throw to a 401 response.
+    if (scope) {
+      try {
+        validateScopeArray(scope);
+      } catch (err) {
+        if (err instanceof InvalidScope) {
+          throw new Error(`jwt scope rejected: ${err.message}`);
+        }
+        throw err;
+      }
+    }
     const docScope = (scope ?? []) as ReadonlyArray<DocScope>;
     const out: DocUserClaims = layerName
       ? { ...base, doc_id: docId, scope: docScope, layer_name: layerName }
@@ -585,6 +604,9 @@ function coerceClaims(payload: JWTPayload): JwtClaims {
     return out;
   }
   // Tenant token.
+  // Tenant scopes live in a separate namespace (`TenantScope`) and are
+  // NOT validated by engine-core's scope vocabulary, which targets the
+  // doc-scoped capability/collab grammar.
   const tenantScope = (scope ?? []) as ReadonlyArray<TenantScope>;
   const out: TenantClaims = { ...base, scope: tenantScope };
   return out;

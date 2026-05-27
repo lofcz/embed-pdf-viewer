@@ -109,6 +109,13 @@ export const AnnotationBaseShape = {
   author: z.string().nullable(),
   created: z.string().datetime().nullable(),
   modified: z.string().datetime().nullable(),
+  // EmbedPDF /EMBD_Metadata fields — see AnnotationBase docstring.
+  // Optional (absent for legacy or anonymous annotations) and never
+  // null on the wire: present-as-string or absent entirely.
+  userId: z.string().optional(),
+  groupId: z.string().optional(),
+  createdBy: z.string().optional(),
+  updatedBy: z.string().optional(),
 } as const;
 
 /**
@@ -119,6 +126,11 @@ export const AnnotationDraftBaseShape = {
   contents: z.string().nullable().optional(),
   author: z.string().nullable().optional(),
   nm: z.string().optional(),
+  // Identity overrides for impersonation / cross-group authoring —
+  // see AnnotationDraftBase docstring. Empty strings are rejected to
+  // avoid ambiguity with "no override supplied".
+  userId: z.string().min(1).optional(),
+  groupId: z.string().min(1).optional(),
 } as const;
 
 /**
@@ -129,6 +141,9 @@ export const AnnotationDraftBaseShape = {
 export const AnnotationPatchBaseShape = {
   contents: z.string().nullable().optional(),
   author: z.string().nullable().optional(),
+  // Group reassignment — see AnnotationPatchBase docstring. userId is
+  // not patchable by design.
+  groupId: z.string().min(1).optional(),
 } as const;
 
 /** Helper that asserts `BasePart extends AnnotationBase` without subtype. */

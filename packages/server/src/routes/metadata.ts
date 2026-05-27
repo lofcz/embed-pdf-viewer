@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import { decodeDocToken } from '@embedpdf/engine-core/wire';
-import { requireLayerDocAccess } from '../app/jwt-plugin';
+import { requireLayerCapability, requireLayerDocAccessOnly } from '../app/jwt-plugin';
 import type { DocumentService } from '../services/DocumentService';
 import {
   abortSignalFromRequest,
@@ -26,7 +26,9 @@ export async function registerMetadataRoutes(
       layerName: string;
       token: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await service.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.open', pdfBits);
     const requested = parseTokenOrInvalidArg(decodeDocToken, token, 'layerDocVersion token');
     const head = await service.getLayerHead(ctx, docId, layerName);
     if (requested !== head.docVersion) {
@@ -51,7 +53,9 @@ export async function registerMetadataRoutes(
       docId: string;
       layerName: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await service.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.open', pdfBits);
     const metadata = await service.readLayerMetadata(
       ctx,
       docId,

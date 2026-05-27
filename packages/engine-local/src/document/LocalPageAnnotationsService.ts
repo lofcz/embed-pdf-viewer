@@ -11,12 +11,14 @@ import {
   type AnnotationDeleteResult,
   type AnnotationMoveResult,
   type AnnotationUpdateResult,
+  type CollabTarget,
   type PageAnnotationsService,
   type PageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
   isClosed(): boolean;
@@ -35,6 +37,7 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
+    private readonly guard: ScopeGuard,
   ) {}
 
   list(): AbortablePromise<AnnotationListPageSnapshot> {
@@ -42,6 +45,13 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // Reading annotations gates on `doc.annotate.read` — same as the
+    // cloud's annotations-read resource.
+    try {
+      this.guard.assertCapability('doc.annotate.read');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const pon = this.pageObjectNumber;
@@ -75,6 +85,28 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
     }
+    // Cloud parity for POST /annotations:
+    //   1. Resolve effective target = draft.userId/groupId overrides ?? caller identity
+    //   2. Run collab check against the effective target
+    //   3. Run set-group check when effective groupId differs from caller default
+    //   4. Build actor for the worker; worker stamps /EMBD_Metadata
+    const draftIdentity = {
+      ...(typeof (draft as { userId?: string }).userId === 'string'
+        ? { userId: (draft as { userId?: string }).userId }
+        : {}),
+      ...(typeof (draft as { groupId?: string }).groupId === 'string'
+        ? { groupId: (draft as { groupId?: string }).groupId }
+        : {}),
+    };
+    try {
+      const target = this.guard.effectiveCreateTarget(draftIdentity);
+      this.guard.assertCollab('create', target);
+      this.guard.assertSetGroup(target.groupId);
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
+    }
+    const actor = this.guard.actorForCreate(draftIdentity);
+
     const docId = this.docId;
     const pon = this.pageObjectNumber;
     const submission = this.queue.enqueue<WorkerResultPayload>(
@@ -86,6 +118,7 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
             docId,
             pageObjectNumber: pon,
             draft,
+            ...(actor ? { actor } : {}),
           }),
       },
       { priority: Priority.HIGH },
@@ -108,21 +141,33 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
     }
-    const docId = this.docId;
-    const submission = this.queue.enqueue<WorkerResultPayload>(
-      {
-        buildPack: (jobId: JobId) =>
-          wirePack({
-            kind: 'annotations.update',
-            jobId,
-            docId,
-            ref,
-            patch,
-          }),
-      },
-      { priority: Priority.HIGH },
-    );
     return AbortablePromise.run<AnnotationUpdateResult>(async (signal) => {
+      // Look up the target row's collab identity before the mutation so
+      // the collab check can fire against the existing /EMBD_Metadata.
+      // V1 approach: page-fetch + filter — same as the cloud's
+      // `LayerService.getAnnotationCollabTarget`. Optimizable to a
+      // targeted worker job later.
+      const target = await this.collabTargetForRef(ref, signal);
+      this.guard.assertCollab('update', target);
+
+      const patchGroupId = (patch as { groupId?: string }).groupId;
+      const actor = this.guard.actorForUpdate(target.groupId, patchGroupId);
+
+      const docId = this.docId;
+      const submission = this.queue.enqueue<WorkerResultPayload>(
+        {
+          buildPack: (jobId: JobId) =>
+            wirePack({
+              kind: 'annotations.update',
+              jobId,
+              docId,
+              ref,
+              patch,
+              ...(actor ? { actor } : {}),
+            }),
+        },
+        { priority: Priority.HIGH },
+      );
       const onAbort = () => submission.abort(signal.reason);
       if (signal.aborted) onAbort();
       else signal.addEventListener('abort', onAbort, { once: true });
@@ -140,20 +185,23 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
     }
-    const docId = this.docId;
-    const submission = this.queue.enqueue<WorkerResultPayload>(
-      {
-        buildPack: (jobId: JobId) =>
-          wirePack({
-            kind: 'annotations.delete',
-            jobId,
-            docId,
-            ref,
-          }),
-      },
-      { priority: Priority.HIGH },
-    );
     return AbortablePromise.run<AnnotationDeleteResult>(async (signal) => {
+      const target = await this.collabTargetForRef(ref, signal);
+      this.guard.assertCollab('delete', target);
+
+      const docId = this.docId;
+      const submission = this.queue.enqueue<WorkerResultPayload>(
+        {
+          buildPack: (jobId: JobId) =>
+            wirePack({
+              kind: 'annotations.delete',
+              jobId,
+              docId,
+              ref,
+            }),
+        },
+        { priority: Priority.HIGH },
+      );
       const onAbort = () => submission.abort(signal.reason);
       if (signal.aborted) onAbort();
       else signal.addEventListener('abort', onAbort, { once: true });
@@ -170,6 +218,14 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // Move is a structural reorder — gates on `doc.annotate.modify`,
+    // not on per-record collab (no specific target to check). For
+    // wildcard / admin tokens, this passes trivially.
+    try {
+      this.guard.assertCapability('doc.annotate.modify');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const pon = this.pageObjectNumber;
@@ -197,5 +253,55 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       }
       return payload.result;
     });
+  }
+
+  /**
+   * Resolve the collab subject (userId / groupId) of the target row
+   * an UPDATE or DELETE is about to act on. Mirrors the cloud's
+   * `LayerService.getAnnotationCollabTarget` — page-fetch + filter
+   * over the existing listFullPage worker job. Returns `{}` when the
+   * row can't be located; the collab resolver then denies
+   * `:self`/`:group=X` filters and the mutator's own InvalidReference
+   * surfaces the real error.
+   */
+  private async collabTargetForRef(ref: AnnotationRef, signal: AbortSignal): Promise<CollabTarget> {
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.listFullPage',
+            jobId,
+            docId: this.docId,
+            pageObjectNumber: ref.pageObjectNumber,
+          }),
+      },
+      { priority: Priority.MEDIUM },
+    );
+    const onAbort = () => submission.abort(signal.reason);
+    if (signal.aborted) onAbort();
+    else signal.addEventListener('abort', onAbort, { once: true });
+
+    const payload = await submission;
+    if (payload.tag !== 'annotations.listFullPage') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected payload tag while resolving collab target: ${payload.tag}`,
+      );
+    }
+    const match = payload.snapshot.annotations.find((a) => {
+      switch (ref.kind) {
+        case 'objectNumber':
+          return a.ref.kind === 'objectNumber' && a.ref.annotObjectNumber === ref.annotObjectNumber;
+        case 'nm':
+          return a.nm === ref.nm;
+        case 'index':
+          return a.index === ref.index;
+      }
+    });
+    if (!match) return {};
+    return {
+      ...(match.userId !== undefined ? { userId: match.userId } : {}),
+      ...(match.groupId !== undefined ? { groupId: match.groupId } : {}),
+    };
   }
 }

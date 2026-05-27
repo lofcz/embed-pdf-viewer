@@ -28,4 +28,26 @@ export interface AnnotationBase {
   created: string | null;
   /** ISO 8601 from /M. */
   modified: string | null;
+
+  /**
+   * EmbedPDF-namespaced /EMBD_Metadata fields, when present on the
+   * annotation. These are written by the cloud annotation pipeline (and
+   * by engine-local when an identity is supplied at open time) so the
+   * client can resolve collab semantics and author display.
+   *
+   * Absence means either:
+   *   - the annotation was created before EMBD_Metadata was wired up,
+   *   - it was created by a non-cloud writer (Acrobat, Foxit, etc.),
+   *   - or the writer ran without an actor (anonymous test fixtures).
+   *
+   * Collab filters in the resolver treat absent userId/groupId as
+   * not-self / not-in-group — i.e. deny — so unstamped annotations are
+   * invisible to per-record collab rules. They are still visible to
+   * `view:all` style reads, since reads aren't filtered (per the v1
+   * spec).
+   */
+  userId?: string;
+  groupId?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }

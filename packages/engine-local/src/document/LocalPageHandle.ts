@@ -5,6 +5,7 @@ import { LocalPageRenderService } from './LocalPageRenderService';
 import { LocalPageTextService } from './LocalPageTextService';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
+import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
   isClosed(): boolean;
@@ -28,10 +29,18 @@ export class LocalPageHandle implements PageHandle {
     queue: WorkerQueue,
     view: DocClosedView,
     imageEncoder: LocalImageEncoder,
+    guard: ScopeGuard,
   ) {
-    this.annotations = new LocalPageAnnotationsService(docId, pageObjectNumber, queue, view);
-    this.text = new LocalPageTextService(docId, pageObjectNumber, queue, view);
-    this.geometry = new LocalPageGeometryService(docId, pageObjectNumber, queue, view);
-    this.render = new LocalPageRenderService(docId, pageObjectNumber, queue, view, imageEncoder);
+    this.annotations = new LocalPageAnnotationsService(docId, pageObjectNumber, queue, view, guard);
+    this.text = new LocalPageTextService(docId, pageObjectNumber, queue, view, guard);
+    this.geometry = new LocalPageGeometryService(docId, pageObjectNumber, queue, view, guard);
+    this.render = new LocalPageRenderService(
+      docId,
+      pageObjectNumber,
+      queue,
+      view,
+      imageEncoder,
+      guard,
+    );
   }
 }

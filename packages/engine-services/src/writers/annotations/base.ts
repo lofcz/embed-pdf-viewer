@@ -2,6 +2,8 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 import { NULL_PTR } from '@embedpdf/pdf-runtime';
 import type { AnnotationDraftBase, AnnotationPatchBase } from '@embedpdf/engine-core/runtime';
 
+import { formatPdfDate } from '../../util/pdf-date';
+
 /**
  * Write the annotation-wide author-metadata fields shared by every Draft
  * (contents/author/nm). The kind-specific writer calls this BEFORE its
@@ -68,6 +70,29 @@ export function writeAnnotationNm(
 ): void {
   if (nm.length === 0) return;
   writeString(fn, mem, annotPtr, 'NM', nm);
+}
+
+/**
+ * Stamp /M (modification date) on an annotation. /M is a standard
+ * ISO 32000 base annotation field — the moment of the last edit — so
+ * it lives here alongside /T / /NM / /Contents rather than in any
+ * vendor-namespaced extension.
+ *
+ * Called by the mutator on every annotation create AND every update;
+ * the existing base draft/patch writers leave /M alone because the
+ * value is derived from the moment of the write, not from the
+ * draft/patch payload. The base reader already extracts /M and
+ * surfaces it on `AnnotationBase.modified`.
+ *
+ * Format: `D:YYYYMMDDHHmmSSOHH'mm'` (see formatPdfDate).
+ */
+export function writeAnnotationModified(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  now: Date = new Date(),
+): void {
+  writeString(fn, mem, annotPtr, 'M', formatPdfDate(now));
 }
 
 function writeString(

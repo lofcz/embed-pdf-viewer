@@ -4,7 +4,8 @@ import type {
   PageObjectNumber,
   RevisionToken,
 } from '@embedpdf/engine-core/runtime';
-import { pdfDateToIso } from '../pdf-date';
+import { pdfDateToIso } from '../../util/pdf-date';
+import { readEmbedMetadata } from './embed-metadata';
 import { readAnnotationIdentity } from './identity';
 import { readAnnotFlags, readAnnotRect, readAnnotString } from './util';
 
@@ -29,6 +30,10 @@ export function readAnnotationBase(
   const author = readAnnotString(fn, mem, annotPtr, 'T');
   const createdRaw = readAnnotString(fn, mem, annotPtr, 'CreationDate');
   const modifiedRaw = readAnnotString(fn, mem, annotPtr, 'M');
+  // EmbedPDF /EMBD_Metadata is optional; absent for legacy or anonymous
+  // annotations. We spread the present fields into the DTO so the wire
+  // never carries explicit `undefined` keys.
+  const embd = readEmbedMetadata(fn, mem, annotPtr);
 
   return {
     ref: identity.ref,
@@ -42,5 +47,9 @@ export function readAnnotationBase(
     author,
     created: createdRaw ? pdfDateToIso(createdRaw) : null,
     modified: modifiedRaw ? pdfDateToIso(modifiedRaw) : null,
+    ...(embd?.userId !== undefined ? { userId: embd.userId } : {}),
+    ...(embd?.groupId !== undefined ? { groupId: embd.groupId } : {}),
+    ...(embd?.createdBy !== undefined ? { createdBy: embd.createdBy } : {}),
+    ...(embd?.updatedBy !== undefined ? { updatedBy: embd.updatedBy } : {}),
   };
 }

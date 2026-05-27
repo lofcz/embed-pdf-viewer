@@ -254,7 +254,7 @@ export class WorkerHost {
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
-    const result = mutator.create(req.pageObjectNumber, req.draft, signal);
+    const result = mutator.create(req.pageObjectNumber, req.draft, signal, req.actor);
     if (session.kind !== 'layer') {
       return wirePack({ tag: 'annotations.create', result });
     }
@@ -268,7 +268,7 @@ export class WorkerHost {
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
     const mutator = new DocumentAnnotationMutator(this.runtime, session);
-    const result = mutator.update(req.ref, req.patch, signal);
+    const result = mutator.update(req.ref, req.patch, signal, req.actor);
     if (session.kind !== 'layer') {
       return wirePack({ tag: 'annotations.update', result });
     }

@@ -18,7 +18,13 @@ import {
   unflatten,
   type ManifestPage,
 } from '@embedpdf/engine-core/wire';
-import { requireDocAccess, requireLayerDocAccess } from '../app/jwt-plugin';
+import {
+  requireDocAccessOnly,
+  requireLayerCapability,
+  requireLayerDocAccessOnly,
+  requireLayerResource,
+  requireResource,
+} from '../app/jwt-plugin';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { DocumentService, OpenContext } from '../services/DocumentService';
 import type { LayerService } from '../services/LayerService';
@@ -50,7 +56,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
 
   app.get('/v1/docs/:docId/pages/:pon/text@:token', async (req, reply) => {
     const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
-    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    const accessCtx = requireDocAccessOnly(req, docId);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
+    const ctx = requireResource(req, docId, 'page-text', pdfBits);
     return readPageText({
       documentService,
       pool,
@@ -64,7 +72,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
 
   app.get('/v1/docs/:docId/pages/:pon/text', async (req, reply) => {
     const { docId, pon } = req.params as { docId: string; pon: string };
-    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    const accessCtx = requireDocAccessOnly(req, docId);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
+    const ctx = requireResource(req, docId, 'page-text', pdfBits);
     return readPageText({
       documentService,
       pool,
@@ -77,7 +87,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
 
   app.get('/v1/docs/:docId/pages/:pon/geometry@:token', async (req, reply) => {
     const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
-    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    const accessCtx = requireDocAccessOnly(req, docId);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
+    const ctx = requireResource(req, docId, 'page-geometry', pdfBits);
     return readPageGeometry({
       documentService,
       pool,
@@ -91,7 +103,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
 
   app.get('/v1/docs/:docId/pages/:pon/geometry', async (req, reply) => {
     const { docId, pon } = req.params as { docId: string; pon: string };
-    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    const accessCtx = requireDocAccessOnly(req, docId);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
+    const ctx = requireResource(req, docId, 'page-geometry', pdfBits);
     return readPageGeometry({
       documentService,
       pool,
@@ -104,7 +118,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
 
   app.get('/v1/docs/:docId/pages/:pon/render@:token', async (req, reply) => {
     const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
-    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    const accessCtx = requireDocAccessOnly(req, docId);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
+    const ctx = requireResource(req, docId, 'page-render', pdfBits);
     return renderPageImage({
       documentService,
       pool,
@@ -120,7 +136,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
 
   app.get('/v1/docs/:docId/pages/:pon/render', async (req, reply) => {
     const { docId, pon } = req.params as { docId: string; pon: string };
-    const ctx = requireDocAccess(req, docId, ['doc.read']);
+    const accessCtx = requireDocAccessOnly(req, docId);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
+    const ctx = requireResource(req, docId, 'page-render', pdfBits);
     return renderPageImage({
       documentService,
       pool,
@@ -140,7 +158,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       pon: string;
       token: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'page-text', pdfBits);
     return readPageText({
       documentService,
       pool,
@@ -158,7 +178,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       layerName: string;
       pon: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'page-text', pdfBits);
     return readPageText({
       documentService,
       pool,
@@ -176,7 +198,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       pon: string;
       token: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'page-geometry', pdfBits);
     return readPageGeometry({
       documentService,
       pool,
@@ -194,7 +218,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       layerName: string;
       pon: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'page-geometry', pdfBits);
     return readPageGeometry({
       documentService,
       pool,
@@ -212,7 +238,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       pon: string;
       token: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'page-render', pdfBits);
     return renderPageImage({
       documentService,
       pool,
@@ -232,7 +260,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       layerName: string;
       pon: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.read']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'page-render', pdfBits);
     return renderPageImage({
       documentService,
       pool,
@@ -250,7 +280,9 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       docId: string;
       layerName: string;
     };
-    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.edit-pages']);
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.pages.assemble', pdfBits);
     const body = parseOrInvalidArg<PageMoveInput>(
       PageMoveInputSchema as unknown as SchemaLike<PageMoveInput>,
       req.body,

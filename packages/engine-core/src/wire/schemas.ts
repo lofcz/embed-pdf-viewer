@@ -98,12 +98,48 @@ export const AccessRequestSchema = z.object({
 });
 export type AccessRequest = z.infer<typeof AccessRequestSchema>;
 
+/**
+ * Typed boolean view of the PDF user-access permission word. Names
+ * mirror the `PdfBits` shape in @embedpdf/engine-core/auth/scope; ISO
+ * bit numbers (3, 4, 5, 6, 9, 10, 11, 12).
+ */
+const PdfBitsObjectSchema = z.object({
+  bit3: z.boolean(),
+  bit4: z.boolean(),
+  bit5: z.boolean(),
+  bit6: z.boolean(),
+  bit9: z.boolean(),
+  bit10: z.boolean(),
+  bit11: z.boolean(),
+  bit12: z.boolean(),
+});
+
+/**
+ * Capability-shaped advisory for the client UI. Mirrors
+ * `PdfPermissionAdvisory` in @embedpdf/engine-core/runtime; one
+ * boolean per UI badge.
+ */
+const PdfPermissionAdvisoryObjectSchema = z.object({
+  canPrint: z.boolean(),
+  canPrintHigh: z.boolean(),
+  canCopy: z.boolean(),
+  canAnnotate: z.boolean(),
+  canFillForms: z.boolean(),
+  canModifyForms: z.boolean(),
+  canModifyPages: z.boolean(),
+  canAssemble: z.boolean(),
+});
+
 const PdfPermissionInfoObjectSchema: z.ZodType<PdfPermissionInfo> = z.object({
   known: z.boolean(),
   allAllowed: z.boolean().nullable(),
   bits: z.number().int().nonnegative().nullable(),
   openedAs: z.enum(['none', 'user', 'owner']).nullable(),
   securityHandlerRevision: z.number().int().nullable(),
+  // Enriched fields from /access (commit 14). Optional so /head, which
+  // doesn't always populate them, stays valid against this schema too.
+  flags: PdfBitsObjectSchema.optional(),
+  advisory: PdfPermissionAdvisoryObjectSchema.optional(),
 });
 
 const PdfPermissionInfoSchema = PdfPermissionInfoObjectSchema.nullable();
@@ -151,6 +187,15 @@ export const AccessResponseSchema = z.object({
   passwordGrant: z.string().nullable(),
   pdfPermissions: PdfPermissionInfoSchema,
   scope: z.array(z.string()),
+  /**
+   * Concrete capability set granted to this caller after expanding
+   * `pdf.permissions` and applying resolver implication rules. Client
+   * UI should drive feature visibility off this, not off raw `scope`.
+   * Always present in /access responses (server populates from
+   * `expandRawScope`). Sorted alphabetically for stable change
+   * detection.
+   */
+  effectiveScope: z.array(z.string()),
   identity: z.object({
     user_id: z.string().optional(),
     group_id: z.string().optional(),

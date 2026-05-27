@@ -1,3 +1,4 @@
+import type { AnnotationActor } from '../auth/scope';
 import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
@@ -119,6 +120,15 @@ export interface AnnotationsCreateWorkerRequest {
   pageObjectNumber: PageObjectNumber;
   draft: AnnotationDraft;
   artifactPath?: string;
+  /**
+   * Identity to stamp on the newly created annotation:
+   *   - `displayName` → /T (PDF author field)
+   *   - `userId` / `groupId` → /EMBD_Metadata/{UserID,GroupID,CreatedBy,UpdatedBy}
+   * Optional — when absent (engine-local with no identity, anonymous tests),
+   * the worker still stamps the standard /M (modification date) but skips
+   * EMBD_Metadata.
+   */
+  actor?: AnnotationActor;
 }
 
 export interface AnnotationsUpdateWorkerRequest {
@@ -129,6 +139,12 @@ export interface AnnotationsUpdateWorkerRequest {
   ref: AnnotationRef;
   patch: AnnotationPatch;
   artifactPath?: string;
+  /**
+   * Identity of the editor. Drives /EMBD_Metadata/UpdatedBy refresh on
+   * update; preserves UserID/GroupID/CreatedBy. When absent, only /M
+   * is refreshed.
+   */
+  actor?: AnnotationActor;
 }
 
 export interface AnnotationsDeleteWorkerRequest {

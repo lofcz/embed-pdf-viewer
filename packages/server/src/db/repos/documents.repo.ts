@@ -1,4 +1,6 @@
 import type { Kysely } from 'kysely';
+import { decodePdfBits, type PdfBits } from '@embedpdf/engine-core/runtime';
+
 import type {
   Database as Schema,
   DocumentEncryptionState,
@@ -126,6 +128,25 @@ export class DocumentsRepo {
     if (r.tenantId !== tenantId)
       throwError('Forbidden', `document does not belong to tenant: ${id}`);
     return r;
+  }
+
+  /**
+   * Cheap accessor for the document's PDF permission bits, decoded into
+   * the typed `PdfBits` view used by the scope resolver.
+   *
+   * Used by route guards that need to evaluate `pdf.permissions`
+   * expansion before performing a capability check. Does NOT materialise
+   * the base file or open PDFium — it just reads the cached integer
+   * column populated at ingestion by `DocumentSecurityProbe`.
+   *
+   * Throws `NotFound` / `Forbidden` (via `requireOwned`) for unknown
+   * docs or cross-tenant access. Returns all-false bits for documents
+   * whose `pdf_permissions_bits` column is `null` (unprobed or
+   * non-encrypted PDFs without explicit user-access flags).
+   */
+  async getPdfBits(id: string, tenantId: string): Promise<PdfBits> {
+    const r = await this.requireOwned(id, tenantId);
+    return decodePdfBits(r.security.pdfPermissionsBits ?? null);
   }
 
   async findByIdempotencyKey(

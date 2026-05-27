@@ -11,6 +11,7 @@ import {
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
   isClosed(): boolean;
@@ -29,6 +30,7 @@ export class LocalDocumentPagesService implements DocumentPagesService {
     private readonly docId: string,
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
+    private readonly guard: ScopeGuard,
   ) {}
 
   list(): AbortablePromise<PageListSnapshot> {
@@ -36,6 +38,13 @@ export class LocalDocumentPagesService implements DocumentPagesService {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // pages.list maps to the cloud's /manifest endpoint: session-level
+    // read gated by `doc.open`.
+    try {
+      this.guard.assertCapability('doc.open');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
@@ -61,6 +70,13 @@ export class LocalDocumentPagesService implements DocumentPagesService {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // pages.move maps to the cloud's POST /pages/move (gated by
+    // `doc.pages.assemble`).
+    try {
+      this.guard.assertCapability('doc.pages.assemble');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(

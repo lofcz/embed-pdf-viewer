@@ -14,6 +14,7 @@ import { Priority } from './worker/Priority';
 import type { JobId, WorkerResultPayload } from './worker/protocol';
 import { LocalDocumentHandle } from './document/LocalDocumentHandle';
 import { BrowserImageEncoder, type LocalImageEncoder } from './render/BrowserImageEncoder';
+import { buildHandleScopeContext, ScopeGuard } from './scope';
 
 export interface LocalEngineOptions {
   transport: Transport;
@@ -89,7 +90,7 @@ export class LocalEngine implements Engine {
       { priority: Priority.HIGH },
     );
 
-    return this.openResult(submission);
+    return this.openResult(submission, options);
   }
 
   private openLayerBytes(
@@ -128,13 +129,15 @@ export class LocalEngine implements Engine {
       { priority: Priority.HIGH },
     );
 
-    return this.openResult(submission);
+    return this.openResult(submission, options);
   }
 
   private openResult(
     submission: AbortablePromise<WorkerResultPayload>,
+    options?: OpenOptions,
   ): AbortablePromise<DocumentHandle> {
     const queue = this.queue;
+    const imageEncoder = this.imageEncoder;
     return AbortablePromise.run<DocumentHandle>(async (signal) => {
       const onAbort = () => submission.abort(signal.reason);
       if (signal.aborted) onAbort();
@@ -144,7 +147,18 @@ export class LocalEngine implements Engine {
       if (payload.tag !== 'open') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
-      return new LocalDocumentHandle(payload.docId, queue, this.imageEncoder, payload.security);
+      // Build the scope/identity/PDF-bits context for this handle. The
+      // PDF bits come straight from the open response's security probe
+      // (FPDF_GetDocPermissions decoded on the worker), so no extra
+      // round-trip is needed.
+      const guard = new ScopeGuard(
+        buildHandleScopeContext({
+          scope: options?.scope,
+          identity: options?.identity,
+          pdfPermissionsBits: payload.security.pdfPermissionsBits,
+        }),
+      );
+      return new LocalDocumentHandle(payload.docId, queue, imageEncoder, payload.security, guard);
     });
   }
 

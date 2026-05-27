@@ -92,7 +92,7 @@ function docToken(
     sub: 'user-1',
     tenant_id: tenantId,
     doc_id: docId,
-    scope: opts.scope ?? ['doc.read'],
+    scope: opts.scope ?? ['*'],
     ...(opts.layer ? { layer_name: opts.layer } : {}),
     jti: `jti-${randomBytes(8).toString('hex')}`,
     extras: {
@@ -527,7 +527,7 @@ describe('Phase 6 access route — POST /v1/access', () => {
       headers: {
         Authorization: `Bearer ${docToken(tenantId, docId, {
           layer: 'default',
-          scope: ['doc.read', 'doc.download'],
+          scope: ['doc.open', 'doc.render', 'doc.download'],
           extras: {
             user_id: '44',
             group_id: '4',
@@ -552,7 +552,7 @@ describe('Phase 6 access route — POST /v1/access', () => {
       adapter: 'none',
       cache: { immutableVersionedReads: true },
     });
-    expect(body.scope).toEqual(['doc.read', 'doc.download']);
+    expect(body.scope).toEqual(['doc.open', 'doc.render', 'doc.download']);
     expect(body.identity).toEqual({
       user_id: '44',
       group_id: '4',

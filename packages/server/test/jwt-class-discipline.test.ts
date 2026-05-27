@@ -63,7 +63,7 @@ describe('signDevToken — Layer 0 (mint time)', () => {
       sub: 'u',
       tenant_id: 't',
       doc_id: 'doc-1',
-      scope: ['doc.read', 'doc.annotate'],
+      scope: ['doc.open', 'doc.render'],
       layer_name: 'default',
     });
     expect(tok.split('.')).toHaveLength(3);
@@ -105,27 +105,25 @@ describe('coerceClaims — Layer 2 (verifier)', () => {
       sub: 'u',
       tenant_id: 't',
       doc_id: 'doc-1',
-      scope: ['doc.read'],
+      scope: ['doc.open'],
     });
     const claims = await verify(tok);
     expect(isDocUserClaims(claims)).toBe(true);
     expect(isTenantClaims(claims)).toBe(false);
   });
 
-  test('a token with both scope and doc_id is tagged as DocUserClaims (scope is doc-scoped)', async () => {
-    // No longer a "hybrid" — both classes carry scope. The class is
-    // committed by `doc_id`; the scope array is interpreted under
-    // DocScope. A nonsensical value like `docs.create` on a doc
-    // token survives parsing but no route guard ever honours it.
+  test('a doc token with a tenant-namespace scope is rejected at verify', async () => {
+    // Doc tokens are validated against the doc-scope vocabulary
+    // (DocCapability + collab + virtual + wildcard). A tenant-shaped
+    // string like `docs.create` is not in that set and is rejected
+    // with a clear error naming the offending scope.
     const tok = signDevToken(SECRET, {
       sub: 'u',
       tenant_id: 't',
       doc_id: 'doc-1',
       extras: { scope: ['docs.create'] },
     });
-    const claims = await verify(tok);
-    expect(isDocUserClaims(claims)).toBe(true);
-    expect(claims.scope).toEqual(['docs.create']);
+    await expect(verify(tok)).rejects.toThrow(/unknown capability: docs\.create/);
   });
 
   test('rejects layer_name without doc_id (smuggling via extras)', async () => {
@@ -197,16 +195,16 @@ describe('requireScope — Layer 3 (tenant route guard)', () => {
   });
 });
 
-describe('requireDocAccess — Layer 3 (doc route guard)', () => {
-  test('accepts a doc token whose doc_id matches and carries doc.read', async () => {
+describe('requireDocAccess — Layer 3 (doc route guard, legacy helper)', () => {
+  test('accepts a doc token whose doc_id matches and carries the needed scope', async () => {
     const tok = signDevToken(SECRET, {
       sub: 'u',
       tenant_id: 't',
       doc_id: 'doc-1',
-      scope: ['doc.read'],
+      scope: ['doc.open'],
     });
     const claims = await verify(tok);
-    const ctx = requireDocAccess(fakeReq(claims), 'doc-1', ['doc.read']);
+    const ctx = requireDocAccess(fakeReq(claims), 'doc-1', ['doc.open']);
     expect(ctx.tenantId).toBe('t');
     expect(ctx.mode).toBe('doc');
   });
@@ -219,7 +217,7 @@ describe('requireDocAccess — Layer 3 (doc route guard)', () => {
       scope: ['*'],
     });
     const claims = await verify(tok);
-    expect(() => requireDocAccess(fakeReq(claims), 'doc-2', ['doc.read'])).toThrow(
+    expect(() => requireDocAccess(fakeReq(claims), 'doc-2', ['doc.open'])).toThrow(
       /different document/,
     );
   });
@@ -229,10 +227,10 @@ describe('requireDocAccess — Layer 3 (doc route guard)', () => {
       sub: 'u',
       tenant_id: 't',
       doc_id: 'doc-1',
-      scope: ['doc.read'],
+      scope: ['doc.open'],
     });
     const claims = await verify(tok);
-    expect(() => requireDocAccess(fakeReq(claims), 'doc-1', ['doc.annotate'])).toThrow(
+    expect(() => requireDocAccess(fakeReq(claims), 'doc-1', ['doc.download'])).toThrow(
       /doc scope required/,
     );
   });
@@ -245,7 +243,7 @@ describe('requireDocAccess — Layer 3 (doc route guard)', () => {
       scope: ['*'],
     });
     const claims = await verify(tok);
-    expect(requireDocAccess(fakeReq(claims), 'doc-1', ['doc.annotate']).mode).toBe('doc');
+    expect(requireDocAccess(fakeReq(claims), 'doc-1', ['doc.annotate.modify']).mode).toBe('doc');
   });
 
   test('accepts a tenant token with docs.read on any doc (Model B)', async () => {
@@ -255,7 +253,7 @@ describe('requireDocAccess — Layer 3 (doc route guard)', () => {
       scope: ['docs.read'],
     });
     const claims = await verify(tok);
-    const ctx = requireDocAccess(fakeReq(claims), 'any-doc', ['doc.read']);
+    const ctx = requireDocAccess(fakeReq(claims), 'any-doc', ['doc.open']);
     expect(ctx.tenantId).toBe('t');
     expect(ctx.mode).toBe('tenant');
   });
@@ -277,7 +275,7 @@ describe('requireDocAccess — Layer 3 (doc route guard)', () => {
       scope: ['tokens.mint'],
     });
     const claims = await verify(tok);
-    expect(() => requireDocAccess(fakeReq(claims), 'doc-1', ['doc.read'])).toThrow(
+    expect(() => requireDocAccess(fakeReq(claims), 'doc-1', ['doc.open'])).toThrow(
       /tenant scope required/,
     );
   });
@@ -285,7 +283,7 @@ describe('requireDocAccess — Layer 3 (doc route guard)', () => {
   test('rejects an empty-scope tenant token', async () => {
     const tok = signDevToken(SECRET, { sub: 'u', tenant_id: 't' });
     const claims = await verify(tok);
-    expect(() => requireDocAccess(fakeReq(claims), 'doc-1', ['doc.read'])).toThrow(
+    expect(() => requireDocAccess(fakeReq(claims), 'doc-1', ['doc.open'])).toThrow(
       /tenant scope required/,
     );
   });

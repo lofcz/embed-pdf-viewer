@@ -33,7 +33,8 @@
     "build": "pnpm run clean && vite build",
     "clean": "rimraf dist",
     "lint": "eslint src --color",
-    "lint:fix": "eslint src --color --fix"
+    "lint:fix": "eslint src --color --fix",
+    "test": "vitest run"
   },
   "files": [
     "dist",
@@ -62,7 +63,8 @@
   "devDependencies": {
     "@embedpdf/build": "workspace:*",
     "rimraf": "^5.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
   },
   "publishConfig": {
     "access": "public"

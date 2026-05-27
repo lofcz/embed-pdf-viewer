@@ -15,6 +15,7 @@ import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
+import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
   isClosed(): boolean;
@@ -27,6 +28,7 @@ export class LocalPageRenderService implements PageRenderService {
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
     private readonly encoder: LocalImageEncoder,
+    private readonly guard: ScopeGuard,
   ) {}
 
   raw(options?: PageRenderOptions): AbortablePromise<PageRaster> {
@@ -34,6 +36,14 @@ export class LocalPageRenderService implements PageRenderService {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // Cloud parity: /render gates on `doc.render` (the session-level
+    // rendering capability). image() flows through raw() so a single
+    // assertion here covers both.
+    try {
+      this.guard.assertCapability('doc.render');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const pon = this.pageObjectNumber;

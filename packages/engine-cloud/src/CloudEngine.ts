@@ -34,6 +34,12 @@ export class CloudEngine implements Engine {
         new EngineError(EngineErrorCode.RuntimeUnavailable, 'engine destroyed'),
       );
     }
+    // Cloud reads scope + identity from the doc-scoped JWT — `options.scope`
+    // and `options.identity` are engine-local concepts and are intentionally
+    // ignored here. Same `OpenOptions` type for both engines is what makes
+    // SDK code portable; the JWT is the authority cloud-side.
+    void options?.scope;
+    void options?.identity;
 
     if (input.kind === 'token') {
       // Open by doc-scoped JWT. We never verify the token SDK-side

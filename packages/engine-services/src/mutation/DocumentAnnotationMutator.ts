@@ -3,6 +3,7 @@ import {
   EngineError,
   EngineErrorCode,
   PDF_SUBTYPE_TO_CODE,
+  type AnnotationActor,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
   type AnnotationDTO,
@@ -18,7 +19,11 @@ import {
 import { throwIfAborted } from '../abort';
 import { readAnnotString } from '../readers/annotations/util';
 import { readAnnotationFromPtr } from '../readers/annotations/read-one';
-import { writeAnnotationNm } from '../writers/annotations/base';
+import { writeAnnotationModified, writeAnnotationNm } from '../writers/annotations/base';
+import {
+  applyEmbedMetadataOnCreate,
+  applyEmbedMetadataOnUpdate,
+} from '../writers/annotations/embed-metadata';
 import { applyDraft, applyPatch } from '../writers/annotations/registry';
 import { generateUuid } from '../util/uuid';
 import type { DocumentSession } from '../session/DocumentSession';
@@ -62,6 +67,7 @@ export class DocumentAnnotationMutator {
     pageObjectNumber: PageObjectNumber,
     draft: AnnotationDraft,
     signal: AbortSignal,
+    actor?: AnnotationActor,
   ): AnnotationCreateResult {
     throwIfAborted(signal);
     const { fn, mem } = this.runtime;
@@ -94,6 +100,12 @@ export class DocumentAnnotationMutator {
       let newIndex: number;
       try {
         applyDraft(fn, mem, annotPtr, draft);
+        // Stamp standard ISO 32000 /M (modified date) — always, regardless
+        // of whether an actor is supplied. Then stamp the EmbedPDF-namespaced
+        // /EMBD_Metadata if the actor carries identity. Both happen after
+        // the per-subtype writer so a buggy subtype writer can't clobber them.
+        writeAnnotationModified(fn, mem, annotPtr);
+        applyEmbedMetadataOnCreate(fn, mem, annotPtr, actor);
         throwIfAborted(signal);
 
         newObjNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);
@@ -138,7 +150,12 @@ export class DocumentAnnotationMutator {
     }
   }
 
-  update(ref: AnnotationRef, patch: AnnotationPatch, signal: AbortSignal): AnnotationUpdateResult {
+  update(
+    ref: AnnotationRef,
+    patch: AnnotationPatch,
+    signal: AbortSignal,
+    actor?: AnnotationActor,
+  ): AnnotationUpdateResult {
     throwIfAborted(signal);
     const { fn, mem } = this.runtime;
     const pool = this.session.pagePool();
@@ -159,6 +176,12 @@ export class DocumentAnnotationMutator {
 
       // Apply caller-supplied subtype-specific writes.
       applyPatch(fn, mem, annotPtr, patch);
+      // Refresh standard /M (modified date) on every update — independent
+      // of whether the patch touched any subtype-specific field. Then
+      // refresh /EMBD_Metadata/UpdatedBy if an actor was supplied;
+      // UserID/GroupID/CreatedBy are preserved across updates.
+      writeAnnotationModified(fn, mem, annotPtr);
+      applyEmbedMetadataOnUpdate(fn, mem, annotPtr, actor);
       throwIfAborted(signal);
 
       // Read back. Update is non-structural, so the index does NOT move

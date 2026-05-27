@@ -18,6 +18,7 @@ import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
+import type { ScopeGuard } from '../scope';
 import { LocalMetadataService } from './LocalMetadataService';
 import { LocalDocumentAnnotationsService } from './LocalDocumentAnnotationsService';
 import { LocalDocumentPagesService } from './LocalDocumentPagesService';
@@ -40,12 +41,13 @@ export class LocalDocumentHandle implements DocumentHandle {
     private readonly queue: WorkerQueue,
     private readonly imageEncoder: LocalImageEncoder,
     initialSecurity: DocumentSecurityProbeInfo,
+    private readonly guard: ScopeGuard,
   ) {
     const view = { isClosed: () => this.closed };
     this.security = new LocalDocumentSecurityService(initialSecurity, id, queue, view);
-    this.metadata = new LocalMetadataService(id, queue, view);
-    this.annotations = new LocalDocumentAnnotationsService(id, queue, view);
-    this.pages = new LocalDocumentPagesService(id, queue, view);
+    this.metadata = new LocalMetadataService(id, queue, view, guard);
+    this.annotations = new LocalDocumentAnnotationsService(id, queue, view, guard);
+    this.pages = new LocalDocumentPagesService(id, queue, view, guard);
   }
 
   /**
@@ -68,6 +70,7 @@ export class LocalDocumentHandle implements DocumentHandle {
         isClosed: () => this.closed,
       },
       this.imageEncoder,
+      this.guard,
     );
   }
 
@@ -76,6 +79,11 @@ export class LocalDocumentHandle implements DocumentHandle {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.id}`),
       );
+    }
+    try {
+      this.guard.assertCapability('doc.download');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.id;
     const mode = opts.mode ?? DEFAULT_PDF_SAVE_MODE;

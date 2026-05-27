@@ -4,7 +4,7 @@ import { throwIfAborted } from './abort';
 import { readMetaText } from './readers/meta-text';
 import { readTrapped } from './readers/trapped';
 import { readAllCustomMeta } from './readers/custom-meta';
-import { pdfDateToIso } from './readers/pdf-date';
+import { pdfDateToIso } from './util/pdf-date';
 
 /**
  * Synchronous, runtime-agnostic implementation of the metadata read.

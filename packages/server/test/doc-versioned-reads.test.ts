@@ -70,7 +70,7 @@ function docToken(
     sub: 'user-1',
     tenant_id: tenantId,
     doc_id: docId,
-    scope: opts.scope ?? ['doc.read'],
+    scope: opts.scope ?? ['*'],
     ...(opts.layerName ? { layer_name: opts.layerName } : {}),
   });
 }
@@ -273,12 +273,14 @@ describe('Phase 4 versioned reads — GET /pages/:pon/text@cN', () => {
     expect(res.status === 403 || res.status === 404).toBe(true);
   });
 
-  test('doc-scoped token without doc.read scope is rejected with 403', async () => {
+  test('doc-scoped token without text.copy capability is rejected with 403', async () => {
     const tenantId = 'tenant-tnoperm';
     const docId = 'doctxx007';
     await seedDocument(fx, tenantId, docId);
 
-    const tok = docToken(tenantId, docId, { scope: ['doc.annotate'] });
+    // Token has doc.open + doc.render (so /head / /manifest work) but
+    // explicitly lacks doc.text.copy, so /text rejects.
+    const tok = docToken(tenantId, docId, { scope: ['doc.open', 'doc.render'] });
     const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/pages/1/text@contentVersion=1`, {
       headers: { Authorization: `Bearer ${tok}` },
     });

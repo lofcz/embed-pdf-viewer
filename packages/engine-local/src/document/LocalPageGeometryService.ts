@@ -10,6 +10,7 @@ import {
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
   isClosed(): boolean;
@@ -21,6 +22,7 @@ export class LocalPageGeometryService implements PageGeometryService {
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
+    private readonly guard: ScopeGuard,
   ) {}
 
   read(): AbortablePromise<PageGeometrySnapshot> {
@@ -28,6 +30,13 @@ export class LocalPageGeometryService implements PageGeometryService {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // Cloud parity: /geometry gates on `doc.text.select` (the text-layout
+    // permission used for screen selection / search hit rendering).
+    try {
+      this.guard.assertCapability('doc.text.select');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const pon = this.pageObjectNumber;

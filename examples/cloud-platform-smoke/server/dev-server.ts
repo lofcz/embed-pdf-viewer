@@ -15,7 +15,6 @@ import {
   signDevToken,
   sqliteMigrations,
   type AppBundle,
-  type DocScope,
   type SecurityConfig,
   type TenantScope,
 } from '@embedpdf/server';
@@ -47,6 +46,17 @@ const smokeSecurityConfig = {
 } satisfies SecurityConfig;
 
 const engineBaseUrl = `http://${host}:${enginePort}`;
+const DEFAULT_DOC_SCOPE = [
+  'doc.open',
+  'doc.render',
+  'doc.text.select',
+  'doc.text.copy',
+  'doc.annotate.read',
+  'doc.annotate.modify',
+  'doc.pages.assemble',
+  'doc.download',
+  'doc.download.flattened',
+] as const;
 
 let db: ReturnType<typeof createSqliteDb>;
 let embedpdf: AppBundle;
@@ -147,6 +157,8 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const tenantId = url.searchParams.get('tenantId') || defaultTenant;
     const layerName = url.searchParams.get('layerName') || 'default';
     const sub = url.searchParams.get('sub') || 'demo-user';
+    const scope = readScopeFromSearch(url);
+    const identity = readIdentityFromSearch(url);
     const fileName = req.headers['x-file-name']?.toString() || 'upload.pdf';
     const bytes = await readBody(req);
     if (bytes.byteLength === 0) {
@@ -166,6 +178,8 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       docId: created.document.id,
       layerName,
       sub,
+      scope,
+      identity,
     });
     sendJson(res, 200, {
       ...created,
@@ -173,6 +187,8 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       layerName,
       tenantId,
       sub,
+      scope,
+      identity,
     });
     return;
   }
@@ -184,8 +200,10 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const layerName = readString(body, 'layerName', 'default');
     const sub = readString(body, 'sub', 'demo-user');
     const ttlSeconds = readNumber(body, 'ttlSeconds', 3600);
-    const token = mintDocToken({ tenantId, docId, layerName, sub, ttlSeconds });
-    sendJson(res, 200, { token, tenantId, docId, layerName, sub, ttlSeconds });
+    const scope = readStringArray(body, 'scope', [...DEFAULT_DOC_SCOPE]);
+    const identity = readIdentityFromBody(body);
+    const token = mintDocToken({ tenantId, docId, layerName, sub, ttlSeconds, scope, identity });
+    sendJson(res, 200, { token, tenantId, docId, layerName, sub, ttlSeconds, scope, identity });
     return;
   }
 
@@ -227,21 +245,58 @@ function mintDocToken(input: {
   layerName: string;
   sub: string;
   ttlSeconds?: number;
+  scope?: ReadonlyArray<string>;
+  identity?: {
+    user_id?: string;
+    group_id?: string;
+    groups?: string[];
+    display_name?: string;
+  };
 }): string {
   return signDevToken(jwtSigningSecret, {
     sub: input.sub,
     tenant_id: input.tenantId,
     doc_id: input.docId,
     layer_name: input.layerName,
-    scope: ['doc.read', 'doc.annotate', 'doc.edit-pages', 'doc.download'] satisfies DocScope[],
+    scope: input.scope && input.scope.length > 0 ? input.scope : DEFAULT_DOC_SCOPE,
     ttlSeconds: input.ttlSeconds ?? 60 * 60,
     jti: randomUUID(),
     extras: {
+      ...(input.identity ?? {}),
       embedpdf: {
         unlock_key: randomBytes(32).toString('base64url'),
       },
     },
   });
+}
+
+function readScopeFromSearch(url: URL): string[] {
+  const repeated = url.searchParams
+    .getAll('scope')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (repeated.length > 0) return repeated;
+  const packed = url.searchParams.get('scopes');
+  if (!packed) return [...DEFAULT_DOC_SCOPE];
+  return splitScopeList(packed);
+}
+
+function readIdentityFromSearch(url: URL): {
+  user_id?: string;
+  group_id?: string;
+  groups?: string[];
+  display_name?: string;
+} {
+  const userId = url.searchParams.get('user_id')?.trim();
+  const groupId = url.searchParams.get('group_id')?.trim();
+  const displayName = url.searchParams.get('display_name')?.trim();
+  const groups = splitScopeList(url.searchParams.get('groups') ?? '');
+  return {
+    ...(userId ? { user_id: userId } : {}),
+    ...(groupId ? { group_id: groupId } : {}),
+    ...(displayName ? { display_name: displayName } : {}),
+    ...(groups.length > 0 ? { groups } : {}),
+  };
 }
 
 async function readBody(req: IncomingMessage): Promise<Uint8Array> {
@@ -266,6 +321,56 @@ function readString(body: unknown, key: string, fallback?: string): string {
     return fallback;
   }
   throw new Error(`missing string field: ${key}`);
+}
+
+function readStringArray(body: unknown, key: string, fallback: string[] = []): string[] {
+  const value = body && typeof body === 'object' ? (body as Record<string, unknown>)[key] : null;
+  if (Array.isArray(value)) {
+    return value.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
+  }
+  if (typeof value === 'string') return splitScopeList(value);
+  return fallback;
+}
+
+function readIdentityFromBody(body: unknown): {
+  user_id?: string;
+  group_id?: string;
+  groups?: string[];
+  display_name?: string;
+} {
+  return {
+    ...readOptionalString(body, 'user_id', 'user_id'),
+    ...readOptionalString(body, 'group_id', 'group_id'),
+    ...readOptionalString(body, 'display_name', 'display_name'),
+    ...readOptionalStringArray(body, 'groups', 'groups'),
+  };
+}
+
+function readOptionalString<T extends string>(
+  body: unknown,
+  key: string,
+  outKey: T,
+): Partial<Record<T, string>> {
+  const value = body && typeof body === 'object' ? (body as Record<string, unknown>)[key] : null;
+  return typeof value === 'string' && value.trim()
+    ? ({ [outKey]: value.trim() } as Partial<Record<T, string>>)
+    : {};
+}
+
+function readOptionalStringArray<T extends string>(
+  body: unknown,
+  key: string,
+  outKey: T,
+): Partial<Record<T, string[]>> {
+  const values = readStringArray(body, key);
+  return values.length > 0 ? ({ [outKey]: values } as Partial<Record<T, string[]>>) : {};
+}
+
+function splitScopeList(raw: string): string[] {
+  return raw
+    .split(/[\n,]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function readNumber(body: unknown, key: string, fallback: number): number {

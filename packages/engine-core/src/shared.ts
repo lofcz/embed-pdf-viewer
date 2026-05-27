@@ -143,3 +143,40 @@ export type {
 } from './mutation/AnnotationMutationResults';
 export type { PageMoveInput } from './mutation/PageMoveInput';
 export type { PageMoveResult } from './mutation/PageMoveResult';
+
+export type {
+  AnnotationActor,
+  CollabAction,
+  CollabEntity,
+  CollabFilter,
+  DocCapability,
+  IdentityClaims,
+  ParsedCapability,
+  ParsedCollab,
+  ParsedScope,
+  ParsedVirtual,
+  ParsedWildcard,
+  PdfBits,
+} from './auth/scope';
+export { PDF_BITS, decodePdfBits } from './auth/scope';
+export { parseScope, validateScopeArray } from './auth/scope';
+export { InvalidScope, MissingIdentity, PermissionDenied } from './auth/scope';
+export type { CollabTarget } from './auth/scope';
+export {
+  checkAnyCapability,
+  checkCapability,
+  checkCollab,
+  checkSetGroup,
+  expandedCapabilities,
+  expandRawScope,
+  filterMatches,
+} from './auth/scope';
+export { caps, collab, materializePdfPermissions, pdfPermissions } from './auth/scope';
+
+export { cdnCoverageForScope, checkResourceAccess, DOC_RESOURCES } from './wire/resources';
+export type {
+  CapabilityRequirement,
+  DocResourceDescriptor,
+  DocResourceId,
+  RouteKind,
+} from './wire/resources';

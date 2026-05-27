@@ -10,6 +10,7 @@ import {
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
   isClosed(): boolean;
@@ -30,6 +31,7 @@ export class LocalPageTextService implements PageTextService {
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
+    private readonly guard: ScopeGuard,
   ) {}
 
   read(): AbortablePromise<PageTextSnapshot> {
@@ -37,6 +39,14 @@ export class LocalPageTextService implements PageTextService {
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // Reading per-page text requires the same capability as the
+    // cloud's /text endpoint (the route uses `requireResource`
+    // → `doc.text.copy`). Cloud parity: same scope grants both.
+    try {
+      this.guard.assertCapability('doc.text.copy');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const pon = this.pageObjectNumber;

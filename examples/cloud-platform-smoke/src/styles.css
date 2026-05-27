@@ -136,6 +136,60 @@ h3 {
   align-items: end;
 }
 
+.identity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.scope-tools {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d7e1e4;
+  border-radius: 6px;
+  background: #f8fbfb;
+}
+
+.scope-head {
+  display: grid;
+  grid-template-columns: 1fr minmax(160px, 220px);
+  gap: 10px;
+  align-items: center;
+}
+
+.scope-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.scope-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid #d7e1e4;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.scope-option input {
+  grid-row: span 2;
+  width: auto;
+}
+
+.scope-option code {
+  overflow-wrap: anywhere;
+  color: #58686d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 500;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -306,6 +360,12 @@ pre {
   }
 
   .download-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .identity-grid,
+  .scope-head,
+  .scope-options {
     grid-template-columns: 1fr;
   }
 

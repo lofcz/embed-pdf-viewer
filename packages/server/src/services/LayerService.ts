@@ -8,6 +8,7 @@ import {
   EngineError,
   EngineErrorCode,
   wirePack,
+  type AnnotationActor,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
   type AnnotationDraft,
@@ -15,6 +16,7 @@ import {
   type AnnotationPatch,
   type AnnotationRef,
   type AnnotationUpdateResult,
+  type IdentityClaims,
   type PageMoveResult,
   type PageObjectNumber,
   type PageState,
@@ -136,9 +138,19 @@ export class LayerService {
       layerName: string;
       pageObjectNumber: PageObjectNumber;
       draft: AnnotationDraft;
+      /**
+       * Optional actor override. When supplied, replaces the actor
+       * built from `ctx.jwt.identity`. Routes use this for
+       * impersonation flows where `draft.userId`/`groupId` should be
+       * stamped instead of (or in addition to) the caller's own
+       * identity. Authorization for the override is the route's job —
+       * the service trusts what arrives here.
+       */
+      actor?: AnnotationActor;
     },
     signal?: AbortSignal,
   ): Promise<AnnotationCreateResult> {
+    const actor = input.actor ?? actorFromContext(ctx);
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
       return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
@@ -151,6 +163,7 @@ export class LayerService {
             pageObjectNumber: input.pageObjectNumber,
             draft: input.draft,
             artifactPath,
+            ...(actor ? { actor } : {}),
           });
         const payload = await this.requirePool().run(input.docId, build, signal);
         if (payload.tag !== 'annotations.create') {
@@ -174,9 +187,17 @@ export class LayerService {
       layerName: string;
       ref: AnnotationRef;
       patch: AnnotationPatch;
+      /**
+       * Optional actor override. For UPDATE this is typically built
+       * from the caller's JWT identity (for /UpdatedBy) PLUS any
+       * `patch.groupId` reassignment. Authorization for the groupId
+       * change is the route's job (`checkSetGroup`).
+       */
+      actor?: AnnotationActor;
     },
     signal?: AbortSignal,
   ): Promise<AnnotationUpdateResult> {
+    const actor = input.actor ?? actorFromContext(ctx);
     return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
       const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
       const ref = await this.rewriteRefForWorker(
@@ -196,6 +217,7 @@ export class LayerService {
             ref,
             patch: input.patch,
             artifactPath,
+            ...(actor ? { actor } : {}),
           });
         const payload = await this.requirePool().run(input.docId, build, signal);
         if (payload.tag !== 'annotations.update') {
@@ -210,6 +232,77 @@ export class LayerService {
         });
       });
     });
+  }
+
+  /**
+   * Resolve the collab subject (userId / groupId) of the target
+   * annotation a PATCH or DELETE is about to act on. Route guards
+   * call this BEFORE the mutation so `requireLayerCollabAction` can
+   * deny with 403 without ever issuing a write.
+   *
+   * V1 implementation: page-fetch + filter. Reuses the existing
+   * `annotations.listFullPage` worker job (the only annotation read
+   * path the worker currently exposes) and finds the row matching
+   * the ref. Returns an empty `{}` if the annotation can't be
+   * located — the route guard then evaluates the collab filter against
+   * an unstamped target, which denies self/group filters and allows
+   * `all`. If the annotation truly doesn't exist, the subsequent
+   * mutator call will throw the correct `InvalidReference`.
+   *
+   * Tracked as a follow-up optimisation: a dedicated worker job that
+   * resolves ref → /EMBD_Metadata without serialising the whole page.
+   */
+  async getAnnotationCollabTarget(
+    ctx: LayerWriteContext,
+    docId: string,
+    layerName: string,
+    pageObjectNumber: PageObjectNumber,
+    ref: AnnotationRef,
+    signal?: AbortSignal,
+  ): Promise<{ userId?: string; groupId?: string }> {
+    // The worker job below assumes the layer is already attached to the
+    // pool's session for `docId`. Most read paths already do this via
+    // `documentService.ensureLayerOnPool`; collab gating runs before any
+    // mutation, so we have to open it ourselves.
+    await this.requireDocumentService().ensureLayerOnPool(ctx, docId, layerName);
+
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'annotations.listFullPage' as const,
+        jobId,
+        docId,
+        layerName,
+        pageObjectNumber,
+      });
+    const payload = await this.requirePool().run(docId, build, signal);
+    if (payload.tag !== 'annotations.listFullPage') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected annotations.listFullPage payload while resolving collab target: ${payload.tag}`,
+      );
+    }
+    const annotations = payload.snapshot.annotations;
+    const match = annotations.find((a) => {
+      // Refs match in three shapes; objectNumber and nm are durable
+      // identities and the safest. Index is positional and resolved
+      // after the mutator's `rewriteRefForWorker`, so we only see
+      // pre-rewrite indices here — which is fine because the same
+      // annotation list we're searching is what the rewriter would
+      // resolve against.
+      switch (ref.kind) {
+        case 'objectNumber':
+          return a.ref.kind === 'objectNumber' && a.ref.annotObjectNumber === ref.annotObjectNumber;
+        case 'nm':
+          return a.nm === ref.nm;
+        case 'index':
+          return a.index === ref.index;
+      }
+    });
+    if (!match) return {};
+    return {
+      ...(match.userId !== undefined ? { userId: match.userId } : {}),
+      ...(match.groupId !== undefined ? { groupId: match.groupId } : {}),
+    };
   }
 
   async deleteAnnotation(
@@ -996,4 +1089,28 @@ function requireKnownWeakAnnotationBoolean(page: PageState): boolean {
     );
   }
   return page.weakAnnotationState.hasAnyWeakAnnotations;
+}
+
+/**
+ * Project the request's JWT identity claims into the wire-shape
+ * `AnnotationActor` the worker uses to stamp /T, /M, and /EMBD_Metadata.
+ *
+ * Returns `undefined` when:
+ *   - no JWT identity is attached to the context (tenant tokens, dev
+ *     fixtures without identity claims), OR
+ *   - the identity has neither `user_id` nor `group_id` nor
+ *     `display_name` (nothing meaningful to stamp)
+ *
+ * The worker treats an absent actor as "stamp /M only, skip EMBD_Metadata".
+ */
+function actorFromContext(ctx: LayerWriteContext): AnnotationActor | undefined {
+  const id: IdentityClaims | undefined = ctx.jwt?.identity;
+  if (!id) return undefined;
+  const actor: AnnotationActor = {};
+  if (id.user_id) actor.userId = id.user_id;
+  if (id.group_id) actor.groupId = id.group_id;
+  if (id.display_name) actor.displayName = id.display_name;
+  // No fields set → nothing for the worker to stamp; signal absence.
+  if (!actor.userId && !actor.groupId && !actor.displayName) return undefined;
+  return actor;
 }

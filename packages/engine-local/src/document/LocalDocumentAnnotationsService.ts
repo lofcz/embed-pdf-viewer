@@ -12,6 +12,7 @@ import {
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
   isClosed(): boolean;
@@ -27,6 +28,7 @@ export class LocalDocumentAnnotationsService implements DocumentAnnotationsServi
     private readonly docId: string,
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
+    private readonly guard: ScopeGuard,
   ) {}
 
   listRawAll(): AbortablePromise<AnnotationListSnapshotAllPages> {
@@ -34,6 +36,13 @@ export class LocalDocumentAnnotationsService implements DocumentAnnotationsServi
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    // Annotation reads gate on `doc.annotate.read` (cloud parity:
+    // GET /annotations → requireResource('annotations-read')).
+    try {
+      this.guard.assertCapability('doc.annotate.read');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(
@@ -59,6 +68,11 @@ export class LocalDocumentAnnotationsService implements DocumentAnnotationsServi
       return AbortablePromise.rejectReason(
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
+    }
+    try {
+      this.guard.assertCapability('doc.annotate.read');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
     }
     const docId = this.docId;
     const submission = this.queue.enqueue<WorkerResultPayload>(

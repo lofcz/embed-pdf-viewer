@@ -32,7 +32,86 @@ interface UploadResponse {
   tenantId: string;
   layerName: string;
   sub: string;
+  scope: string[];
+  identity: IdentityInput;
 }
+
+interface IdentityInput {
+  user_id?: string;
+  group_id?: string;
+  groups?: string[];
+  display_name?: string;
+}
+
+interface ScopeOption {
+  value: string;
+  label: string;
+}
+
+interface ScopePreset {
+  id: string;
+  label: string;
+  scopes: string[];
+  custom?: string;
+}
+
+const DEFAULT_SCOPE = [
+  'doc.open',
+  'doc.render',
+  'doc.text.select',
+  'doc.text.copy',
+  'doc.annotate.read',
+  'doc.annotate.modify',
+  'doc.pages.assemble',
+  'doc.download',
+  'doc.download.flattened',
+];
+
+const SCOPE_OPTIONS: ScopeOption[] = [
+  { value: 'doc.open', label: 'Open / manifest' },
+  { value: 'doc.render', label: 'Render pages' },
+  { value: 'doc.text.select', label: 'Text geometry' },
+  { value: 'doc.text.copy', label: 'Text copy' },
+  { value: 'doc.annotate.read', label: 'Read annotations' },
+  { value: 'doc.annotate.modify', label: 'Modify all annotations' },
+  { value: 'doc.pages.modify', label: 'Modify pages' },
+  { value: 'doc.pages.assemble', label: 'Assemble pages' },
+  { value: 'doc.download', label: 'Download' },
+  { value: 'doc.download.flattened', label: 'Download flattened' },
+  { value: 'doc.redact', label: 'Redact' },
+  { value: 'doc.print', label: 'Print' },
+  { value: 'doc.print.high', label: 'High quality print' },
+  { value: 'doc.forms.fill', label: 'Fill forms' },
+  { value: 'doc.forms.modify', label: 'Modify forms' },
+  { value: 'pdf.permissions', label: 'PDF permissions' },
+  { value: '*', label: 'Wildcard' },
+];
+
+const SCOPE_PRESETS: ScopePreset[] = [
+  { id: 'smoke-full', label: 'Smoke full', scopes: DEFAULT_SCOPE },
+  { id: 'viewer', label: 'Viewer', scopes: ['doc.open', 'doc.render'] },
+  { id: 'pdf-defaults', label: 'PDF defaults', scopes: ['pdf.permissions'] },
+  {
+    id: 'text-reader',
+    label: 'Text reader',
+    scopes: ['doc.open', 'doc.render', 'doc.text.select', 'doc.text.copy'],
+  },
+  {
+    id: 'annotation-author',
+    label: 'Annotation author',
+    scopes: ['doc.open', 'doc.render'],
+    custom: 'annotations:create:self\nannotations:update:self\nannotations:delete:self',
+  },
+  {
+    id: 'group-editor',
+    label: 'Group editor',
+    scopes: ['doc.open', 'doc.render'],
+    custom:
+      'annotations:create:self\nannotations:update:group=demo-group\nannotations:delete:group=demo-group',
+  },
+  { id: 'download-only', label: 'Download only', scopes: ['doc.open', 'doc.download'] },
+  { id: 'wildcard', label: 'Wildcard', scopes: ['*'] },
+];
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('#app missing');
@@ -53,6 +132,22 @@ app.innerHTML = `
         <label>Tenant <input id="tenantId" autocomplete="off" /></label>
         <label>Layer <input id="layerName" autocomplete="off" value="default" /></label>
         <label>User <input id="subject" autocomplete="off" value="demo-user" /></label>
+        <div class="identity-grid">
+          <label>User ID <input id="userId" autocomplete="off" value="demo-user" /></label>
+          <label>Group ID <input id="groupId" autocomplete="off" value="demo-group" /></label>
+          <label>Groups <input id="groups" autocomplete="off" value="demo-group" /></label>
+          <label>Display Name <input id="displayName" autocomplete="off" value="Demo User" /></label>
+        </div>
+
+        <section class="scope-tools">
+          <div class="scope-head">
+            <h3>Token Scope</h3>
+            <select id="scopePreset"></select>
+          </div>
+          <div id="scopeOptions" class="scope-options"></div>
+          <label>Collab / custom scopes <textarea id="customScopes" spellcheck="false"></textarea></label>
+        </section>
+
         <label>PDF <input id="pdfFile" type="file" accept="application/pdf" /></label>
         <button id="uploadPdf" type="button">Upload PDF + Mint Token</button>
 
@@ -161,6 +256,13 @@ const els = {
   tenantId: must<HTMLInputElement>('tenantId'),
   layerName: must<HTMLInputElement>('layerName'),
   subject: must<HTMLInputElement>('subject'),
+  userId: must<HTMLInputElement>('userId'),
+  groupId: must<HTMLInputElement>('groupId'),
+  groups: must<HTMLInputElement>('groups'),
+  displayName: must<HTMLInputElement>('displayName'),
+  scopePreset: must<HTMLSelectElement>('scopePreset'),
+  scopeOptions: must<HTMLDivElement>('scopeOptions'),
+  customScopes: must<HTMLTextAreaElement>('customScopes'),
   pdfFile: must<HTMLInputElement>('pdfFile'),
   uploadPdf: must<HTMLButtonElement>('uploadPdf'),
   mintDocId: must<HTMLInputElement>('mintDocId'),
@@ -212,6 +314,7 @@ let renderObjectUrl: string | null = null;
 void boot();
 
 async function boot(): Promise<void> {
+  renderScopeControls();
   config = await getJson<AppConfig>('/api/config');
   els.tenantId.value = config.tenantId;
   els.auditDay.value = new Date().toISOString().slice(0, 10);
@@ -238,6 +341,7 @@ els.releaseWeakEdit.addEventListener('click', () => void run(releaseWeakEdit));
 els.deleteFirst.addEventListener('click', () => void run(deleteFirstAnnotation));
 els.moveFirst.addEventListener('click', () => void run(moveFirstAnnotation));
 els.downloadPdf.addEventListener('click', () => void run(downloadPdf));
+els.scopePreset.addEventListener('change', () => applyScopePreset(els.scopePreset.value));
 
 async function uploadPdf(): Promise<void> {
   const file = els.pdfFile.files?.[0];
@@ -248,6 +352,8 @@ async function uploadPdf(): Promise<void> {
     layerName: layerName(),
     sub: subject(),
   });
+  for (const scope of selectedScope()) params.append('scope', scope);
+  appendIdentityParams(params, selectedIdentity());
   const response = await fetch(`/api/admin/upload?${params}`, {
     method: 'POST',
     headers: {
@@ -274,6 +380,8 @@ async function mintToken(): Promise<void> {
       layerName: layerName(),
       sub: subject(),
       ttlSeconds: 3600,
+      scope: selectedScope(),
+      ...selectedIdentity(),
     },
   );
   els.tokenBox.value = result.token;
@@ -565,11 +673,98 @@ function clearRenderPreview(): void {
 function renderClaims(token: string): void {
   const claims = decodeJwtPayload(token);
   els.claims.innerHTML = '';
-  for (const key of ['tenant_id', 'doc_id', 'layer_name', 'sub', 'scope', 'exp']) {
+  for (const key of [
+    'tenant_id',
+    'doc_id',
+    'layer_name',
+    'sub',
+    'scope',
+    'user_id',
+    'group_id',
+    'groups',
+    'display_name',
+    'exp',
+  ]) {
     const row = document.createElement('div');
     row.innerHTML = `<span>${key}</span><strong>${JSON.stringify(claims[key])}</strong>`;
     els.claims.append(row);
   }
+}
+
+function renderScopeControls(): void {
+  els.scopePreset.innerHTML = '';
+  for (const preset of SCOPE_PRESETS) {
+    const option = document.createElement('option');
+    option.value = preset.id;
+    option.textContent = preset.label;
+    els.scopePreset.append(option);
+  }
+
+  els.scopeOptions.innerHTML = '';
+  for (const option of SCOPE_OPTIONS) {
+    const id = `scope-${option.value.replace(/[^a-z0-9]+/gi, '-')}`;
+    const label = document.createElement('label');
+    label.className = 'scope-option';
+    label.htmlFor = id;
+    label.innerHTML = `
+      <input id="${id}" type="checkbox" value="${option.value}" />
+      <span>${option.label}</span>
+      <code>${option.value}</code>
+    `;
+    els.scopeOptions.append(label);
+  }
+
+  applyScopePreset(SCOPE_PRESETS[0].id);
+}
+
+function applyScopePreset(id: string): void {
+  const preset = SCOPE_PRESETS.find((item) => item.id === id) ?? SCOPE_PRESETS[0];
+  const values = new Set(preset.scopes);
+  for (const input of scopeCheckboxes()) {
+    input.checked = values.has(input.value);
+  }
+  els.customScopes.value = preset.custom ?? '';
+}
+
+function selectedScope(): string[] {
+  const values = [
+    ...scopeCheckboxes()
+      .filter((input) => input.checked)
+      .map((input) => input.value),
+    ...splitList(els.customScopes.value),
+  ];
+  return [...new Set(values)];
+}
+
+function selectedIdentity(): IdentityInput {
+  const userId = els.userId.value.trim();
+  const groupId = els.groupId.value.trim();
+  const groups = splitList(els.groups.value);
+  const displayName = els.displayName.value.trim();
+  return {
+    ...(userId ? { user_id: userId } : {}),
+    ...(groupId ? { group_id: groupId } : {}),
+    ...(groups.length > 0 ? { groups } : {}),
+    ...(displayName ? { display_name: displayName } : {}),
+  };
+}
+
+function appendIdentityParams(params: URLSearchParams, identity: IdentityInput): void {
+  if (identity.user_id) params.set('user_id', identity.user_id);
+  if (identity.group_id) params.set('group_id', identity.group_id);
+  if (identity.groups?.length) params.set('groups', identity.groups.join(','));
+  if (identity.display_name) params.set('display_name', identity.display_name);
+}
+
+function scopeCheckboxes(): HTMLInputElement[] {
+  return Array.from(els.scopeOptions.querySelectorAll<HTMLInputElement>('input[type="checkbox"]'));
+}
+
+function splitList(raw: string): string[] {
+  return raw
+    .split(/[\n,]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
 }
 
 function renderSecurity(value: DocumentHandle['security']['current']): void {

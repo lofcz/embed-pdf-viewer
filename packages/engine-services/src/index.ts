@@ -36,7 +36,7 @@ export { WorkerHost } from './worker/WorkerHost';
 export { readMetaText } from './readers/meta-text';
 export { readTrapped } from './readers/trapped';
 export { readAllCustomMeta } from './readers/custom-meta';
-export { pdfDateToIso } from './readers/pdf-date';
+export { formatPdfDate, pdfDateToIso } from './util/pdf-date';
 
 // Annotation readers
 export { RawAnnotationReader } from './readers/annotations/RawAnnotationReader';

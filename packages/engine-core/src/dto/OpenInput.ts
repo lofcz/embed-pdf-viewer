@@ -1,3 +1,5 @@
+import type { IdentityClaims } from '../auth/scope';
+
 /**
  * Per-call token source. Either a literal JWT or a factory that
  * returns a fresh one (used by the cloud SDK to support tokens that
@@ -105,4 +107,34 @@ export type OpenInput = OpenInputBytes | OpenInputLayerBytes | OpenInputById | O
 
 export interface OpenOptions {
   password?: string | null;
+
+  /**
+   * Engine-local only. The scope strings to enforce on this handle's
+   * operations, mirroring what a doc-scoped JWT would carry in the
+   * cloud. Same vocabulary as the cloud (`pdf.permissions`, `doc.*`,
+   * `annotations:create:self`, etc.) — same enforcement, same
+   * `PermissionDenied` errors.
+   *
+   * Defaults to `['*']` (admin wildcard) when omitted, with a one-time
+   * console warning. Set explicitly to test realistic permissions
+   * locally before pointing the same SDK code at the cloud.
+   *
+   * Cloud engines read scope from the JWT and IGNORE this option.
+   */
+  scope?: ReadonlyArray<string>;
+
+  /**
+   * Engine-local only. The identity claims to evaluate collab filters
+   * against (`:self`, `:group=X`) and to stamp onto annotation
+   * `/EMBD_Metadata` on create. Mirrors the JWT identity claims used
+   * cloud-side.
+   *
+   * Required when `scope` contains collab scopes (`annotations:*:self`
+   * etc.) — opening without it throws `MissingIdentity` so the config
+   * mistake surfaces immediately instead of producing silent denies
+   * at every mutation.
+   *
+   * Cloud engines read identity from the JWT and IGNORE this option.
+   */
+  identity?: IdentityClaims;
 }
