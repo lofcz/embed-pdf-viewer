@@ -5,10 +5,13 @@ import type { AnnotationDraftBase, AnnotationPatchBase } from '@embedpdf/engine-
 import { formatPdfDate } from '../../util/pdf-date';
 
 /**
- * Write the annotation-wide author-metadata fields shared by every Draft
- * (contents/author/nm). The kind-specific writer calls this BEFORE its
- * own field writes; order doesn't actually matter at the PDF level, but
+ * Write the annotation-wide base fields shared by every Draft
+ * (contents/nm). The kind-specific writer calls this BEFORE its own
+ * field writes; order doesn't actually matter at the PDF level, but
  * keeping the base first makes the writers symmetric with the readers.
+ *
+ * `/T` (author display) is stamped by the mutator from
+ * `AnnotationActor.displayName` via {@link writeAnnotationAuthor}.
  *
  * `nm` is written verbatim if the caller supplied one. The mutator
  * decides whether to opportunistically stamp a UUID v4 on a weak
@@ -23,20 +26,17 @@ export function applyAnnotationBaseDraft(
   if (draft.contents !== undefined) {
     writeStringOrClear(fn, mem, annotPtr, 'Contents', draft.contents);
   }
-  if (draft.author !== undefined) {
-    writeStringOrClear(fn, mem, annotPtr, 'T', draft.author);
-  }
   if (draft.nm !== undefined && draft.nm.length > 0) {
     writeString(fn, mem, annotPtr, 'NM', draft.nm);
   }
 }
 
 /**
- * Write the annotation-wide author-metadata fields shared by every Patch.
- * Note: `nm` is intentionally absent from `AnnotationPatchBase` — /NM is
- * monotonic per annotation and cannot be renamed via update. The mutator
- * may still stamp /NM opportunistically when patching a weak annotation;
- * it does so directly, not through this function.
+ * Write the annotation-wide base fields shared by every Patch
+ * (contents). /T is bound at creation and not patchable — see
+ * `AnnotationPatchBase`. /NM is monotonic per annotation; the mutator
+ * may stamp /NM opportunistically on a weak annotation via
+ * `writeAnnotationNm`.
  *
  * Three-state semantics on string|null fields:
  *   undefined -> don't touch the dict
@@ -52,9 +52,22 @@ export function applyAnnotationBasePatch(
   if (patch.contents !== undefined) {
     writeStringOrClear(fn, mem, annotPtr, 'Contents', patch.contents);
   }
-  if (patch.author !== undefined) {
-    writeStringOrClear(fn, mem, annotPtr, 'T', patch.author);
-  }
+}
+
+/**
+ * Stamp /T (the standard PDF "author" display field) on an annotation.
+ * Called by the mutator on CREATE — /T is bound to the caller's
+ * `display_name` at creation. No-op when `displayName` is empty so
+ * callers don't need to gate it.
+ */
+export function writeAnnotationAuthor(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  displayName: string,
+): void {
+  if (displayName.length === 0) return;
+  writeString(fn, mem, annotPtr, 'T', displayName);
 }
 
 /**

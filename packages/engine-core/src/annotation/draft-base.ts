@@ -7,35 +7,15 @@
  * `nm` is here (and not in AnnotationPatchBase) because /NM seeds the
  * stable identity of a new annotation; it cannot be changed afterwards
  * without changing which annotation is being targeted.
+ *
+ * Authorial identity (/T author display, /EMBD_Metadata UserID and
+ * GroupID) is set by the server from the caller's JWT identity at
+ * creation — the worker writes /T from the caller's `display_name`
+ * claim and /EMBD_Metadata from the caller's `user_id` / `group_id`
+ * claims. The `doc.annotate.create` capability is the gate.
  */
 export interface AnnotationDraftBase {
   contents?: string | null;
-  author?: string | null;
   /** Optional /NM the caller wants to assign on creation. */
   nm?: string;
-
-  /**
-   * Explicit /EMBD_Metadata identity overrides for impersonation /
-   * cross-group authoring.
-   *
-   * When ABSENT, the server fills both from the caller's JWT identity
-   * (`user_id` and `group_id` claims) — the typical case where the
-   * caller is creating annotations as themselves in their default
-   * group.
-   *
-   * When PRESENT, the server uses these values for the collab check
-   * (so `annotations:create:self` / `:createdBy=X` / `:group=Y` all
-   * evaluate against the supplied identity) AND for the worker's
-   * /EMBD_Metadata stamp. A caller needs:
-   *   - `annotations:create:<filter>` matching the effective target, AND
-   *   - if `groupId` differs from the caller's JWT default,
-   *     `annotations:set-group:all` or `annotations:set-group:group=<groupId>`
-   * Otherwise the route returns 403.
-   *
-   * Use cases: admin/moderator creating annotations attributed to a
-   * specific user; migration tools preserving original authorship;
-   * workflow bots tagging into specific groups.
-   */
-  userId?: string;
-  groupId?: string;
 }

@@ -112,7 +112,8 @@ export interface OpenOptions {
    * Engine-local only. The scope strings to enforce on this handle's
    * operations, mirroring what a doc-scoped JWT would carry in the
    * cloud. Same vocabulary as the cloud (`pdf.permissions`, `doc.*`,
-   * `annotations:create:self`, etc.) — same enforcement, same
+   * `annotations:update:self`, `annotations:delete:group=X`,
+   * `annotations:set-group:all`, etc.) — same enforcement, same
    * `PermissionDenied` errors.
    *
    * Defaults to `['*']` (admin wildcard) when omitted, with a one-time

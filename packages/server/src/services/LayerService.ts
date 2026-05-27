@@ -140,11 +140,9 @@ export class LayerService {
       draft: AnnotationDraft;
       /**
        * Optional actor override. When supplied, replaces the actor
-       * built from `ctx.jwt.identity`. Routes use this for
-       * impersonation flows where `draft.userId`/`groupId` should be
-       * stamped instead of (or in addition to) the caller's own
-       * identity. Authorization for the override is the route's job —
-       * the service trusts what arrives here.
+       * built from `ctx.jwt.identity`. Routes pass this so that the
+       * actor construction (and any future policy on it) lives next to
+       * the capability check. The service trusts what arrives here.
        */
       actor?: AnnotationActor;
     },

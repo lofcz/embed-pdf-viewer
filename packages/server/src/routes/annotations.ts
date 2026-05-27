@@ -245,24 +245,15 @@ export async function registerAnnotationRoutes(
     const pageObjectNumber = parsePageObjectNumber(pon);
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
     const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    // Creation stamps the caller's JWT identity — the worker writes
+    // /T, /M, and /EMBD_Metadata from the actor we build below.
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.annotate.create', pdfBits);
     const draft = parseOrInvalidArg<AnnotationDraft>(
       AnnotationDraftSchema as unknown as SchemaLike<AnnotationDraft>,
       req.body,
       'request body',
     );
-
-    // 1. Resolve the effective target (draft.userId/groupId override the
-    //    caller's JWT identity for impersonation / cross-group authoring).
-    const target = effectiveTargetForCreate(accessCtx.jwt, draft);
-
-    // 2. Collab check evaluated against the effective target.
-    const ctx = requireLayerCollabAction(req, docId, layerName, 'create', target, pdfBits);
-
-    // 3. Set-group check — only fires for cross-group authoring.
-    assertSetGroupAllowed(target.groupId, accessCtx.jwt.identity.group_id, ctx.jwt.scope, pdfBits);
-
-    // 4. Worker stamps the effective identity onto /EMBD_Metadata.
-    const actor = buildCreateActor(accessCtx.jwt, target);
+    const actor = actorFromJwt(ctx.jwt);
 
     setNoStore(reply);
     return layerService.createAnnotation(
@@ -448,69 +439,32 @@ function requireWeakAnnotationSessions(
 // ----------------------------------------------------------------------
 // Annotation identity helpers
 //
-// Three pure helpers that compose into the create/update flow:
-//   - effectiveTargetForCreate: merges draft overrides with JWT defaults
-//   - assertSetGroupAllowed:    runs the set-group authority check
-//   - buildCreateActor/UpdateActor: build the actor the worker stamps
-//
-// Keeping them in the route file lets the handlers read top-down as a
-// short numbered sequence instead of a wall of inline type-guard code.
+// Two pure helpers — one per mutation shape:
+//   - actorFromJwt:     build the create actor from JWT identity.
+//                       Creation always stamps the caller;
+//                       `doc.annotate.create` is the gate.
+//   - buildUpdateActor: build the update actor (modification trail +
+//                       optional group reassignment gated by :set-group).
 // ----------------------------------------------------------------------
 
 /**
- * Merge `draft.userId` / `draft.groupId` overrides with the caller's
- * JWT-default identity. Overrides win; absent fields fall back to JWT.
- * Used as both the collab-check target AND the worker-stamp identity.
+ * Build the CREATE actor from the caller's JWT identity. The worker
+ * writes:
  *
- * Producing an empty object is legitimate — anonymous fixtures with no
- * `user_id` / `group_id` claims and no draft overrides have nothing to
- * target. The collab resolver treats it as "not self / not in any
- * group," which denies `:self` / `:group=X` and allows `:all`.
+ *   /T                                         ← actor.displayName
+ *   /EMBD_Metadata/UserID,CreatedBy,UpdatedBy  ← actor.userId
+ *   /EMBD_Metadata/GroupID                     ← actor.groupId
+ *
+ * Returns `undefined` when the JWT carries no identity at all
+ * (anonymous tenant tokens) — the worker still stamps /M but skips /T
+ * and /EMBD_Metadata.
  */
-function effectiveTargetForCreate(jwt: RequestJwtContext, draft: AnnotationDraft): CollabTarget {
-  const userId = draft.userId ?? jwt.identity.user_id;
-  const groupId = draft.groupId ?? jwt.identity.group_id;
-  return {
-    ...(userId !== undefined ? { userId } : {}),
-    ...(groupId !== undefined ? { groupId } : {}),
-  };
-}
-
-/**
- * Run the set-group authority check, throwing 403 on deny. No-op when
- * the effective groupId equals the caller's default (no reassignment
- * is happening) or when no group is being assigned at all.
- */
-function assertSetGroupAllowed(
-  effectiveGroupId: string | undefined,
-  callerDefaultGroupId: string | undefined,
-  scope: ReadonlyArray<string>,
-  pdfBits: PdfBits,
-): void {
-  if (effectiveGroupId === undefined) return;
-  if (!checkSetGroup(effectiveGroupId, callerDefaultGroupId, scope, pdfBits)) {
-    throw new EngineError(
-      EngineErrorCode.Forbidden,
-      `annotations:set-group denied for group=${effectiveGroupId}`,
-    );
-  }
-}
-
-/**
- * Build the worker-side actor for CREATE. The worker stamps these
- * fields into /EMBD_Metadata (UserID, GroupID, CreatedBy, UpdatedBy)
- * and /T (displayName). Returns `undefined` when nothing meaningful is
- * stamped; the worker treats absent actor as "no EMBD_Metadata" but
- * always still stamps /M from the base writer.
- */
-function buildCreateActor(
-  jwt: RequestJwtContext,
-  effective: CollabTarget,
-): AnnotationActor | undefined {
+function actorFromJwt(jwt: RequestJwtContext): AnnotationActor | undefined {
+  const id = jwt.identity;
   const actor: AnnotationActor = {
-    ...(effective.userId !== undefined ? { userId: effective.userId } : {}),
-    ...(effective.groupId !== undefined ? { groupId: effective.groupId } : {}),
-    ...(jwt.identity.display_name !== undefined ? { displayName: jwt.identity.display_name } : {}),
+    ...(id.user_id !== undefined ? { userId: id.user_id } : {}),
+    ...(id.group_id !== undefined ? { groupId: id.group_id } : {}),
+    ...(id.display_name !== undefined ? { displayName: id.display_name } : {}),
   };
   return actor.userId || actor.groupId || actor.displayName ? actor : undefined;
 }
@@ -518,16 +472,19 @@ function buildCreateActor(
 /**
  * Build the worker-side actor for UPDATE.
  *
- *   - `userId`      = caller's JWT user_id → stamped as /EMBD_Metadata/UpdatedBy
- *   - `displayName` = caller's display_name → stamped as /T
+ *   - `userId`      = caller's JWT user_id → stamped as
+ *                     /EMBD_Metadata/UpdatedBy (modification trail).
+ *   - `displayName` = caller's display_name → carried for the
+ *                     modification trail. The worker does not touch /T
+ *                     on update; /T is bound at creation.
  *   - `groupId`     = `patch.groupId` ONLY when it reassigns the row
- *                     (differs from current groupId) → stamped as the new
- *                     /EMBD_Metadata/GroupID. Absent means "don't touch."
+ *                     (differs from current groupId) → stamped as the
+ *                     new /EMBD_Metadata/GroupID. Absent means "don't
+ *                     touch."
  *
- * Throws 403 if the patch is trying to reassign groupId and the caller
- * lacks `annotations:set-group` authority for the new group. userId is
- * never taken from the patch — UserID/CreatedBy are immutable per
- * AnnotationPatchBase semantics.
+ * Throws 403 if the patch is reassigning groupId and the caller lacks
+ * `annotations:set-group` authority for the new group. UserID and
+ * CreatedBy are bound at creation and cannot be patched.
  */
 function buildUpdateActor(
   jwt: RequestJwtContext,
@@ -540,7 +497,12 @@ function buildUpdateActor(
     typeof patchedGroupId === 'string' && patchedGroupId !== currentTarget.groupId;
 
   if (isReassigningGroup) {
-    assertSetGroupAllowed(patchedGroupId, jwt.identity.group_id, jwt.scope, pdfBits);
+    if (!checkSetGroup(patchedGroupId, jwt.identity.group_id, jwt.scope, pdfBits)) {
+      throw new EngineError(
+        EngineErrorCode.Forbidden,
+        `annotations:set-group denied for group=${patchedGroupId}`,
+      );
+    }
   }
 
   const actor: AnnotationActor = {

@@ -163,7 +163,7 @@ describe('checkResourceAccess', () => {
   });
 
   it('annotations-read granted via collab scope (implication)', () => {
-    expect(checkResourceAccess('annotations-read', ['annotations:create:self'], NO_BITS)).toBe(
+    expect(checkResourceAccess('annotations-read', ['annotations:update:self'], NO_BITS)).toBe(
       true,
     );
   });

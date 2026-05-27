@@ -19,7 +19,11 @@ import {
 import { throwIfAborted } from '../abort';
 import { readAnnotString } from '../readers/annotations/util';
 import { readAnnotationFromPtr } from '../readers/annotations/read-one';
-import { writeAnnotationModified, writeAnnotationNm } from '../writers/annotations/base';
+import {
+  writeAnnotationAuthor,
+  writeAnnotationModified,
+  writeAnnotationNm,
+} from '../writers/annotations/base';
 import {
   applyEmbedMetadataOnCreate,
   applyEmbedMetadataOnUpdate,
@@ -100,10 +104,14 @@ export class DocumentAnnotationMutator {
       let newIndex: number;
       try {
         applyDraft(fn, mem, annotPtr, draft);
-        // Stamp standard ISO 32000 /M (modified date) — always, regardless
-        // of whether an actor is supplied. Then stamp the EmbedPDF-namespaced
-        // /EMBD_Metadata if the actor carries identity. Both happen after
-        // the per-subtype writer so a buggy subtype writer can't clobber them.
+        // Stamp identity + modification metadata AFTER the per-subtype
+        // writer so a buggy subtype writer can't clobber them:
+        //   /T             ← actor.displayName  (when present)
+        //   /M             ← now                 (always)
+        //   /EMBD_Metadata ← actor.userId/groupId (when present)
+        if (actor?.displayName) {
+          writeAnnotationAuthor(fn, mem, annotPtr, actor.displayName);
+        }
         writeAnnotationModified(fn, mem, annotPtr);
         applyEmbedMetadataOnCreate(fn, mem, annotPtr, actor);
         throwIfAborted(signal);

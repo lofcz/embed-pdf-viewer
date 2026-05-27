@@ -41,8 +41,9 @@ describe('caps — capability builders return the expected literal strings', () 
     expect(caps.doc.forms.modify()).toBe('doc.forms.modify');
   });
 
-  it('annotate read/modify split + redact', () => {
+  it('annotate read/create/modify split + redact', () => {
     expect(caps.doc.annotate.read()).toBe('doc.annotate.read');
+    expect(caps.doc.annotate.create()).toBe('doc.annotate.create');
     expect(caps.doc.annotate.modify()).toBe('doc.annotate.modify');
     expect(caps.doc.redact()).toBe('doc.redact');
   });
@@ -64,6 +65,7 @@ describe('caps — capability builders return the expected literal strings', () 
       caps.doc.forms.fill(),
       caps.doc.forms.modify(),
       caps.doc.annotate.read(),
+      caps.doc.annotate.create(),
       caps.doc.annotate.modify(),
       caps.doc.redact(),
     ];
@@ -75,11 +77,11 @@ describe('caps — capability builders return the expected literal strings', () 
 });
 
 describe('collab — filter builders', () => {
-  it('all/self filters', () => {
-    expect(collab.annotations.create.all()).toBe('annotations:create:all');
-    expect(collab.annotations.create.self()).toBe('annotations:create:self');
+  it('all/self filters (update/delete only; create is a capability, not collab)', () => {
     expect(collab.annotations.update.self()).toBe('annotations:update:self');
     expect(collab.annotations.delete.self()).toBe('annotations:delete:self');
+    expect(collab.annotations.update.all()).toBe('annotations:update:all');
+    expect(collab.annotations.delete.all()).toBe('annotations:delete:all');
   });
 
   it('createdBy filter embeds the user id verbatim', () => {
@@ -109,16 +111,22 @@ describe('collab — filter builders', () => {
 
   it('every output parses back as a collab scope', () => {
     const samples = [
-      collab.annotations.create.all(),
       collab.annotations.update.self(),
       collab.annotations.delete.createdBy('alice'),
       collab.annotations.update.group('engineering'),
+      collab.annotations.setGroup.all(),
+      collab.annotations.setGroup.group('legal'),
       collab.annotations.all.self(),
     ];
     for (const s of samples) {
       const parsed = parseScope(s);
       expect(parsed.kind).toBe('collab');
     }
+  });
+
+  it('setGroup builder emits only :all / :group=X', () => {
+    expect(collab.annotations.setGroup.all()).toBe('annotations:set-group:all');
+    expect(collab.annotations.setGroup.group('legal')).toBe('annotations:set-group:group=legal');
   });
 });
 
@@ -153,9 +161,10 @@ describe('materializePdfPermissions', () => {
     expect(set.has('doc.content.copy')).toBe(true);
   });
 
-  it('bit 6 adds doc.annotate.read AND doc.annotate.modify', () => {
+  it('bit 6 adds doc.annotate.read, doc.annotate.create AND doc.annotate.modify', () => {
     const set = new Set(materializePdfPermissions(decodePdfBits(PDF_BITS.ANNOTATE_FILL)));
     expect(set.has('doc.annotate.read')).toBe(true);
+    expect(set.has('doc.annotate.create')).toBe(true);
     expect(set.has('doc.annotate.modify')).toBe(true);
   });
 

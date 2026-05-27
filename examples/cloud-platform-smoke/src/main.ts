@@ -61,6 +61,7 @@ const DEFAULT_SCOPE = [
   'doc.text.select',
   'doc.text.copy',
   'doc.annotate.read',
+  'doc.annotate.create',
   'doc.annotate.modify',
   'doc.pages.assemble',
   'doc.download',
@@ -73,6 +74,7 @@ const SCOPE_OPTIONS: ScopeOption[] = [
   { value: 'doc.text.select', label: 'Text geometry' },
   { value: 'doc.text.copy', label: 'Text copy' },
   { value: 'doc.annotate.read', label: 'Read annotations' },
+  { value: 'doc.annotate.create', label: 'Create annotations' },
   { value: 'doc.annotate.modify', label: 'Modify all annotations' },
   { value: 'doc.pages.modify', label: 'Modify pages' },
   { value: 'doc.pages.assemble', label: 'Assemble pages' },
@@ -99,15 +101,14 @@ const SCOPE_PRESETS: ScopePreset[] = [
   {
     id: 'annotation-author',
     label: 'Annotation author',
-    scopes: ['doc.open', 'doc.render'],
-    custom: 'annotations:create:self\nannotations:update:self\nannotations:delete:self',
+    scopes: ['doc.open', 'doc.render', 'doc.annotate.create'],
+    custom: 'annotations:update:self\nannotations:delete:self',
   },
   {
     id: 'group-editor',
     label: 'Group editor',
-    scopes: ['doc.open', 'doc.render'],
-    custom:
-      'annotations:create:self\nannotations:update:group=demo-group\nannotations:delete:group=demo-group',
+    scopes: ['doc.open', 'doc.render', 'doc.annotate.create'],
+    custom: 'annotations:update:group=demo-group\nannotations:delete:group=demo-group',
   },
   { id: 'download-only', label: 'Download only', scopes: ['doc.open', 'doc.download'] },
   { id: 'wildcard', label: 'Wildcard', scopes: ['*'] },
@@ -474,7 +475,6 @@ async function createHighlight(): Promise<void> {
   const draft: AnnotationDraft = {
     subtype: 'highlight',
     contents: `cloud smoke ${new Date().toISOString()}`,
-    author: subject(),
     color: { r: 255, g: 214, b: 102 },
     opacity: 0.6,
     quadPoints: [

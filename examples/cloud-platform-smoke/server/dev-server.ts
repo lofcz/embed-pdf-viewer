@@ -52,6 +52,7 @@ const DEFAULT_DOC_SCOPE = [
   'doc.text.select',
   'doc.text.copy',
   'doc.annotate.read',
+  'doc.annotate.create',
   'doc.annotate.modify',
   'doc.pages.assemble',
   'doc.download',

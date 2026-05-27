@@ -85,27 +85,14 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
     }
-    // Cloud parity for POST /annotations:
-    //   1. Resolve effective target = draft.userId/groupId overrides ?? caller identity
-    //   2. Run collab check against the effective target
-    //   3. Run set-group check when effective groupId differs from caller default
-    //   4. Build actor for the worker; worker stamps /EMBD_Metadata
-    const draftIdentity = {
-      ...(typeof (draft as { userId?: string }).userId === 'string'
-        ? { userId: (draft as { userId?: string }).userId }
-        : {}),
-      ...(typeof (draft as { groupId?: string }).groupId === 'string'
-        ? { groupId: (draft as { groupId?: string }).groupId }
-        : {}),
-    };
+    // Cloud parity for POST /annotations: creation is gated by the
+    // `doc.annotate.create` capability and stamps the caller's identity.
     try {
-      const target = this.guard.effectiveCreateTarget(draftIdentity);
-      this.guard.assertCollab('create', target);
-      this.guard.assertSetGroup(target.groupId);
+      this.guard.assertCapability('doc.annotate.create');
     } catch (err) {
       return AbortablePromise.rejectReason(err);
     }
-    const actor = this.guard.actorForCreate(draftIdentity);
+    const actor = this.guard.actorForCreate();
 
     const docId = this.docId;
     const pon = this.pageObjectNumber;
@@ -150,7 +137,13 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       const target = await this.collabTargetForRef(ref, signal);
       this.guard.assertCollab('update', target);
 
+      // Group reassignment runs `:set-group` against the caller's
+      // default group before building the actor (cloud PATCH parity).
       const patchGroupId = (patch as { groupId?: string }).groupId;
+      const isReassigning = typeof patchGroupId === 'string' && patchGroupId !== target.groupId;
+      if (isReassigning) {
+        this.guard.assertSetGroup(patchGroupId);
+      }
       const actor = this.guard.actorForUpdate(target.groupId, patchGroupId);
 
       const docId = this.docId;

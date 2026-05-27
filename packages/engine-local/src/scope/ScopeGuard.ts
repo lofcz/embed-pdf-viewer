@@ -96,24 +96,23 @@ export class ScopeGuard {
 
   /**
    * Build the actor that the worker stamps onto a newly created
-   * annotation's `/EMBD_Metadata` and `/T`. `draftOverride.userId` /
-   * `groupId` (impersonation / cross-group) win over the handle's
-   * identity; `displayName` always comes from the handle.
+   * annotation. Identity is sourced from the handle's open-time
+   * identity (parity with the cloud's `doc.annotate.create`
+   * capability, which stamps the caller's JWT identity).
    *
-   * Returns `undefined` when nothing meaningful would be stamped —
-   * the worker treats this as "/M only, skip /EMBD_Metadata."
+   *   userId      → /EMBD_Metadata/UserID,CreatedBy,UpdatedBy
+   *   groupId     → /EMBD_Metadata/GroupID
+   *   displayName → /T (the standard PDF "author" display field)
+   *
+   * Returns `undefined` when the handle has no identity fields at all
+   * (anonymous local handle) — the worker still writes /M but skips
+   * both /T and /EMBD_Metadata.
    */
-  actorForCreate(
-    draftOverride: { userId?: string; groupId?: string } = {},
-  ): AnnotationActor | undefined {
+  actorForCreate(): AnnotationActor | undefined {
     const id = this.ctx.identity;
     const actor: AnnotationActor = {
-      ...((draftOverride.userId ?? id.user_id)
-        ? { userId: draftOverride.userId ?? id.user_id! }
-        : {}),
-      ...((draftOverride.groupId ?? id.group_id)
-        ? { groupId: draftOverride.groupId ?? id.group_id! }
-        : {}),
+      ...(id.user_id !== undefined ? { userId: id.user_id } : {}),
+      ...(id.group_id !== undefined ? { groupId: id.group_id } : {}),
       ...(id.display_name !== undefined ? { displayName: id.display_name } : {}),
     };
     return actor.userId || actor.groupId || actor.displayName ? actor : undefined;
@@ -123,7 +122,8 @@ export class ScopeGuard {
    * Build the actor for an annotation UPDATE.
    *   - userId      → caller's identity (UpdatedBy stamp)
    *   - groupId     → ONLY when the patch reassigns it (differs from current)
-   *   - displayName → caller's display_name
+   *   - displayName → caller's display_name (for the modification trail;
+   *                   the worker does not touch /T on update)
    *
    * No set-group check here — call `assertSetGroup` separately first,
    * before producing the actor.
@@ -140,19 +140,5 @@ export class ScopeGuard {
       ...(isReassigning ? { groupId: patchGroupId } : {}),
     };
     return actor.userId || actor.groupId || actor.displayName ? actor : undefined;
-  }
-
-  /**
-   * Convenience target for CREATE: merges any draft.userId/groupId
-   * overrides with the caller's identity to produce the
-   * `{ userId, groupId }` shape the collab resolver expects.
-   */
-  effectiveCreateTarget(draftOverride: { userId?: string; groupId?: string } = {}): CollabTarget {
-    const userId = draftOverride.userId ?? this.ctx.identity.user_id;
-    const groupId = draftOverride.groupId ?? this.ctx.identity.group_id;
-    return {
-      ...(userId !== undefined ? { userId } : {}),
-      ...(groupId !== undefined ? { groupId } : {}),
-    };
   }
 }

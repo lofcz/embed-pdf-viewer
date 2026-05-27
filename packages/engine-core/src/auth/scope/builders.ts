@@ -42,6 +42,7 @@ export const caps = {
     },
     annotate: {
       read: () => 'doc.annotate.read' as const,
+      create: () => 'doc.annotate.create' as const,
       modify: () => 'doc.annotate.modify' as const,
     },
     redact: () => 'doc.redact' as const,
@@ -52,17 +53,21 @@ export const caps = {
  * Builder factory for collab scope filters. Each entity:action pair
  * gets a sub-object with the four filter constructors.
  *
- *   collab.annotations.create.self()           → "annotations:create:self"
  *   collab.annotations.update.group("4")       → "annotations:update:group=4"
  *   collab.annotations.delete.createdBy("u-7") → "annotations:delete:createdBy=u-7"
+ *   collab.annotations.setGroup.group("legal") → "annotations:set-group:group=legal"
  *   collab.annotations.all.all()               → "annotations:*:all"  (action wildcard)
+ *
+ * Creation is gated by the `caps.doc.annotate.create()` capability —
+ * creation always stamps the caller's JWT identity and has no
+ * other-target dimension to qualify.
  */
 export const collab = {
   annotations: {
-    create: makeFilterBuilder('annotations', 'create'),
     update: makeFilterBuilder('annotations', 'update'),
     delete: makeFilterBuilder('annotations', 'delete'),
-    /** Action wildcard — matches create, update, AND delete with the given filter. */
+    setGroup: makeSetGroupBuilder(),
+    /** Action wildcard — matches update, delete, AND set-group with the given filter. */
     all: makeFilterBuilder('annotations', '*'),
   },
 } as const;
@@ -80,6 +85,25 @@ function makeFilterBuilder(entity: string, action: string): FilterBuilder {
     self: () => `${entity}:${action}:self`,
     createdBy: (userId: string) => `${entity}:${action}:createdBy=${userId}`,
     group: (groupId: string) => `${entity}:${action}:group=${groupId}`,
+  };
+}
+
+/**
+ * `set-group` is an authority filter, not a per-record collab filter:
+ * only `:all` and `:group=X` are meaningful (assign-to-any vs
+ * assign-to-X). The builder exposes exactly those two — a typo at JWT
+ * mint time is caught by the compiler instead of producing a JWT that
+ * fails at verify.
+ */
+interface SetGroupBuilder {
+  all(): string;
+  group(groupId: string): string;
+}
+
+function makeSetGroupBuilder(): SetGroupBuilder {
+  return {
+    all: () => 'annotations:set-group:all',
+    group: (groupId: string) => `annotations:set-group:group=${groupId}`,
   };
 }
 
@@ -129,6 +153,7 @@ export function materializePdfPermissions(b: PdfBits): DocCapability[] {
   if (b.bit11) out.add('doc.pages.assemble');
   if (b.bit6) {
     out.add('doc.annotate.read');
+    out.add('doc.annotate.create');
     out.add('doc.annotate.modify');
   }
   if (b.bit6 || b.bit9) out.add('doc.forms.fill');

@@ -84,10 +84,11 @@ export function checkCollab(
  * `pdf.permissions` and applying implication rules.
  *
  * Implications applied:
- *   - `doc.annotate.modify` implies `doc.annotate.read`
- *     (can't sensibly modify what you can't see)
- *   - any annotation collab scope implies `doc.annotate.read`
- *     (mutation routes need to see the target row first)
+ *   - `doc.annotate.modify` is the broad annotation-write capability
+ *     and implies both `doc.annotate.read` and `doc.annotate.create`.
+ *   - any annotation collab scope implies `doc.annotate.read`, because
+ *     mutation routes need to see the target row to evaluate the
+ *     collab filter against its current owner.
  *
  * Does NOT short-circuit on wildcard — callers do that themselves
  * before calling this. Returning the expanded set is useful for the
@@ -111,7 +112,10 @@ export function expandedCapabilities(
   }
 
   // Implications (apply after the explicit additions above)
-  if (out.has('doc.annotate.modify')) out.add('doc.annotate.read');
+  if (out.has('doc.annotate.modify')) {
+    out.add('doc.annotate.read');
+    out.add('doc.annotate.create');
+  }
   if (hasAnnotationCollab) out.add('doc.annotate.read');
 
   return out;
@@ -231,7 +235,7 @@ export function filterMatches(
  *   bit 12  → doc.print.high (requires bit 3 also set)
  *   bit 4   → doc.pages.modify, doc.redact
  *   bit 11  → doc.pages.assemble
- *   bit 6   → doc.annotate.read, doc.annotate.modify
+ *   bit 6   → doc.annotate.read, doc.annotate.create, doc.annotate.modify
  *   bit 6/9 → doc.forms.fill
  *   bit 6+4 → doc.forms.modify
  *
@@ -259,6 +263,7 @@ function addPdfPermissions(out: Set<DocCapability>, b: PdfBits): void {
   if (b.bit11) out.add('doc.pages.assemble');
   if (b.bit6) {
     out.add('doc.annotate.read');
+    out.add('doc.annotate.create');
     out.add('doc.annotate.modify');
   }
   if (b.bit6 || b.bit9) out.add('doc.forms.fill');

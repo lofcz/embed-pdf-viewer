@@ -101,7 +101,6 @@ export function runAnnotationMutationConformance(
         const draft: HighlightDraft = {
           subtype: 'highlight',
           contents: 'mutation conformance: created',
-          author: 'conformance',
           color: { r: 200, g: 100, b: 50 },
           opacity: 0.5,
           quadPoints: quad,

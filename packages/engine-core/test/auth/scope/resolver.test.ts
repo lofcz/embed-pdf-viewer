@@ -187,17 +187,18 @@ describe('checkAnyCapability', () => {
 // ============================================================================
 
 describe('expandedCapabilities — implications', () => {
-  it('doc.annotate.modify implies doc.annotate.read', () => {
+  it('doc.annotate.modify implies doc.annotate.read AND doc.annotate.create', () => {
     const set = expandRawScope(['doc.annotate.modify'], NO_BITS);
     expect(set.has('doc.annotate.modify')).toBe(true);
     expect(set.has('doc.annotate.read')).toBe(true);
+    expect(set.has('doc.annotate.create')).toBe(true);
   });
 
-  it('any annotation collab scope implies doc.annotate.read', () => {
+  it('any annotation collab scope (update/delete/set-group) implies doc.annotate.read', () => {
     const cases = [
-      ['annotations:create:self'],
       ['annotations:update:group=4'],
       ['annotations:delete:createdBy=alice'],
+      ['annotations:set-group:all'],
       ['annotations:*:all'],
     ];
     for (const scope of cases) {
@@ -206,10 +207,20 @@ describe('expandedCapabilities — implications', () => {
     }
   });
 
-  it('pdf.permissions + bit 6 implies doc.annotate.read', () => {
+  it('doc.annotate.create on its own does NOT imply doc.annotate.read', () => {
+    // Creation does not need to see other people's annotations to
+    // create your own; read is a separately-granted capability.
+    const set = expandRawScope(['doc.annotate.create'], NO_BITS);
+    expect(set.has('doc.annotate.create')).toBe(true);
+    expect(set.has('doc.annotate.read')).toBe(false);
+    expect(set.has('doc.annotate.modify')).toBe(false);
+  });
+
+  it('pdf.permissions + bit 6 implies all three annotate capabilities', () => {
     const bits = decodePdfBits(PDF_BITS.ANNOTATE_FILL);
     const set = expandRawScope(['pdf.permissions'], bits);
     expect(set.has('doc.annotate.read')).toBe(true);
+    expect(set.has('doc.annotate.create')).toBe(true);
     expect(set.has('doc.annotate.modify')).toBe(true);
   });
 
@@ -225,9 +236,9 @@ describe('expandedCapabilities — implications', () => {
 describe('checkCollab — bypass paths', () => {
   it('wildcard grants every collab action', () => {
     const target = { userId: 'bob', groupId: '5' };
-    expect(checkCollab('create', target, ['*'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('update', target, ['*'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('delete', target, ['*'], ALICE, NO_BITS)).toBe(true);
+    expect(checkCollab('set-group', target, ['*'], ALICE, NO_BITS)).toBe(true);
   });
 
   it('doc.annotate.modify bypasses collab filters for any target', () => {
@@ -250,14 +261,12 @@ describe('checkCollab — bypass paths', () => {
 describe('checkCollab — action matching', () => {
   it('action-specific scope only matches its action', () => {
     const target = { userId: 'alice', groupId: '4' };
-    expect(checkCollab('create', target, ['annotations:create:self'], ALICE, NO_BITS)).toBe(true);
-    expect(checkCollab('update', target, ['annotations:create:self'], ALICE, NO_BITS)).toBe(false);
-    expect(checkCollab('delete', target, ['annotations:create:self'], ALICE, NO_BITS)).toBe(false);
+    expect(checkCollab('update', target, ['annotations:update:self'], ALICE, NO_BITS)).toBe(true);
+    expect(checkCollab('delete', target, ['annotations:update:self'], ALICE, NO_BITS)).toBe(false);
   });
 
-  it('action wildcard `*` matches every action', () => {
+  it('action wildcard `*` matches every collab action', () => {
     const target = { userId: 'alice', groupId: '4' };
-    expect(checkCollab('create', target, ['annotations:*:self'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('update', target, ['annotations:*:self'], ALICE, NO_BITS)).toBe(true);
     expect(checkCollab('delete', target, ['annotations:*:self'], ALICE, NO_BITS)).toBe(true);
   });
@@ -426,7 +435,7 @@ describe('checkSetGroup', () => {
   });
 
   it('denies when newGroupId differs from default and no set-group scope', () => {
-    expect(checkSetGroup('legal', 'engineering', ['annotations:create:self'], NO_BITS)).toBe(false);
+    expect(checkSetGroup('legal', 'engineering', ['annotations:update:self'], NO_BITS)).toBe(false);
   });
 
   it('wildcard scope grants any group assignment', () => {
@@ -479,7 +488,7 @@ describe('checkSetGroup', () => {
   });
 
   it('callerDefaultGroupId undefined → any change needs explicit set-group authority', () => {
-    expect(checkSetGroup('legal', undefined, ['annotations:create:self'], NO_BITS)).toBe(false);
+    expect(checkSetGroup('legal', undefined, ['annotations:update:self'], NO_BITS)).toBe(false);
     expect(checkSetGroup('legal', undefined, ['annotations:set-group:group=legal'], NO_BITS)).toBe(
       true,
     );
@@ -492,7 +501,7 @@ describe('checkSetGroup', () => {
 
 describe('parser + resolver integration', () => {
   it('every parsed scope kind contributes the right thing to expansion', () => {
-    const parsed = ['*', 'pdf.permissions', 'doc.download', 'annotations:create:self'].map(
+    const parsed = ['*', 'pdf.permissions', 'doc.download', 'annotations:update:self'].map(
       parseScope,
     );
     // Just sanity-check we can map through without throwing

@@ -35,7 +35,8 @@ export type DocCapability =
 
   // Annotations
   | 'doc.annotate.read' // cloud-only read of annotation lists (PDF bit 6 in pdf.permissions)
-  | 'doc.annotate.modify' // broad write (bypasses per-record collab filters) (PDF bit 6)
+  | 'doc.annotate.create' // create new annotations stamped with the caller's identity (PDF bit 6)
+  | 'doc.annotate.modify' // broad write incl. update/delete (bypasses per-record collab filters) (PDF bit 6)
 
   // Redaction apply (destructive content modification, PDF bit 4)
   | 'doc.redact';
@@ -46,7 +47,13 @@ export type DocCapability =
  */
 export type CollabEntity = 'annotations';
 
-export type CollabAction = 'create' | 'update' | 'delete' | 'set-group';
+/**
+ * Collab actions describe operations against an existing annotation row
+ * whose owner identity may differ from the caller. Creation is gated by
+ * the `doc.annotate.create` capability — it always stamps the caller's
+ * JWT identity and has no other-target dimension to qualify.
+ */
+export type CollabAction = 'update' | 'delete' | 'set-group';
 
 export type CollabFilter =
   | { kind: 'all' }

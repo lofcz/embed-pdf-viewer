@@ -119,30 +119,30 @@ export const AnnotationBaseShape = {
 } as const;
 
 /**
- * Annotation-wide author-metadata fields shared by every Draft. Per-kind
- * draft schemas spread this alongside their family-specific shape.
+ * Annotation-wide fields shared by every Draft. Per-kind draft schemas
+ * spread this alongside their family-specific shape.
+ *
+ * Authorial identity (/T, /EMBD_Metadata UserID/GroupID) is set by the
+ * server from the caller's JWT identity — see the AnnotationDraftBase
+ * docstring.
  */
 export const AnnotationDraftBaseShape = {
   contents: z.string().nullable().optional(),
-  author: z.string().nullable().optional(),
   nm: z.string().optional(),
-  // Identity overrides for impersonation / cross-group authoring —
-  // see AnnotationDraftBase docstring. Empty strings are rejected to
-  // avoid ambiguity with "no override supplied".
-  userId: z.string().min(1).optional(),
-  groupId: z.string().min(1).optional(),
 } as const;
 
 /**
- * Annotation-wide author-metadata fields shared by every Patch. `nm` is
- * intentionally absent — identity is not mutable; clients target an
- * existing annotation via AnnotationRef instead.
+ * Annotation-wide fields shared by every Patch. `nm` is monotonic per
+ * annotation; clients target an existing annotation via AnnotationRef
+ * instead of renaming.
+ *
+ * `groupId` is the only identity-shaped field on a patch — it
+ * represents organizational ownership, and reassignment runs through
+ * `checkSetGroup`. See AnnotationPatchBase for the full immutability
+ * rules.
  */
 export const AnnotationPatchBaseShape = {
   contents: z.string().nullable().optional(),
-  author: z.string().nullable().optional(),
-  // Group reassignment — see AnnotationPatchBase docstring. userId is
-  // not patchable by design.
   groupId: z.string().min(1).optional(),
 } as const;
 

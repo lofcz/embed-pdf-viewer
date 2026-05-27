@@ -74,15 +74,6 @@ describe('parseScope — removed legacy scopes throw clearly', () => {
 });
 
 describe('parseScope — collab scopes', () => {
-  it('parses annotations:create:all', () => {
-    expect(parseScope('annotations:create:all')).toEqual({
-      kind: 'collab',
-      entity: 'annotations',
-      action: 'create',
-      filter: { kind: 'all' },
-    });
-  });
-
   it('parses annotations:update:self', () => {
     expect(parseScope('annotations:update:self')).toEqual({
       kind: 'collab',
@@ -184,11 +175,18 @@ describe('parseScope — collab error paths', () => {
   });
 
   it('rejects unknown entity', () => {
-    expect(() => parseScope('forms:create:self')).toThrow(/unknown collab entity: forms/);
+    expect(() => parseScope('forms:update:self')).toThrow(/unknown collab entity: forms/);
   });
 
   it('rejects unknown action', () => {
     expect(() => parseScope('annotations:reply:all')).toThrow(/unknown collab action: reply/);
+  });
+
+  it('accepts doc.annotate.create as a capability', () => {
+    expect(parseScope('doc.annotate.create')).toEqual({
+      kind: 'capability',
+      name: 'doc.annotate.create',
+    });
   });
 
   it('rejects unknown filter', () => {
@@ -214,9 +212,10 @@ describe('validateScopeArray', () => {
         'pdf.permissions',
         'doc.open',
         'doc.render',
-        'annotations:create:self',
+        'doc.annotate.create',
         'annotations:update:group=4',
         'annotations:delete:createdBy=urn:uuid:abc',
+        'annotations:set-group:group=legal',
       ]),
     ).not.toThrow();
   });
