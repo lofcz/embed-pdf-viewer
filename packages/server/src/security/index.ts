@@ -31,6 +31,18 @@ export {
 export type { DataKey, KmsKeyring, KmsProviderId, WrappedDataKey } from './kms/KmsKeyring';
 export { KmsAadMismatch, KmsUnreachable } from './kms/KmsKeyring';
 export { LocalAesGcmEnvelope, type LocalAesGcmCiphertext } from './kms/LocalAesGcmEnvelope';
+export {
+  decryptPasswordSession,
+  encryptPasswordSession,
+  passwordSessionKmsAad,
+  signPasswordGrant,
+  verifyPasswordGrant,
+  type EncryptedPasswordSession,
+  type PasswordSessionBinding,
+  type PasswordSessionEnvelopeInput,
+  type PasswordSessionOpenInput,
+  type PasswordSessionServerSecret,
+} from './password-session';
 export { StaticKmsKeyring } from './kms/adapters/StaticKmsKeyring';
 export { AwsKmsKeyring } from './kms/adapters/AwsKmsKeyring';
 export { GcpKmsKeyring } from './kms/adapters/GcpKmsKeyring';

@@ -32,6 +32,29 @@ function openSecurity() {
   };
 }
 
+function passwordSecurity(msg) {
+  if (msg.password === 'owner') {
+    return {
+      encryptionState: 'encrypted',
+      encryptionRequiresPassword: false,
+      securityHandlerRevision: 6,
+      pdfPermissionsBits: 0xfffffffc,
+      pdfPermissionsAllAllowed: true,
+      pdfOpenedAs: 'owner',
+      securityProbedAt: Date.now(),
+    };
+  }
+  return {
+    encryptionState: 'encrypted',
+    encryptionRequiresPassword: false,
+    securityHandlerRevision: 6,
+    pdfPermissionsBits: 0xfffff0c0,
+    pdfPermissionsAllAllowed: false,
+    pdfOpenedAs: 'user',
+    securityProbedAt: Date.now(),
+  };
+}
+
 function sessionKey(msg) {
   return msg.layerName ? `${msg.docId}::layer:${msg.layerName}` : msg.docId;
 }
@@ -176,7 +199,7 @@ parentPort.on('message', (msg) => {
         jobId: msg.jobId,
         result: {
           tag: 'document.checkPasswordPermissions',
-          security: openSecurity(),
+          security: passwordSecurity(msg),
         },
       });
       return;

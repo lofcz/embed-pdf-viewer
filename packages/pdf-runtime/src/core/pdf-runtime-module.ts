@@ -46,12 +46,25 @@ export interface PdfRuntimeFileAccess {
   fromNodeFile(path: string): PdfFileAccessHandle;
 }
 
+export interface PdfFileWriteHandle {
+  /** Pointer to the owned FPDF_FILEWRITE struct. */
+  readonly ptr: Ptr;
+  /** Flushes/closes the underlying writer and releases native resources. */
+  close(): void;
+}
+
+export interface PdfRuntimeFileWrite {
+  /** Native/node only: writes PDFium output directly to a local file. */
+  toNodeFile(path: string): PdfFileWriteHandle;
+}
+
 export interface PdfRuntimeModule {
   readonly kind: 'wasm' | 'native';
   readonly platform: string;
   readonly mem: PdfRuntimeMemory;
   readonly cb: PdfRuntimeCallbacks;
   readonly fileAccess: PdfRuntimeFileAccess;
+  readonly fileWrite: PdfRuntimeFileWrite;
   readonly fn: PdfFunctions;
   destroy(): Promise<void>;
 }

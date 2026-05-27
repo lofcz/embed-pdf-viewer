@@ -15,7 +15,16 @@ import {
 } from '@embedpdf/engine-core/runtime';
 import type { ManifestPage } from '@embedpdf/engine-core/wire';
 import type { DocumentsRepo, DocumentRow } from '../db/repos/documents.repo';
-import type { PdfPasswordVerificationsRepo } from '../db/repos/pdf_password_verifications.repo';
+import type {
+  PasswordSessionFacts,
+  PdfPasswordSessionsRepo,
+} from '../db/repos/pdf_password_sessions.repo';
+import type {
+  PasswordVerificationRow,
+  PdfPasswordVerificationsRepo,
+} from '../db/repos/pdf_password_verifications.repo';
+import type { RequestJwtContext } from '../app/jwt-plugin';
+import { signPasswordGrant, verifyPasswordGrant, type PasswordSessionBinding } from '../security';
 import type { BaseFileCache, LocalFileHandle } from '../storage/BaseFileCache';
 import type { ObjectStore } from '../storage/ObjectStore';
 import { StorageKeys } from '../storage/keys';
@@ -82,17 +91,35 @@ export interface DocumentServiceOptions {
   pool: WorkerThreadPool;
   layerState: LayerStateService;
   passwordVerifications?: PdfPasswordVerificationsRepo;
+  passwordSessions?: PdfPasswordSessionsRepo;
+  passwordSessionServerSecret?: { id: string; secret: string | Buffer };
+  passwordSessionTtlMs?: number;
+  passwordSessionRenewalTtlMs?: number;
 }
 
 export interface OpenContext {
   tenantId: string;
   sub: string;
+  jwt?: RequestJwtContext;
 }
 
 export interface SavedPdfFile {
   path: string;
   size: number;
   cleanup(): Promise<void>;
+}
+
+export interface UnlockLayerAccessInput {
+  password?: string | null;
+  passwordGrant?: string | null;
+  mode?: 'any' | 'owner';
+}
+
+export interface UnlockLayerAccessResult {
+  security: DocumentSecurityState;
+  probe: DocumentSecurityProbeInfo;
+  passwordGrant: string | null;
+  expiresAt: number | null;
 }
 
 /**
@@ -125,6 +152,10 @@ export class DocumentService {
   private readonly pool: WorkerThreadPool;
   private readonly layerState: LayerStateService;
   private readonly passwordVerifications: PdfPasswordVerificationsRepo | null;
+  private readonly passwordSessions: PdfPasswordSessionsRepo | null;
+  private readonly passwordSessionServerSecret: { id: string; secret: string | Buffer } | null;
+  private readonly passwordSessionTtlMs: number;
+  private readonly passwordSessionRenewalTtlMs: number;
   private readonly heads = new Map<string, DocumentHead>();
   private readonly opens = new Map<string, Promise<DocumentHead>>();
   private readonly baseHandles = new Map<string, LocalFileHandle>();
@@ -139,6 +170,10 @@ export class DocumentService {
     this.pool = opts.pool;
     this.layerState = opts.layerState;
     this.passwordVerifications = opts.passwordVerifications ?? null;
+    this.passwordSessions = opts.passwordSessions ?? null;
+    this.passwordSessionServerSecret = opts.passwordSessionServerSecret ?? null;
+    this.passwordSessionTtlMs = opts.passwordSessionTtlMs ?? 60 * 60 * 1000;
+    this.passwordSessionRenewalTtlMs = opts.passwordSessionRenewalTtlMs ?? 60 * 60 * 1000;
   }
 
   /**
@@ -154,7 +189,16 @@ export class DocumentService {
     password: string | null = null,
   ): Promise<DocumentHead> {
     const cached = this.heads.get(docId);
-    if (cached) return cached;
+    if (cached) {
+      if (
+        !password &&
+        cached.encryption.state === 'encrypted' &&
+        cached.encryption.requiresPassword === true
+      ) {
+        await this.assertPasswordSession(ctx, docId, 'default');
+      }
+      return cached;
+    }
     const inflight = this.opens.get(docId);
     if (inflight) return inflight;
     const promise = this.doOpen(ctx, docId, password);
@@ -187,6 +231,7 @@ export class DocumentService {
   ): Promise<DocumentHead> {
     const row = await this.requireReadyRow(ctx, docId);
     const baseSha = requireBaseSha(row);
+    const openPassword = password ?? (await this.passwordForOpen(ctx, row, 'default'));
 
     let handle: LocalFileHandle | null = await this.cache.acquire({
       sha: baseSha,
@@ -201,7 +246,7 @@ export class DocumentService {
           baseKey: baseSha,
           basePath: handle!.path,
           layer: { kind: 'fresh' as const },
-          password,
+          password: openPassword,
         });
       const result = await this.pool.runOpen(docId, baseSha, build);
       if (result.tag !== 'open') {
@@ -248,7 +293,9 @@ export class DocumentService {
     docId: string,
     layerName: string,
   ): Promise<DocumentManifest> {
-    const head = await this.openOnPool(ctx, docId);
+    const row = await this.requireReadyRow(ctx, docId);
+    await this.assertPasswordSession(ctx, docId, layerName);
+    const head = await this.openOnPool(ctx, docId, await this.passwordForOpen(ctx, row, layerName));
     const layer = await this.layerState.repos.layers.findByDocAndName(docId, layerName);
     if (!layer) {
       const pages = await this.layerState.ensureBasePages(docId, () =>
@@ -269,6 +316,7 @@ export class DocumentService {
     password: string | null = null,
   ): Promise<void> {
     const key = `${docId}::${layerName}`;
+    if (!password) await this.assertPasswordSession(ctx, docId, layerName);
     if (this.openedLayerSessions.has(key)) return;
     const existing = this.layerOpens.get(key);
     if (existing) return existing;
@@ -316,77 +364,287 @@ export class DocumentService {
     ctx: OpenContext,
     docId: string,
     layerName: string,
-    input: { password?: string | null; mode?: 'any' | 'owner' },
-  ): Promise<{ security: DocumentSecurityState; probe: DocumentSecurityProbeInfo }> {
+    input: UnlockLayerAccessInput,
+  ): Promise<UnlockLayerAccessResult> {
     const row = await this.requireReadyRow(ctx, docId);
-    const baseSha = requireBaseSha(row);
     const password = input.password ?? null;
     const mode = input.mode ?? 'any';
+    const binding = this.passwordSessionBinding(ctx, row, layerName);
+    const now = Date.now();
 
-    if (row.security.encryptionRequiresPassword === true && !password) {
+    if (!requiresPasswordSession(row)) {
+      return this.unlockedWithoutPassword(row);
+    }
+
+    if (!password) {
+      const renewed = await this.tryRenewFromPasswordGrant(ctx, binding, input.passwordGrant, now);
+      if (renewed) return renewed;
       throw new EngineError(EngineErrorCode.DocPasswordRequired, 'document password required');
     }
 
-    if (password && this.passwordVerifications) {
-      const cached = await this.passwordVerifications.findValid({
-        tenantId: ctx.tenantId,
-        docId,
-        baseSha,
-        securityFingerprint: securityFingerprint(row),
-        password,
-      });
-      if (cached) {
-        if (mode === 'owner' && cached.openedAs !== 'owner') {
-          throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'owner password required');
-        }
-        const probe = securityInfoFromCachedVerification(cached);
-        return {
-          probe,
-          security: securityStateFromProbe(probe, { accessEndpoint: '/v1/access' }),
-        };
-      }
-    }
+    const cached = await this.tryCachedPasswordVerification(ctx, row, binding, password, mode, now);
+    if (cached) return cached;
 
-    await this.ensureLayerOnPool(ctx, docId, layerName, password);
-    const build = (jobId: WorkerJobId) =>
+    return this.openAndVerifyPassword(ctx, row, layerName, binding, password, mode, now);
+  }
+
+  private unlockedWithoutPassword(row: DocumentRow): UnlockLayerAccessResult {
+    const probe = securityInfoFromDocumentRow(row);
+    return this.accessResultFromProbe(probe, null, null);
+  }
+
+  private async tryRenewFromPasswordGrant(
+    ctx: OpenContext,
+    binding: PasswordSessionBinding,
+    passwordGrant: string | null | undefined,
+    now: number,
+  ): Promise<UnlockLayerAccessResult | null> {
+    if (!passwordGrant || !this.passwordSessions) return null;
+    const grant = verifyPasswordGrant({
+      grant: passwordGrant,
+      binding,
+      now,
+      serverSecret: this.passwordGrantServerSecret(),
+    });
+    if (!grant) return null;
+
+    const renewed = await this.passwordSessions.renew(
+      binding,
+      this.boundSessionExpiry(ctx, now, this.passwordSessionTtlMs),
+      this.boundSessionExpiry(ctx, now, this.passwordSessionRenewalTtlMs),
+      now,
+    );
+    if (!renewed) return null;
+
+    return this.accessResultFromProbe(
+      securityInfoFromPasswordSession(renewed),
+      this.issuePasswordGrant(binding, ctx, now),
+      renewed.activeExpiresAt,
+    );
+  }
+
+  private async tryCachedPasswordVerification(
+    ctx: OpenContext,
+    row: DocumentRow,
+    binding: PasswordSessionBinding,
+    password: string,
+    mode: 'any' | 'owner',
+    now: number,
+  ): Promise<UnlockLayerAccessResult | null> {
+    if (!this.passwordVerifications) return null;
+
+    const cached = await this.passwordVerifications.findValid({
+      tenantId: ctx.tenantId,
+      docId: row.id,
+      baseSha: requireBaseSha(row),
+      securityFingerprint: securityFingerprint(row),
+      password,
+    });
+    if (!cached) return null;
+    this.assertPasswordMode(mode, cached.openedAs);
+
+    const probe = securityInfoFromCachedVerification(cached);
+    await this.persistPasswordSession(ctx, binding, password, factsFromCachedVerification(cached));
+    return this.accessResultFromProbe(
+      probe,
+      this.issuePasswordGrant(binding, ctx, now),
+      this.boundSessionExpiry(ctx, now, this.passwordSessionTtlMs),
+    );
+  }
+
+  private async openAndVerifyPassword(
+    ctx: OpenContext,
+    row: DocumentRow,
+    layerName: string,
+    binding: PasswordSessionBinding,
+    password: string,
+    mode: 'any' | 'owner',
+    now: number,
+  ): Promise<UnlockLayerAccessResult> {
+    await this.ensureLayerOnPool(ctx, row.id, layerName, password);
+    const result = await this.pool.run(row.id, (jobId) =>
       wirePack({
         kind: 'document.checkPasswordPermissions' as const,
         jobId,
-        docId,
+        docId: row.id,
         layerName,
-        password: password ?? '',
+        password,
         mode,
-      });
-    const result = await this.pool.run(docId, build);
+      }),
+    );
     if (result.tag !== 'document.checkPasswordPermissions') {
       throw new EngineError(
         EngineErrorCode.WireFormat,
         `unexpected security payload: ${result.tag}`,
       );
     }
+    this.assertPasswordMode(mode, result.security.pdfOpenedAs ?? 'none');
 
-    if (password && this.passwordVerifications && result.security.pdfPermissionsBits !== null) {
+    const facts = factsFromProbe(result.security);
+    if (facts && this.passwordVerifications) {
       await this.passwordVerifications.upsert(
         {
           tenantId: ctx.tenantId,
-          docId,
-          baseSha,
+          docId: row.id,
+          baseSha: requireBaseSha(row),
           securityFingerprint: securityFingerprint(row),
           password,
         },
-        {
-          openedAs: result.security.pdfOpenedAs ?? 'none',
-          pdfPermissionsBits: result.security.pdfPermissionsBits,
-          pdfPermissionsAllAllowed: result.security.pdfPermissionsAllAllowed ?? false,
-          securityHandlerRevision: result.security.securityHandlerRevision,
-        },
+        facts,
       );
     }
+    if (facts) {
+      await this.persistPasswordSession(ctx, binding, password, facts);
+    }
 
+    return this.accessResultFromProbe(
+      result.security,
+      this.issuePasswordGrant(binding, ctx, now),
+      this.boundSessionExpiry(ctx, now, this.passwordSessionTtlMs),
+    );
+  }
+
+  private assertPasswordMode(mode: 'any' | 'owner', openedAs: 'none' | 'user' | 'owner'): void {
+    if (mode === 'owner' && openedAs !== 'owner') {
+      throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'owner password required');
+    }
+  }
+
+  private accessResultFromProbe(
+    probe: DocumentSecurityProbeInfo,
+    passwordGrant: string | null,
+    expiresAt: number | null,
+  ): UnlockLayerAccessResult {
     return {
-      probe: result.security,
-      security: securityStateFromProbe(result.security, { accessEndpoint: '/v1/access' }),
+      probe,
+      security: securityStateFromProbe(probe, { accessEndpoint: '/v1/access' }),
+      passwordGrant,
+      expiresAt,
     };
+  }
+
+  async assertPasswordSession(ctx: OpenContext, docId: string, layerName: string): Promise<void> {
+    const row = await this.requireReadyRow(ctx, docId);
+    if (!requiresPasswordSession(row)) return;
+    this.requirePasswordSessionInfrastructure();
+    const session = await this.passwordSessions!.findActive(
+      this.passwordSessionBinding(ctx, row, layerName),
+    );
+    if (!session) {
+      throw new EngineError(EngineErrorCode.DocPasswordRequired, 'document password required');
+    }
+  }
+
+  private async passwordForOpen(
+    ctx: OpenContext,
+    row: DocumentRow,
+    layerName: string,
+  ): Promise<string | null> {
+    if (!requiresPasswordSession(row)) return null;
+    this.requirePasswordSessionInfrastructure();
+    const binding = this.passwordSessionBinding(ctx, row, layerName);
+    const password = await this.passwordSessions!.decryptActivePassword(
+      binding,
+      this.requireUnlockKey(ctx),
+    );
+    if (!password) {
+      throw new EngineError(EngineErrorCode.DocPasswordRequired, 'document password required');
+    }
+    return password;
+  }
+
+  private async persistPasswordSession(
+    ctx: OpenContext,
+    binding: PasswordSessionBinding,
+    password: string,
+    facts: PasswordSessionFacts,
+  ): Promise<void> {
+    this.requirePasswordSessionInfrastructure();
+    const now = Date.now();
+    await this.passwordSessions!.upsertFromPassword({
+      binding,
+      password,
+      unlockKey: this.requireUnlockKey(ctx),
+      facts,
+      activeExpiresAt: this.boundSessionExpiry(ctx, now, this.passwordSessionTtlMs),
+      renewableUntil: this.boundSessionExpiry(ctx, now, this.passwordSessionRenewalTtlMs),
+    });
+  }
+
+  private passwordSessionBinding(
+    ctx: OpenContext,
+    row: DocumentRow,
+    layerName: string,
+  ): PasswordSessionBinding {
+    return {
+      tenantId: ctx.tenantId,
+      docId: row.id,
+      layerName,
+      sub: ctx.sub,
+      jwtJti: this.requireJwtJti(ctx),
+      baseSha: requireBaseSha(row),
+      securityFingerprint: securityFingerprint(row),
+    };
+  }
+
+  private issuePasswordGrant(
+    binding: PasswordSessionBinding,
+    ctx: OpenContext,
+    now: number,
+  ): string {
+    return signPasswordGrant({
+      binding,
+      expiresAt: this.boundSessionExpiry(ctx, now, this.passwordSessionTtlMs),
+      renewableUntil: this.boundSessionExpiry(ctx, now, this.passwordSessionRenewalTtlMs),
+      serverSecret: this.passwordGrantServerSecret(),
+    });
+  }
+
+  private boundSessionExpiry(ctx: OpenContext, now: number, ttlMs: number): number {
+    const jwtExp = ctx.jwt?.exp ? ctx.jwt.exp * 1000 : null;
+    const ttlExp = now + ttlMs;
+    return jwtExp ? Math.min(jwtExp, ttlExp) : ttlExp;
+  }
+
+  private requirePasswordSessionInfrastructure(): void {
+    if (!this.passwordSessions || !this.passwordSessionServerSecret) {
+      throw new EngineError(
+        EngineErrorCode.DocPasswordRequired,
+        'encrypted PDF access requires password session storage',
+      );
+    }
+  }
+
+  private passwordGrantServerSecret(): { id: string; secret: string | Buffer } {
+    if (!this.passwordSessionServerSecret) {
+      throw new EngineError(
+        EngineErrorCode.DocPasswordRequired,
+        'encrypted PDF access requires password session storage',
+      );
+    }
+    return this.passwordSessionServerSecret;
+  }
+
+  private requireJwtJti(ctx: OpenContext): string {
+    const jti = ctx.jwt?.jti;
+    if (!jti) {
+      throw new EngineError(
+        EngineErrorCode.Forbidden,
+        'encrypted PDF access requires a doc token with jti',
+      );
+    }
+    return jti;
+  }
+
+  private requireUnlockKey(ctx: OpenContext): string {
+    const unlockKey = ctx.jwt?.unlockKey;
+    if (!unlockKey) {
+      throw new EngineError(
+        EngineErrorCode.Forbidden,
+        'encrypted PDF access requires a token embedpdf.unlock_key claim',
+      );
+    }
+    return unlockKey;
   }
 
   private async requireReadyRow(ctx: OpenContext, docId: string): Promise<DocumentRow> {
@@ -425,6 +683,7 @@ export class DocumentService {
     mode: PdfSaveMode,
     signal?: AbortSignal,
   ): Promise<SavedPdfFile> {
+    await this.assertPasswordSession(ctx, docId, layerName);
     await this.ensureLayerOnPool(ctx, docId, layerName);
     const dir = await mkdtemp(join(tmpdir(), 'embedpdf-download-'));
     const path = join(dir, `${safeFilePart(docId)}-${safeFilePart(layerName)}.pdf`);
@@ -548,7 +807,9 @@ export class DocumentService {
     layerName: string,
     password: string | null = null,
   ): Promise<void> {
-    const head = await this.openOnPool(ctx, docId, password);
+    const row = await this.requireReadyRow(ctx, docId);
+    const openPassword = password ?? (await this.passwordForOpen(ctx, row, layerName));
+    const head = await this.openOnPool(ctx, docId, openPassword);
     const handle = this.baseHandles.get(docId);
     if (!handle) {
       throw new EngineError(
@@ -574,7 +835,7 @@ export class DocumentService {
         baseKey: head.baseSha,
         basePath: handle.path,
         layer: layerSource,
-        password,
+        password: openPassword,
       };
       return wirePack(request);
     };
@@ -747,6 +1008,55 @@ function securityInfoFromCachedVerification(row: {
     pdfOpenedAs: row.openedAs,
     securityProbedAt: Date.now(),
   };
+}
+
+function factsFromCachedVerification(row: PasswordVerificationRow): PasswordSessionFacts {
+  return {
+    openedAs: row.openedAs,
+    pdfPermissionsBits: row.pdfPermissionsBits,
+    pdfPermissionsAllAllowed: row.pdfPermissionsAllAllowed,
+    securityHandlerRevision: row.securityHandlerRevision,
+  };
+}
+
+function factsFromProbe(probe: DocumentSecurityProbeInfo): PasswordSessionFacts | null {
+  if (probe.pdfPermissionsBits === null) return null;
+  return {
+    openedAs: probe.pdfOpenedAs ?? 'none',
+    pdfPermissionsBits: probe.pdfPermissionsBits,
+    pdfPermissionsAllAllowed: probe.pdfPermissionsAllAllowed ?? false,
+    securityHandlerRevision: probe.securityHandlerRevision,
+  };
+}
+
+function securityInfoFromPasswordSession(row: PasswordSessionFacts): DocumentSecurityProbeInfo {
+  return {
+    encryptionState: row.openedAs === 'none' ? 'none' : 'encrypted',
+    encryptionRequiresPassword: false,
+    securityHandlerRevision: row.securityHandlerRevision,
+    pdfPermissionsBits: row.pdfPermissionsBits,
+    pdfPermissionsAllAllowed: row.pdfPermissionsAllAllowed,
+    pdfOpenedAs: row.openedAs,
+    securityProbedAt: Date.now(),
+  };
+}
+
+function securityInfoFromDocumentRow(row: DocumentRow): DocumentSecurityProbeInfo {
+  return {
+    encryptionState: row.security.encryptionState,
+    encryptionRequiresPassword: row.security.encryptionRequiresPassword,
+    securityHandlerRevision: row.security.securityHandlerRevision,
+    pdfPermissionsBits: row.security.pdfPermissionsBits,
+    pdfPermissionsAllAllowed: row.security.pdfPermissionsAllAllowed,
+    pdfOpenedAs: row.security.pdfOpenedAs,
+    securityProbedAt: row.security.securityProbedAt ?? Date.now(),
+  };
+}
+
+function requiresPasswordSession(row: DocumentRow): boolean {
+  return (
+    row.security.encryptionState === 'encrypted' && row.security.encryptionRequiresPassword === true
+  );
 }
 
 function safeFilePart(value: string): string {

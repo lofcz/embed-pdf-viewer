@@ -6,6 +6,7 @@ import type {
   MemoryValueKind,
   PdfRuntimeCallbacks,
   PdfRuntimeFileAccess,
+  PdfRuntimeFileWrite,
   PdfRuntimeMemory,
   PdfRuntimeModule,
   Ptr,
@@ -176,6 +177,14 @@ function createWasmFileAccess(
   };
 }
 
+function createWasmFileWrite(): PdfRuntimeFileWrite {
+  return {
+    toNodeFile() {
+      throw new Error('toNodeFile() is only available on the native Node runtime');
+    },
+  };
+}
+
 /**
  * Translate a JS argument to whatever the wasm32 ABI expects for this slot.
  *
@@ -236,6 +245,7 @@ export async function createWasmRuntime(
     mem,
     cb,
     fileAccess: createWasmFileAccess(mem, cb),
+    fileWrite: createWasmFileWrite(),
     fn: createWasmFunctions(module),
     async destroy() {
       module._free = module._free;

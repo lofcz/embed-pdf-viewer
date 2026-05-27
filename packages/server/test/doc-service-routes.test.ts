@@ -11,6 +11,7 @@ import {
   migrate,
   sqliteMigrations,
   FsObjectStore,
+  StaticKmsKeyring,
   signDevToken,
   StorageKeys,
   type AppBundle,
@@ -48,6 +49,10 @@ async function buildFixture(
     cacheRoot,
     cacheMaxBytes: 1024 * 1024,
     maxDocsPerSlot: opts.maxDocsPerSlot,
+    kms: new StaticKmsKeyring({
+      keyId: 'test-password-session-kek',
+      kek: Buffer.alloc(32, 7),
+    }),
   });
   const addr = await bundle.app.listen({ host: '127.0.0.1', port: 0 });
   const baseUrl = typeof addr === 'string' ? addr : `http://127.0.0.1:${addr}`;
@@ -81,7 +86,7 @@ async function waitFor(assertion: () => void): Promise<void> {
 function docToken(
   tenantId: string,
   docId: string,
-  opts: { layer?: string; scope?: ReadonlyArray<string> } = {},
+  opts: { layer?: string; scope?: ReadonlyArray<string>; extras?: Record<string, unknown> } = {},
 ): string {
   return signDevToken(SECRET, {
     sub: 'user-1',
@@ -89,6 +94,11 @@ function docToken(
     doc_id: docId,
     scope: opts.scope ?? ['doc.read'],
     ...(opts.layer ? { layer_name: opts.layer } : {}),
+    jti: `jti-${randomBytes(8).toString('hex')}`,
+    extras: {
+      ...(opts.extras ?? {}),
+      embedpdf: { unlock_key: randomBytes(32).toString('base64url') },
+    },
   });
 }
 
@@ -113,7 +123,17 @@ async function seedDocument(
   fx: Fixture,
   tenantId: string,
   docId: string,
-  opts: { pageCount?: number } = {},
+  opts: {
+    pageCount?: number;
+    security?: {
+      encryptionState: 'unknown' | 'none' | 'encrypted' | 'unsupported';
+      encryptionRequiresPassword: boolean | null;
+      securityHandlerRevision?: number | null;
+      pdfPermissionsBits?: number | null;
+      pdfPermissionsAllAllowed?: boolean | null;
+      pdfOpenedAs?: 'none' | 'user' | 'owner' | null;
+    };
+  } = {},
 ): Promise<{ sha: string; size: number }> {
   const pageCount = opts.pageCount ?? 3;
   // First byte = page count, rest = padding so we exercise the
@@ -142,6 +162,28 @@ async function seedDocument(
       state: 'ready',
       base_sha: sha,
       storage_size_bytes: bytes.byteLength,
+      ...(opts.security
+        ? {
+            encryption_state: opts.security.encryptionState,
+            encryption_requires_password:
+              opts.security.encryptionRequiresPassword === null
+                ? null
+                : opts.security.encryptionRequiresPassword
+                  ? 1
+                  : 0,
+            security_handler_revision: opts.security.securityHandlerRevision ?? null,
+            pdf_permissions_bits: opts.security.pdfPermissionsBits ?? null,
+            pdf_permissions_all_allowed:
+              opts.security.pdfPermissionsAllAllowed === undefined ||
+              opts.security.pdfPermissionsAllAllowed === null
+                ? null
+                : opts.security.pdfPermissionsAllAllowed
+                  ? 1
+                  : 0,
+            pdf_opened_as: opts.security.pdfOpenedAs ?? null,
+            security_probed_at: now,
+          }
+        : {}),
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,
@@ -470,12 +512,29 @@ describe('Phase 6 access route — POST /v1/access', () => {
   test('returns shared security state and none-CDN access info', async () => {
     const tenantId = 'tenant-access';
     const docId = 'docacc111';
-    await seedDocument(fx, tenantId, docId);
+    await seedDocument(fx, tenantId, docId, {
+      security: {
+        encryptionState: 'none',
+        encryptionRequiresPassword: false,
+        pdfPermissionsBits: 0xfffffffc,
+        pdfPermissionsAllAllowed: true,
+        pdfOpenedAs: 'none',
+      },
+    });
 
     const res = await fetch(`${fx.baseUrl}/v1/access`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${docToken(tenantId, docId, { layer: 'default' })}`,
+        Authorization: `Bearer ${docToken(tenantId, docId, {
+          layer: 'default',
+          scope: ['doc.read', 'doc.download'],
+          extras: {
+            user_id: '44',
+            group_id: '4',
+            groups: ['4', 'engineering'],
+            display_name: 'Alice Example',
+          },
+        })}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ docId, layerName: 'default' }),
@@ -484,6 +543,8 @@ describe('Phase 6 access route — POST /v1/access', () => {
     const body = (await res.json()) as {
       security: { encryption: { state: string }; permissions: { known: boolean } };
       cdn: { adapter: string; cache: { immutableVersionedReads: boolean } };
+      scope: string[];
+      identity: { user_id?: string; group_id?: string; groups?: string[]; display_name?: string };
     };
     expect(body.security.encryption.state).toBe('none');
     expect(body.security.permissions.known).toBe(true);
@@ -491,12 +552,28 @@ describe('Phase 6 access route — POST /v1/access', () => {
       adapter: 'none',
       cache: { immutableVersionedReads: true },
     });
+    expect(body.scope).toEqual(['doc.read', 'doc.download']);
+    expect(body.identity).toEqual({
+      user_id: '44',
+      group_id: '4',
+      groups: ['4', 'engineering'],
+      display_name: 'Alice Example',
+    });
   });
 
-  test('verification cache stores SQLite-safe values and can be reused', async () => {
+  test('encrypted access stores SQLite-safe verification and password session rows', async () => {
     const tenantId = 'tenant-access-cache';
     const docId = 'docacc222';
-    await seedDocument(fx, tenantId, docId);
+    await seedDocument(fx, tenantId, docId, {
+      security: {
+        encryptionState: 'encrypted',
+        encryptionRequiresPassword: true,
+        securityHandlerRevision: 6,
+        pdfPermissionsBits: null,
+        pdfPermissionsAllAllowed: null,
+        pdfOpenedAs: null,
+      },
+    });
     const token = docToken(tenantId, docId, { layer: 'default' });
     const body = { docId, layerName: 'default', password: 'Test', mode: 'any' };
 
@@ -508,7 +585,7 @@ describe('Phase 6 access route — POST /v1/access', () => {
       },
       body: JSON.stringify(body),
     });
-    expect(first.status).toBe(200);
+    expect(first.status, await first.clone().text()).toBe(200);
 
     const second = await fetch(`${fx.baseUrl}/v1/access`, {
       method: 'POST',
@@ -522,7 +599,88 @@ describe('Phase 6 access route — POST /v1/access', () => {
 
     const rows = await fx.db.selectFrom('pdf_password_verifications').selectAll().execute();
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.pdf_permissions_all_allowed).toBe(1);
+    expect(rows[0]?.pdf_permissions_all_allowed).toBe(0);
+
+    const sessions = await fx.db.selectFrom('pdf_password_sessions').selectAll().execute();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.opened_as).toBe('user');
+  });
+
+  test('encrypted versioned reads require an active password session', async () => {
+    const tenantId = 'tenant-access-read';
+    const docId = 'docacc333';
+    await seedDocument(fx, tenantId, docId, {
+      security: {
+        encryptionState: 'encrypted',
+        encryptionRequiresPassword: true,
+        securityHandlerRevision: 6,
+        pdfPermissionsBits: null,
+        pdfPermissionsAllAllowed: null,
+        pdfOpenedAs: null,
+      },
+    });
+    const token = docToken(tenantId, docId, { layer: 'default' });
+
+    const blocked = await fetch(`${fx.baseUrl}/v1/docs/${docId}/manifest@docVersion=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(blocked.status).toBe(422);
+    const blockedBody = (await blocked.json()) as { error?: { code?: string } };
+    expect(blockedBody.error?.code).toBe('DocPasswordRequired');
+
+    const access = await fetch(`${fx.baseUrl}/v1/access`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ docId, layerName: 'default', password: 'Test', mode: 'any' }),
+    });
+    expect(access.status, await access.clone().text()).toBe(200);
+
+    const allowed = await fetch(`${fx.baseUrl}/v1/docs/${docId}/manifest@docVersion=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(allowed.status).toBe(200);
+  });
+
+  test('encrypted annotation reads carry the full JWT context into the session gate', async () => {
+    const tenantId = 'tenant-access-annotations';
+    const docId = 'docacc444';
+    await seedDocument(fx, tenantId, docId, {
+      security: {
+        encryptionState: 'encrypted',
+        encryptionRequiresPassword: true,
+        securityHandlerRevision: 6,
+        pdfPermissionsBits: null,
+        pdfPermissionsAllAllowed: null,
+        pdfOpenedAs: null,
+      },
+    });
+    const token = docToken(tenantId, docId, { layer: 'default' });
+    const annotationsUrl = `${fx.baseUrl}/v1/docs/${docId}/layers/default/pages/1/annotations`;
+
+    const blocked = await fetch(annotationsUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(blocked.status).toBe(422);
+    const blockedBody = (await blocked.json()) as { error?: { code?: string } };
+    expect(blockedBody.error?.code).toBe('DocPasswordRequired');
+
+    const access = await fetch(`${fx.baseUrl}/v1/access`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ docId, layerName: 'default', password: 'Test', mode: 'any' }),
+    });
+    expect(access.status, await access.clone().text()).toBe(200);
+
+    const allowed = await fetch(annotationsUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(allowed.status, await allowed.clone().text()).toBe(200);
   });
 });
 

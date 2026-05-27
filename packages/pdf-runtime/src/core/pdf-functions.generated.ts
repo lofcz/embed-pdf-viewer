@@ -2,6 +2,14 @@
 import type { Ptr } from './pdf-runtime-module';
 
 export interface PdfFunctions {
+  EPDF_CheckPasswordPermissions: (
+    arg0: Ptr,
+    arg1: string,
+    arg2: Ptr,
+    arg3: Ptr,
+    arg4: Ptr,
+    arg5: Ptr,
+  ) => boolean;
   EPDF_FreeBuffer: (arg0: Ptr) => void;
   EPDF_GetMetaKeyCount: (arg0: Ptr, arg1: boolean) => number;
   EPDF_GetMetaKeyName: (arg0: Ptr, arg1: number, arg2: boolean, arg3: Ptr, arg4: number) => number;
@@ -51,6 +59,7 @@ export interface PdfFunctions {
   EPDF_SetEncryption: (arg0: Ptr, arg1: string, arg2: string, arg3: number) => boolean;
   EPDF_SetMetaText: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDF_SetMetaTrapped: (arg0: Ptr, arg1: number) => boolean;
+  EPDF_SetRuntimeOwnerPermissions: (arg0: Ptr, arg1: boolean) => boolean;
   EPDF_UnlockOwnerPermissions: (arg0: Ptr, arg1: string) => boolean;
   EPDFAction_CreateGoTo: (arg0: Ptr, arg1: Ptr) => Ptr;
   EPDFAction_CreateGoToNamed: (arg0: Ptr, arg1: string) => Ptr;
@@ -72,6 +81,8 @@ export interface PdfFunctions {
   ) => boolean;
   EPDFAnnot_ClearBorderEffect: (arg0: Ptr) => boolean;
   EPDFAnnot_ClearColor: (arg0: Ptr, arg1: number) => boolean;
+  EPDFAnnot_ClearEmbedMetadata: (arg0: Ptr) => boolean;
+  EPDFAnnot_ClearEmbedMetadataKey: (arg0: Ptr, arg1: string) => boolean;
   EPDFAnnot_ClearMKColor: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_ClearRectangleDifferences: (arg0: Ptr) => boolean;
   EPDFAnnot_ExportAppearanceAsDocument: (arg0: Ptr) => Ptr;
@@ -99,7 +110,11 @@ export interface PdfFunctions {
     arg4: Ptr,
     arg5: Ptr,
   ) => boolean;
-  EPDFAnnot_GetExtendedRotation: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_GetEmbedMetadataBoolean: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
+  EPDFAnnot_GetEmbedMetadataJSON: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
+  EPDFAnnot_GetEmbedMetadataNumber: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
+  EPDFAnnot_GetEmbedMetadataRect: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
+  EPDFAnnot_GetEmbedMetadataString: (arg0: Ptr, arg1: string, arg2: Ptr, arg3: number) => number;
   EPDFAnnot_GetFormFieldObjectNumber: (arg0: Ptr, arg1: Ptr) => number;
   EPDFAnnot_GetFormFieldRawValue: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => number;
   EPDFAnnot_GetIntent: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
@@ -122,9 +137,8 @@ export interface PdfFunctions {
   EPDFAnnot_GetRichContent: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetRotate: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_GetTextAlignment: (arg0: Ptr) => number;
-  EPDFAnnot_GetUnrotatedRect: (arg0: Ptr, arg1: Ptr) => boolean;
-  EPDFAnnot_GetVerticalAlignment: (arg0: Ptr) => number;
   EPDFAnnot_HasAppearanceStream: (arg0: Ptr, arg1: number) => boolean;
+  EPDFAnnot_HasEmbedMetadata: (arg0: Ptr) => boolean;
   EPDFAnnot_SetAction: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_SetAPMatrix: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   EPDFAnnot_SetAppearanceFromPage: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
@@ -147,7 +161,11 @@ export interface PdfFunctions {
     arg4: number,
     arg5: number,
   ) => boolean;
-  EPDFAnnot_SetExtendedRotation: (arg0: Ptr, arg1: number) => boolean;
+  EPDFAnnot_SetEmbedMetadataBoolean: (arg0: Ptr, arg1: string, arg2: boolean) => boolean;
+  EPDFAnnot_SetEmbedMetadataJSON: (arg0: Ptr, arg1: Ptr) => boolean;
+  EPDFAnnot_SetEmbedMetadataNumber: (arg0: Ptr, arg1: string, arg2: number) => boolean;
+  EPDFAnnot_SetEmbedMetadataRect: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
+  EPDFAnnot_SetEmbedMetadataString: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDFAnnot_SetFormFieldName: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_SetFormFieldOptions: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => boolean;
   EPDFAnnot_SetFormFieldValue: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
@@ -177,8 +195,6 @@ export interface PdfFunctions {
   EPDFAnnot_SetReplyType: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetRotate: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetTextAlignment: (arg0: Ptr, arg1: number) => boolean;
-  EPDFAnnot_SetUnrotatedRect: (arg0: Ptr, arg1: Ptr) => boolean;
-  EPDFAnnot_SetVerticalAlignment: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetVertices: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
   EPDFAnnot_ShareFormField: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_UpdateAppearanceToRect: (arg0: Ptr, arg1: number) => boolean;
@@ -225,6 +241,7 @@ export interface PdfFunctions {
   ) => Ptr;
   EPDFDoc_GetPageObjectNumberByIndex: (arg0: Ptr, arg1: number) => number;
   EPDFDoc_LoadPageByObjectNumber: (arg0: Ptr, arg1: number) => Ptr;
+  EPDFDocument_ClearEmbedMetadata: (arg0: Ptr) => boolean;
   EPDFImageObj_SetJpeg: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFImageObj_SetPng: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFLayer_GetBaseDocument: (arg0: Ptr) => Ptr;
@@ -234,6 +251,7 @@ export interface PdfFunctions {
   EPDFLayer_OpenLayerArtifact: (arg0: Ptr, arg1: Ptr, arg2: string, arg3: Ptr) => Ptr;
   EPDFLayer_SaveDelta: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFLayer_SaveDeltaToOwnedBuffer: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => Ptr;
+  EPDFLayer_SaveLayerArtifact: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFLayer_SaveLayerArtifactToOwnedBuffer: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => Ptr;
   EPDFNamedDest_Remove: (arg0: Ptr, arg1: string) => boolean;
   EPDFNamedDest_SetDest: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
@@ -1056,6 +1074,45 @@ export interface PdfFunctionSignature {
 }
 
 export const pdfFunctionSignatures = {
+  EPDF_CheckPasswordPermissions: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
   EPDF_FreeBuffer: {
     params: [
       {
@@ -1580,6 +1637,25 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
+  EPDF_SetRuntimeOwnerPermissions: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
   EPDF_UnlockOwnerPermissions: {
     params: [
       {
@@ -1821,6 +1897,39 @@ export const pdfFunctionSignatures = {
         ts: 'number',
         wasm: { kind: 'i32', cwrap: 'number' },
         native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_ClearEmbedMetadata: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_ClearEmbedMetadataKey: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
       },
     ],
     result: {
@@ -2224,12 +2333,17 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
-  EPDFAnnot_GetExtendedRotation: {
+  EPDFAnnot_GetEmbedMetadataBoolean: {
     params: [
       {
         ts: 'Ptr',
         wasm: { kind: 'pointer', cwrap: 'number' },
         native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
       },
       {
         ts: 'Ptr',
@@ -2241,6 +2355,107 @@ export const pdfFunctionSignatures = {
       ts: 'boolean',
       wasm: { kind: 'bool', cwrap: 'boolean' },
       native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_GetEmbedMetadataJSON: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFAnnot_GetEmbedMetadataNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_GetEmbedMetadataRect: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_GetEmbedMetadataString: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
     },
   },
   EPDFAnnot_GetFormFieldObjectNumber: {
@@ -2582,39 +2797,6 @@ export const pdfFunctionSignatures = {
       native: { kind: 'i32', cwrap: 'number' },
     },
   },
-  EPDFAnnot_GetUnrotatedRect: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-    ],
-    result: {
-      ts: 'boolean',
-      wasm: { kind: 'bool', cwrap: 'boolean' },
-      native: { kind: 'bool', cwrap: 'boolean' },
-    },
-  },
-  EPDFAnnot_GetVerticalAlignment: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-    ],
-    result: {
-      ts: 'number',
-      wasm: { kind: 'i32', cwrap: 'number' },
-      native: { kind: 'i32', cwrap: 'number' },
-    },
-  },
   EPDFAnnot_HasAppearanceStream: {
     params: [
       {
@@ -2626,6 +2808,20 @@ export const pdfFunctionSignatures = {
         ts: 'number',
         wasm: { kind: 'i32', cwrap: 'number' },
         native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_HasEmbedMetadata: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
       },
     ],
     result: {
@@ -2865,7 +3061,7 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
-  EPDFAnnot_SetExtendedRotation: {
+  EPDFAnnot_SetEmbedMetadataBoolean: {
     params: [
       {
         ts: 'Ptr',
@@ -2873,9 +3069,105 @@ export const pdfFunctionSignatures = {
         native: { kind: 'pointer', cwrap: 'bigint' },
       },
       {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'boolean',
+        wasm: { kind: 'bool', cwrap: 'boolean' },
+        native: { kind: 'bool', cwrap: 'boolean' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_SetEmbedMetadataJSON: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_SetEmbedMetadataNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
         ts: 'number',
         wasm: { kind: 'f32', cwrap: 'number' },
         native: { kind: 'f32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_SetEmbedMetadataRect: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFAnnot_SetEmbedMetadataString: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
       },
     ],
     result: {
@@ -3259,44 +3551,6 @@ export const pdfFunctionSignatures = {
     },
   },
   EPDFAnnot_SetTextAlignment: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'number',
-        wasm: { kind: 'i32', cwrap: 'number' },
-        native: { kind: 'i32', cwrap: 'number' },
-      },
-    ],
-    result: {
-      ts: 'boolean',
-      wasm: { kind: 'bool', cwrap: 'boolean' },
-      native: { kind: 'bool', cwrap: 'boolean' },
-    },
-  },
-  EPDFAnnot_SetUnrotatedRect: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-    ],
-    result: {
-      ts: 'boolean',
-      wasm: { kind: 'bool', cwrap: 'boolean' },
-      native: { kind: 'bool', cwrap: 'boolean' },
-    },
-  },
-  EPDFAnnot_SetVerticalAlignment: {
     params: [
       {
         ts: 'Ptr',
@@ -3872,6 +4126,20 @@ export const pdfFunctionSignatures = {
       native: { kind: 'pointer', cwrap: 'bigint' },
     },
   },
+  EPDFDocument_ClearEmbedMetadata: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
   EPDFImageObj_SetJpeg: {
     params: [
       {
@@ -4091,6 +4359,30 @@ export const pdfFunctionSignatures = {
       ts: 'Ptr',
       wasm: { kind: 'pointer', cwrap: 'number' },
       native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFLayer_SaveLayerArtifact: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
   EPDFLayer_SaveLayerArtifactToOwnedBuffer: {

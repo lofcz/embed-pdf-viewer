@@ -250,7 +250,7 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       docId: string;
       layerName: string;
     };
-    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.edit-pages']);
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.edit-pages']);
     const body = parseOrInvalidArg<PageMoveInput>(
       PageMoveInputSchema as unknown as SchemaLike<PageMoveInput>,
       req.body,
@@ -259,7 +259,7 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
 
     setNoStore(reply);
     return layerService.movePages(
-      { tenantId, sub },
+      ctx,
       {
         docId,
         layerName,

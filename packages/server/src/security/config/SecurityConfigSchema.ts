@@ -44,6 +44,7 @@ export const KmsConfigSchema = z.discriminatedUnion('kind', [
     vaultUrl: z.string().url(),
     keyName: z.string().min(1),
     keyVersion: z.string().min(1).optional(),
+    mode: z.enum(['managed-hsm-a256gcm', 'key-vault-rsa-oaep-256']).optional(),
   }),
 ]);
 

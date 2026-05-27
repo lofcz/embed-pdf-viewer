@@ -167,6 +167,33 @@ export interface PdfPasswordVerificationsTable {
   expires_at: number;
 }
 
+export interface PdfPasswordSessionsTable {
+  tenant_id: string;
+  doc_id: string;
+  layer_name: string;
+  sub: string;
+  jwt_jti: string;
+  base_sha: string;
+  security_fingerprint: string;
+  opened_as: DocumentPdfOpenedAs;
+  pdf_permissions_bits: number;
+  pdf_permissions_all_allowed: boolean | number;
+  security_handler_revision: number | null;
+  active_expires_at: number;
+  renewable_until: number;
+  created_at: number;
+  updated_at: number;
+  server_secret_id: string;
+  kms_provider_id: string;
+  kms_key_id: string;
+  crypto_version: string;
+  wrapped_data_key: Buffer;
+  row_salt: Buffer;
+  nonce: Buffer;
+  ciphertext: Buffer;
+  auth_tag: Buffer;
+}
+
 export interface SchemaMigrationsTable {
   /** Monotonically-increasing version (zero-padded for lexical sort). */
   version: string;
@@ -228,6 +255,7 @@ export interface Database {
   audit_log: AuditLogTable;
   audit_exports: AuditExportsTable;
   pdf_password_verifications: PdfPasswordVerificationsTable;
+  pdf_password_sessions: PdfPasswordSessionsTable;
   schema_migrations: SchemaMigrationsTable;
   revoked_jtis: RevokedJtisTable;
   jwks_cache: JwksCacheTable;

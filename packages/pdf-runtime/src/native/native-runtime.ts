@@ -6,6 +6,7 @@ import type {
   MemoryValueKind,
   PdfRuntimeCallbacks,
   PdfRuntimeFileAccess,
+  PdfRuntimeFileWrite,
   PdfRuntimeMemory,
   PdfRuntimeModule,
   Ptr,
@@ -32,6 +33,9 @@ type NativeAddon = Record<string, any> & {
   createPathFileAccess?(path: string): bigint;
   getFileAccessPtr?(handle: bigint): bigint;
   destroyFileAccess?(handle: bigint): void;
+  createPathFileWrite?(path: string): bigint;
+  getFileWritePtr?(handle: bigint): bigint;
+  destroyFileWrite?(handle: bigint): void;
 };
 
 const require = createRequire(import.meta.url);
@@ -113,6 +117,27 @@ function createNativeFileAccess(addon: NativeAddon): PdfRuntimeFileAccess {
   };
 }
 
+function createNativeFileWrite(addon: NativeAddon): PdfRuntimeFileWrite {
+  return {
+    toNodeFile(path) {
+      if (!addon.createPathFileWrite || !addon.getFileWritePtr || !addon.destroyFileWrite) {
+        throw new Error('Native runtime does not expose file-write helpers');
+      }
+
+      const handle = addon.createPathFileWrite(path);
+      let closed = false;
+      return {
+        ptr: addon.getFileWritePtr(handle) as Ptr,
+        close() {
+          if (closed) return;
+          closed = true;
+          addon.destroyFileWrite?.(handle);
+        },
+      };
+    },
+  };
+}
+
 function createNativeFunctions(addon: NativeAddon): PdfFunctions {
   const out: Record<string, (...args: unknown[]) => unknown> = {};
   for (const name of Object.keys(pdfFunctionSignatures)) {
@@ -131,6 +156,7 @@ export async function createNativeRuntime(target: RuntimeTarget): Promise<PdfRun
     mem: createNativeMemory(addon),
     cb: createNativeCallbacks(addon),
     fileAccess: createNativeFileAccess(addon),
+    fileWrite: createNativeFileWrite(addon),
     fn: createNativeFunctions(addon),
     async destroy() {
       if (typeof addon.destroy === 'function') addon.destroy();

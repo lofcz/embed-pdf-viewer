@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -234,6 +235,12 @@ function mintDocToken(input: {
     layer_name: input.layerName,
     scope: ['doc.read', 'doc.annotate', 'doc.edit-pages', 'doc.download'] satisfies DocScope[],
     ttlSeconds: input.ttlSeconds ?? 60 * 60,
+    jti: randomUUID(),
+    extras: {
+      embedpdf: {
+        unlock_key: randomBytes(32).toString('base64url'),
+      },
+    },
   });
 }
 

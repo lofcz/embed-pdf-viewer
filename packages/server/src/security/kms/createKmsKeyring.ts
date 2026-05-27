@@ -32,6 +32,7 @@ export function createKmsKeyring(
         vaultUrl: config.vaultUrl,
         keyName: config.keyName,
         keyVersion: config.keyVersion,
+        mode: config.mode,
       });
   }
 }

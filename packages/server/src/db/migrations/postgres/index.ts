@@ -7,6 +7,7 @@ import sql005 from './005_audit_log.sql';
 import sql006 from './006_audit_exports.sql';
 import sql007 from './007_document_security.sql';
 import sql008 from './008_pdf_password_verifications.sql';
+import sql009 from './009_pdf_password_sessions.sql';
 
 /**
  * Postgres migration set, dialect-parallel to `./sqlite`. The `.sql`
@@ -28,4 +29,5 @@ export const postgresMigrations: ReadonlyArray<MigrationSource> = [
   { version: '006', name: '006_audit_exports.sql', sql: sql006 },
   { version: '007', name: '007_document_security.sql', sql: sql007 },
   { version: '008', name: '008_pdf_password_verifications.sql', sql: sql008 },
+  { version: '009', name: '009_pdf_password_sessions.sql', sql: sql009 },
 ];

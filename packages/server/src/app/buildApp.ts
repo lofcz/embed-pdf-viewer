@@ -8,6 +8,7 @@ import { BaseFileCache } from '../storage/BaseFileCache';
 import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
 import type { Database as Schema } from '../db/schema';
 import { DocumentsRepo } from '../db/repos/documents.repo';
+import { PdfPasswordSessionsRepo } from '../db/repos/pdf_password_sessions.repo';
 import { PdfPasswordVerificationsRepo } from '../db/repos/pdf_password_verifications.repo';
 import { TenantsRepo } from '../db/repos/tenants.repo';
 import { DocumentPagesRepo, LayerPagesRepo, LayersRepo } from '../db/repos/page_state.repo';
@@ -89,6 +90,10 @@ export interface BuildAppOptions {
    */
   pdfPasswordVerificationHmacSecret?: string;
   pdfPasswordVerificationTtlMs?: number;
+  pdfPasswordSessionServerSecret?: string | Buffer;
+  pdfPasswordSessionServerSecretId?: string;
+  pdfPasswordSessionTtlMs?: number;
+  pdfPasswordSessionRenewalTtlMs?: number;
   /**
    * If true and an admin call arrives for a tenant that doesn't have a
    * `tenants` row, lazily create one. Convenient for dev / single-tenant
@@ -308,6 +313,16 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         repo: new WeakAnnotationSessionsRepo(opts.db),
       });
       const eventLog = new EventLogService({ storage: opts.objectStore });
+      const passwordSessionServerSecret = {
+        id:
+          opts.pdfPasswordSessionServerSecretId ??
+          process.env['EMBEDPDF_PASSWORD_SESSION_SERVER_SECRET_ID'] ??
+          'dev-v1',
+        secret:
+          opts.pdfPasswordSessionServerSecret ??
+          process.env['EMBEDPDF_PASSWORD_SESSION_SERVER_SECRET'] ??
+          'embedpdf-dev-password-session-secret',
+      };
       documentService = new DocumentService({
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
@@ -321,6 +336,17 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
             'embedpdf-dev-password-verification-secret',
           ttlMs: opts.pdfPasswordVerificationTtlMs,
         }),
+        ...(opts.kms
+          ? {
+              passwordSessions: new PdfPasswordSessionsRepo(opts.db, {
+                keyring: opts.kms,
+                serverSecrets: [passwordSessionServerSecret],
+              }),
+              passwordSessionServerSecret,
+              passwordSessionTtlMs: opts.pdfPasswordSessionTtlMs,
+              passwordSessionRenewalTtlMs: opts.pdfPasswordSessionRenewalTtlMs,
+            }
+          : {}),
       });
       layerService = new LayerService({
         db: opts.db,
@@ -365,7 +391,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
 
   app.setErrorHandler((err, req, reply) => {
     if (EngineError.is(err)) {
-      const code = mapToHttp(err.code);
+      const engineErr = err as EngineError;
+      const code = mapToHttp(engineErr.code);
       // The `name: 'EngineError'` discriminator is required by
       // EngineErrorPayloadSchema on the client side; without it the
       // typed code/message/details get dropped and clients see a
@@ -373,9 +400,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       reply.code(code).send({
         error: {
           name: 'EngineError',
-          code: err.code,
-          message: err.message,
-          details: err.details,
+          code: engineErr.code,
+          message: engineErr.message,
+          details: engineErr.details,
         },
       });
       return;

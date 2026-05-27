@@ -129,7 +129,7 @@ export async function registerAnnotationRoutes(
 
   app.post('/v1/docs/:docId/layers/:layerName/weak-annotation-session', async (req, reply) => {
     const { docId, layerName } = req.params as { docId: string; layerName: string };
-    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
     setNoStore(reply);
     const body = parseOrInvalidArg(
       WeakAnnotationSessionPagesRequestSchema,
@@ -137,7 +137,7 @@ export async function registerAnnotationRoutes(
       'request body',
     );
     return requireWeakAnnotationSessions(weakAnnotationSessions).begin(
-      { tenantId, sub },
+      { tenantId: ctx.tenantId, sub: ctx.sub },
       {
         docId,
         layerName,
@@ -154,7 +154,7 @@ export async function registerAnnotationRoutes(
         layerName: string;
         sessionId: string;
       };
-      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
       setNoStore(reply);
       const body = parseOrInvalidArg(
         WeakAnnotationSessionPagesRequestSchema,
@@ -162,7 +162,7 @@ export async function registerAnnotationRoutes(
         'request body',
       );
       return requireWeakAnnotationSessions(weakAnnotationSessions).updatePages(
-        { tenantId, sub },
+        { tenantId: ctx.tenantId, sub: ctx.sub },
         {
           docId,
           layerName,
@@ -181,10 +181,10 @@ export async function registerAnnotationRoutes(
         layerName: string;
         sessionId: string;
       };
-      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
       setNoStore(reply);
       return requireWeakAnnotationSessions(weakAnnotationSessions).heartbeat(
-        { tenantId, sub },
+        { tenantId: ctx.tenantId, sub: ctx.sub },
         { docId, layerName, sessionId },
       );
     },
@@ -198,9 +198,9 @@ export async function registerAnnotationRoutes(
         layerName: string;
         sessionId: string;
       };
-      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
       await requireWeakAnnotationSessions(weakAnnotationSessions).release(
-        { tenantId, sub },
+        { tenantId: ctx.tenantId, sub: ctx.sub },
         { docId, layerName, sessionId },
       );
       setNoStore(reply);
@@ -215,7 +215,7 @@ export async function registerAnnotationRoutes(
       pon: string;
     };
     const pageObjectNumber = parsePageObjectNumber(pon);
-    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
     const draft = parseOrInvalidArg<AnnotationDraft>(
       AnnotationDraftSchema as unknown as SchemaLike<AnnotationDraft>,
       req.body,
@@ -224,7 +224,7 @@ export async function registerAnnotationRoutes(
 
     setNoStore(reply);
     return layerService.createAnnotation(
-      { tenantId, sub },
+      ctx,
       { docId, layerName, pageObjectNumber, draft },
       abortSignalFromRequest(req),
     );
@@ -237,7 +237,7 @@ export async function registerAnnotationRoutes(
       pon: string;
     };
     const pageObjectNumber = parsePageObjectNumber(pon);
-    const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+    const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
     const body = req.body as Record<string, unknown> | null | undefined;
     const rawRefs = body?.refs;
     const rawToIndex = body?.toIndex;
@@ -265,7 +265,7 @@ export async function registerAnnotationRoutes(
 
     setNoStore(reply);
     return layerService.moveAnnotations(
-      { tenantId, sub },
+      ctx,
       { docId, layerName, pageObjectNumber, refs, toIndex: rawToIndex },
       abortSignalFromRequest(req),
     );
@@ -281,7 +281,7 @@ export async function registerAnnotationRoutes(
         annotKey: string;
       };
       const pageObjectNumber = parsePageObjectNumber(pon);
-      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
       const body = req.body as Record<string, unknown> | null | undefined;
 
       if (annotKey === 'index') {
@@ -300,7 +300,7 @@ export async function registerAnnotationRoutes(
         if (body?.op === 'delete') {
           setNoStore(reply);
           return layerService.deleteAnnotation(
-            { tenantId, sub },
+            ctx,
             { docId, layerName, ref },
             abortSignalFromRequest(req),
           );
@@ -313,7 +313,7 @@ export async function registerAnnotationRoutes(
         );
         setNoStore(reply);
         return layerService.updateAnnotation(
-          { tenantId, sub },
+          ctx,
           { docId, layerName, ref, patch },
           abortSignalFromRequest(req),
         );
@@ -327,7 +327,7 @@ export async function registerAnnotationRoutes(
       );
       setNoStore(reply);
       return layerService.updateAnnotation(
-        { tenantId, sub },
+        ctx,
         { docId, layerName, ref, patch },
         abortSignalFromRequest(req),
       );
@@ -344,7 +344,7 @@ export async function registerAnnotationRoutes(
         annotKey: string;
       };
       const pageObjectNumber = parsePageObjectNumber(pon);
-      const { tenantId, sub } = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
+      const ctx = requireLayerDocAccess(req, docId, layerName, ['doc.annotate']);
 
       if (annotKey === 'index') {
         throw new EngineError(
@@ -355,7 +355,7 @@ export async function registerAnnotationRoutes(
 
       setNoStore(reply);
       return layerService.deleteAnnotation(
-        { tenantId, sub },
+        ctx,
         { docId, layerName, ref: refFromKey(annotKey, pageObjectNumber) },
         abortSignalFromRequest(req),
       );

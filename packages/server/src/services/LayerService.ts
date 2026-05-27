@@ -27,7 +27,7 @@ import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { ObjectStore } from '../storage/ObjectStore';
 import { StorageKeys } from '../storage/keys';
 import type { CloudRevisionBridge } from './CloudRevisionBridge';
-import type { DocumentService } from './DocumentService';
+import type { DocumentService, OpenContext } from './DocumentService';
 import type { AuditEvent, EventLogService } from './EventLogService';
 import type { LayerStateService } from './LayerStateService';
 import type { MutationImpactKind } from './LayerStateService';
@@ -47,10 +47,7 @@ export interface LayerServiceOptions {
   storage?: ObjectStore;
 }
 
-export interface LayerWriteContext {
-  tenantId: string;
-  sub: string;
-}
+export type LayerWriteContext = OpenContext;
 
 export interface MaterializedLayer {
   layer: LayerRow;

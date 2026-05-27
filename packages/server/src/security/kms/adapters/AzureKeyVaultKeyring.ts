@@ -12,36 +12,63 @@ export interface AzureKeyVaultKeyringOptions {
   vaultUrl: string;
   keyName: string;
   keyVersion?: string;
+  mode?: AzureKeyVaultKeyringMode;
 }
 
 type AzureCredential = unknown;
+
+export type AzureKeyVaultKeyringMode = 'managed-hsm-a256gcm' | 'key-vault-rsa-oaep-256';
 
 type AzureIdentityModule = {
   DefaultAzureCredential: new () => AzureCredential;
 };
 
 type AzureCryptographyClient = {
-  wrapKey(algorithm: 'A256KW', key: Buffer): Promise<{ result?: Uint8Array }>;
-  unwrapKey(algorithm: 'A256KW', encryptedKey: Buffer): Promise<{ result?: Uint8Array }>;
+  encrypt(input: {
+    algorithm: 'A256GCM';
+    plaintext: Buffer;
+    additionalAuthenticatedData?: Buffer;
+    iv: Buffer;
+  }): Promise<{ result?: Uint8Array; iv?: Uint8Array; authenticationTag?: Uint8Array }>;
+  decrypt(input: {
+    algorithm: 'A256GCM';
+    ciphertext: Buffer;
+    additionalAuthenticatedData?: Buffer;
+    iv: Buffer;
+    authenticationTag: Buffer;
+  }): Promise<{ result?: Uint8Array }>;
+  wrapKey(algorithm: 'RSA-OAEP-256', key: Buffer): Promise<{ result?: Uint8Array }>;
+  unwrapKey(algorithm: 'RSA-OAEP-256', encryptedKey: Buffer): Promise<{ result?: Uint8Array }>;
 };
 
 type AzureKeysModule = {
   CryptographyClient: new (keyId: string, credential: AzureCredential) => AzureCryptographyClient;
 };
 
-interface AzureWrappedDataKeyEnvelope {
-  v: 1;
-  mac: string;
-  wrapped: string;
-}
+type AzureWrappedDataKeyEnvelope =
+  | {
+      v: 1;
+      mode: 'managed-hsm-a256gcm';
+      iv: string;
+      tag: string;
+      ciphertext: string;
+    }
+  | {
+      v: 1;
+      mode: 'key-vault-rsa-oaep-256';
+      mac: string;
+      wrapped: string;
+    };
 
 export class AzureKeyVaultKeyring implements KmsKeyring {
   readonly providerId = 'azure-kv' as const;
   readonly keyId: string;
+  readonly mode: AzureKeyVaultKeyringMode;
   private readonly clientPromise: Promise<AzureCryptographyClient>;
 
   constructor(opts: AzureKeyVaultKeyringOptions) {
     this.keyId = keyUrl(opts);
+    this.mode = opts.mode ?? 'key-vault-rsa-oaep-256';
     this.clientPromise = this.createClient();
   }
 
@@ -49,9 +76,10 @@ export class AzureKeyVaultKeyring implements KmsKeyring {
     const plaintext = randomBytes(32);
     try {
       const client = await this.clientPromise;
-      const res = await client.wrapKey('A256KW', plaintext);
-      if (!res.result)
-        throw new KmsUnreachable(new Error('Azure Key Vault wrapKey returned no result'));
+      const envelope =
+        this.mode === 'managed-hsm-a256gcm'
+          ? await encryptManagedHsmAesGcm(client, plaintext, aad)
+          : await wrapStandardKeyVaultRsa(client, plaintext, aad);
       return {
         plaintext,
         wrapped: {
@@ -59,11 +87,7 @@ export class AzureKeyVaultKeyring implements KmsKeyring {
           keyId: this.keyId,
           algorithm: 'AES_256_GCM',
           version: 1,
-          ciphertext: encodeEnvelope({
-            v: 1,
-            mac: aadMac(plaintext, aad).toString('base64url'),
-            wrapped: Buffer.from(res.result).toString('base64url'),
-          }),
+          ciphertext: encodeEnvelope(envelope),
         },
       };
     } catch (err) {
@@ -85,18 +109,11 @@ export class AzureKeyVaultKeyring implements KmsKeyring {
     try {
       const envelope = decodeEnvelope(wrapped.ciphertext);
       const client = await this.clientPromise;
-      const res = await client.unwrapKey('A256KW', Buffer.from(envelope.wrapped, 'base64url'));
-      if (!res.result) throw new KmsAadMismatch();
-      const plaintext = Buffer.from(res.result);
+      const plaintext =
+        envelope.mode === 'managed-hsm-a256gcm'
+          ? await decryptManagedHsmAesGcm(client, envelope, aad)
+          : await unwrapStandardKeyVaultRsa(client, envelope, aad);
       if (plaintext.byteLength !== 32) throw new KmsAadMismatch();
-      const actualMac = aadMac(plaintext, aad);
-      const expectedMac = Buffer.from(envelope.mac, 'base64url');
-      if (
-        actualMac.byteLength !== expectedMac.byteLength ||
-        !timingSafeEqual(actualMac, expectedMac)
-      ) {
-        throw new KmsAadMismatch();
-      }
       return plaintext;
     } catch (err) {
       if (err instanceof KmsAadMismatch) throw err;
@@ -112,6 +129,79 @@ export class AzureKeyVaultKeyring implements KmsKeyring {
     ]);
     return new keys.CryptographyClient(this.keyId, new identity.DefaultAzureCredential());
   }
+}
+
+async function encryptManagedHsmAesGcm(
+  client: AzureCryptographyClient,
+  plaintext: Buffer,
+  aad: Record<string, string> | undefined,
+): Promise<AzureWrappedDataKeyEnvelope> {
+  const iv = randomBytes(12);
+  const res = await client.encrypt({
+    algorithm: 'A256GCM',
+    plaintext,
+    additionalAuthenticatedData: canonicalAad(aad),
+    iv,
+  });
+  if (!res.result || !res.authenticationTag) {
+    throw new KmsUnreachable(new Error('Azure Managed HSM encrypt returned incomplete result'));
+  }
+  return {
+    v: 1,
+    mode: 'managed-hsm-a256gcm',
+    iv: Buffer.from(res.iv ?? iv).toString('base64url'),
+    tag: Buffer.from(res.authenticationTag).toString('base64url'),
+    ciphertext: Buffer.from(res.result).toString('base64url'),
+  };
+}
+
+async function decryptManagedHsmAesGcm(
+  client: AzureCryptographyClient,
+  envelope: Extract<AzureWrappedDataKeyEnvelope, { mode: 'managed-hsm-a256gcm' }>,
+  aad: Record<string, string> | undefined,
+): Promise<Buffer> {
+  const res = await client.decrypt({
+    algorithm: 'A256GCM',
+    ciphertext: Buffer.from(envelope.ciphertext, 'base64url'),
+    additionalAuthenticatedData: canonicalAad(aad),
+    iv: Buffer.from(envelope.iv, 'base64url'),
+    authenticationTag: Buffer.from(envelope.tag, 'base64url'),
+  });
+  if (!res.result) throw new KmsAadMismatch();
+  return Buffer.from(res.result);
+}
+
+async function wrapStandardKeyVaultRsa(
+  client: AzureCryptographyClient,
+  plaintext: Buffer,
+  aad: Record<string, string> | undefined,
+): Promise<AzureWrappedDataKeyEnvelope> {
+  const res = await client.wrapKey('RSA-OAEP-256', plaintext);
+  if (!res.result) {
+    throw new KmsUnreachable(new Error('Azure Key Vault wrapKey returned no result'));
+  }
+  return {
+    v: 1,
+    mode: 'key-vault-rsa-oaep-256',
+    mac: aadMac(plaintext, aad).toString('base64url'),
+    wrapped: Buffer.from(res.result).toString('base64url'),
+  };
+}
+
+async function unwrapStandardKeyVaultRsa(
+  client: AzureCryptographyClient,
+  envelope: Extract<AzureWrappedDataKeyEnvelope, { mode: 'key-vault-rsa-oaep-256' }>,
+  aad: Record<string, string> | undefined,
+): Promise<Buffer> {
+  const res = await client.unwrapKey('RSA-OAEP-256', Buffer.from(envelope.wrapped, 'base64url'));
+  if (!res.result) throw new KmsAadMismatch();
+  const plaintext = Buffer.from(res.result);
+  const actualMac = aadMac(plaintext, aad);
+  const expectedMac = Buffer.from(envelope.mac, 'base64url');
+  if (actualMac.byteLength !== expectedMac.byteLength || !timingSafeEqual(actualMac, expectedMac)) {
+    throw new KmsAadMismatch();
+  }
+  return plaintext;
 }
 
 function keyUrl(opts: AzureKeyVaultKeyringOptions): string {
@@ -131,10 +221,26 @@ function encodeEnvelope(envelope: AzureWrappedDataKeyEnvelope): Buffer {
 function decodeEnvelope(bytes: Buffer): AzureWrappedDataKeyEnvelope {
   try {
     const parsed = JSON.parse(bytes.toString('utf8')) as Partial<AzureWrappedDataKeyEnvelope>;
-    if (parsed.v !== 1 || typeof parsed.mac !== 'string' || typeof parsed.wrapped !== 'string') {
+    if (parsed.v !== 1 || typeof parsed.mode !== 'string') {
       throw new KmsAadMismatch();
     }
-    return parsed as AzureWrappedDataKeyEnvelope;
+    if (parsed.mode === 'managed-hsm-a256gcm') {
+      if (
+        typeof parsed.iv !== 'string' ||
+        typeof parsed.tag !== 'string' ||
+        typeof parsed.ciphertext !== 'string'
+      ) {
+        throw new KmsAadMismatch();
+      }
+      return parsed as AzureWrappedDataKeyEnvelope;
+    }
+    if (parsed.mode === 'key-vault-rsa-oaep-256') {
+      if (typeof parsed.mac !== 'string' || typeof parsed.wrapped !== 'string') {
+        throw new KmsAadMismatch();
+      }
+      return parsed as AzureWrappedDataKeyEnvelope;
+    }
+    throw new KmsAadMismatch();
   } catch (err) {
     if (err instanceof KmsAadMismatch) throw err;
     throw new KmsAadMismatch();

@@ -6,7 +6,7 @@ import {
   type DocumentAccessInfo,
 } from '@embedpdf/engine-core/runtime';
 import { AccessRequestSchema, wirePaths } from '@embedpdf/engine-core/wire';
-import { requireLayerDocAccess } from '../app/jwt-plugin';
+import { requireLayerDocAccess, type RequestJwtContext } from '../app/jwt-plugin';
 import type { DocumentService } from '../services/DocumentService';
 import { setNoStore } from './_helpers';
 
@@ -33,9 +33,10 @@ export async function registerAccessRoutes(
     const ctx = requireLayerDocAccess(req, body.docId, layerName, ['doc.read']);
     const unlocked = await service.unlockLayerAccess(ctx, body.docId, layerName, {
       password: body.password ?? null,
+      passwordGrant: body.passwordGrant ?? null,
       mode: body.mode ?? 'any',
     });
-    const access = buildNoneAccess(unlocked, req.tenant?.claims);
+    const access = buildNoneAccess(unlocked, ctx.jwt);
     setNoStore(reply);
     return {
       security: unlocked.security,
@@ -46,10 +47,12 @@ export async function registerAccessRoutes(
 
 function buildNoneAccess(
   unlocked: Awaited<ReturnType<DocumentService['unlockLayerAccess']>>,
-  claims: unknown,
+  jwt: RequestJwtContext,
 ): DocumentAccessInfo {
-  const exp = claimNumber(claims, 'exp');
-  const expiresAt = exp && exp > 0 ? exp : Math.floor(Date.now() / 1000) + 3600;
+  if (!jwt.exp || jwt.exp <= 0) {
+    throw new EngineError(EngineErrorCode.InvalidArg, 'doc token exp is required for access');
+  }
+  const expiresAt = jwt.exp;
   return {
     cdn: {
       adapter: 'none',
@@ -61,51 +64,16 @@ function buildNoneAccess(
       baseUrlOverrides: null,
       authHeader: null,
     },
-    passwordGrant: null,
+    passwordGrant: unlocked.passwordGrant,
     pdfPermissions: permissionInfoFromProbe(unlocked.probe),
-    scope: claimStringArray(claims, 'scope'),
+    scope: [...jwt.scope],
     identity: {
-      ...claimString(claims, 'user_id', 'user_id'),
-      ...claimString(claims, 'group_id', 'group_id'),
-      ...claimString(claims, 'display_name', 'display_name'),
-      ...claimStringArrayProp(claims, 'groups', 'groups'),
+      ...jwt.identity,
+      ...(jwt.identity.groups ? { groups: [...jwt.identity.groups] } : {}),
     },
     originPasswordPolicy: {
-      mode: unlocked.probe.encryptionState === 'encrypted' ? 'client-retry' : 'not-needed',
+      mode: unlocked.probe.encryptionState === 'encrypted' ? 'server-session' : 'not-needed',
     },
     expiresAt,
   };
-}
-
-function claimNumber(claims: unknown, key: string): number | null {
-  if (!claims || typeof claims !== 'object') return null;
-  const value = (claims as Record<string, unknown>)[key];
-  return typeof value === 'number' ? value : null;
-}
-
-function claimStringArray(claims: unknown, key: string): string[] {
-  if (!claims || typeof claims !== 'object') return [];
-  const value = (claims as Record<string, unknown>)[key];
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === 'string')
-    : [];
-}
-
-function claimString<T extends string>(
-  claims: unknown,
-  key: string,
-  outKey: T,
-): Partial<Record<T, string>> {
-  if (!claims || typeof claims !== 'object') return {};
-  const value = (claims as Record<string, unknown>)[key];
-  return typeof value === 'string' ? ({ [outKey]: value } as Partial<Record<T, string>>) : {};
-}
-
-function claimStringArrayProp<T extends string>(
-  claims: unknown,
-  key: string,
-  outKey: T,
-): Partial<Record<T, string[]>> {
-  const value = claimStringArray(claims, key);
-  return value.length > 0 ? ({ [outKey]: value } as Partial<Record<T, string[]>>) : {};
 }

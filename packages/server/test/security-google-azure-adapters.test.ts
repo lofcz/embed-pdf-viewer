@@ -14,6 +14,8 @@ const cloud = vi.hoisted(() => ({
   gcpKmsEncrypt: vi.fn(),
   gcpKmsDecrypt: vi.fn(),
   azureSecretGet: vi.fn(),
+  azureEncrypt: vi.fn(),
+  azureDecrypt: vi.fn(),
   azureWrapKey: vi.fn(),
   azureUnwrapKey: vi.fn(),
   azureCredentials: 0,
@@ -65,6 +67,14 @@ vi.mock('@azure/keyvault-keys', () => ({
   CryptographyClient: class {
     constructor(keyId: string, credential: unknown) {
       cloud.azureCryptoClientOptions.push({ keyId, credential });
+    }
+
+    encrypt(input: unknown) {
+      return cloud.azureEncrypt(input);
+    }
+
+    decrypt(input: unknown) {
+      return cloud.azureDecrypt(input);
     }
 
     wrapKey(algorithm: string, key: Buffer) {
@@ -225,13 +235,54 @@ describe('AzureKeyVaultSecretsProvider', () => {
 describe('AzureKeyVaultKeyring', () => {
   beforeEach(() => resetCloudMocks());
 
-  test('wraps data keys and enforces AAD with an HMAC inside the envelope', async () => {
+  test('uses Managed HSM A256GCM with native Azure AAD', async () => {
+    const ciphertext = Buffer.from('azure-managed-hsm-ciphertext');
+    const tag = Buffer.from('azure-managed-hsm-tag');
+    cloud.azureEncrypt.mockResolvedValue({ result: ciphertext, authenticationTag: tag });
+
+    const keyring = new AzureKeyVaultKeyring({
+      vaultUrl: 'https://hsm.managedhsm.azure.net',
+      keyName: 'embedpdf',
+      keyVersion: '123',
+      mode: 'managed-hsm-a256gcm',
+    });
+    const dataKey = await keyring.generateDataKey({ tenantId: 'tenant-a' });
+
+    expect(dataKey.plaintext.byteLength).toBe(32);
+    expect(dataKey.wrapped).toMatchObject({
+      providerId: 'azure-kv',
+      keyId: 'https://hsm.managedhsm.azure.net/keys/embedpdf/123',
+      algorithm: 'AES_256_GCM',
+      version: 1,
+    });
+    expect(cloud.azureEncrypt.mock.calls[0]?.[0]).toMatchObject({
+      algorithm: 'A256GCM',
+      plaintext: expect.any(Buffer),
+      additionalAuthenticatedData: Buffer.from('[["tenantId","tenant-a"]]'),
+      iv: expect.any(Buffer),
+    });
+    expect((cloud.azureEncrypt.mock.calls[0]?.[0] as { iv: Buffer }).iv.byteLength).toBe(12);
+
+    cloud.azureDecrypt.mockResolvedValue({ result: dataKey.plaintext });
+    await expect(
+      keyring.decryptDataKey(dataKey.wrapped, { tenantId: 'tenant-a' }),
+    ).resolves.toEqual(dataKey.plaintext);
+    expect(cloud.azureDecrypt.mock.calls[0]?.[0]).toMatchObject({
+      algorithm: 'A256GCM',
+      ciphertext,
+      additionalAuthenticatedData: Buffer.from('[["tenantId","tenant-a"]]'),
+      authenticationTag: tag,
+    });
+  });
+
+  test('uses standard Key Vault RSA wrapping and enforces AAD with an envelope MAC', async () => {
     cloud.azureWrapKey.mockResolvedValue({ result: Buffer.from('azure-wrapped-data-key') });
 
     const keyring = new AzureKeyVaultKeyring({
       vaultUrl: 'https://vault.vault.azure.net',
       keyName: 'embedpdf',
       keyVersion: '123',
+      mode: 'key-vault-rsa-oaep-256',
     });
     const dataKey = await keyring.generateDataKey({ tenantId: 'tenant-a' });
 
@@ -245,7 +296,7 @@ describe('AzureKeyVaultKeyring', () => {
     expect(cloud.azureCryptoClientOptions[0]).toMatchObject({
       keyId: 'https://vault.vault.azure.net/keys/embedpdf/123',
     });
-    expect(cloud.azureWrapKey.mock.calls[0]?.[0]).toBe('A256KW');
+    expect(cloud.azureWrapKey.mock.calls[0]?.[0]).toBe('RSA-OAEP-256');
     expect((cloud.azureWrapKey.mock.calls[0]?.[1] as Buffer).byteLength).toBe(32);
 
     cloud.azureUnwrapKey.mockResolvedValue({ result: dataKey.plaintext });
@@ -263,6 +314,8 @@ function resetCloudMocks(): void {
   cloud.gcpKmsEncrypt.mockReset();
   cloud.gcpKmsDecrypt.mockReset();
   cloud.azureSecretGet.mockReset();
+  cloud.azureEncrypt.mockReset();
+  cloud.azureDecrypt.mockReset();
   cloud.azureWrapKey.mockReset();
   cloud.azureUnwrapKey.mockReset();
   cloud.azureCredentials = 0;

@@ -93,6 +93,7 @@ export const AccessRequestSchema = z.object({
   docId: z.string().min(1),
   layerName: z.string().min(1).optional(),
   password: z.string().optional(),
+  passwordGrant: z.string().optional(),
   mode: z.enum(['any', 'owner']).optional(),
 });
 export type AccessRequest = z.infer<typeof AccessRequestSchema>;

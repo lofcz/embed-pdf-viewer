@@ -75,6 +75,68 @@ describe('Hs256Verifier', () => {
     });
     await expect(v.verify(tok)).rejects.toThrow(/scope must be an array/);
   });
+
+  test('keeps the PDF unlock key under the embedpdf namespace only', async () => {
+    const v = new Hs256Verifier({ secret });
+    const tok = signDevToken(secret, {
+      sub: 'alice',
+      tenant_id: TENANT,
+      extras: {
+        unlock_key: 'flat-legacy-key',
+        embedpdf: { unlock_key: 'namespaced-key' },
+      },
+    });
+
+    const claims = await v.verify(tok);
+    expect(claims.embedpdf?.unlock_key).toBe('namespaced-key');
+    expect((claims as unknown as { unlock_key?: string }).unlock_key).toBeUndefined();
+  });
+
+  test('ignores a flat PDF unlock key claim', async () => {
+    const v = new Hs256Verifier({ secret });
+    const tok = signDevToken(secret, {
+      sub: 'alice',
+      tenant_id: TENANT,
+      extras: { unlock_key: 'flat-legacy-key' },
+    });
+
+    const claims = await v.verify(tok);
+    expect(claims.embedpdf).toBeUndefined();
+    expect((claims as unknown as { unlock_key?: string }).unlock_key).toBeUndefined();
+  });
+
+  test('parses identity claims into the verified claim object', async () => {
+    const v = new Hs256Verifier({ secret });
+    const tok = signDevToken(secret, {
+      sub: 'alice',
+      tenant_id: TENANT,
+      extras: {
+        user_id: '44',
+        group_id: '4',
+        groups: ['4', 'engineering'],
+        display_name: 'Alice Example',
+      },
+    });
+
+    const claims = await v.verify(tok);
+    expect(claims).toMatchObject({
+      user_id: '44',
+      group_id: '4',
+      groups: ['4', 'engineering'],
+      display_name: 'Alice Example',
+    });
+  });
+
+  test('rejects malformed identity arrays', async () => {
+    const v = new Hs256Verifier({ secret });
+    const tok = signDevToken(secret, {
+      sub: 'alice',
+      tenant_id: TENANT,
+      extras: { groups: ['4', 42] },
+    });
+
+    await expect(v.verify(tok)).rejects.toThrow(/groups\[1\] must be a string/);
+  });
 });
 
 describe('AsymmetricVerifier (RS256)', () => {

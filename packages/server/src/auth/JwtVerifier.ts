@@ -21,7 +21,14 @@ type ImportedKey = Awaited<ReturnType<typeof importSPKI>>;
  * below; the union `JwtClaims` ties them together with compile-time
  * mutual exclusion (`?: never`).
  */
-export interface BaseClaims {
+export interface IdentityClaims {
+  user_id?: string;
+  group_id?: string;
+  display_name?: string;
+  groups?: ReadonlyArray<string>;
+}
+
+export interface BaseClaims extends IdentityClaims {
   sub: string;
   tenant_id: string;
   iat: number;
@@ -32,6 +39,15 @@ export interface BaseClaims {
    * `jti` is in the denylist.
    */
   jti?: string;
+  /**
+   * Optional per-token unlock secret used to bind encrypted PDF
+   * password sessions to this JWT. Kept as an extension claim so the
+   * server can encrypt/decrypt password-session rows without treating
+   * `jti` itself as secret material.
+   */
+  embedpdf?: {
+    unlock_key?: string;
+  };
 }
 
 /**
@@ -510,6 +526,14 @@ function coerceClaims(payload: JWTPayload): JwtClaims {
     exp: typeof payload.exp === 'number' ? payload.exp : 0,
   };
   if (typeof payload.jti === 'string') base.jti = payload.jti;
+  Object.assign(base, coerceIdentityClaims(payload));
+  const embedpdf = (payload as { embedpdf?: unknown }).embedpdf;
+  if (embedpdf && typeof embedpdf === 'object') {
+    const nested = (embedpdf as { unlock_key?: unknown }).unlock_key;
+    if (typeof nested === 'string' && nested.length > 0) {
+      base.embedpdf = { unlock_key: nested };
+    }
+  }
 
   // Pull and validate the class-specific fields without committing
   // to a subtype yet. The `scope` array is stored as `string[]`
@@ -587,6 +611,38 @@ function validateClaims(claims: JwtClaims, profile: JwtAudienceProfile, skew: nu
     const expArr = Array.isArray(exp) ? exp : [exp];
     if (!expArr.some((a) => gotArr.includes(a))) throw new Error('jwt audience mismatch');
   }
+}
+
+function coerceIdentityClaims(payload: JWTPayload): IdentityClaims {
+  const identity: IdentityClaims = {};
+  const userId = optionalStringClaim(payload, 'user_id');
+  if (userId) identity.user_id = userId;
+  const groupId = optionalStringClaim(payload, 'group_id');
+  if (groupId) identity.group_id = groupId;
+  const displayName = optionalStringClaim(payload, 'display_name');
+  if (displayName) identity.display_name = displayName;
+  const groups = optionalStringArrayClaim(payload, 'groups');
+  if (groups.length > 0) identity.groups = groups;
+  return identity;
+}
+
+function optionalStringClaim(payload: JWTPayload, key: string): string | undefined {
+  const value = (payload as Record<string, unknown>)[key];
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'string') throw new Error(`${key} must be a string`);
+  return value.length > 0 ? value : undefined;
+}
+
+function optionalStringArrayClaim(payload: JWTPayload, key: string): string[] {
+  const value = (payload as Record<string, unknown>)[key];
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error(`${key} must be an array`);
+  return value
+    .map((item, i) => {
+      if (typeof item !== 'string') throw new Error(`${key}[${i}] must be a string`);
+      return item;
+    })
+    .filter((item) => item.length > 0);
 }
 
 /**

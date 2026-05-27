@@ -6,6 +6,7 @@ import {
   isDocUserClaims,
   isTenantClaims,
   type DocScope,
+  type IdentityClaims,
   type JwtClaims,
   type JwtVerifier,
   type JwtVerifierConfig,
@@ -129,11 +130,20 @@ export type DocAccessMode = 'doc' | 'tenant';
  * logging (so we can see whether a request reached a doc via the
  * tight doc-scope path or the wider tenant-scope path).
  */
+export interface RequestJwtContext {
+  claims: JwtClaims;
+  jti: string | null;
+  exp: number | null;
+  unlockKey: string | null;
+  scope: ReadonlyArray<string>;
+  identity: IdentityClaims;
+}
+
 export function requireDocAccess(
   req: FastifyRequest,
   docId: string,
   needed: ReadonlyArray<DocScope>,
-): { tenantId: string; sub: string; mode: DocAccessMode } {
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
   const t = req.tenant;
   if (!t) {
     const err = new Error('doc-access token required') as Error & { code: string; status: number };
@@ -161,7 +171,7 @@ export function requireDocAccess(
       err.status = 403;
       throw err;
     }
-    return { tenantId: t.id, sub: t.sub, mode: 'doc' };
+    return { tenantId: t.id, sub: t.sub, mode: 'doc', jwt: jwtContext(t.claims) };
   }
 
   // TenantClaims path. The tenant owns every doc in their tenant
@@ -177,7 +187,7 @@ export function requireDocAccess(
     err.status = 403;
     throw err;
   }
-  return { tenantId: t.id, sub: t.sub, mode: 'tenant' };
+  return { tenantId: t.id, sub: t.sub, mode: 'tenant', jwt: jwtContext(t.claims) };
 }
 
 export function requireLayerDocAccess(
@@ -185,7 +195,7 @@ export function requireLayerDocAccess(
   docId: string,
   layerName: string,
   needed: ReadonlyArray<DocScope>,
-): { tenantId: string; sub: string; mode: DocAccessMode } {
+): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
   const ctx = requireDocAccess(req, docId, needed);
   const claims = req.tenant?.claims;
   if (claims && isDocUserClaims(claims)) {
@@ -201,4 +211,26 @@ export function requireLayerDocAccess(
     }
   }
   return ctx;
+}
+
+function jwtContext(claims: JwtClaims): RequestJwtContext {
+  return {
+    claims,
+    jti: typeof claims.jti === 'string' && claims.jti.length > 0 ? claims.jti : null,
+    exp: typeof claims.exp === 'number' ? claims.exp : null,
+    unlockKey: readUnlockKey(claims),
+    scope: claims.scope,
+    identity: {
+      ...(claims.user_id ? { user_id: claims.user_id } : {}),
+      ...(claims.group_id ? { group_id: claims.group_id } : {}),
+      ...(claims.display_name ? { display_name: claims.display_name } : {}),
+      ...(claims.groups ? { groups: [...claims.groups] } : {}),
+    },
+  };
+}
+
+function readUnlockKey(claims: JwtClaims): string | null {
+  return claims.embedpdf?.unlock_key && claims.embedpdf.unlock_key.length > 0
+    ? claims.embedpdf.unlock_key
+    : null;
 }
