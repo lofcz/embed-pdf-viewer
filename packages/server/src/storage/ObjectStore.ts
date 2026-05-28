@@ -1,10 +1,12 @@
 /**
  * Pluggable object-store interface for @embedpdf/server.
  *
- * Phase 1 shipped `FsObjectStore` + `S3ObjectStore`; GCS / Azure land
- * in Phase 7. Every adapter exposes the same key shape
+ * Adapters: `FsObjectStore`, `S3ObjectStore`, `GcsObjectStore`,
+ * `AzureBlobObjectStore`. Every adapter exposes the same key shape
  * (`StorageKeys`) and the same operation set, so `rclone sync`
- * migrates verbatim between backends.
+ * migrates verbatim between backends. The shared `objectStore`
+ * conformance suite (test/_helpers/object-store-conformance.ts) pins
+ * all four to identical observable behaviour.
  *
  * Phase 3 adds `materializeLocal`: copy a remote object to a local
  * path so PDFium can `pread()` it (or load it into memory). The

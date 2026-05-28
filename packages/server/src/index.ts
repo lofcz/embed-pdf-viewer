@@ -102,7 +102,11 @@ export { FsObjectStore } from './storage/adapters/FsObjectStore';
 export type { FsObjectStoreOptions } from './storage/adapters/FsObjectStore';
 export { S3ObjectStore } from './storage/adapters/S3ObjectStore';
 export type { S3ObjectStoreOptions } from './storage/adapters/S3ObjectStore';
-export { createObjectStore } from './storage/createObjectStore';
+export { GcsObjectStore } from './storage/adapters/GcsObjectStore';
+export type { GcsObjectStoreOptions } from './storage/adapters/GcsObjectStore';
+export { AzureBlobObjectStore } from './storage/adapters/AzureBlobObjectStore';
+export type { AzureBlobObjectStoreOptions } from './storage/adapters/AzureBlobObjectStore';
+export { createObjectStore, type CreateObjectStoreOptions } from './storage/createObjectStore';
 export {
   ObjectStoreConfigSchema,
   type ObjectStoreConfig,

@@ -5,6 +5,14 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { FsObjectStore } from '../src/storage/adapters/FsObjectStore';
 import { StorageKeys } from '../src/storage/keys';
+import { runObjectStoreConformance } from './_helpers/object-store-conformance';
+
+// FsObjectStore is the always-on correctness oracle: a real backend
+// (no mocks) running the exact assertions every other adapter runs.
+runObjectStoreConformance('fs', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'fs-conf-root-'));
+  return new FsObjectStore({ root });
+});
 
 describe('StorageKeys', () => {
   test('basePdf composes per-doc 2-char shard layout', () => {

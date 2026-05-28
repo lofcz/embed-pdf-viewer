@@ -49,8 +49,6 @@
   ],
   "license": "UNLICENSED",
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1045.0",
-    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@embedpdf/cloud-api": "workspace:*",
     "@embedpdf/engine-core": "workspace:*",
     "@embedpdf/engine-services": "workspace:*",
@@ -84,11 +82,15 @@
   },
   "optionalDependencies": {
     "@aws-sdk/client-kms": "^3.1045.0",
+    "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/client-secrets-manager": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@azure/identity": "^4.13.1",
     "@azure/keyvault-keys": "^4.10.0",
     "@azure/keyvault-secrets": "^4.11.2",
+    "@azure/storage-blob": "^12.28.0",
     "@google-cloud/kms": "^5.5.0",
-    "@google-cloud/secret-manager": "^6.1.2"
+    "@google-cloud/secret-manager": "^6.1.2",
+    "@google-cloud/storage": "^7.18.0"
   }
 }

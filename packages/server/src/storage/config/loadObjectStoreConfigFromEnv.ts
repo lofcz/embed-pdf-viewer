@@ -16,13 +16,18 @@
  *   EMBEDPDF_STORAGE_GCS_BUCKET=embedpdf-prod
  *   EMBEDPDF_STORAGE_GCS_PROJECT_ID=...           (optional)
  *
- *   # azure-blob (adapter ships in follow-up commit)
+ *   # azure-blob
  *   EMBEDPDF_STORAGE_AZURE_BLOB_CONTAINER=embedpdf
  *   EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_NAME=embedpdfprod
  *   EMBEDPDF_STORAGE_AZURE_BLOB_ENDPOINT=https://... (optional)
+ *   EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_KEY=...      (optional; keyed-SAS
+ *       fallback. Omit for keyless user-delegation SAS via managed identity.
+ *       A `secret://` URI is parsed as a SecretRef; any other value is a
+ *       literal key.)
  */
 
 import { ObjectStoreConfigSchema, type ObjectStoreConfig } from './ObjectStoreConfigSchema';
+import { parseSecretRefUri } from '../../config/secrets/parseSecretRefUri';
 
 export function loadObjectStoreConfigFromEnv(
   env: NodeJS.ProcessEnv = process.env,
@@ -58,11 +63,18 @@ export function loadObjectStoreConfigFromEnv(
       const container = req(env, 'EMBEDPDF_STORAGE_AZURE_BLOB_CONTAINER');
       const accountName = req(env, 'EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_NAME');
       const endpoint = env['EMBEDPDF_STORAGE_AZURE_BLOB_ENDPOINT'];
+      const accountKeyRaw = env['EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_KEY'];
+      const accountKey = accountKeyRaw
+        ? accountKeyRaw.startsWith('secret://')
+          ? parseSecretRefUri(accountKeyRaw)
+          : accountKeyRaw
+        : undefined;
       return ObjectStoreConfigSchema.parse({
         kind: 'azure-blob',
         container,
         accountName,
         ...(endpoint ? { endpoint } : {}),
+        ...(accountKey ? { accountKey } : {}),
       });
     }
     default:

@@ -4,17 +4,20 @@
  * Variants:
  *   - fs        : local filesystem (single-server / dev)
  *   - s3        : AWS S3 or S3-compatible endpoint (R2, MinIO, Wasabi, ...)
- *   - gcs       : Google Cloud Storage (adapter ships in a follow-up commit)
- *   - azure-blob: Azure Blob Storage      (adapter ships in a follow-up commit)
+ *   - gcs       : Google Cloud Storage (keyless ADC; key-file via SDK chain)
+ *   - azure-blob: Azure Blob Storage (keyless managed-identity SAS by
+ *                 default; optional `accountKey` for account-key SAS)
  *
- * `gcs` and `azure-blob` variants ARE valid in the schema today —
- * env-driven configs can reference them — but `createObjectStore`
- * throws a "not yet implemented" error when constructed. This lets
- * deployment templates be written ahead of the adapter implementations
- * landing.
+ * Credentials convention: `s3`/`gcs` rely on each cloud SDK's native
+ * credential chain (IAM role / IRSA, ADC / Workload Identity, or the
+ * standard env/key-file fallback) — nothing credential-shaped lives in
+ * this schema for them. Only `azure-blob` carries an optional
+ * `accountKey` because that's the one backend where we sign SAS tokens
+ * ourselves and need the keyed fallback path.
  */
 
 import { z } from 'zod';
+import { SecretRefSchema } from '../../config/secrets/SecretRef';
 
 export const ObjectStoreConfigSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -37,6 +40,16 @@ export const ObjectStoreConfigSchema = z.discriminatedUnion('kind', [
     container: z.string().min(1),
     accountName: z.string().min(1),
     endpoint: z.string().url().optional(),
+    /**
+     * Optional storage account key for the KEYED presigning fallback.
+     * When absent (the recommended default), the adapter signs SAS
+     * tokens keylessly via a user-delegation key obtained through
+     * `DefaultAzureCredential` (managed identity / Workload Identity).
+     * When present, the adapter signs account-key SAS instead — for
+     * environments that can't grant the AAD data-plane role or run
+     * outside Azure. SecretRef in prod; plain string for local dev.
+     */
+    accountKey: z.union([SecretRefSchema, z.string().min(1)]).optional(),
   }),
 ]);
 

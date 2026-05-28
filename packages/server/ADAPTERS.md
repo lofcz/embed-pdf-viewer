@@ -116,14 +116,17 @@ Current cloud-SDK adapters using the pattern (all match exactly):
 
 | Adapter                        | SDK package                                   |
 | ------------------------------ | --------------------------------------------- |
+| `S3ObjectStore`                | `@aws-sdk/client-s3` + `s3-request-presigner` |
 | `AwsKmsKeyring`                | `@aws-sdk/client-kms`                         |
 | `GcpKmsKeyring`                | `@google-cloud/kms`                           |
 | `AzureKeyVaultKeyring`         | `@azure/identity` + `@azure/keyvault-keys`    |
 | `AwsSecretsManagerProvider`    | `@aws-sdk/client-secrets-manager`             |
 | `GcpSecretManagerProvider`     | `@google-cloud/secret-manager`                |
 | `AzureKeyVaultSecretsProvider` | `@azure/identity` + `@azure/keyvault-secrets` |
+| `GcsObjectStore`               | `@google-cloud/storage`                       |
+| `AzureBlobObjectStore`         | `@azure/storage-blob` + `@azure/identity`     |
 
-Any new cloud-SDK adapter (Storage GCS / Azure Blob, CDN CloudFront / CloudCDN / AzureFD purge) follows the same shape.
+Any new cloud-SDK adapter (CDN CloudFront / CloudCDN / AzureFD purge) follows the same shape.
 
 ---
 
