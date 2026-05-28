@@ -6,7 +6,9 @@ import { resolve } from 'node:path';
 import { createCloudAdmin } from '@embedpdf/cloud-admin';
 import {
   buildApp,
-  createSecurityRuntime,
+  createKmsKeyring,
+  createSecretResolver,
+  createSecretsProviderRegistry,
   createSqliteDb,
   defaultWorkerEntryUrl,
   EventLogService,
@@ -15,7 +17,8 @@ import {
   signDevToken,
   sqliteMigrations,
   type AppBundle,
-  type SecurityConfig,
+  type KmsConfig,
+  type SecretsConfig,
   type TenantScope,
 } from '@embedpdf/server';
 
@@ -31,19 +34,17 @@ const smokeSecretRefs = {
   jwtSigningSecret: { provider: 'env', name: 'EMBEDPDF_SMOKE_JWT_SECRET' },
   staticKmsKek: { provider: 'env', name: 'EMBEDPDF_SMOKE_STATIC_KMS_KEK', encoding: 'base64' },
 } as const;
-const smokeSecurityConfig = {
-  secrets: {
-    providers: {
-      env: { kind: 'env' },
-    },
-    cache: { ttlSec: 3600 },
+const smokeSecretsConfig = {
+  providers: {
+    env: { kind: 'env' },
   },
-  kms: {
-    kind: 'static',
-    keyId: 'cloud-smoke-static',
-    kek: smokeSecretRefs.staticKmsKek,
-  },
-} satisfies SecurityConfig;
+  cache: { ttlSec: 3600 },
+} satisfies SecretsConfig;
+const smokeKmsConfig = {
+  kind: 'static',
+  keyId: 'cloud-smoke-static',
+  kek: smokeSecretRefs.staticKmsKek,
+} satisfies KmsConfig;
 
 const engineBaseUrl = `http://${host}:${enginePort}`;
 const DEFAULT_DOC_SCOPE = [
@@ -80,20 +81,22 @@ async function startEmbedPdfServer(): Promise<void> {
       process.env['EMBEDPDF_SMOKE_JWT_SECRET'] ?? 'embedpdf-dev-secret-change-me',
     EMBEDPDF_SMOKE_STATIC_KMS_KEK: staticKmsKek,
   };
-  const security = await createSecurityRuntime(smokeSecurityConfig, {
-    env: securityEnv,
-  });
-  const secrets = await security.resolve({
-    jwtSecret: {
-      ref: smokeSecretRefs.jwtSigningSecret,
-      as: 'string',
-    },
-  });
-  jwtSigningSecret = secrets.jwtSecret;
+  const secrets = createSecretsProviderRegistry(smokeSecretsConfig, { env: securityEnv });
+  const resolver = createSecretResolver(secrets);
+  const [kms, resolvedSecrets] = await Promise.all([
+    createKmsKeyring(smokeKmsConfig, { resolver }),
+    resolver.resolve({
+      jwtSecret: {
+        ref: smokeSecretRefs.jwtSigningSecret,
+        as: 'string',
+      },
+    }),
+  ]);
+  jwtSigningSecret = resolvedSecrets.jwtSecret;
 
   embedpdf = await buildApp({
     verifier: { mode: 'hs256', secret: jwtSigningSecret },
-    kms: security.kms,
+    kms,
     workerEntry: defaultWorkerEntryUrl,
     poolSize: 1,
     db,

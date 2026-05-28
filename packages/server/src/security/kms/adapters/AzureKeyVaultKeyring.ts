@@ -61,14 +61,21 @@ type AzureWrappedDataKeyEnvelope =
     };
 
 export class AzureKeyVaultKeyring implements KmsKeyring {
-  readonly providerId = 'azure-kv' as const;
-  readonly keyId: string;
-  readonly mode: AzureKeyVaultKeyringMode;
+  readonly info: {
+    kind: 'azure-kv';
+    keyId: string;
+    vaultUrl: string;
+    mode: AzureKeyVaultKeyringMode;
+  };
   private readonly clientPromise: Promise<AzureCryptographyClient>;
 
   constructor(opts: AzureKeyVaultKeyringOptions) {
-    this.keyId = keyUrl(opts);
-    this.mode = opts.mode ?? 'key-vault-rsa-oaep-256';
+    this.info = {
+      kind: 'azure-kv',
+      keyId: keyUrl(opts),
+      vaultUrl: opts.vaultUrl,
+      mode: opts.mode ?? 'key-vault-rsa-oaep-256',
+    };
     this.clientPromise = this.createClient();
   }
 
@@ -77,14 +84,14 @@ export class AzureKeyVaultKeyring implements KmsKeyring {
     try {
       const client = await this.clientPromise;
       const envelope =
-        this.mode === 'managed-hsm-a256gcm'
+        this.info.mode === 'managed-hsm-a256gcm'
           ? await encryptManagedHsmAesGcm(client, plaintext, aad)
           : await wrapStandardKeyVaultRsa(client, plaintext, aad);
       return {
         plaintext,
         wrapped: {
-          providerId: this.providerId,
-          keyId: this.keyId,
+          providerId: this.info.kind,
+          keyId: this.info.keyId,
           algorithm: 'AES_256_GCM',
           version: 1,
           ciphertext: encodeEnvelope(envelope),
@@ -99,8 +106,8 @@ export class AzureKeyVaultKeyring implements KmsKeyring {
 
   async decryptDataKey(wrapped: WrappedDataKey, aad?: Record<string, string>): Promise<Buffer> {
     if (
-      wrapped.providerId !== this.providerId ||
-      wrapped.keyId !== this.keyId ||
+      wrapped.providerId !== this.info.kind ||
+      wrapped.keyId !== this.info.keyId ||
       wrapped.algorithm !== 'AES_256_GCM' ||
       wrapped.version !== 1
     ) {
@@ -127,7 +134,7 @@ export class AzureKeyVaultKeyring implements KmsKeyring {
       import('@azure/identity') as Promise<unknown> as Promise<AzureIdentityModule>,
       import('@azure/keyvault-keys') as Promise<unknown> as Promise<AzureKeysModule>,
     ]);
-    return new keys.CryptographyClient(this.keyId, new identity.DefaultAzureCredential());
+    return new keys.CryptographyClient(this.info.keyId, new identity.DefaultAzureCredential());
   }
 }
 

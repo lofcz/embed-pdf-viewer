@@ -1,18 +1,33 @@
-import type { SecretRef, SecretsProvider, SecretValue } from './SecretsProvider';
+import type {
+  SecretRef,
+  SecretsProvider,
+  SecretsProviderInfo,
+  SecretValue,
+} from './SecretsProvider';
 
 export interface CachingSecretsProviderOptions {
   ttlMs: number;
 }
 
+/**
+ * TTL-cache decorator. Wraps any `SecretsProvider`, caches successful
+ * lookups for `ttlMs`, and forwards `invalidate` to both the cache and
+ * the inner provider.
+ *
+ * The `info` shape carries the inner's full identity plus
+ * `cached: true` and the configured `ttlMs` — so an `/admin/status`
+ * endpoint can show "this provider is wrapped in a 5-minute cache"
+ * without forcing callers to special-case the decorator.
+ */
 export class CachingSecretsProvider implements SecretsProvider {
-  readonly kind: string;
+  readonly info: SecretsProviderInfo;
   private readonly cache = new Map<string, { value: SecretValue; expiresAt: number }>();
 
   constructor(
     private readonly inner: SecretsProvider,
     private readonly opts: CachingSecretsProviderOptions,
   ) {
-    this.kind = `${inner.kind}+cache`;
+    this.info = { ...inner.info, cached: true, ttlMs: opts.ttlMs };
   }
 
   async get(ref: SecretRef): Promise<SecretValue> {

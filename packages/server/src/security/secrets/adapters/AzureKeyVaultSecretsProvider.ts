@@ -29,10 +29,11 @@ type AzureSecretsModule = {
 };
 
 export class AzureKeyVaultSecretsProvider implements SecretsProvider {
-  readonly kind = 'azure-kv';
+  readonly info: { kind: 'azure-kv'; vaultUrl: string };
   private readonly clientPromise: Promise<AzureSecretClient>;
 
   constructor(private readonly opts: AzureKeyVaultSecretsProviderOptions) {
+    this.info = { kind: 'azure-kv', vaultUrl: opts.vaultUrl };
     this.clientPromise = this.createClient();
   }
 
@@ -40,7 +41,7 @@ export class AzureKeyVaultSecretsProvider implements SecretsProvider {
     try {
       const client = await this.clientPromise;
       const res = await client.getSecret(ref.name, ref.version ? { version: ref.version } : {});
-      if (!res.value) throw new SecretNotFound(ref, this.kind);
+      if (!res.value) throw new SecretNotFound(ref, this.info.kind);
       return {
         bytes: decodeSecretBytes(Buffer.from(res.value, 'utf8'), ref),
         version: res.properties?.version,
@@ -48,9 +49,9 @@ export class AzureKeyVaultSecretsProvider implements SecretsProvider {
       };
     } catch (err) {
       if (err instanceof SecretNotFound || isAzureNotFound(err)) {
-        throw new SecretNotFound(ref, this.kind);
+        throw new SecretNotFound(ref, this.info.kind);
       }
-      throw new SecretProviderUnreachable(this.kind, err);
+      throw new SecretProviderUnreachable(this.info.kind, err);
     }
   }
 

@@ -8,7 +8,7 @@ import {
 } from '../SecretsProvider';
 
 export class EnvSecretsProvider implements SecretsProvider {
-  readonly kind = 'env';
+  readonly info = { kind: 'env' as const };
 
   constructor(private readonly env: NodeJS.ProcessEnv = process.env) {}
 
@@ -16,7 +16,7 @@ export class EnvSecretsProvider implements SecretsProvider {
     try {
       const raw = this.env[ref.name];
       if (raw === undefined || raw === '') {
-        throw new SecretNotFound(ref, this.kind);
+        throw new SecretNotFound(ref, this.info.kind);
       }
       return {
         bytes: decodeSecretBytes(Buffer.from(raw, 'utf8'), ref),
@@ -24,7 +24,7 @@ export class EnvSecretsProvider implements SecretsProvider {
       };
     } catch (err) {
       if (err instanceof SecretNotFound) throw err;
-      throw new SecretProviderUnreachable(this.kind, err);
+      throw new SecretProviderUnreachable(this.info.kind, err);
     }
   }
 

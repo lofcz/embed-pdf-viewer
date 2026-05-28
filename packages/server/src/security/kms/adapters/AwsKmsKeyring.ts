@@ -35,8 +35,7 @@ type AwsKmsModule = {
 };
 
 export class AwsKmsKeyring implements KmsKeyring {
-  readonly providerId = 'aws-kms' as const;
-  readonly keyId: string;
+  readonly info: { kind: 'aws-kms'; keyId: string; region: string; endpoint?: string };
   private readonly clientPromise: Promise<{
     client: AwsKmsClient;
     GenerateDataKeyCommand: AwsKmsModule['GenerateDataKeyCommand'];
@@ -44,7 +43,12 @@ export class AwsKmsKeyring implements KmsKeyring {
   }>;
 
   constructor(private readonly opts: AwsKmsKeyringOptions) {
-    this.keyId = opts.keyId;
+    this.info = {
+      kind: 'aws-kms',
+      keyId: opts.keyId,
+      region: opts.region,
+      ...(opts.endpoint ? { endpoint: opts.endpoint } : {}),
+    };
     this.clientPromise = this.createClient();
   }
 
@@ -53,7 +57,7 @@ export class AwsKmsKeyring implements KmsKeyring {
       const { client, GenerateDataKeyCommand } = await this.clientPromise;
       const res = await client.send(
         new GenerateDataKeyCommand({
-          KeyId: this.keyId,
+          KeyId: this.info.keyId,
           KeySpec: 'AES_256',
           EncryptionContext: normalizeAwsAad(aad),
         }),
@@ -72,8 +76,8 @@ export class AwsKmsKeyring implements KmsKeyring {
       return {
         plaintext,
         wrapped: {
-          providerId: this.providerId,
-          keyId: res.KeyId ?? this.keyId,
+          providerId: this.info.kind,
+          keyId: res.KeyId ?? this.info.keyId,
           algorithm: 'AES_256_GCM',
           version: 1,
           ciphertext: Buffer.from(res.CiphertextBlob),
@@ -86,7 +90,7 @@ export class AwsKmsKeyring implements KmsKeyring {
   }
 
   async decryptDataKey(wrapped: WrappedDataKey, aad?: Record<string, string>): Promise<Buffer> {
-    if (wrapped.providerId !== this.providerId || wrapped.algorithm !== 'AES_256_GCM') {
+    if (wrapped.providerId !== this.info.kind || wrapped.algorithm !== 'AES_256_GCM') {
       throw new KmsAadMismatch();
     }
     try {

@@ -30,12 +30,11 @@ type GcpKmsModule = {
 };
 
 export class GcpKmsKeyring implements KmsKeyring {
-  readonly providerId = 'gcp-kms' as const;
-  readonly keyId: string;
+  readonly info: { kind: 'gcp-kms'; keyId: string };
   private readonly clientPromise: Promise<GcpKmsClient>;
 
   constructor(opts: GcpKmsKeyringOptions) {
-    this.keyId = opts.keyId;
+    this.info = { kind: 'gcp-kms', keyId: opts.keyId };
     this.clientPromise = this.createClient();
   }
 
@@ -44,7 +43,7 @@ export class GcpKmsKeyring implements KmsKeyring {
     try {
       const client = await this.clientPromise;
       const [res] = await client.encrypt({
-        name: this.keyId,
+        name: this.info.keyId,
         plaintext,
         additionalAuthenticatedData: gcpAad(aad),
       });
@@ -54,8 +53,8 @@ export class GcpKmsKeyring implements KmsKeyring {
       return {
         plaintext,
         wrapped: {
-          providerId: this.providerId,
-          keyId: this.keyId,
+          providerId: this.info.kind,
+          keyId: this.info.keyId,
           algorithm: 'AES_256_GCM',
           version: 1,
           ciphertext,
@@ -70,8 +69,8 @@ export class GcpKmsKeyring implements KmsKeyring {
 
   async decryptDataKey(wrapped: WrappedDataKey, aad?: Record<string, string>): Promise<Buffer> {
     if (
-      wrapped.providerId !== this.providerId ||
-      wrapped.keyId !== this.keyId ||
+      wrapped.providerId !== this.info.kind ||
+      wrapped.keyId !== this.info.keyId ||
       wrapped.algorithm !== 'AES_256_GCM' ||
       wrapped.version !== 1
     ) {
@@ -80,7 +79,7 @@ export class GcpKmsKeyring implements KmsKeyring {
     try {
       const client = await this.clientPromise;
       const [res] = await client.decrypt({
-        name: this.keyId,
+        name: this.info.keyId,
         ciphertext: wrapped.ciphertext,
         additionalAuthenticatedData: gcpAad(aad),
       });

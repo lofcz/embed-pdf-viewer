@@ -34,13 +34,18 @@ type AwsSecretsManagerModule = {
 };
 
 export class AwsSecretsManagerProvider implements SecretsProvider {
-  readonly kind = 'aws-sm';
+  readonly info: { kind: 'aws-sm'; region: string; endpoint?: string };
   private readonly clientPromise: Promise<{
     client: AwsSecretsManagerClient;
     GetSecretValueCommand: AwsSecretsManagerModule['GetSecretValueCommand'];
   }>;
 
   constructor(private readonly opts: AwsSecretsManagerProviderOptions) {
+    this.info = {
+      kind: 'aws-sm',
+      region: opts.region,
+      ...(opts.endpoint ? { endpoint: opts.endpoint } : {}),
+    };
     this.clientPromise = this.createClient();
   }
 
@@ -55,7 +60,7 @@ export class AwsSecretsManagerProvider implements SecretsProvider {
         }),
       );
       const raw = rawSecretBytes(res.SecretBinary, res.SecretString);
-      if (!raw || raw.byteLength === 0) throw new SecretNotFound(ref, this.kind);
+      if (!raw || raw.byteLength === 0) throw new SecretNotFound(ref, this.info.kind);
       return {
         bytes: decodeSecretBytes(raw, ref),
         version: res.VersionId,
@@ -63,9 +68,9 @@ export class AwsSecretsManagerProvider implements SecretsProvider {
       };
     } catch (err) {
       if (err instanceof SecretNotFound || isAwsNotFound(err)) {
-        throw new SecretNotFound(ref, this.kind);
+        throw new SecretNotFound(ref, this.info.kind);
       }
-      throw new SecretProviderUnreachable(this.kind, err);
+      throw new SecretProviderUnreachable(this.info.kind, err);
     }
   }
 

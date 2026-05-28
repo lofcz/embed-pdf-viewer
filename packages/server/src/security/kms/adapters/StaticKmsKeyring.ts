@@ -13,8 +13,7 @@ export interface StaticKmsKeyringOptions {
 }
 
 export class StaticKmsKeyring implements KmsKeyring {
-  readonly providerId = 'static' as const;
-  readonly keyId: string;
+  readonly info: { kind: 'static'; keyId: string };
   private readonly kek: Buffer;
 
   constructor(opts: StaticKmsKeyringOptions) {
@@ -23,7 +22,7 @@ export class StaticKmsKeyring implements KmsKeyring {
         `static KMS KEK must be 32 bytes after decoding (got ${opts.kek.byteLength})`,
       );
     }
-    this.keyId = opts.keyId;
+    this.info = { kind: 'static', keyId: opts.keyId };
     this.kek = Buffer.from(opts.kek);
   }
 
@@ -36,7 +35,7 @@ export class StaticKmsKeyring implements KmsKeyring {
   }
 
   async decryptDataKey(wrapped: WrappedDataKey, aad?: Record<string, string>): Promise<Buffer> {
-    if (wrapped.providerId !== this.providerId || wrapped.keyId !== this.keyId) {
+    if (wrapped.providerId !== this.info.kind || wrapped.keyId !== this.info.keyId) {
       throw new KmsAadMismatch();
     }
     if (wrapped.algorithm !== 'AES_256_GCM' || wrapped.version !== 1) {
@@ -52,8 +51,8 @@ export class StaticKmsKeyring implements KmsKeyring {
     const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
     const tag = cipher.getAuthTag();
     return {
-      providerId: this.providerId,
-      keyId: this.keyId,
+      providerId: this.info.kind,
+      keyId: this.info.keyId,
       algorithm: 'AES_256_GCM',
       version: 1,
       ciphertext: Buffer.concat([nonce, ciphertext, tag]),

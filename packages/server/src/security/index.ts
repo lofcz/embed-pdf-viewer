@@ -3,6 +3,7 @@ export type {
   SecretRef,
   SecretValue,
   SecretsProvider,
+  SecretsProviderInfo,
 } from './secrets/SecretsProvider';
 export { SecretNotFound, SecretProviderUnreachable } from './secrets/SecretsProvider';
 export { CachingSecretsProvider } from './secrets/CachingSecretsProvider';
@@ -28,7 +29,13 @@ export {
   resolveSecretRequests,
 } from './secrets/SecretResolver';
 
-export type { DataKey, KmsKeyring, KmsProviderId, WrappedDataKey } from './kms/KmsKeyring';
+export type {
+  DataKey,
+  KmsKeyring,
+  KmsKeyringInfo,
+  KmsProviderId,
+  WrappedDataKey,
+} from './kms/KmsKeyring';
 export { KmsAadMismatch, KmsUnreachable } from './kms/KmsKeyring';
 export { LocalAesGcmEnvelope, type LocalAesGcmCiphertext } from './kms/LocalAesGcmEnvelope';
 export {
@@ -49,17 +56,28 @@ export { GcpKmsKeyring } from './kms/adapters/GcpKmsKeyring';
 export { AzureKeyVaultKeyring } from './kms/adapters/AzureKeyVaultKeyring';
 export { createKmsKeyring } from './kms/createKmsKeyring';
 
+// SecretRef lives in the shared `config/secrets/` location because
+// every adapter family's config schema needs it. Re-exported here for
+// backward-compat with the historical import path.
 export {
-  KmsConfigSchema,
   SecretEncodingSchema,
-  SecretProviderConfigSchema,
   SecretRefSchema,
-  SecurityConfigSchema,
-  validateSecurityConfigProviderRefs,
-  type KmsConfig,
-  type SecretProviderConfig,
   type SecretRefConfig,
-  type SecurityConfig,
-} from './config/SecurityConfigSchema';
-export { defaultEnvSecurityConfig } from './config/defaultEnvSecurityConfig';
-export { createSecurityRuntime, type SecurityRuntime } from './config/createSecurityRuntime';
+} from '../config/secrets/SecretRef';
+
+// Family-local schema: SecretProviderConfig lives in
+// `security/secrets/config/SecretsConfigSchema.ts`. Re-exported here
+// for back-compat with the historical import path.
+export {
+  SecretProviderConfigSchema,
+  SecretsConfigSchema,
+  type SecretProviderConfig,
+  type SecretsConfig,
+} from './secrets/config/SecretsConfigSchema';
+export { loadSecretsConfigFromEnv } from './secrets/config/loadSecretsConfigFromEnv';
+
+export { KmsConfigSchema, type KmsConfig } from './kms/config/KmsConfigSchema';
+export { loadKmsConfigFromEnv } from './kms/config/loadKmsConfigFromEnv';
+
+// Shared SecretRef URI parser (used by env loaders across families)
+export { parseSecretRefUri } from '../config/secrets/parseSecretRefUri';

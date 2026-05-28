@@ -28,10 +28,11 @@ type GcpSecretManagerModule = {
 };
 
 export class GcpSecretManagerProvider implements SecretsProvider {
-  readonly kind = 'gcp-sm';
+  readonly info: { kind: 'gcp-sm'; project: string };
   private readonly clientPromise: Promise<GcpSecretManagerClient>;
 
   constructor(private readonly opts: GcpSecretManagerProviderOptions) {
+    this.info = { kind: 'gcp-sm', project: opts.project };
     this.clientPromise = this.createClient();
   }
 
@@ -42,7 +43,7 @@ export class GcpSecretManagerProvider implements SecretsProvider {
         name: secretVersionName(this.opts.project, ref),
       });
       const raw = rawSecretBytes(res.payload?.data);
-      if (!raw || raw.byteLength === 0) throw new SecretNotFound(ref, this.kind);
+      if (!raw || raw.byteLength === 0) throw new SecretNotFound(ref, this.info.kind);
       return {
         bytes: decodeSecretBytes(raw, ref),
         version: res.name?.split('/').at(-1),
@@ -50,9 +51,9 @@ export class GcpSecretManagerProvider implements SecretsProvider {
       };
     } catch (err) {
       if (err instanceof SecretNotFound || isGcpNotFound(err)) {
-        throw new SecretNotFound(ref, this.kind);
+        throw new SecretNotFound(ref, this.info.kind);
       }
-      throw new SecretProviderUnreachable(this.kind, err);
+      throw new SecretProviderUnreachable(this.info.kind, err);
     }
   }
 

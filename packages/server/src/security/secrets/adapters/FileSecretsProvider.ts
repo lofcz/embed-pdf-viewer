@@ -14,26 +14,27 @@ export interface FileSecretsProviderOptions {
 }
 
 export class FileSecretsProvider implements SecretsProvider {
-  readonly kind = 'file';
+  readonly info: { kind: 'file'; root: string };
   private readonly root: string;
 
   constructor(opts: FileSecretsProviderOptions) {
     this.root = resolve(opts.root);
+    this.info = { kind: 'file', root: this.root };
   }
 
   async get(ref: SecretRef): Promise<SecretValue> {
     const path = this.resolveName(ref.name);
     try {
       const raw = await readFile(path);
-      if (raw.byteLength === 0) throw new SecretNotFound(ref, this.kind);
+      if (raw.byteLength === 0) throw new SecretNotFound(ref, this.info.kind);
       return {
         bytes: decodeSecretBytes(raw, ref),
         fetchedAt: new Date(),
       };
     } catch (err) {
       if (err instanceof SecretNotFound) throw err;
-      if (isNodeError(err, 'ENOENT')) throw new SecretNotFound(ref, this.kind);
-      throw new SecretProviderUnreachable(this.kind, err);
+      if (isNodeError(err, 'ENOENT')) throw new SecretNotFound(ref, this.info.kind);
+      throw new SecretProviderUnreachable(this.info.kind, err);
     }
   }
 

@@ -1,5 +1,15 @@
 export type KmsProviderId = 'static' | 'aws-kms' | 'gcp-kms' | 'azure-kv';
 
+/**
+ * On-wire / persisted shape. `providerId` and `keyId` describe WHICH
+ * keyring wrapped this data key — used at unwrap time to verify the
+ * caller's current keyring is compatible.
+ *
+ * Field names are part of the persistence contract (stored in
+ * `pdf_password_sessions.wrapped_data_key` and similar) — they don't
+ * follow the runtime `info: { kind }` convention because they're not
+ * a discriminator union, just an envelope.
+ */
 export interface WrappedDataKey {
   readonly providerId: KmsProviderId;
   readonly keyId: string;
@@ -13,9 +23,22 @@ export interface DataKey {
   readonly wrapped: WrappedDataKey;
 }
 
-export interface KmsKeyring {
+/**
+ * Diagnostic identity for a KmsKeyring. `kind` is the discriminator
+ * (matches `KmsConfig.kind`); `keyId` is the runtime key identifier
+ * (e.g., an AWS ARN, GCP resource name, Azure key URL, or static
+ * label). Additional fields are public identifiers safe to expose via
+ * `/v1/admin/status` — region, vault URL, etc. NEVER include secret
+ * material.
+ */
+export interface KmsKeyringInfo {
+  readonly kind: KmsProviderId;
   readonly keyId: string;
-  readonly providerId: KmsProviderId;
+  readonly [field: string]: unknown;
+}
+
+export interface KmsKeyring {
+  readonly info: KmsKeyringInfo;
   generateDataKey(aad?: Record<string, string>): Promise<DataKey>;
   decryptDataKey(wrapped: WrappedDataKey, aad?: Record<string, string>): Promise<Buffer>;
 }

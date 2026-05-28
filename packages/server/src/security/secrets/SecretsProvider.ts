@@ -15,8 +15,23 @@ export interface SecretValue {
   readonly fetchedAt: Date;
 }
 
-export interface SecretsProvider {
+/**
+ * Diagnostic identity for a SecretsProvider. `kind` is the discriminator
+ * (matches the Zod config schema); other fields are public identifiers
+ * that may be surfaced via `/v1/admin/status` and similar — bucket
+ * names, hostnames, project IDs, etc. NEVER include secret values.
+ *
+ * Decorator providers (e.g., `CachingSecretsProvider`) add fields like
+ * `cached: true` rather than mutating `kind`.
+ */
+export interface SecretsProviderInfo {
   readonly kind: string;
+  readonly cached?: boolean;
+  readonly [field: string]: unknown;
+}
+
+export interface SecretsProvider {
+  readonly info: SecretsProviderInfo;
   get(ref: SecretRef): Promise<SecretValue>;
   invalidate(ref: SecretRef): void;
 }
