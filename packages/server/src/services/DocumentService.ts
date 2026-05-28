@@ -97,6 +97,15 @@ export interface DocumentServiceOptions {
   passwordSessionServerSecret?: { id: string; secret: string | Buffer };
   passwordSessionTtlMs?: number;
   passwordSessionRenewalTtlMs?: number;
+  /**
+   * When true, every /head response carries `access.required = true`
+   * with `'cdn'` in `reasons` (in addition to any password-related
+   * reasons). The SDK uses this to trigger /v1/access automatically
+   * so it can pick up CDN-signed URLs/cookies before the first
+   * cacheable read. Set when the app is built with a non-`none`
+   * CdnSigner.
+   */
+  cdnAccessRequired?: boolean;
 }
 
 export interface OpenContext {
@@ -158,6 +167,7 @@ export class DocumentService {
   private readonly passwordSessionServerSecret: { id: string; secret: string | Buffer } | null;
   private readonly passwordSessionTtlMs: number;
   private readonly passwordSessionRenewalTtlMs: number;
+  private readonly cdnAccessRequired: boolean;
   private readonly heads = new Map<string, DocumentHead>();
   private readonly opens = new Map<string, Promise<DocumentHead>>();
   private readonly baseHandles = new Map<string, LocalFileHandle>();
@@ -176,6 +186,7 @@ export class DocumentService {
     this.passwordSessionServerSecret = opts.passwordSessionServerSecret ?? null;
     this.passwordSessionTtlMs = opts.passwordSessionTtlMs ?? 60 * 60 * 1000;
     this.passwordSessionRenewalTtlMs = opts.passwordSessionRenewalTtlMs ?? 60 * 60 * 1000;
+    this.cdnAccessRequired = opts.cdnAccessRequired ?? false;
   }
 
   /**
@@ -288,7 +299,7 @@ export class DocumentService {
    */
   async getHead(ctx: OpenContext, docId: string): Promise<DocumentHead> {
     const row = await this.requireReadyRow(ctx, docId);
-    const head = buildHead(row);
+    const head = buildHead(row, this.cdnAccessRequired);
     void this.warm(ctx, docId).catch(() => undefined);
     return head;
   }
@@ -321,7 +332,7 @@ export class DocumentService {
       if (result.tag !== 'open') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected open payload: ${result.tag}`);
       }
-      const head = buildHead(row);
+      const head = buildHead(row, this.cdnAccessRequired);
       this.replaceBaseHandle(docId, handle);
       handle = null;
       return head;
@@ -1004,7 +1015,7 @@ function layerSessionKey(docId: string, layerName: string): string {
   return `${docId}::${layerName}`;
 }
 
-function buildHead(row: DocumentRow): DocumentHead {
+function buildHead(row: DocumentRow, cdnAccessRequired: boolean): DocumentHead {
   const baseSha = requireBaseSha(row);
   const permissions = {
     known: row.security.pdfPermissionsBits !== null,
@@ -1020,6 +1031,10 @@ function buildHead(row: DocumentRow): DocumentHead {
     reasons.push('password');
   }
   if (row.security.encryptionState === 'unknown') reasons.push('permissions-unknown');
+  // CDN-configured deployments need /v1/access for signed URLs even
+  // when the document isn't encrypted. The SDK reads `reasons` to
+  // decide whether to auto-call /access at open() time.
+  if (cdnAccessRequired) reasons.push('cdn');
 
   return {
     id: row.id,

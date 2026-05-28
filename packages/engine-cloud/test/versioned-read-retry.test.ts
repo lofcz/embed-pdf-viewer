@@ -18,7 +18,7 @@ import {
  *
  *   GET /v1/docs/:docId/head             → current head (`docVersion`)
  *   GET /v1/docs/:docId/manifest@docVersion=N     → current manifest, 404 if `D` ≠ current
- *   GET /v1/docs/:docId/pages/:pon/text@contentVersion=N → page text, 404 if `P` ≠ current page contentVersion
+ *   GET /v1/docs/:docId/text/pages/:pon/data@contentVersion=N → page text, 404 if `P` ≠ current page contentVersion
  *   (any other path)                     → 404 (so we'd notice spurious calls)
  *
  * The test rewrites the "current" version mid-flight to model a
@@ -189,7 +189,7 @@ function buildStub(initial: ServerState): StubbedFixture {
     }
 
     const textMatch = path.match(
-      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/pages\/(\d+)\/text@contentVersion=(\d+)$/,
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/text\/pages\/(\d+)\/data@contentVersion=(\d+)$/,
     );
     if (textMatch && method === 'GET') {
       const requestedPon = Number(textMatch[3]);
@@ -217,7 +217,7 @@ function buildStub(initial: ServerState): StubbedFixture {
     }
 
     const annotationsMatch = path.match(
-      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/pages\/(\d+)\/annotations@annotationVersion=(\d+)$/,
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/annotations\/pages\/(\d+)\/items@annotationVersion=(\d+)$/,
     );
     if (annotationsMatch && method === 'GET') {
       const requestedPon = Number(annotationsMatch[3]);
@@ -246,7 +246,7 @@ function buildStub(initial: ServerState): StubbedFixture {
     }
 
     const annotationCreateMatch = path.match(
-      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/pages\/(\d+)\/annotations$/,
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/annotations\/pages\/(\d+)\/items$/,
     );
     if (annotationCreateMatch && method === 'POST') {
       const requestedPon = Number(annotationCreateMatch[3]);
@@ -408,7 +408,7 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       expect(paths).toEqual([
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=1`,
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/text@contentVersion=1`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/text/pages/${PAGE_OBJECT_NUMBER}/data@contentVersion=1`,
       ]);
     } finally {
       await doc.close();
@@ -474,10 +474,10 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       expect(snap.text).toBe('initial');
       const paths = fx.calls.slice(callsBeforeRefresh).map((call) => call.path);
       expect(paths).toEqual([
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/text@contentVersion=1`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/text/pages/${PAGE_OBJECT_NUMBER}/data@contentVersion=1`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=2`,
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/text@contentVersion=2`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/text/pages/${PAGE_OBJECT_NUMBER}/data@contentVersion=2`,
       ]);
     } finally {
       await doc.close();
@@ -494,7 +494,7 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       await page.text.read();
       const newPaths = fx.calls.slice(callsAfterFirst).map((c) => c.path);
       expect(newPaths).toEqual([
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/text@contentVersion=1`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/text/pages/${PAGE_OBJECT_NUMBER}/data@contentVersion=1`,
       ]);
     } finally {
       await doc.close();
@@ -524,10 +524,10 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       //   [fresh-leaf v2]   → 200
       const retryPaths = fx.calls.slice(callsBeforeRetry).map((c) => c.path);
       expect(retryPaths).toEqual([
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/text@contentVersion=1`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/text/pages/${PAGE_OBJECT_NUMBER}/data@contentVersion=1`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=2`,
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/text@contentVersion=2`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/text/pages/${PAGE_OBJECT_NUMBER}/data@contentVersion=2`,
       ]);
 
       // Cache is now warm with v2; a third read uses the new version
@@ -537,7 +537,7 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       expect(third.text).toBe('after-mutation');
       const thirdPaths = fx.calls.slice(callsBeforeThird).map((c) => c.path);
       expect(thirdPaths).toEqual([
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/text@contentVersion=2`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/text/pages/${PAGE_OBJECT_NUMBER}/data@contentVersion=2`,
       ]);
     } finally {
       await doc.close();
@@ -560,10 +560,10 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
 
       const retryPaths = fx.calls.slice(callsBeforeRetry).map((c) => c.path);
       expect(retryPaths).toEqual([
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/annotations@annotationVersion=1`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/annotations/pages/${PAGE_OBJECT_NUMBER}/items@annotationVersion=1`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=2`,
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/annotations@annotationVersion=2`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/annotations/pages/${PAGE_OBJECT_NUMBER}/items@annotationVersion=2`,
       ]);
     } finally {
       await doc.close();
@@ -597,7 +597,7 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       expect(second.annotations).toHaveLength(1);
       const paths = fx.calls.slice(callsBeforeList).map((call) => call.path);
       expect(paths).toEqual([
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/annotations@annotationVersion=2`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/annotations/pages/${PAGE_OBJECT_NUMBER}/items@annotationVersion=2`,
       ]);
     } finally {
       await doc.close();
@@ -634,7 +634,7 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       expect(paths).toEqual([
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=3`,
-        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/pages/${PAGE_OBJECT_NUMBER}/annotations@annotationVersion=3`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/annotations/pages/${PAGE_OBJECT_NUMBER}/items@annotationVersion=3`,
       ]);
     } finally {
       await doc.close();

@@ -3,13 +3,14 @@ import {
   checkAnyCapability,
   checkCapability,
   checkCollab,
-  checkResourceAccess,
   type CollabAction,
   type CollabTarget,
   type DocCapability,
-  type DocResourceId,
   type PdfBits,
 } from '@embedpdf/engine-core/runtime';
+// checkResourceAccess + DocResourceId live in /wire (resource descriptor
+// table is HTTP-wire surface, used by route guards on every read endpoint).
+import { checkResourceAccess, type DocResourceId } from '@embedpdf/engine-core/wire';
 
 import {
   createJwtVerifier,

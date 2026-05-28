@@ -44,7 +44,7 @@ export class LocalDocumentHandle implements DocumentHandle {
     private readonly guard: ScopeGuard,
   ) {
     const view = { isClosed: () => this.closed };
-    this.security = new LocalDocumentSecurityService(initialSecurity, id, queue, view);
+    this.security = new LocalDocumentSecurityService(initialSecurity, id, queue, view, guard);
     this.metadata = new LocalMetadataService(id, queue, view, guard);
     this.annotations = new LocalDocumentAnnotationsService(id, queue, view, guard);
     this.pages = new LocalDocumentPagesService(id, queue, view, guard);

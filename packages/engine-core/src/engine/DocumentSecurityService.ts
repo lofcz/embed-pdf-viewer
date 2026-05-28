@@ -68,15 +68,29 @@ export interface DocumentSecurityState {
   };
 }
 
+/**
+ * The CDN adapter identifier surfaced on the wire. Cloudflare users
+ * deploy a custom Worker that verifies HMAC-SHA256 signatures and
+ * configure the `custom-hmac` adapter — no first-class `'cloudflare'`
+ * value is needed.
+ */
+export type CdnAdapter = 'none' | 'cloudfront' | 'cloud-cdn' | 'bunny' | 'azure-fd' | 'custom-hmac';
+
+/**
+ * Per-caller CDN access bits returned in the /access response. The
+ * SDK fetch wrapper applies whatever channels are populated:
+ *   - baseUrlOverrides   : swap the origin host/path-prefix for the CDN URL
+ *   - authHeader         : attach a single header to every CDN request
+ *   - signedQueryParams  : append params to every CDN URL (single-token signers)
+ *   - signedCookies      : set cookies on the CDN origin before requests
+ *   - signedPathPolicies : per-prefix params (one signature covers a path subtree)
+ *
+ * Each adapter populates only the channels it uses; the others stay
+ * null. Frontend stays provider-agnostic — it doesn't branch on
+ * `adapter`, it just applies whatever's present.
+ */
 export interface CdnAccessInfo {
-  readonly adapter:
-    | 'none'
-    | 'cloudfront'
-    | 'cloud-cdn'
-    | 'cloudflare'
-    | 'bunny'
-    | 'azure-fd'
-    | 'custom-hmac';
+  readonly adapter: CdnAdapter;
   readonly expiresAt: number;
   readonly cache: {
     readonly scope: 'browser-private' | 'edge-shared';
@@ -84,6 +98,18 @@ export interface CdnAccessInfo {
   };
   readonly baseUrlOverrides: Partial<Record<string, string>> | null;
   readonly authHeader: { name: string; value: string } | null;
+  readonly signedQueryParams: Record<string, string> | null;
+  readonly signedCookies: ReadonlyArray<{
+    readonly name: string;
+    readonly value: string;
+    readonly domain?: string;
+    readonly path?: string;
+    readonly expires?: number;
+  }> | null;
+  readonly signedPathPolicies: ReadonlyArray<{
+    readonly pathPrefix: string;
+    readonly queryParams: Record<string, string>;
+  }> | null;
 }
 
 export interface DocumentAccessInfo {
@@ -127,7 +153,49 @@ export interface DocumentUnlockResult {
   readonly access?: DocumentAccessInfo;
 }
 
+/**
+ * Identity of the caller for the current session. Cloud derives this
+ * from the JWT claims (and refreshes from /access when called); local
+ * derives it from the identity supplied to `engine.open()`. Null when
+ * no identity is known (anonymous session).
+ *
+ * Re-exported alias of `IdentityClaims` from `auth/scope/types.ts` —
+ * the alias gives a security-flavored name to the same shape so the
+ * dev-facing API reads naturally.
+ */
+export type { IdentityClaims as DocumentIdentity } from '../auth/scope/types';
+
 export interface DocumentSecurityService {
+  /**
+   * Raw structured security probe. Stable across engines, refreshed
+   * after unlock/refresh. Power users and diagnostic tools read this;
+   * most dev code uses the higher-level accessors below.
+   */
   readonly current: DocumentSecurityState;
+
+  /**
+   * The caller's expanded capability set — the result of evaluating
+   * raw scope + pdf bits + implication rules. Use this to gate UI
+   * (e.g. `effectiveScope.includes('doc.text.copy')`). Identical shape
+   * on local and cloud; cloud uses the server-canonical value when
+   * available, else computes locally from JWT scope + /head bits.
+   */
+  readonly effectiveScope: ReadonlyArray<string>;
+
+  /**
+   * Identity of the current caller, or null when anonymous.
+   */
+  readonly identity: import('../auth/scope/types').IdentityClaims | null;
+
+  /**
+   * "Should I prompt the user for a password?" — the single source
+   * of truth. Three states, each carrying exactly the data needed:
+   *   - `none`     — do nothing
+   *   - `required` — hard block; show modal; `hint` labels the prompt
+   *   - `optional` — soft offer; show banner; only ever asks for owner
+   * See {@link PasswordPrompt} for the full contract.
+   */
+  readonly passwordPrompt: import('./passwordPrompt').PasswordPrompt;
+
   unlock(input: DocumentUnlockInput): AbortablePromise<DocumentUnlockResult>;
 }

@@ -23,9 +23,11 @@ export {
 } from './engine/document-security-state';
 export type {
   CdnAccessInfo,
+  CdnAdapter,
   DocumentAccessInfo,
   DocumentAccessReason,
   DocumentEncryptionState,
+  DocumentIdentity,
   DocumentOpenMode,
   DocumentSecurityService,
   DocumentSecurityState,
@@ -34,6 +36,8 @@ export type {
   PdfPermissionAdvisory,
   PdfPermissionInfo,
 } from './engine/DocumentSecurityService';
+export { passwordPromptFromState } from './engine/passwordPrompt';
+export type { PasswordPrompt } from './engine/passwordPrompt';
 export type { DocumentCapabilities } from './engine/DocumentHandle';
 export type { MetadataService } from './engine/MetadataService';
 export type { PageHandle } from './engine/PageHandle';

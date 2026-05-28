@@ -12,7 +12,7 @@ import type { ManifestAccessor } from './CloudDocumentHandle';
 
 /**
  * Cloud-side per-page text service. `read()` fetches the
- * content-addressed URL `/v1/docs/:id/pages/:pon/text@contentVersion=N`, where
+ * content-addressed URL `/v1/docs/:id/text/pages/:pon/data@contentVersion=N`, where
  * `:P` is the page's current `contentVersion` from the cached
  * manifest. On a 404 (stale version) the SDK transparently refreshes
  * `/head` + `/manifest@docVersion=N`, rebuilds the URL with the fresh `cN`,

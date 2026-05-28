@@ -21,12 +21,10 @@ import {
   type ManifestPage,
 } from '@embedpdf/engine-core/wire';
 import {
-  requireDocAccessOnly,
   requireLayerCapability,
   requireLayerCollabAction,
   requireLayerDocAccessOnly,
   requireLayerResource,
-  requireResource,
   type RequestJwtContext,
 } from '../app/jwt-plugin';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
@@ -64,70 +62,40 @@ export async function registerAnnotationRoutes(
 ): Promise<void> {
   const { documentService, layerService, pool, revisionBridge, weakAnnotationSessions } = deps;
 
-  app.get('/v1/docs/:docId/pages/:pon/annotations@:token', async (req, reply) => {
-    const { docId, pon, token } = req.params as { docId: string; pon: string; token: string };
-    const accessCtx = requireDocAccessOnly(req, docId);
-    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
-    const ctx = requireResource(req, docId, 'annotations-read', pdfBits);
-    return readAnnotations({
-      documentService,
-      pool,
-      revisionBridge,
-      reply,
-      signal: abortSignalFromRequest(req),
-      scope: { kind: 'base', ctx, docId },
-      pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseTokenOrInvalidArg(
-        decodeAnnotationToken,
-        token,
-        'annotationVersion token',
-      ),
-    });
-  });
+  // Annotations are layer-scoped only in paths v2. The doc-level
+  // (no-layer) variant from v1 is removed; callers use layerName
+  // 'default' explicitly when they want layer-default behavior.
 
-  app.get('/v1/docs/:docId/pages/:pon/annotations', async (req, reply) => {
-    const { docId, pon } = req.params as { docId: string; pon: string };
-    const accessCtx = requireDocAccessOnly(req, docId);
-    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId);
-    const ctx = requireResource(req, docId, 'annotations-read', pdfBits);
-    return readAnnotations({
-      documentService,
-      pool,
-      revisionBridge,
-      reply,
-      signal: abortSignalFromRequest(req),
-      scope: { kind: 'base', ctx, docId },
-      pageObjectNumber: parsePageObjectNumber(pon),
-    });
-  });
+  app.get(
+    '/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/items@:token',
+    async (req, reply) => {
+      const { docId, layerName, pon, token } = req.params as {
+        docId: string;
+        layerName: string;
+        pon: string;
+        token: string;
+      };
+      const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+      const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+      const ctx = requireLayerResource(req, docId, layerName, 'annotations-read', pdfBits);
+      return readAnnotations({
+        documentService,
+        pool,
+        revisionBridge,
+        reply,
+        signal: abortSignalFromRequest(req),
+        scope: { kind: 'layer', ctx, docId, layerName },
+        pageObjectNumber: parsePageObjectNumber(pon),
+        requestedVersion: parseTokenOrInvalidArg(
+          decodeAnnotationToken,
+          token,
+          'annotationVersion token',
+        ),
+      });
+    },
+  );
 
-  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/annotations@:token', async (req, reply) => {
-    const { docId, layerName, pon, token } = req.params as {
-      docId: string;
-      layerName: string;
-      pon: string;
-      token: string;
-    };
-    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
-    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
-    const ctx = requireLayerResource(req, docId, layerName, 'annotations-read', pdfBits);
-    return readAnnotations({
-      documentService,
-      pool,
-      revisionBridge,
-      reply,
-      signal: abortSignalFromRequest(req),
-      scope: { kind: 'layer', ctx, docId, layerName },
-      pageObjectNumber: parsePageObjectNumber(pon),
-      requestedVersion: parseTokenOrInvalidArg(
-        decodeAnnotationToken,
-        token,
-        'annotationVersion token',
-      ),
-    });
-  });
-
-  app.get('/v1/docs/:docId/layers/:layerName/pages/:pon/annotations', async (req, reply) => {
+  app.get('/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/items', async (req, reply) => {
     const { docId, layerName, pon } = req.params as {
       docId: string;
       layerName: string;
@@ -147,7 +115,7 @@ export async function registerAnnotationRoutes(
     });
   });
 
-  app.post('/v1/docs/:docId/layers/:layerName/weak-annotation-session', async (req, reply) => {
+  app.post('/v1/docs/:docId/layers/:layerName/weak-annotation-sessions', async (req, reply) => {
     const { docId, layerName } = req.params as { docId: string; layerName: string };
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
     const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
@@ -169,7 +137,7 @@ export async function registerAnnotationRoutes(
   });
 
   app.post(
-    '/v1/docs/:docId/layers/:layerName/weak-annotation-session/:sessionId/pages',
+    '/v1/docs/:docId/layers/:layerName/weak-annotation-sessions/:sessionId/pages',
     async (req, reply) => {
       const { docId, layerName, sessionId } = req.params as {
         docId: string;
@@ -198,7 +166,7 @@ export async function registerAnnotationRoutes(
   );
 
   app.post(
-    '/v1/docs/:docId/layers/:layerName/weak-annotation-session/:sessionId/heartbeat',
+    '/v1/docs/:docId/layers/:layerName/weak-annotation-sessions/:sessionId/heartbeat',
     async (req, reply) => {
       const { docId, layerName, sessionId } = req.params as {
         docId: string;
@@ -217,7 +185,7 @@ export async function registerAnnotationRoutes(
   );
 
   app.delete(
-    '/v1/docs/:docId/layers/:layerName/weak-annotation-session/:sessionId',
+    '/v1/docs/:docId/layers/:layerName/weak-annotation-sessions/:sessionId',
     async (req, reply) => {
       const { docId, layerName, sessionId } = req.params as {
         docId: string;
@@ -236,7 +204,7 @@ export async function registerAnnotationRoutes(
     },
   );
 
-  app.post('/v1/docs/:docId/layers/:layerName/pages/:pon/annotations', async (req, reply) => {
+  app.post('/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/items', async (req, reply) => {
     const { docId, layerName, pon } = req.params as {
       docId: string;
       layerName: string;
@@ -267,51 +235,54 @@ export async function registerAnnotationRoutes(
     );
   });
 
-  app.post('/v1/docs/:docId/layers/:layerName/pages/:pon/annotations/move', async (req, reply) => {
-    const { docId, layerName, pon } = req.params as {
-      docId: string;
-      layerName: string;
-      pon: string;
-    };
-    const pageObjectNumber = parsePageObjectNumber(pon);
-    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
-    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
-    const ctx = requireLayerCapability(req, docId, layerName, 'doc.annotate.modify', pdfBits);
-    const body = req.body as Record<string, unknown> | null | undefined;
-    const rawRefs = body?.refs;
-    const rawToIndex = body?.toIndex;
-    if (!Array.isArray(rawRefs) || rawRefs.length === 0) {
-      throw new EngineError(
-        EngineErrorCode.InvalidArg,
-        'body.refs: expected non-empty array of AnnotationRef',
-      );
-    }
-    if (typeof rawToIndex !== 'number' || !Number.isInteger(rawToIndex) || rawToIndex < 0) {
-      throw new EngineError(
-        EngineErrorCode.InvalidArg,
-        'body.toIndex: expected non-negative integer',
-      );
-    }
-    const refs: AnnotationRef[] = rawRefs.map((raw, i) => {
-      const ref = parseOrInvalidArg<AnnotationRef>(
-        AnnotationRefSchema as unknown as SchemaLike<AnnotationRef>,
-        raw,
-        `body.refs[${i}]`,
-      );
-      assertRefMatchesPage(ref, pageObjectNumber);
-      return ref;
-    });
+  app.post(
+    '/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/items/move',
+    async (req, reply) => {
+      const { docId, layerName, pon } = req.params as {
+        docId: string;
+        layerName: string;
+        pon: string;
+      };
+      const pageObjectNumber = parsePageObjectNumber(pon);
+      const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+      const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+      const ctx = requireLayerCapability(req, docId, layerName, 'doc.annotate.modify', pdfBits);
+      const body = req.body as Record<string, unknown> | null | undefined;
+      const rawRefs = body?.refs;
+      const rawToIndex = body?.toIndex;
+      if (!Array.isArray(rawRefs) || rawRefs.length === 0) {
+        throw new EngineError(
+          EngineErrorCode.InvalidArg,
+          'body.refs: expected non-empty array of AnnotationRef',
+        );
+      }
+      if (typeof rawToIndex !== 'number' || !Number.isInteger(rawToIndex) || rawToIndex < 0) {
+        throw new EngineError(
+          EngineErrorCode.InvalidArg,
+          'body.toIndex: expected non-negative integer',
+        );
+      }
+      const refs: AnnotationRef[] = rawRefs.map((raw, i) => {
+        const ref = parseOrInvalidArg<AnnotationRef>(
+          AnnotationRefSchema as unknown as SchemaLike<AnnotationRef>,
+          raw,
+          `body.refs[${i}]`,
+        );
+        assertRefMatchesPage(ref, pageObjectNumber);
+        return ref;
+      });
 
-    setNoStore(reply);
-    return layerService.moveAnnotations(
-      ctx,
-      { docId, layerName, pageObjectNumber, refs, toIndex: rawToIndex },
-      abortSignalFromRequest(req),
-    );
-  });
+      setNoStore(reply);
+      return layerService.moveAnnotations(
+        ctx,
+        { docId, layerName, pageObjectNumber, refs, toIndex: rawToIndex },
+        abortSignalFromRequest(req),
+      );
+    },
+  );
 
   app.patch(
-    '/v1/docs/:docId/layers/:layerName/pages/:pon/annotations/:annotKey',
+    '/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/items/:annotKey',
     async (req, reply) => {
       const { docId, layerName, pon, annotKey } = req.params as {
         docId: string;
@@ -387,7 +358,7 @@ export async function registerAnnotationRoutes(
   );
 
   app.delete(
-    '/v1/docs/:docId/layers/:layerName/pages/:pon/annotations/:annotKey',
+    '/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/items/:annotKey',
     async (req, reply) => {
       const { docId, layerName, pon, annotKey } = req.params as {
         docId: string;

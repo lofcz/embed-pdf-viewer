@@ -68,7 +68,7 @@ export interface ObjectStat {
 }
 
 /**
- * The minimum operations a storage backend must support for Phase 1.
+ * The minimum operations a storage backend must support.
  *
  * Adapter expectations:
  *   - All keys are tenant-rooted; the caller (admin routes) is
@@ -79,8 +79,19 @@ export interface ObjectStat {
  *     gone, and tolerate concurrent deletes. Backends that can't
  *     deliver atomicity (S3) should at least be eventually consistent
  *     once they return.
+ *
+ * The `info` field follows the unified adapter pattern (see
+ * ADAPTERS.md) — `kind` is the discriminator, other fields are
+ * public identifiers safe to expose via `/v1/admin/status`.
  */
 export interface ObjectStore {
+  /**
+   * Diagnostic identity. `kind` matches the config Zod schema's
+   * discriminator; other fields are public identifiers only —
+   * bucket names, hostnames, root paths. Never secrets.
+   */
+  readonly info: ObjectStoreInfo;
+
   /** Strong-consistency existence check. */
   exists(key: string): Promise<boolean>;
 
@@ -181,15 +192,29 @@ export interface MaterializeResult {
 }
 
 /**
- * Diagnostic label every adapter exposes for log/metric tagging. Not
- * part of the operational interface; just a constant.
+ * Discriminator for `ObjectStore.info.kind`. Matches the variants in
+ * `ObjectStoreConfigSchema`. `azure-blob` replaces the older
+ * `'azure'` label so it's symmetric with the env-var naming
+ * (`EMBEDPDF_STORAGE_AZURE_BLOB_*`).
+ */
+export type ObjectStoreKind = 'fs' | 's3' | 'gcs' | 'azure-blob';
+
+/**
+ * Diagnostic identity for an ObjectStore. `kind` is the discriminator;
+ * other fields are public identifiers safe to expose via
+ * `/v1/admin/status` — bucket names, hostnames, root paths. Never
+ * secret material.
  */
 export interface ObjectStoreInfo {
-  kind: 'fs' | 's3' | 'gcs' | 'azure';
-  /** Identifying string for diagnostics. `bucket name` / `root path`. */
-  location: string;
+  readonly kind: ObjectStoreKind;
+  /** Public identifier for diagnostics. `s3://bucket`, `gs://bucket`, root path, etc. */
+  readonly location: string;
+  readonly [field: string]: unknown;
 }
 
-export interface ObjectStoreWithInfo extends ObjectStore {
-  readonly info: ObjectStoreInfo;
-}
+/**
+ * @deprecated Use `ObjectStore` directly — `info` is now required on
+ * the base interface. Kept as a type alias for back-compat with
+ * downstream code; remove after callers migrate.
+ */
+export type ObjectStoreWithInfo = ObjectStore;

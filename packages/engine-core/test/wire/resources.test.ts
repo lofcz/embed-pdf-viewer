@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { decodePdfBits, PDF_BITS } from '../../src/auth/scope';
-import {
-  cdnCoverageForScope,
-  checkResourceAccess,
-  DOC_RESOURCES,
-  type DocResourceId,
-} from '../../src/wire/resources';
+import { checkResourceAccess, DOC_RESOURCES, type DocResourceId } from '../../src/wire/resources';
+import { cdnCoverageForScope } from '../../src/wire/cdn/coverage';
 
 const NO_BITS = decodePdfBits(null);
 const BIT5 = decodePdfBits(PDF_BITS.COPY);
@@ -47,12 +43,16 @@ describe('DOC_RESOURCES — structural invariants', () => {
     expect(DOC_RESOURCES['download-current'].cdnCacheable).toBe(false);
   });
 
-  it('manifest and page-* and download-versioned are versioned/cacheable', () => {
+  it('manifest, page-*, layer-page-*, layer-manifest, annotations-read, download-versioned are versioned/cacheable', () => {
     const cacheable: DocResourceId[] = [
       'manifest',
+      'layer-manifest',
       'page-render',
+      'layer-page-render',
       'page-text',
+      'layer-page-text',
       'page-geometry',
+      'layer-page-geometry',
       'annotations-read',
       'download-versioned',
     ];
@@ -60,6 +60,19 @@ describe('DOC_RESOURCES — structural invariants', () => {
       expect(DOC_RESOURCES[id].routeKind).toBe('versioned-read');
       expect(DOC_RESOURCES[id].cdnCacheable).toBe(true);
     }
+  });
+
+  it('layer-page-* variants share the capability gate of their doc-level cousin', () => {
+    expect(DOC_RESOURCES['layer-manifest'].requirement).toEqual(DOC_RESOURCES.manifest.requirement);
+    expect(DOC_RESOURCES['layer-page-render'].requirement).toEqual(
+      DOC_RESOURCES['page-render'].requirement,
+    );
+    expect(DOC_RESOURCES['layer-page-text'].requirement).toEqual(
+      DOC_RESOURCES['page-text'].requirement,
+    );
+    expect(DOC_RESOURCES['layer-page-geometry'].requirement).toEqual(
+      DOC_RESOURCES['page-geometry'].requirement,
+    );
   });
 });
 
@@ -183,55 +196,137 @@ describe('cdnCoverageForScope', () => {
       docId: 'doc_1',
       layerName: 'L1',
     });
-    // Should be exactly the cacheable resources
-    const expected = Object.values(DOC_RESOURCES)
+    const expectedIds = Object.values(DOC_RESOURCES)
       .filter((r) => r.cdnCacheable)
-      .map((r) => r.resolvePathPattern('doc_1', 'L1'));
-    expect(new Set(coverage)).toEqual(new Set(expected));
+      .map((r) => r.id);
+    expect(new Set(coverage.map((e) => e.resourceId))).toEqual(new Set(expectedIds));
+  });
+
+  it('every entry carries both pathPattern and pathPrefix', () => {
+    const coverage = cdnCoverageForScope(['*'], NO_BITS, { docId: 'doc_1', layerName: 'L1' });
+    for (const entry of coverage) {
+      const descriptor = DOC_RESOURCES[entry.resourceId];
+      expect(entry.pathPattern).toBe(descriptor.resolvePathPattern('doc_1', 'L1'));
+      expect(entry.pathPrefix).toBe(descriptor.resolvePathPrefix('doc_1', 'L1'));
+    }
   });
 
   it('never includes head or download-current', () => {
     const coverage = cdnCoverageForScope(['*'], NO_BITS, { docId: 'doc_1' });
-    expect(coverage.some((p) => p.endsWith('/head'))).toBe(false);
-    expect(coverage.some((p) => p === '/v1/docs/doc_1/layers/default/download')).toBe(false);
+    expect(coverage.some((e) => e.resourceId === 'head')).toBe(false);
+    expect(coverage.some((e) => e.resourceId === 'download-current')).toBe(false);
   });
 
-  it('a single capability scope covers only resources gated by that capability', () => {
+  it('a single capability scope covers both doc-level and layer-scoped variants gated by that capability', () => {
+    // doc.render → page-render (doc-level) AND layer-page-render (layer-scoped).
+    // Both share the same capability gate; both get signed so the CDN
+    // covers whichever variant the SDK actually requests.
     const coverage = cdnCoverageForScope(['doc.render'], NO_BITS, { docId: 'doc_1' });
-    expect(coverage).toEqual(['/v1/docs/doc_1/pages/*/render@*']);
+    expect(coverage).toEqual([
+      {
+        resourceId: 'page-render',
+        pathPattern: '/v1/docs/doc_1/render/pages/*/data@*',
+        pathPrefix: '/v1/docs/doc_1/render/pages/',
+      },
+      {
+        resourceId: 'layer-page-render',
+        pathPattern: '/v1/docs/doc_1/layers/default/render/pages/*/data@*',
+        pathPrefix: '/v1/docs/doc_1/layers/default/render/pages/',
+      },
+    ]);
   });
 
-  it('layer-bearing patterns use the supplied layerName', () => {
+  it('layer-bearing entries use the supplied layerName', () => {
     const coverage = cdnCoverageForScope(['doc.annotate.read'], NO_BITS, {
       docId: 'doc_1',
       layerName: 'myLayer',
     });
-    expect(coverage).toEqual(['/v1/docs/doc_1/layers/myLayer/pages/*/annotations@*']);
+    expect(coverage).toEqual([
+      {
+        resourceId: 'annotations-read',
+        pathPattern: '/v1/docs/doc_1/layers/myLayer/annotations/pages/*/items@*',
+        pathPrefix: '/v1/docs/doc_1/layers/myLayer/annotations/pages/',
+      },
+    ]);
   });
 
-  it('layer-bearing patterns default to "default" when layerName is omitted', () => {
-    const coverage = cdnCoverageForScope(['doc.annotate.read'], NO_BITS, {
-      docId: 'doc_1',
-    });
-    expect(coverage).toEqual(['/v1/docs/doc_1/layers/default/pages/*/annotations@*']);
+  it('layer-bearing entries default to "default" when layerName is omitted', () => {
+    const coverage = cdnCoverageForScope(['doc.annotate.read'], NO_BITS, { docId: 'doc_1' });
+    expect(coverage).toEqual([
+      {
+        resourceId: 'annotations-read',
+        pathPattern: '/v1/docs/doc_1/layers/default/annotations/pages/*/items@*',
+        pathPrefix: '/v1/docs/doc_1/layers/default/annotations/pages/',
+      },
+    ]);
   });
 
-  it('pdf.permissions + bit5 + bit6 covers manifest, render, text, geometry, annotations', () => {
+  it('pdf.permissions + bit5 + bit6 covers manifest, render, text, geometry, annotations (both doc-level and layer-scoped variants)', () => {
     const bits = decodePdfBits(PDF_BITS.COPY | PDF_BITS.ANNOTATE_FILL);
     const coverage = cdnCoverageForScope(['pdf.permissions'], bits, {
       docId: 'doc_1',
       layerName: 'default',
     });
-    expect(new Set(coverage)).toEqual(
+    expect(new Set(coverage.map((e) => e.resourceId))).toEqual(
       new Set([
-        '/v1/docs/doc_1/manifest@*',
-        '/v1/docs/doc_1/pages/*/render@*',
-        '/v1/docs/doc_1/pages/*/text@*',
-        '/v1/docs/doc_1/pages/*/geometry@*',
-        '/v1/docs/doc_1/layers/default/pages/*/annotations@*',
+        'manifest',
+        'layer-manifest',
+        'page-render',
+        'layer-page-render',
+        'page-text',
+        'layer-page-text',
+        'page-geometry',
+        'layer-page-geometry',
+        'annotations-read',
       ]),
     );
     // download is cloud-only — not granted by pdf.permissions
-    expect(coverage.some((p) => p.includes('download'))).toBe(false);
+    expect(coverage.some((e) => e.resourceId.includes('download'))).toBe(false);
+  });
+
+  it('omits non-cacheable resources even when granted (e.g. head)', () => {
+    const coverage = cdnCoverageForScope(['doc.open'], NO_BITS, { docId: 'doc_1' });
+    // head is granted by doc.open but cdnCacheable: false → omitted
+    expect(coverage.some((e) => e.resourceId === 'head')).toBe(false);
+    // manifest is cdnCacheable: true and granted → included
+    expect(coverage.some((e) => e.resourceId === 'manifest')).toBe(true);
+  });
+});
+
+describe('DOC_RESOURCES — pathPrefix invariants (anti-drift)', () => {
+  it("every resource's pathPrefix is the literal-prefix of its pathPattern", () => {
+    // The signer treats pathPrefix as the authority boundary for CDN
+    // signing. If pathPattern and pathPrefix ever drift, the CDN
+    // would authorize either too much (security gap) or too little
+    // (broken cache). This test pins them together: pathPrefix must
+    // equal pathPattern up to the first `*`.
+    for (const r of Object.values(DOC_RESOURCES)) {
+      const wildcardIdx = r.pathPattern.indexOf('*');
+      const expectedPrefix =
+        wildcardIdx === -1 ? r.pathPattern : r.pathPattern.slice(0, wildcardIdx);
+      expect(r.pathPrefix, `pathPrefix drifted for ${r.id}`).toBe(expectedPrefix);
+    }
+  });
+
+  it('resolvePathPrefix and resolvePathPattern produce values whose prefix relationship matches', () => {
+    for (const r of Object.values(DOC_RESOURCES)) {
+      const pattern = r.resolvePathPattern('doc_X', 'myLayer');
+      const prefix = r.resolvePathPrefix('doc_X', 'myLayer');
+      const wildcardIdx = pattern.indexOf('*');
+      const derived = wildcardIdx === -1 ? pattern : pattern.slice(0, wildcardIdx);
+      expect(prefix, `resolved prefix drifted for ${r.id}`).toBe(derived);
+    }
+  });
+
+  it('every cacheable resource has a DISTINCT pathPrefix (so prefix-matching CDNs can enforce per-resource scope)', () => {
+    // The whole point of paths v2: each cacheable resource lives at
+    // its own prefix. Two resources sharing a prefix would mean a
+    // prefix-matching CDN (Bunny / Cloud CDN / Azure FD) couldn't
+    // tell them apart at the edge.
+    const cacheablePrefixes = Object.values(DOC_RESOURCES)
+      .filter((r) => r.cdnCacheable)
+      .map((r) => r.resolvePathPrefix('doc_X', 'myLayer'));
+    const unique = new Set(cacheablePrefixes);
+    expect(unique.size).toBe(cacheablePrefixes.length);
   });
 });

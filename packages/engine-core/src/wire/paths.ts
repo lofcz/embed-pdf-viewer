@@ -1,6 +1,37 @@
 /**
  * Single source of truth for cloud HTTP paths. Both engine-cloud and
  * @embedpdf/server import these so they cannot drift.
+ *
+ * **URL layout convention (paths v2)**
+ *
+ * Each resource type lives at its own distinct path prefix. This
+ * lets prefix-matching CDNs (Bunny, Cloud CDN, Azure FD) enforce
+ * per-resource scope at the edge — a Bunny token signed at
+ * `/v1/docs/{id}/render/pages/` can only authorize render bytes,
+ * never text or annotations.
+ *
+ * Shape:
+ *   /v1/docs/{id}                                       — doc root
+ *   /v1/docs/{id}/manifest@{ver}                        — doc-level read
+ *   /v1/docs/{id}/render/pages/{N}/data@{ver}                — render is its own prefix
+ *   /v1/docs/{id}/text/pages/{N}/data@{ver}                  — text is its own prefix
+ *   /v1/docs/{id}/geometry/pages/{N}/data@{ver}              — geometry is its own prefix
+ *   /v1/docs/{id}/layers/{L}/manifest@{ver}
+ *   /v1/docs/{id}/layers/{L}/metadata@{ver}
+ *   /v1/docs/{id}/layers/{L}/render/pages/{N}/data@{ver}
+ *   /v1/docs/{id}/layers/{L}/text/pages/{N}/data@{ver}
+ *   /v1/docs/{id}/layers/{L}/geometry/pages/{N}/data@{ver}
+ *   /v1/docs/{id}/layers/{L}/annotations/pages/{N}/items@{ver}    — collection (read)
+ *   /v1/docs/{id}/layers/{L}/annotations/pages/{N}/items          — collection (create)
+ *   /v1/docs/{id}/layers/{L}/annotations/pages/{N}/items/{key}    — member
+ *   /v1/docs/{id}/layers/{L}/annotations/pages/{N}/items/move     — batch reorder
+ *   /v1/docs/{id}/layers/{L}/pages/move                           — batch page reorder
+ *   /v1/docs/{id}/layers/{L}/download@{ver}
+ *
+ * `items` appears on both the read collection (`items@{ver}`) and
+ * the mutation surface (`items` POST, `items/{key}` PATCH/DELETE)
+ * for symmetry — `items@version` is the page's versioned annotation
+ * collection; `items/{key}` is one annotation inside it.
  */
 import {
   encodeAnnotationToken,
@@ -67,7 +98,7 @@ export const wirePaths = {
    * `contentVersion`.
    */
   docPageText: (docId: string, pageObjectNumber: number, contentVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/text@${encodeContentToken(contentVersion)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/text/pages/${pageObjectNumber}/data@${encodeContentToken(contentVersion)}`,
 
   layerPageText: (
     docId: string,
@@ -75,22 +106,22 @@ export const wirePaths = {
     pageObjectNumber: number,
     contentVersion: number,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/text@${encodeContentToken(contentVersion)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/text/pages/${pageObjectNumber}/data@${encodeContentToken(contentVersion)}`,
 
   layerPageTextCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/text`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/text/pages/${pageObjectNumber}/data`,
 
   docPageGeometry: (docId: string, pageObjectNumber: number, contentVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/geometry@${encodeContentToken(contentVersion)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/geometry/pages/${pageObjectNumber}/data@${encodeContentToken(contentVersion)}`,
 
   docPageGeometryCurrent: (docId: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/geometry`,
+    `/v1/docs/${encodeURIComponent(docId)}/geometry/pages/${pageObjectNumber}/data`,
 
   docPageRender: (docId: string, pageObjectNumber: number, token: TokenInput) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/render@${encodeRenderToken(token)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/render/pages/${pageObjectNumber}/data@${encodeRenderToken(token)}`,
 
   docPageRenderCurrent: (docId: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/render`,
+    `/v1/docs/${encodeURIComponent(docId)}/render/pages/${pageObjectNumber}/data`,
 
   layerPageGeometry: (
     docId: string,
@@ -98,10 +129,10 @@ export const wirePaths = {
     pageObjectNumber: number,
     contentVersion: number,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/geometry@${encodeContentToken(contentVersion)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/geometry/pages/${pageObjectNumber}/data@${encodeContentToken(contentVersion)}`,
 
   layerPageGeometryCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/geometry`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/geometry/pages/${pageObjectNumber}/data`,
 
   layerPageRender: (
     docId: string,
@@ -109,38 +140,40 @@ export const wirePaths = {
     pageObjectNumber: number,
     token: TokenInput,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/render@${encodeRenderToken(token)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/render/pages/${pageObjectNumber}/data@${encodeRenderToken(token)}`,
 
   layerPageRenderCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/render`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/render/pages/${pageObjectNumber}/data`,
 
   /**
    * GET: full annotation list for a single page at a specific
    * `annotationVersion`. Same cache-control rules and 404-retry
-   * semantics as `docPageText`.
+   * semantics as `docPageText`. The `items` suffix is the
+   * collection name — see file-level docstring.
+   *
+   * Note: there is no doc-level (no-layer) variant in v2. Annotations
+   * are always layer-scoped on the wire; if a caller needs a "default
+   * layer" view, they use `layerName='default'` explicitly.
    */
-  docPageAnnotations: (docId: string, pageObjectNumber: number, annotationVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/pages/${pageObjectNumber}/annotations@${encodeAnnotationToken(annotationVersion)}`,
-
   layerPageAnnotations: (
     docId: string,
     layerName: string,
     pageObjectNumber: number,
     annotationVersion: number,
   ) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/annotations@${encodeAnnotationToken(annotationVersion)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items@${encodeAnnotationToken(annotationVersion)}`,
 
   layerPageAnnotationsCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/annotations`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items`,
 
   layerPageAnnotationsCreate: (docId: string, layerName: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/annotations`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items`,
 
   layerAnnotationByKey: (docId: string, layerName: string, pageObjectNumber: number, key: string) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/annotations/${encodeURIComponent(key)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items/${encodeURIComponent(key)}`,
 
   layerPageAnnotationsMove: (docId: string, layerName: string, pageObjectNumber: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/${pageObjectNumber}/annotations/move`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items/move`,
 
   layerPagesMove: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/move`,
@@ -151,17 +184,22 @@ export const wirePaths = {
   layerDownloadVersioned: (docId: string, layerName: string, token: DownloadToken) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/download@${encodeDownloadToken(token)}`,
 
+  /**
+   * Weak-annotation-sessions: pluralized in v2 so the collection
+   * lives at `/weak-annotation-sessions` and members at
+   * `/weak-annotation-sessions/{sessionId}` — REST-conventional.
+   */
   layerWeakAnnotationSession: (docId: string, layerName: string) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-sessions`,
 
   layerWeakAnnotationSessionHeartbeat: (docId: string, layerName: string, sessionId: string) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session/${encodeURIComponent(sessionId)}/heartbeat`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-sessions/${encodeURIComponent(sessionId)}/heartbeat`,
 
   layerWeakAnnotationSessionPages: (docId: string, layerName: string, sessionId: string) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session/${encodeURIComponent(sessionId)}/pages`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-sessions/${encodeURIComponent(sessionId)}/pages`,
 
   layerWeakAnnotationSessionRelease: (docId: string, layerName: string, sessionId: string) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-session/${encodeURIComponent(sessionId)}`,
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/weak-annotation-sessions/${encodeURIComponent(sessionId)}`,
 
   /**
    * POST: pre-warm the doc cache + worker open before any user

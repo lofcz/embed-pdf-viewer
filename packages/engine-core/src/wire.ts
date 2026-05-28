@@ -51,13 +51,29 @@ export type {
   WeakAnnotationSessionPagesRequest,
 } from './wire/schemas';
 export { DEFAULT_LAYER_NAME, wirePaths } from './wire/paths';
-export { cdnCoverageForScope, checkResourceAccess, DOC_RESOURCES } from './wire/resources';
+// General resource catalog + route-guard helper (server uses this for
+// every read endpoint, not just CDN-cacheable ones).
+export { checkResourceAccess, DOC_RESOURCES } from './wire/resources';
 export type {
   CapabilityRequirement,
   DocResourceDescriptor,
   DocResourceId,
   RouteKind,
 } from './wire/resources';
+
+// CDN-shaped surface — coverage enumeration + per-request URL
+// application. Scoped under wire/cdn/ so the boundary stays loud (see
+// wire/cdn/index.ts for the contract). Re-exported here for ergonomic
+// imports from `@embedpdf/engine-core/wire`; consumers wanting the
+// narrower import path can use `@embedpdf/engine-core/wire/cdn`
+// directly when that entry is published.
+export { applyCdnAccess, cdnCoverageForScope, resolveResourceIdForPath } from './wire/cdn';
+export type {
+  ApplyCdnAccessInput,
+  ApplyCdnAccessResult,
+  CdnAccessInfoForApply,
+  CdnCoverageEntry,
+} from './wire/cdn';
 export { decodeToken, encodeToken } from './wire/token';
 export type { TokenInput, TokenQuery, TokenScalar, TokenSchema } from './wire/token';
 export {

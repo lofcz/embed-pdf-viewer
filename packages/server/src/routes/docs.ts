@@ -104,7 +104,7 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     };
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
     const pdfBits = await bitsForLayer(accessCtx, docId, layerName);
-    const ctx = requireLayerResource(req, docId, layerName, 'manifest', pdfBits);
+    const ctx = requireLayerResource(req, docId, layerName, 'layer-manifest', pdfBits);
     const requested = parseTokenOrInvalidArg(decodeDocToken, token, 'layerDocVersion token');
     const manifest = await service.getLayerManifest(ctx, docId, layerName);
     if (requested !== manifest.docVersion) {
@@ -122,7 +122,7 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     const { docId, layerName } = req.params as { docId: string; layerName: string };
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
     const pdfBits = await bitsForLayer(accessCtx, docId, layerName);
-    const ctx = requireLayerResource(req, docId, layerName, 'manifest', pdfBits);
+    const ctx = requireLayerResource(req, docId, layerName, 'layer-manifest', pdfBits);
     const manifest = await service.getLayerManifest(ctx, docId, layerName);
     setNoStore(reply);
     return manifest;

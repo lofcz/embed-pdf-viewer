@@ -3,6 +3,7 @@ import type {
   AnnotationDraft,
   AnnotationListPageSnapshot,
   AnnotationRef,
+  CdnAccessInfo,
   DocumentHandle,
   PageGeometrySnapshot,
   PageImageHandle,
@@ -11,6 +12,7 @@ import type {
   PdfSaveMode,
   WeakAnnotationEditSession,
 } from '@embedpdf/engine-core/runtime';
+import { applyCdnAccess, wirePaths, type DocResourceId } from '@embedpdf/engine-core/wire';
 import './styles.css';
 
 interface AppConfig {
@@ -18,7 +20,42 @@ interface AppConfig {
   engineBaseUrl: string;
   originBaseUrl: string;
   dataRoot: string;
+  cdn: { kind: string; info: Record<string, unknown> };
 }
+
+interface AccessResponse {
+  cdn: CdnAccessInfo;
+  scope: string[];
+  effectiveScope: string[];
+  expiresAt: number;
+  passwordGrant: string | null;
+  pdfPermissions: unknown;
+  security: unknown;
+}
+
+const PREVIEW_RESOURCES: ReadonlyArray<{ id: DocResourceId; label: string }> = [
+  { id: 'head', label: 'head (origin-only)' },
+  { id: 'manifest', label: 'manifest@docVersion (doc-level)' },
+  {
+    id: 'layer-manifest',
+    label: 'layers/L/manifest@docVersion (layer-level — what the SDK calls)',
+  },
+  { id: 'page-render', label: 'render/pages/N/data (doc-level)' },
+  {
+    id: 'layer-page-render',
+    label: 'layers/L/render/pages/N/data (layer-level — what the SDK calls)',
+  },
+  { id: 'page-text', label: 'text/pages/N/data (doc-level)' },
+  { id: 'layer-page-text', label: 'layers/L/text/pages/N/data (layer-level — what the SDK calls)' },
+  { id: 'page-geometry', label: 'geometry/pages/N/data (doc-level)' },
+  {
+    id: 'layer-page-geometry',
+    label: 'layers/L/geometry/pages/N/data (layer-level — what the SDK calls)',
+  },
+  { id: 'annotations-read', label: 'annotations/pages/N/items@annotationVersion' },
+  { id: 'download-current', label: 'download (origin-only)' },
+  { id: 'download-versioned', label: 'download@docVersion' },
+];
 
 interface UploadResponse {
   tag: 'created' | 'deduped';
@@ -249,6 +286,74 @@ app.innerHTML = `
         <pre id="output"></pre>
       </section>
     </section>
+
+    <section class="panel cdn-panel cdn-section">
+      <h2>CDN Inspector</h2>
+
+      <p class="cdn-adapter">
+        <span>Adapter:</span> <code id="cdnAdapterKind">(loading...)</code>
+      </p>
+      <div id="cdnAdapterInfo" class="kv"></div>
+      <div class="cdn-tools">
+        <button id="fetchAccess" type="button">Fetch /v1/access for current token</button>
+      </div>
+      <div id="cdnEffectiveScope" class="cdn-scope-row"></div>
+
+      <div class="cdn-base-block">
+        <h3>baseUrlOverrides</h3>
+        <p class="cdn-hint">
+          Per-resource CDN-origin swap. Resources missing from this map fall
+          through to the API origin — that's how scope narrowing works at
+          the edge.
+        </p>
+        <table class="cdn-table" id="cdnBaseOverrides">
+          <thead><tr><th>resourceId</th><th>CDN origin</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="cdn-policies-block">
+        <h3>signedPathPolicies</h3>
+        <p class="cdn-hint">
+          One entry per granted resource prefix. SDK longest-prefix-matches
+          against the request path and appends <code>queryParams</code>.
+        </p>
+        <table class="cdn-table" id="cdnPathPolicies">
+          <thead><tr><th>pathPrefix</th><th>queryParams</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="cdn-extras-block">
+        <h3>signedCookies / authHeader / signedQueryParams</h3>
+        <pre id="cdnExtras" class="cdn-extras">(no /access fetched yet)</pre>
+      </div>
+
+      <div class="cdn-preview-title">
+        <h3>URL preview</h3>
+        <p class="cdn-hint">
+          Pick a resource + page/version numbers; the inspector shows the
+          origin URL the SDK would have requested, the final CDN URL after
+          applying overrides + matching policy, and whether the request
+          routes to the CDN or falls through to origin.
+        </p>
+      </div>
+      <div class="cdn-preview-form">
+        <label>Resource
+          <select id="previewResource">
+            ${PREVIEW_RESOURCES.map((r) => `<option value="${r.id}">${r.label}</option>`).join('')}
+          </select>
+        </label>
+        <label>Doc ID <input id="previewDocId" autocomplete="off" /></label>
+        <label>Layer <input id="previewLayer" autocomplete="off" value="default" /></label>
+        <label>pageObjectNumber <input id="previewPon" inputmode="numeric" value="1" /></label>
+        <label>docVersion <input id="previewDocVer" inputmode="numeric" value="1" /></label>
+        <label>contentVersion <input id="previewContentVer" inputmode="numeric" value="1" /></label>
+        <label>annotationVersion <input id="previewAnnotVer" inputmode="numeric" value="1" /></label>
+        <button id="previewBuild" type="button">Build URL</button>
+      </div>
+      <pre id="cdnPreviewOutput" class="cdn-preview-output">(Pick a resource and click Build URL.)</pre>
+    </section>
   </section>
 `;
 
@@ -303,6 +408,22 @@ const els = {
   downloadPdf: must<HTMLButtonElement>('downloadPdf'),
   refreshDocs: must<HTMLButtonElement>('refreshDocs'),
   output: must<HTMLPreElement>('output'),
+  cdnAdapterKind: must<HTMLElement>('cdnAdapterKind'),
+  cdnAdapterInfo: must<HTMLDivElement>('cdnAdapterInfo'),
+  fetchAccess: must<HTMLButtonElement>('fetchAccess'),
+  cdnEffectiveScope: must<HTMLDivElement>('cdnEffectiveScope'),
+  cdnBaseOverrides: must<HTMLTableElement>('cdnBaseOverrides'),
+  cdnPathPolicies: must<HTMLTableElement>('cdnPathPolicies'),
+  cdnExtras: must<HTMLPreElement>('cdnExtras'),
+  previewResource: must<HTMLSelectElement>('previewResource'),
+  previewDocId: must<HTMLInputElement>('previewDocId'),
+  previewLayer: must<HTMLInputElement>('previewLayer'),
+  previewPon: must<HTMLInputElement>('previewPon'),
+  previewDocVer: must<HTMLInputElement>('previewDocVer'),
+  previewContentVer: must<HTMLInputElement>('previewContentVer'),
+  previewAnnotVer: must<HTMLInputElement>('previewAnnotVer'),
+  previewBuild: must<HTMLButtonElement>('previewBuild'),
+  cdnPreviewOutput: must<HTMLPreElement>('cdnPreviewOutput'),
 };
 
 let config: AppConfig;
@@ -311,6 +432,7 @@ let pages: PageListSnapshot | null = null;
 let annotations: AnnotationListPageSnapshot | null = null;
 let weakSession: WeakAnnotationEditSession | null = null;
 let renderObjectUrl: string | null = null;
+let lastAccess: AccessResponse | null = null;
 
 void boot();
 
@@ -320,6 +442,7 @@ async function boot(): Promise<void> {
   els.tenantId.value = config.tenantId;
   els.auditDay.value = new Date().toISOString().slice(0, 10);
   els.status.textContent = `Origin ${config.originBaseUrl}`;
+  renderCdnAdapter(config.cdn);
   await refreshDocs();
 }
 
@@ -343,6 +466,8 @@ els.deleteFirst.addEventListener('click', () => void run(deleteFirstAnnotation))
 els.moveFirst.addEventListener('click', () => void run(moveFirstAnnotation));
 els.downloadPdf.addEventListener('click', () => void run(downloadPdf));
 els.scopePreset.addEventListener('change', () => applyScopePreset(els.scopePreset.value));
+els.fetchAccess.addEventListener('click', () => void run(fetchAccess));
+els.previewBuild.addEventListener('click', () => void run(buildPreview));
 
 async function uploadPdf(): Promise<void> {
   const file = els.pdfFile.files?.[0];
@@ -413,14 +538,19 @@ async function openToken(): Promise<void> {
   const engine = createCloudEngine({ baseUrl: config.engineBaseUrl });
   doc = await engine.open({ kind: 'token', token });
   renderClaims(token);
-  renderSecurity(doc.security.current);
+  renderSecurityFromHandle(doc);
   await listPages();
 }
 
 async function showSecurity(): Promise<void> {
   const opened = requireDoc();
-  renderSecurity(opened.security.current);
-  setOutput({ security: opened.security.current });
+  renderSecurityFromHandle(opened);
+  setOutput({
+    security: opened.security.current,
+    effectiveScope: opened.security.effectiveScope,
+    identity: opened.security.identity,
+    passwordPrompt: opened.security.passwordPrompt,
+  });
 }
 
 async function unlockDocument(): Promise<void> {
@@ -429,8 +559,36 @@ async function unlockDocument(): Promise<void> {
     password: els.documentPassword.value,
     mode: unlockMode(),
   });
-  renderSecurity(result.security);
+  renderSecurityFromHandle(opened);
   setOutput(result);
+}
+
+/**
+ * Render the unified security surface — same accessors every dev
+ * uses (`current`, `effectiveScope`, `identity`, `passwordPrompt`).
+ * Demonstrates the engine-agnostic shape: this code would work
+ * identically against a `LocalDocumentHandle`.
+ */
+function renderSecurityFromHandle(handle: DocumentHandle): void {
+  renderSecurity(handle.security.current);
+  // Append the unified accessors as extra rows in the same table.
+  const prompt = handle.security.passwordPrompt;
+  const promptDesc =
+    prompt.state === 'none'
+      ? 'none'
+      : prompt.state === 'required'
+        ? `required (${prompt.hint ?? 'unknown'})`
+        : `optional (${prompt.hint})`;
+  const extras: Array<[string, unknown]> = [
+    ['passwordPrompt', promptDesc],
+    ['effectiveScope', handle.security.effectiveScope.length],
+    ['identity', handle.security.identity?.user_id ?? null],
+  ];
+  for (const [key, value] of extras) {
+    const row = document.createElement('div');
+    row.innerHTML = `<span>${key}</span><strong>${JSON.stringify(value)}</strong>`;
+    els.securityState.append(row);
+  }
 }
 
 async function listPages(): Promise<void> {
@@ -859,6 +1017,221 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   if (!payload) return {};
   const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
   return JSON.parse(atob(padded.replace(/-/g, '+').replace(/_/g, '/'))) as Record<string, unknown>;
+}
+
+async function fetchAccess(): Promise<void> {
+  const token = els.tokenBox.value.trim();
+  if (!token) throw new Error('Mint or paste a document token first.');
+  const claims = decodeJwtPayload(token);
+  const docId = typeof claims['doc_id'] === 'string' ? (claims['doc_id'] as string) : '';
+  const tokenLayer =
+    typeof claims['layer_name'] === 'string' && (claims['layer_name'] as string).length > 0
+      ? (claims['layer_name'] as string)
+      : layerName();
+  if (!docId) throw new Error('Token has no doc_id claim — mint a doc-scoped token.');
+  const access = await postJson<AccessResponse>('/api/admin/access', {
+    token,
+    docId,
+    layerName: tokenLayer,
+  });
+  lastAccess = access;
+  renderAccess(access);
+  // Pre-fill the URL preview form with the doc/layer from the access
+  // response so "Build URL" works straight away.
+  els.previewDocId.value = docId;
+  els.previewLayer.value = tokenLayer;
+  setOutput({ access });
+}
+
+/**
+ * Build a representative request path for the chosen DocResourceId so
+ * the inspector can show what the SDK would actually fetch. Mirrors
+ * the wirePaths helpers in engine-core but uses the inspector's form
+ * inputs (page object number, version numbers) instead of real
+ * manifest data.
+ */
+function exampleRequestPath(
+  resourceId: DocResourceId,
+  ctx: {
+    docId: string;
+    layerName: string;
+    pageObjectNumber: number;
+    docVersion: number;
+    contentVersion: number;
+    annotationVersion: number;
+  },
+): string {
+  switch (resourceId) {
+    case 'head':
+      return wirePaths.docHead(ctx.docId);
+    case 'manifest':
+      return wirePaths.docManifest(ctx.docId, ctx.docVersion);
+    case 'layer-manifest':
+      return wirePaths.layerManifest(ctx.docId, ctx.layerName, ctx.docVersion);
+    case 'page-render':
+      return wirePaths.docPageRender(ctx.docId, ctx.pageObjectNumber, {
+        contentVersion: ctx.contentVersion,
+      });
+    case 'layer-page-render':
+      return wirePaths.layerPageRender(ctx.docId, ctx.layerName, ctx.pageObjectNumber, {
+        contentVersion: ctx.contentVersion,
+      });
+    case 'page-text':
+      return wirePaths.docPageText(ctx.docId, ctx.pageObjectNumber, ctx.contentVersion);
+    case 'layer-page-text':
+      return wirePaths.layerPageText(
+        ctx.docId,
+        ctx.layerName,
+        ctx.pageObjectNumber,
+        ctx.contentVersion,
+      );
+    case 'page-geometry':
+      return wirePaths.docPageGeometry(ctx.docId, ctx.pageObjectNumber, ctx.contentVersion);
+    case 'layer-page-geometry':
+      return wirePaths.layerPageGeometry(
+        ctx.docId,
+        ctx.layerName,
+        ctx.pageObjectNumber,
+        ctx.contentVersion,
+      );
+    case 'annotations-read':
+      return wirePaths.layerPageAnnotations(
+        ctx.docId,
+        ctx.layerName,
+        ctx.pageObjectNumber,
+        ctx.annotationVersion,
+      );
+    case 'download-current':
+      return wirePaths.layerDownload(ctx.docId, ctx.layerName);
+    case 'download-versioned':
+      return wirePaths.layerDownloadVersioned(ctx.docId, ctx.layerName, {
+        docVersion: ctx.docVersion,
+        mode: 'incremental',
+      });
+  }
+}
+
+function buildPreview(): Promise<void> {
+  if (!lastAccess) {
+    throw new Error('Click "Fetch /v1/access" first so the inspector has a cdn block to apply.');
+  }
+  const resourceId = els.previewResource.value as DocResourceId;
+  const docId = els.previewDocId.value.trim();
+  if (!docId) throw new Error('Enter a doc id.');
+  const ctx = {
+    docId,
+    layerName: els.previewLayer.value.trim() || 'default',
+    pageObjectNumber: Number(els.previewPon.value) || 1,
+    docVersion: Number(els.previewDocVer.value) || 1,
+    contentVersion: Number(els.previewContentVer.value) || 1,
+    annotationVersion: Number(els.previewAnnotVer.value) || 1,
+  };
+  const path = exampleRequestPath(resourceId, ctx);
+  // applyCdnAccess lives in @embedpdf/engine-core/wire — same function
+  // the cloud SDK's HttpClient calls on every fetch. The smoke calls
+  // it directly so the preview matches what the SDK actually does.
+  const preview = applyCdnAccess({
+    path,
+    originUrl: config.originBaseUrl,
+    docId: ctx.docId,
+    layerName: ctx.layerName,
+    cdn: lastAccess.cdn,
+  });
+  els.cdnPreviewOutput.textContent = JSON.stringify(
+    {
+      requestedResource: resourceId,
+      resolvedResourceId: preview.resourceId,
+      originPath: path,
+      originUrl: `${config.originBaseUrl}${path}`,
+      finalUrl: preview.url,
+      routedToCdn: preview.routedToCdn,
+      fallbackReason: preview.fallbackReason || undefined,
+      matchedPolicy: preview.matchedPolicy,
+      authHeader: preview.authHeader,
+      cookies: preview.cookies,
+    },
+    null,
+    2,
+  );
+  return Promise.resolve();
+}
+
+function renderCdnAdapter(cdn: AppConfig['cdn']): void {
+  els.cdnAdapterKind.textContent = cdn.kind;
+  els.cdnAdapterInfo.innerHTML = '';
+  for (const [k, v] of Object.entries(cdn.info)) {
+    const row = document.createElement('div');
+    row.innerHTML = `<span>${k}</span><strong>${escapeHtml(JSON.stringify(v))}</strong>`;
+    els.cdnAdapterInfo.append(row);
+  }
+}
+
+function renderAccess(access: AccessResponse): void {
+  // Effective scope chips
+  els.cdnEffectiveScope.innerHTML = `<span class="cdn-scope-label">effectiveScope:</span> ${
+    access.effectiveScope.length === 0
+      ? '<em>(empty)</em>'
+      : access.effectiveScope.map((s) => `<code>${escapeHtml(s)}</code>`).join(' ')
+  }`;
+
+  // baseUrlOverrides table
+  const overridesBody = els.cdnBaseOverrides.querySelector('tbody');
+  if (overridesBody) {
+    overridesBody.innerHTML = '';
+    const entries = Object.entries(access.cdn.baseUrlOverrides ?? {});
+    if (entries.length === 0) {
+      overridesBody.innerHTML =
+        '<tr><td colspan="2"><em>(none — every request stays on origin)</em></td></tr>';
+    } else {
+      for (const [resourceId, origin] of entries) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td><code>${escapeHtml(resourceId)}</code></td><td><code>${escapeHtml(String(origin))}</code></td>`;
+        overridesBody.append(row);
+      }
+    }
+  }
+
+  // signedPathPolicies table
+  const policiesBody = els.cdnPathPolicies.querySelector('tbody');
+  if (policiesBody) {
+    policiesBody.innerHTML = '';
+    const policies = access.cdn.signedPathPolicies ?? [];
+    if (policies.length === 0) {
+      policiesBody.innerHTML =
+        '<tr><td colspan="2"><em>(none — adapter uses cookies, authHeader, or global signedQueryParams instead)</em></td></tr>';
+    } else {
+      for (const policy of policies) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td><code>${escapeHtml(policy.pathPrefix)}</code></td><td><pre class="cdn-cell-json">${escapeHtml(
+          JSON.stringify(policy.queryParams, null, 2),
+        )}</pre></td>`;
+        policiesBody.append(row);
+      }
+    }
+  }
+
+  // Extras block — cookies, authHeader, global query params, expiry
+  els.cdnExtras.textContent = JSON.stringify(
+    {
+      adapter: access.cdn.adapter,
+      expiresAt: access.cdn.expiresAt,
+      cache: access.cdn.cache,
+      authHeader: access.cdn.authHeader,
+      signedQueryParams: access.cdn.signedQueryParams,
+      signedCookies: access.cdn.signedCookies,
+    },
+    null,
+    2,
+  );
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function must<T extends HTMLElement>(id: string): T {

@@ -102,10 +102,40 @@ export { FsObjectStore } from './storage/adapters/FsObjectStore';
 export type { FsObjectStoreOptions } from './storage/adapters/FsObjectStore';
 export { S3ObjectStore } from './storage/adapters/S3ObjectStore';
 export type { S3ObjectStoreOptions } from './storage/adapters/S3ObjectStore';
+export { createObjectStore } from './storage/createObjectStore';
+export {
+  ObjectStoreConfigSchema,
+  type ObjectStoreConfig,
+} from './storage/config/ObjectStoreConfigSchema';
+export { loadObjectStoreConfigFromEnv } from './storage/config/loadObjectStoreConfigFromEnv';
+
+// CDN adapter family (signers + factory + config + None adapter).
+// HMAC/CloudFront adapters ship in commit G; purge wiring in commit H.
+export type {
+  CdnSigner,
+  CdnSignerInfo,
+  SignInput,
+  PurgeInput,
+  PurgeReceipt,
+} from './cdn/CdnSigner';
+export { createCdnSigner, type CreateCdnSignerOptions } from './cdn/createCdnSigner';
+export { CdnConfigSchema, type CdnConfig } from './cdn/config/CdnConfigSchema';
+export { loadCdnConfigFromEnv } from './cdn/config/loadCdnConfigFromEnv';
+export { NoneCdnSigner } from './cdn/adapters/NoneCdnSigner';
+export { BunnyCdnSigner, signBunnyToken } from './cdn/adapters/BunnyCdnSigner';
+export { CloudCdnSigner, signCloudCdnPrefix } from './cdn/adapters/CloudCdnSigner';
+export {
+  CloudFrontCdnSigner,
+  signCloudFrontPolicy,
+  signCloudFrontPolicyForResources,
+} from './cdn/adapters/CloudFrontCdnSigner';
+export { AzureFrontDoorCdnSigner, signAzureFdToken } from './cdn/adapters/AzureFrontDoorCdnSigner';
+export { CustomHmacCdnSigner, signCustomHmacToken } from './cdn/adapters/CustomHmacCdnSigner';
 export type {
   ObjectStore,
-  ObjectStoreWithInfo,
   ObjectStoreInfo,
+  ObjectStoreKind,
+  ObjectStoreWithInfo, // deprecated alias for back-compat
   ObjectBody,
   ObjectStat,
   PresignedUpload,

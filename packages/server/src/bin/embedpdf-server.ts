@@ -8,9 +8,9 @@ import { sqliteMigrations } from '../db/migrations/sqlite/index';
 import { postgresMigrations } from '../db/migrations/postgres/index';
 import type { Database as Schema } from '../db/schema';
 import { EventLogService } from '../services/EventLogService';
-import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
-import { FsObjectStore } from '../storage/adapters/FsObjectStore';
-import { S3ObjectStore } from '../storage/adapters/S3ObjectStore';
+import type { ObjectStore } from '../storage/ObjectStore';
+import { createObjectStore } from '../storage/createObjectStore';
+import { loadObjectStoreConfigFromEnv } from '../storage/config/loadObjectStoreConfigFromEnv';
 import type { Kysely } from 'kysely';
 
 /**
@@ -98,32 +98,12 @@ function openDb(): DbContext {
   };
 }
 
-function openObjectStore(): ObjectStoreWithInfo {
-  const kind = (process.env['EMBEDPDF_STORAGE_KIND'] ?? 'fs').toLowerCase();
-  if (kind === 'fs') {
-    return new FsObjectStore({
-      root:
-        process.env['EMBEDPDF_STORAGE_FS_ROOT'] ??
-        process.env['EMBEDPDF_STORAGE_ROOT'] ??
-        './data/objects',
-    });
+async function openObjectStore(): Promise<ObjectStore> {
+  try {
+    return await createObjectStore(loadObjectStoreConfigFromEnv(process.env));
+  } catch (err) {
+    fail(2, err instanceof Error ? err.message : String(err));
   }
-  if (kind === 's3') {
-    const bucket = process.env['EMBEDPDF_STORAGE_S3_BUCKET'];
-    const region = process.env['EMBEDPDF_STORAGE_S3_REGION'];
-    if (!bucket || !region) {
-      fail(
-        2,
-        'EMBEDPDF_STORAGE_KIND=s3 requires EMBEDPDF_STORAGE_S3_BUCKET and EMBEDPDF_STORAGE_S3_REGION',
-      );
-    }
-    return new S3ObjectStore({
-      bucket,
-      region,
-      endpoint: process.env['EMBEDPDF_STORAGE_S3_ENDPOINT'],
-    });
-  }
-  fail(2, `EMBEDPDF_STORAGE_KIND must be 'fs' or 's3' (got ${kind})`);
 }
 
 function redact(url: string): string {
@@ -287,7 +267,7 @@ async function cmdAuditExport(args: string[]): Promise<void> {
   const lagMinutes = readOptionalNumberFlag(args, '--lag-minutes') ?? 30;
 
   const dbCtx = openDb();
-  const storage = openObjectStore();
+  const storage = await openObjectStore();
   const service = new EventLogService({ storage });
   try {
     console.log(`db: ${dbCtx.describe}`);

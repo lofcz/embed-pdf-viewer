@@ -173,10 +173,9 @@ export {
 } from './auth/scope';
 export { caps, collab, materializePdfPermissions, pdfPermissions } from './auth/scope';
 
-export { cdnCoverageForScope, checkResourceAccess, DOC_RESOURCES } from './wire/resources';
-export type {
-  CapabilityRequirement,
-  DocResourceDescriptor,
-  DocResourceId,
-  RouteKind,
-} from './wire/resources';
+// NOTE: CDN-shaped surface (DOC_RESOURCES, cdnCoverageForScope, applyCdnAccess,
+// CdnCoverageEntry, etc.) is deliberately NOT re-exported here. It lives under
+// `@embedpdf/engine-core/wire` only, because it is HTTP-wire territory: server
+// route guards and the cloud SDK consume it, and engine-local must not pull it
+// into its bundle. See ENGINE_CORE_BOUNDARIES.md (or wire/cdn/README.md) for
+// the rationale and where to import from.

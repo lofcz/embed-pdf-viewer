@@ -5,6 +5,12 @@ import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createCloudAdmin } from '@embedpdf/cloud-admin';
 import {
+  AzureFrontDoorCdnSigner,
+  BunnyCdnSigner,
+  CloudCdnSigner,
+  CloudFrontCdnSigner,
+  CustomHmacCdnSigner,
+  NoneCdnSigner,
   buildApp,
   createKmsKeyring,
   createSecretResolver,
@@ -17,6 +23,7 @@ import {
   signDevToken,
   sqliteMigrations,
   type AppBundle,
+  type CdnSigner,
   type KmsConfig,
   type SecretsConfig,
   type TenantScope,
@@ -30,6 +37,18 @@ const host = process.env['EMBEDPDF_SMOKE_HOST'] ?? '127.0.0.1';
 const defaultTenant = process.env['EMBEDPDF_SMOKE_TENANT'] ?? 'tenant-demo';
 const staticKmsKek =
   process.env['EMBEDPDF_SMOKE_STATIC_KMS_KEK'] ?? Buffer.alloc(32, 7).toString('base64');
+
+/**
+ * Which CDN signer to mount. Set `EMBEDPDF_SMOKE_CDN` to one of:
+ *   none, bunny, cloud-cdn, cloudfront-cookies, cloudfront-urls,
+ *   azure-fd, custom-hmac-query, custom-hmac-header
+ *
+ * Defaults to `bunny` so the inspector panel has something interesting
+ * to show. All adapters are configured with FAKE hostnames/secrets —
+ * the goal is to see what URLs and tokens the server emits, not to
+ * actually hit a real edge.
+ */
+const cdnKind = (process.env['EMBEDPDF_SMOKE_CDN'] ?? 'bunny').toLowerCase();
 const smokeSecretRefs = {
   jwtSigningSecret: { provider: 'env', name: 'EMBEDPDF_SMOKE_JWT_SECRET' },
   staticKmsKek: { provider: 'env', name: 'EMBEDPDF_SMOKE_STATIC_KMS_KEK', encoding: 'base64' },
@@ -63,6 +82,7 @@ let db: ReturnType<typeof createSqliteDb>;
 let embedpdf: AppBundle;
 let storage: FsObjectStore;
 let jwtSigningSecret: string;
+let cdnSigner: CdnSigner;
 
 await startEmbedPdfServer();
 await startApiServer();
@@ -94,6 +114,9 @@ async function startEmbedPdfServer(): Promise<void> {
   ]);
   jwtSigningSecret = resolvedSecrets.jwtSecret;
 
+  cdnSigner = buildSmokeCdnSigner(cdnKind);
+  console.log(`[cloud-smoke] CDN signer: ${cdnSigner.info.kind} ${JSON.stringify(cdnSigner.info)}`);
+
   embedpdf = await buildApp({
     verifier: { mode: 'hs256', secret: jwtSigningSecret },
     kms,
@@ -105,9 +128,82 @@ async function startEmbedPdfServer(): Promise<void> {
     sweepIntervalMs: 0,
     cacheRoot: `${dataRoot}/cache`,
     cacheMaxBytes: 512 * 1024 * 1024,
+    cdnSigner,
   });
   await embedpdf.app.listen({ host, port: enginePort });
   console.log(`[cloud-smoke] EmbedPDF server: ${engineBaseUrl}`);
+}
+
+/**
+ * Build whatever CDN signer the operator asked for. Everything uses
+ * fake/development credentials — the resulting tokens are deterministic
+ * but won't actually validate against a real CDN edge. The point is to
+ * SHOW the signed-URL shape in the inspector, not to authenticate.
+ */
+function buildSmokeCdnSigner(kind: string): CdnSigner {
+  switch (kind) {
+    case 'none':
+      return new NoneCdnSigner();
+    case 'bunny':
+      return new BunnyCdnSigner({
+        zoneHostname: 'embedpdf-smoke.b-cdn.net',
+        zoneToken: 'smoke-bunny-zone-token-not-real',
+      });
+    case 'cloud-cdn':
+      // 16-byte HMAC key for HMAC-SHA1 ('AAAA...' decoded from base64).
+      return new CloudCdnSigner({
+        urlPrefix: 'https://embedpdf-smoke.cdn.googleapis.com',
+        keyName: 'smoke-key',
+        keyValue: Buffer.alloc(16, 7).toString('base64'),
+      });
+    case 'cloudfront-cookies':
+    case 'cloudfront-urls':
+      // Generate an ephemeral RSA key per boot — production callers
+      // load this from a SecretRef.
+      return new CloudFrontCdnSigner({
+        distributionDomain: 'd1smokeexample.cloudfront.net',
+        keyPairId: 'KSMOKEPAIR000000',
+        privateKeyPem: getOrGenerateRsaKey(),
+        mode: kind === 'cloudfront-urls' ? 'urls' : 'cookies',
+      });
+    case 'azure-fd':
+      return new AzureFrontDoorCdnSigner({
+        endpoint: 'https://embedpdf-smoke.azurefd.net',
+        secret: 'smoke-azure-fd-secret-not-real',
+      });
+    case 'custom-hmac-query':
+      return new CustomHmacCdnSigner({
+        cdnOrigin: 'https://cdn.smoke.example.com',
+        secret: 'smoke-custom-hmac-secret',
+        transport: 'query',
+      });
+    case 'custom-hmac-header':
+      return new CustomHmacCdnSigner({
+        cdnOrigin: 'https://cdn.smoke.example.com',
+        secret: 'smoke-custom-hmac-secret',
+        transport: 'header',
+      });
+    default:
+      throw new Error(
+        `Unknown EMBEDPDF_SMOKE_CDN=${kind}. Valid: none, bunny, cloud-cdn, cloudfront-cookies, cloudfront-urls, azure-fd, custom-hmac-query, custom-hmac-header.`,
+      );
+  }
+}
+
+let cachedRsaKey: string | null = null;
+function getOrGenerateRsaKey(): string {
+  if (cachedRsaKey) return cachedRsaKey;
+  // Lazy import keeps node:crypto's generateKeyPairSync out of the
+  // hot path when CloudFront isn't selected.
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { generateKeyPairSync } = require('node:crypto') as typeof import('node:crypto');
+  const { privateKey } = generateKeyPairSync('rsa', {
+    modulusLength: 2048,
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+  cachedRsaKey = privateKey as string;
+  return cachedRsaKey;
 }
 
 async function startApiServer(): Promise<void> {
@@ -145,7 +241,41 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
       engineBaseUrl: '',
       originBaseUrl: engineBaseUrl,
       dataRoot,
+      cdn: { kind: cdnKind, info: cdnSigner.info },
     });
+    return;
+  }
+
+  // Mirror of /v1/access for the inspector — takes the doc token in the
+  // body (instead of an Authorization header) and forwards through the
+  // smoke server's own fetch, so the browser doesn't need to know
+  // anything about the engine port or auth header shape.
+  if (req.method === 'POST' && url.pathname === '/api/admin/access') {
+    const body = (await readJson(req)) as Record<string, unknown>;
+    const token = readString(body, 'token');
+    const docId = readString(body, 'docId');
+    const layerName = readString(body, 'layerName', 'default');
+    const password = typeof body['password'] === 'string' ? (body['password'] as string) : null;
+    const upstream = await fetch(`${engineBaseUrl}/v1/access`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        docId,
+        layerName,
+        ...(password ? { password } : {}),
+      }),
+    });
+    const text = await upstream.text();
+    let parsed: unknown = text;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      // leave as raw text
+    }
+    sendJson(res, upstream.status, parsed);
     return;
   }
 

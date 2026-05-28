@@ -19,7 +19,7 @@ import type {
   MaterializeResult,
   ObjectBody,
   ObjectStat,
-  ObjectStoreWithInfo,
+  ObjectStore,
   PresignedDownload,
   PresignedUpload,
   PresignUploadOpts,
@@ -50,13 +50,13 @@ export interface FsObjectStoreOptions {
  * Security: every key is `resolve`-joined to `root` and the result is
  * required to remain under `root` to prevent `../` traversal.
  */
-export class FsObjectStore implements ObjectStoreWithInfo {
-  readonly info = { kind: 'fs' as const, location: '' };
+export class FsObjectStore implements ObjectStore {
+  readonly info: { kind: 'fs'; location: string; root: string };
   private readonly root: string;
 
   constructor(opts: FsObjectStoreOptions) {
     this.root = resolve(opts.root);
-    this.info = { kind: 'fs', location: this.root };
+    this.info = { kind: 'fs', location: this.root, root: this.root };
   }
 
   async exists(key: string): Promise<boolean> {

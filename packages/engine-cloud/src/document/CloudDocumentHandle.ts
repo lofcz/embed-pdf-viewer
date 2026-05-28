@@ -78,6 +78,14 @@ export class CloudDocumentHandle implements DocumentHandle {
     id: string,
     private readonly layerName: string = DEFAULT_LAYER_NAME,
     initialHead?: DocumentHead,
+    /**
+     * The doc-scoped JWT the engine was opened with, decoded
+     * unverified to populate the security service's local-fallback
+     * `effectiveScope` / `identity` accessors. Optional for backward
+     * compatibility; without it the local-fallback path returns an
+     * empty scope and null identity until /access is called.
+     */
+    initialToken: string | null = null,
   ) {
     this.id = id;
     this.pendingInitialHead = initialHead ?? null;
@@ -87,6 +95,7 @@ export class CloudDocumentHandle implements DocumentHandle {
       layerName,
       initialHead ?? fallbackUnknownHead(id),
       { isClosed: () => this.closed },
+      initialToken,
     );
     this.manifestAccessor = {
       get: (signal) => this.getManifest(signal),

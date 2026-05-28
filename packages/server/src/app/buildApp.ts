@@ -35,6 +35,8 @@ import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
 import { registerAdminTokensRoutes } from '../routes/admin/tokens';
 import { SharpImageEncoder } from '../render/SharpImageEncoder';
 import type { KmsKeyring } from '../security';
+import type { CdnSigner } from '../cdn/CdnSigner';
+import { NoneCdnSigner } from '../cdn/adapters/NoneCdnSigner';
 
 export interface BuildAppOptions {
   /**
@@ -83,6 +85,13 @@ export interface BuildAppOptions {
    * so future services can consume it without changing boot wiring.
    */
   kms?: KmsKeyring;
+  /**
+   * Optional CDN signer. When omitted, the access route falls back to
+   * a built-in `NoneCdnSigner` (origin reads only, no signing). Wire
+   * a real signer to enable per-caller signed URLs / cookies and
+   * surface them via the /access response.
+   */
+  cdnSigner?: CdnSigner;
   /**
    * HMAC secret for password verification cache rows. The cache stores a
    * non-reversible proof, not the password; deployments should set this
@@ -323,12 +332,18 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
           process.env['EMBEDPDF_PASSWORD_SESSION_SERVER_SECRET'] ??
           'embedpdf-dev-password-session-secret',
       };
+      // CDN-signaling rule for /head: non-`none` adapters need /access
+      // to be called before the first cacheable read so the SDK has
+      // the signed URLs/cookies. The default (`none`) keeps /head
+      // saying "no access needed" so public shares stay cheap.
+      const cdnAccessRequired = (opts.cdnSigner?.info.kind ?? 'none') !== 'none';
       documentService = new DocumentService({
         documents: new DocumentsRepo(opts.db),
         cache: baseFileCache,
         storage: opts.objectStore,
         pool,
         layerState: layerStateService,
+        cdnAccessRequired,
         passwordVerifications: new PdfPasswordVerificationsRepo(opts.db, {
           hmacSecret:
             opts.pdfPasswordVerificationHmacSecret ??
@@ -359,7 +374,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         pool,
         storage: opts.objectStore,
       });
-      await registerAccessRoutes(app, { service: documentService });
+      await registerAccessRoutes(app, {
+        service: documentService,
+        cdnSigner: opts.cdnSigner ?? new NoneCdnSigner(),
+      });
       await registerDocsRoutes(app, { service: documentService });
       await registerMetadataRoutes(app, { service: documentService });
       await registerPageRoutes(app, {

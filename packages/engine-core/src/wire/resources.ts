@@ -35,6 +35,17 @@ export type DocResourceId =
   | 'page-render'
   | 'page-text'
   | 'page-geometry'
+  // Layer-scoped variants of the page resources. Same capability
+  // gates as their doc-level cousins (the layer just provides a
+  // possibly-divergent VIEW of the underlying page content — e.g.
+  // server-side redactions in the future). Cataloguing both shapes
+  // means the CDN signer covers the prefixes the SDK actually
+  // requests. See ADR-002 / paths-v2 design for the doc-vs-layer
+  // split rationale.
+  | 'layer-manifest'
+  | 'layer-page-render'
+  | 'layer-page-text'
+  | 'layer-page-geometry'
   | 'annotations-read'
   | 'download-current'
   | 'download-versioned';
@@ -71,11 +82,30 @@ export interface DocResourceDescriptor {
    */
   pathPattern: string;
   /**
-   * Concrete CDN path pattern with `*` wildcards. Used by the CDN
-   * signer to mint coverage. For path prefixes with no layer
-   * component, `layerName` is ignored.
+   * Concrete CDN path pattern with `*` wildcards. Used by adapters
+   * that do explicit pattern matching at the edge (CloudFront via
+   * Resource globs). For path prefixes with no layer component,
+   * `layerName` is ignored.
    */
   resolvePathPattern(docId: string, layerName?: string): string;
+  /**
+   * Display prefix with `{docId}` / `{layerName}` placeholders. The
+   * literal path-prefix the CDN signs for this resource — by design,
+   * each resource type has its OWN distinct prefix, so a token
+   * signed at this prefix authorizes only this resource type at the
+   * edge (works on prefix-matching CDNs like Bunny / Cloud CDN /
+   * Azure FD with no extra cleverness).
+   */
+  pathPrefix: string;
+  /**
+   * Concrete path prefix the CDN signer uses. The literal string
+   * `pathPattern` would have *before* the first `*` wildcard — but
+   * stored explicitly here rather than derived so future pattern
+   * syntax changes can't accidentally break CDN security.
+   *
+   * For resources with no layer component, `layerName` is ignored.
+   */
+  resolvePathPrefix(docId: string, layerName?: string): string;
   /** What capability (or set) is needed to access this resource. */
   requirement: CapabilityRequirement;
   /** Versioned-immutable vs. unversioned-mutable. */
@@ -88,11 +118,19 @@ export interface DocResourceDescriptor {
   cdnCacheable: boolean;
 }
 
+/**
+ * URL layout (paths v2): each resource type lives at a distinct path
+ * prefix so prefix-matching CDNs (Bunny, Cloud CDN, Azure FD) can
+ * enforce per-resource scope at the edge. See wire/paths.ts for the
+ * full shape and rationale.
+ */
 export const DOC_RESOURCES: Readonly<Record<DocResourceId, DocResourceDescriptor>> = {
   head: {
     id: 'head',
     pathPattern: '/v1/docs/{docId}/head',
     resolvePathPattern: (docId) => `/v1/docs/${docId}/head`,
+    pathPrefix: '/v1/docs/{docId}/head',
+    resolvePathPrefix: (docId) => `/v1/docs/${docId}/head`,
     requirement: { kind: 'single', capability: 'doc.open' },
     routeKind: 'origin',
     cdnCacheable: false,
@@ -101,22 +139,52 @@ export const DOC_RESOURCES: Readonly<Record<DocResourceId, DocResourceDescriptor
     id: 'manifest',
     pathPattern: '/v1/docs/{docId}/manifest@*',
     resolvePathPattern: (docId) => `/v1/docs/${docId}/manifest@*`,
+    pathPrefix: '/v1/docs/{docId}/manifest@',
+    resolvePathPrefix: (docId) => `/v1/docs/${docId}/manifest@`,
+    requirement: { kind: 'single', capability: 'doc.open' },
+    routeKind: 'versioned-read',
+    cdnCacheable: true,
+  },
+  'layer-manifest': {
+    id: 'layer-manifest',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/manifest@*',
+    resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/manifest@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/manifest@',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/manifest@`,
     requirement: { kind: 'single', capability: 'doc.open' },
     routeKind: 'versioned-read',
     cdnCacheable: true,
   },
   'page-render': {
     id: 'page-render',
-    pathPattern: '/v1/docs/{docId}/pages/*/render@*',
-    resolvePathPattern: (docId) => `/v1/docs/${docId}/pages/*/render@*`,
+    pathPattern: '/v1/docs/{docId}/render/pages/*/data@*',
+    resolvePathPattern: (docId) => `/v1/docs/${docId}/render/pages/*/data@*`,
+    pathPrefix: '/v1/docs/{docId}/render/pages/',
+    resolvePathPrefix: (docId) => `/v1/docs/${docId}/render/pages/`,
+    requirement: { kind: 'single', capability: 'doc.render' },
+    routeKind: 'versioned-read',
+    cdnCacheable: true,
+  },
+  'layer-page-render': {
+    id: 'layer-page-render',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/render/pages/*/data@*',
+    resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/render/pages/*/data@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/render/pages/',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/render/pages/`,
     requirement: { kind: 'single', capability: 'doc.render' },
     routeKind: 'versioned-read',
     cdnCacheable: true,
   },
   'page-text': {
     id: 'page-text',
-    pathPattern: '/v1/docs/{docId}/pages/*/text@*',
-    resolvePathPattern: (docId) => `/v1/docs/${docId}/pages/*/text@*`,
+    pathPattern: '/v1/docs/{docId}/text/pages/*/data@*',
+    resolvePathPattern: (docId) => `/v1/docs/${docId}/text/pages/*/data@*`,
+    pathPrefix: '/v1/docs/{docId}/text/pages/',
+    resolvePathPrefix: (docId) => `/v1/docs/${docId}/text/pages/`,
     // Only doc.text.copy gates /text. doc.text.search is reserved for a
     // future dedicated /search endpoint and intentionally does NOT
     // grant /text access here.
@@ -124,20 +192,49 @@ export const DOC_RESOURCES: Readonly<Record<DocResourceId, DocResourceDescriptor
     routeKind: 'versioned-read',
     cdnCacheable: true,
   },
+  'layer-page-text': {
+    id: 'layer-page-text',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/text/pages/*/data@*',
+    resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/text/pages/*/data@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/text/pages/',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/text/pages/`,
+    requirement: { kind: 'single', capability: 'doc.text.copy' },
+    routeKind: 'versioned-read',
+    cdnCacheable: true,
+  },
   'page-geometry': {
     id: 'page-geometry',
-    pathPattern: '/v1/docs/{docId}/pages/*/geometry@*',
-    resolvePathPattern: (docId) => `/v1/docs/${docId}/pages/*/geometry@*`,
+    pathPattern: '/v1/docs/{docId}/geometry/pages/*/data@*',
+    resolvePathPattern: (docId) => `/v1/docs/${docId}/geometry/pages/*/data@*`,
+    pathPrefix: '/v1/docs/{docId}/geometry/pages/',
+    resolvePathPrefix: (docId) => `/v1/docs/${docId}/geometry/pages/`,
     // Same logic as /text: search is reserved for a future endpoint.
+    requirement: { kind: 'single', capability: 'doc.text.select' },
+    routeKind: 'versioned-read',
+    cdnCacheable: true,
+  },
+  'layer-page-geometry': {
+    id: 'layer-page-geometry',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/geometry/pages/*/data@*',
+    resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/geometry/pages/*/data@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/geometry/pages/',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/geometry/pages/`,
     requirement: { kind: 'single', capability: 'doc.text.select' },
     routeKind: 'versioned-read',
     cdnCacheable: true,
   },
   'annotations-read': {
     id: 'annotations-read',
-    pathPattern: '/v1/docs/{docId}/layers/{layerName}/pages/*/annotations@*',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/annotations/pages/*/items@*',
     resolvePathPattern: (docId, layerName = 'default') =>
-      `/v1/docs/${docId}/layers/${layerName}/pages/*/annotations@*`,
+      `/v1/docs/${docId}/layers/${layerName}/annotations/pages/*/items@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/annotations/pages/',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/annotations/pages/`,
     requirement: { kind: 'single', capability: 'doc.annotate.read' },
     routeKind: 'versioned-read',
     cdnCacheable: true,
@@ -146,6 +243,9 @@ export const DOC_RESOURCES: Readonly<Record<DocResourceId, DocResourceDescriptor
     id: 'download-current',
     pathPattern: '/v1/docs/{docId}/layers/{layerName}/download',
     resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/download`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/download',
+    resolvePathPrefix: (docId, layerName = 'default') =>
       `/v1/docs/${docId}/layers/${layerName}/download`,
     requirement: { kind: 'single', capability: 'doc.download' },
     routeKind: 'origin',
@@ -156,6 +256,9 @@ export const DOC_RESOURCES: Readonly<Record<DocResourceId, DocResourceDescriptor
     pathPattern: '/v1/docs/{docId}/layers/{layerName}/download@*',
     resolvePathPattern: (docId, layerName = 'default') =>
       `/v1/docs/${docId}/layers/${layerName}/download@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/download@',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/download@`,
     requirement: { kind: 'single', capability: 'doc.download' },
     routeKind: 'versioned-read',
     cdnCacheable: true,
@@ -183,26 +286,8 @@ export function checkResourceAccess(
   }
 }
 
-/**
- * Enumerate the CDN-cacheable resources the scope can access. Returns
- * the resolved path patterns ready to be handed to a CDN signer.
- *
- * Resources that are not cacheable (head, download-current) are
- * filtered out automatically — they're still gated by their
- * `requirement` at the origin route, but the CDN never gets a
- * credential for them.
- */
-export function cdnCoverageForScope(
-  rawScope: ReadonlyArray<string>,
-  pdfBits: PdfBits,
-  context: { docId: string; layerName?: string },
-): string[] {
-  const out: string[] = [];
-  for (const id of Object.keys(DOC_RESOURCES) as DocResourceId[]) {
-    const r = DOC_RESOURCES[id];
-    if (!r.cdnCacheable) continue;
-    if (!checkResourceAccess(id, rawScope, pdfBits)) continue;
-    out.push(r.resolvePathPattern(context.docId, context.layerName));
-  }
-  return out;
-}
+// CDN-specific helpers (cdnCoverageForScope, CdnCoverageEntry,
+// applyCdnAccess, resolveResourceIdForPath) live under ./cdn/. They
+// build on DOC_RESOURCES + checkResourceAccess but are intentionally
+// segregated so cloud-only consumers don't accidentally pull general
+// route-guard code via the CDN module, and vice versa.

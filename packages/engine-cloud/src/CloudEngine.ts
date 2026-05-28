@@ -10,6 +10,7 @@ import {
 import { DEFAULT_LAYER_NAME, DocumentHeadSchema, wirePaths } from '@embedpdf/engine-core/wire';
 import { HttpClient, type HttpClientOptions } from './transport/HttpClient';
 import { CloudDocumentHandle } from './document/CloudDocumentHandle';
+import { CloudDocumentSecurityService } from './document/CloudDocumentSecurityService';
 import { decodeUnverifiedClaims } from './transport/decodeUnverifiedClaims';
 
 export interface CloudEngineOptions extends HttpClientOptions {}
@@ -70,7 +71,9 @@ export class CloudEngine implements Engine {
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        return new CloudDocumentHandle(docHttp, head.id, layerName, head);
+        const handle = new CloudDocumentHandle(docHttp, head.id, layerName, head, token);
+        await maybeAutoEstablishAccess(handle, head, signal);
+        return handle;
       });
     }
 
@@ -83,9 +86,18 @@ export class CloudEngine implements Engine {
       const docHttp = input.token ? this.http.withToken(input.token) : this.http;
       return AbortablePromise.run<DocumentHandle>(async (signal) => {
         let layerName = input.layerName ?? DEFAULT_LAYER_NAME;
-        if (!input.layerName && input.token) {
-          const token = await docHttp.currentToken();
-          const claims = decodeUnverifiedClaims(token);
+        // Resolve the bearer once so we have it for the layer-name
+        // claim AND for the security service's local-fallback scope/
+        // identity. May be null when the engine has no token at all
+        // (caller invokes /head anonymously — server will reject).
+        let resolvedToken: string | null = null;
+        try {
+          resolvedToken = await docHttp.currentToken();
+        } catch {
+          resolvedToken = null;
+        }
+        if (!input.layerName && resolvedToken) {
+          const claims = decodeUnverifiedClaims(resolvedToken);
           if (typeof claims.layer_name === 'string' && claims.layer_name.length > 0) {
             layerName = claims.layer_name;
           }
@@ -95,7 +107,9 @@ export class CloudEngine implements Engine {
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        return new CloudDocumentHandle(docHttp, head.id, layerName, head);
+        const handle = new CloudDocumentHandle(docHttp, head.id, layerName, head, resolvedToken);
+        await maybeAutoEstablishAccess(handle, head, signal);
+        return handle;
       });
     }
 
@@ -112,5 +126,53 @@ export class CloudEngine implements Engine {
     if (this.destroyed) return AbortablePromise.resolveValue<void>(undefined);
     this.destroyed = true;
     return AbortablePromise.resolveValue<void>(undefined);
+  }
+}
+
+/**
+ * If `/head` told us the server needs `/v1/access` to be called and
+ * the only reason is `'cdn'` (i.e. no password unlock waiting on
+ * user input), call it transparently so the SDK picks up CDN-signed
+ * URLs and the cookie/header side effects before the dev makes
+ * their first render/text/annotation request.
+ *
+ * If a password is required, we DON'T auto-call — the dev has to
+ * prompt the user and call `doc.security.unlock({ password })`.
+ * That code path runs the same /access POST and installs the CDN
+ * binding on success.
+ *
+ * Errors here are swallowed by design: a failed auto-establish
+ * shouldn't break `open()`. The first real request still tries
+ * origin, where the JWT check rejects if the scope is wrong;
+ * developers see a regular Forbidden then instead of a confusing
+ * open-time crash.
+ */
+async function maybeAutoEstablishAccess(
+  handle: CloudDocumentHandle,
+  head: { access: { required: boolean; reasons: ReadonlyArray<string> } },
+  signal: AbortSignal,
+): Promise<void> {
+  if (!head.access.required) return;
+  const reasons = new Set(head.access.reasons);
+  if (reasons.has('password')) return; // wait for explicit unlock()
+  if (!reasons.has('cdn')) return; // nothing actionable for the SDK
+  // CloudDocumentSecurityService exposes `establishAccess()` — the
+  // no-password sibling of `unlock()`. The public DocumentSecurityService
+  // interface doesn't carry it (unlock = user action), but every
+  // CloudDocumentHandle's `.security` is a CloudDocumentSecurityService.
+  const security = handle.security as CloudDocumentSecurityService;
+  const pending = security.establishAccess();
+  // Link cancellation: if the outer open() is aborted while /access
+  // is in flight, propagate the abort instead of leaking the request.
+  const onAbort = () => pending.abort(signal.reason ?? new Error('aborted'));
+  if (signal.aborted) onAbort();
+  else signal.addEventListener('abort', onAbort, { once: true });
+  try {
+    await pending;
+  } catch {
+    // Intentional: a transient /access failure shouldn't block open().
+    // Subsequent requests fall back to origin via the JWT bearer.
+  } finally {
+    signal.removeEventListener('abort', onAbort);
   }
 }

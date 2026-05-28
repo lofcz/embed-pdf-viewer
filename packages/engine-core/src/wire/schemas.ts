@@ -167,15 +167,7 @@ export const DocumentSecurityStateSchema: z.ZodType<DocumentSecurityState> = z.o
 export const AccessResponseSchema = z.object({
   security: DocumentSecurityStateSchema,
   cdn: z.object({
-    adapter: z.enum([
-      'none',
-      'cloudfront',
-      'cloud-cdn',
-      'cloudflare',
-      'bunny',
-      'azure-fd',
-      'custom-hmac',
-    ]),
+    adapter: z.enum(['none', 'cloudfront', 'cloud-cdn', 'bunny', 'azure-fd', 'custom-hmac']),
     expiresAt: z.number().int().positive(),
     cache: z.object({
       scope: z.enum(['browser-private', 'edge-shared']),
@@ -183,6 +175,27 @@ export const AccessResponseSchema = z.object({
     }),
     baseUrlOverrides: z.record(z.string(), z.string()).nullable(),
     authHeader: z.object({ name: z.string(), value: z.string() }).nullable(),
+    // Optional signing channels — each adapter populates the subset it uses
+    signedQueryParams: z.record(z.string(), z.string()).nullable(),
+    signedCookies: z
+      .array(
+        z.object({
+          name: z.string(),
+          value: z.string(),
+          domain: z.string().optional(),
+          path: z.string().optional(),
+          expires: z.number().int().optional(),
+        }),
+      )
+      .nullable(),
+    signedPathPolicies: z
+      .array(
+        z.object({
+          pathPrefix: z.string(),
+          queryParams: z.record(z.string(), z.string()),
+        }),
+      )
+      .nullable(),
   }),
   passwordGrant: z.string().nullable(),
   pdfPermissions: PdfPermissionInfoSchema,

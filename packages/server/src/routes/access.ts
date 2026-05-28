@@ -8,20 +8,22 @@ import {
   type DocumentAccessInfo,
   type PdfBits,
 } from '@embedpdf/engine-core/runtime';
-import { AccessRequestSchema, wirePaths } from '@embedpdf/engine-core/wire';
+import { AccessRequestSchema, cdnCoverageForScope, wirePaths } from '@embedpdf/engine-core/wire';
 import { requireLayerDocAccessOnly, type RequestJwtContext } from '../app/jwt-plugin';
+import type { CdnSigner } from '../cdn/CdnSigner';
 import type { DocumentService } from '../services/DocumentService';
 import { setNoStore } from './_helpers';
 
 export interface AccessRouteDeps {
   service: DocumentService;
+  cdnSigner: CdnSigner;
 }
 
 export async function registerAccessRoutes(
   app: FastifyInstance,
   deps: AccessRouteDeps,
 ): Promise<void> {
-  const { service } = deps;
+  const { service, cdnSigner } = deps;
 
   app.post(wirePaths.access, async (req, reply) => {
     const parsed = AccessRequestSchema.safeParse(req.body ?? {});
@@ -45,10 +47,18 @@ export async function registerAccessRoutes(
     // unlock is the authoritative source for "what bits does this
     // caller see right now." Driving both `pdfPermissions` and the
     // `effectiveScope` expansion from the same source keeps the
-    // response internally consistent (this resolves the bug where
-    // post-unlock bits and pre-unlock flags disagreed).
+    // response internally consistent.
     const pdfBits = decodePdfBits(unlocked.probe.pdfPermissionsBits);
-    const access = buildNoneAccess(unlocked, ctx.jwt, pdfBits);
+    const access = buildAccessResponse(
+      unlocked,
+      ctx.jwt,
+      pdfBits,
+      cdnSigner,
+      ctx.tenantId,
+      body.docId,
+      layerName,
+      `${req.protocol}://${req.hostname}`,
+    );
     setNoStore(reply);
     return {
       security: unlocked.security,
@@ -57,10 +67,15 @@ export async function registerAccessRoutes(
   });
 }
 
-function buildNoneAccess(
+function buildAccessResponse(
   unlocked: Awaited<ReturnType<DocumentService['unlockLayerAccess']>>,
   jwt: RequestJwtContext,
   pdfBits: PdfBits,
+  cdnSigner: CdnSigner,
+  tenantId: string,
+  docId: string,
+  layerName: string,
+  originUrl: string,
 ): DocumentAccessInfo {
   if (!jwt.exp || jwt.exp <= 0) {
     throw new EngineError(EngineErrorCode.InvalidArg, 'doc token exp is required for access');
@@ -74,17 +89,18 @@ function buildNoneAccess(
   // imply doc.annotate.read).
   const effectiveScope = [...expandRawScope(jwt.scope, pdfBits)].sort();
 
+  const coverage = cdnCoverageForScope(jwt.scope, pdfBits, { docId, layerName });
+  const cdn = cdnSigner.buildAccess({
+    tenantId,
+    docId,
+    layerName,
+    coverage,
+    expiresAt,
+    originUrl,
+  });
+
   return {
-    cdn: {
-      adapter: 'none',
-      expiresAt,
-      cache: {
-        scope: 'browser-private',
-        immutableVersionedReads: true,
-      },
-      baseUrlOverrides: null,
-      authHeader: null,
-    },
+    cdn,
     passwordGrant: unlocked.passwordGrant,
     // Enriched permission info: includes flags (typed bit view) and
     // advisory (capability-shaped booleans for UI badges) on top of

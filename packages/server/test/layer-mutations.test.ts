@@ -50,7 +50,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     await seedDocument(fx, tenantId, docId, { pageCount: 2 });
 
     const res = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items`,
       {
         method: 'POST',
         headers: {
@@ -219,7 +219,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     const layerName = 'alice';
     await seedDocument(fx, tenantId, docId, { pageCount: 1 });
 
-    await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations`, {
+    await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
@@ -229,7 +229,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     });
 
     const res = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/obj%3A10001`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items/obj%3A10001`,
       {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
@@ -275,7 +275,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     await beginWeakAnnotationSession(fx, tenantId, docId, layerName, [1]);
 
     const res = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items/index`,
       {
         method: 'PATCH',
         headers: {
@@ -346,7 +346,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     });
 
     const denied = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items/index`,
       {
         method: 'PATCH',
         headers: {
@@ -363,7 +363,7 @@ describe('Phase 5 layer mutation pipeline', () => {
 
     const session = await beginWeakAnnotationSession(fx, tenantId, docId, layerName, []);
     const stillDenied = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items/index`,
       {
         method: 'PATCH',
         headers: {
@@ -379,7 +379,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(stillDenied.status).toBe(409);
 
     const update = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/weak-annotation-session/${session.sessionId}/pages`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/weak-annotation-sessions/${session.sessionId}/pages`,
       {
         method: 'POST',
         headers: {
@@ -392,7 +392,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(update.status).toBe(200);
 
     const allowed = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items/index`,
       {
         method: 'PATCH',
         headers: {
@@ -425,7 +425,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     await beginWeakAnnotationSession(fx, tenantId, docId, layerName, [1], 'user-2');
 
     const res = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items/index`,
       {
         method: 'PATCH',
         headers: {
@@ -465,7 +465,7 @@ describe('Phase 5 layer mutation pipeline', () => {
     await beginWeakAnnotationSession(fx, tenantId, docId, layerName, [1]);
 
     const res = await fetch(
-      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/1/annotations/index`,
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items/index`,
       {
         method: 'PATCH',
         headers: {
@@ -612,7 +612,7 @@ async function beginWeakAnnotationSession(
   sub = 'user-1',
 ): Promise<{ sessionId: string; pageObjectNumbers: number[] }> {
   const res = await fetch(
-    `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/weak-annotation-session`,
+    `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/weak-annotation-sessions`,
     {
       method: 'POST',
       headers: {

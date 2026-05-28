@@ -658,7 +658,7 @@ describe('Phase 6 access route — POST /v1/access', () => {
       },
     });
     const token = docToken(tenantId, docId, { layer: 'default' });
-    const annotationsUrl = `${fx.baseUrl}/v1/docs/${docId}/layers/default/pages/1/annotations`;
+    const annotationsUrl = `${fx.baseUrl}/v1/docs/${docId}/layers/default/annotations/pages/1/items`;
 
     const blocked = await fetch(annotationsUrl, {
       headers: { Authorization: `Bearer ${token}` },

@@ -4,7 +4,11 @@ import {
   EngineErrorCode,
   type SerializedEngineError,
 } from '@embedpdf/engine-core/runtime';
-import { EngineErrorPayloadSchema } from '@embedpdf/engine-core/wire';
+import {
+  applyCdnAccess,
+  EngineErrorPayloadSchema,
+  type CdnAccessInfoForApply,
+} from '@embedpdf/engine-core/wire';
 
 export interface HttpClientOptions {
   baseUrl: string;
@@ -21,10 +25,28 @@ export interface HttpClientOptions {
   fetch?: typeof globalThis.fetch;
 }
 
+/**
+ * Per-document binding for CDN URL rewriting. `CloudDocumentHandle`
+ * calls `setCdnAccess` after `/v1/access` succeeds; the HttpClient
+ * then runs every outgoing request through `applyCdnAccess` so
+ * granted resources are routed to the CDN with the matching signed
+ * query params (or cookies/auth header for the cookie/header
+ * adapter modes).
+ *
+ * Set to `null` when the session is reset or when `/access` was
+ * never called (public-share with no CDN configured).
+ */
+export interface CdnBinding {
+  readonly cdn: CdnAccessInfoForApply | null;
+  readonly docId: string;
+  readonly layerName: string;
+}
+
 export class HttpClient {
   private readonly baseUrl: string;
   private readonly tokenFn: (() => string | Promise<string>) | null;
   private readonly fetchFn: typeof globalThis.fetch;
+  private cdnBinding: CdnBinding | null = null;
 
   constructor(opts: HttpClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
@@ -46,6 +68,38 @@ export class HttpClient {
       token,
       fetch: this.fetchFn,
     });
+  }
+
+  /**
+   * Install (or clear) the per-session CDN binding. Pass `null` to
+   * route everything to origin again — useful on session close or
+   * when an adapter swap happens mid-session (rare).
+   *
+   * The HttpClient stays dumb about WHEN to do this; the cloud
+   * document handle pushes the binding in after /access succeeds.
+   *
+   * Side effect: in the browser, signedCookies are written to
+   * `document.cookie` once per setCdnAccess call so the CDN edge
+   * receives them on subsequent fetches. Node side ignores cookies
+   * for now (cookie jar wiring deferred until needed for tests).
+   */
+  setCdnAccess(binding: CdnBinding | null): void {
+    this.cdnBinding = binding;
+    if (binding?.cdn?.signedCookies && typeof document !== 'undefined') {
+      for (const cookie of binding.cdn.signedCookies) {
+        const parts = [`${cookie.name}=${cookie.value}`];
+        parts.push(`Path=${cookie.path ?? '/'}`);
+        if (cookie.domain) parts.push(`Domain=${cookie.domain}`);
+        if (cookie.expires) parts.push(`Expires=${new Date(cookie.expires * 1000).toUTCString()}`);
+        parts.push('SameSite=None', 'Secure');
+        document.cookie = parts.join('; ');
+      }
+    }
+  }
+
+  /** Current CDN binding (or null). Exposed for diagnostics/tests. */
+  get currentCdnBinding(): CdnBinding | null {
+    return this.cdnBinding;
   }
 
   absoluteUrl(path: string): string {
@@ -180,13 +234,14 @@ export class HttpClient {
   }
 
   private async request(path: string, init: RequestInit): Promise<Response> {
-    const url = `${this.baseUrl}${path}`;
+    const { url, extraHeader } = this.resolveOutgoing(path);
     const headers = new Headers(init.headers ?? {});
     if (this.tokenFn) {
       const token = await this.tokenFn();
       headers.set('Authorization', `Bearer ${token}`);
     }
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+    if (extraHeader) headers.set(extraHeader.name, extraHeader.value);
     try {
       return await this.fetchFn(url, { ...init, headers });
     } catch (err) {
@@ -223,6 +278,33 @@ export class HttpClient {
         },
       );
     }
+  }
+
+  /**
+   * Decide where this request actually goes. With no CDN binding (or
+   * binding's `cdn` is null) every request stays on origin. Otherwise
+   * `applyCdnAccess` decides per-request based on the resource the
+   * path resolves to (and whether the caller's scope granted CDN
+   * access to it).
+   */
+  private resolveOutgoing(path: string): {
+    url: string;
+    extraHeader: { name: string; value: string } | null;
+  } {
+    if (!this.cdnBinding || !this.cdnBinding.cdn) {
+      return { url: `${this.baseUrl}${path}`, extraHeader: null };
+    }
+    const applied = applyCdnAccess({
+      path,
+      originUrl: this.baseUrl,
+      docId: this.cdnBinding.docId,
+      layerName: this.cdnBinding.layerName,
+      cdn: this.cdnBinding.cdn,
+    });
+    return {
+      url: applied.url,
+      extraHeader: applied.routedToCdn && applied.authHeader ? applied.authHeader : null,
+    };
   }
 
   private async throwFromBody(res: Response): Promise<never> {

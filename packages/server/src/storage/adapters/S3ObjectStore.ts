@@ -18,7 +18,7 @@ import type {
   MaterializeResult,
   ObjectBody,
   ObjectStat,
-  ObjectStoreWithInfo,
+  ObjectStore,
   PresignedDownload,
   PresignedUpload,
   PresignUploadOpts,
@@ -52,8 +52,14 @@ export interface S3ObjectStoreOptions {
  * reads it from `HeadObject` rather than streaming the full bytes.
  * Phase 1's smoke test mocks `HeadObject` to return this header.
  */
-export class S3ObjectStore implements ObjectStoreWithInfo {
-  readonly info: { kind: 's3'; location: string };
+export class S3ObjectStore implements ObjectStore {
+  readonly info: {
+    kind: 's3';
+    location: string;
+    bucket: string;
+    region: string;
+    endpoint?: string;
+  };
   private readonly client: S3Client;
   private readonly bucket: string;
 
@@ -68,6 +74,9 @@ export class S3ObjectStore implements ObjectStoreWithInfo {
     this.info = {
       kind: 's3',
       location: opts.endpoint ? `${opts.endpoint}/${opts.bucket}` : `s3://${opts.bucket}`,
+      bucket: opts.bucket,
+      region: opts.region,
+      ...(opts.endpoint ? { endpoint: opts.endpoint } : {}),
     };
   }
 
