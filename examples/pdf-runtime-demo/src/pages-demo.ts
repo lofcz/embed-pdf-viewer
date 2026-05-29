@@ -4,14 +4,17 @@ import type { Engine } from '@embedpdf/engine-core/runtime';
 /**
  * Engine-agnostic page-reorder walkthrough. Drives `pages.list()`,
  * one single-page move, and one multi-page contiguous-block move. The
- * walkthrough then re-asserts the locked invariants:
+ * walkthrough then re-asserts the geometry-level invariants:
  *
  *   - `pages.list()` reports every page in display order, with durable
- *     PONs and dense `pageIndex`.
- *   - Per-page `RevisionToken`s do NOT bump on a page move (this is
- *     the cornerstone of the "weak-ref survives reorder" semantic).
+ *     PONs and dense `index`.
  *   - Set of PONs is preserved across the move (no page lost or
  *     fabricated).
+ *
+ * `pages.list()` is geometry-only; annotation liveness (per-page
+ * `RevisionToken`s and their survival across a move) is an annotation
+ * concern and is covered by the annotation/reorder conformance suites, not
+ * here.
  *
  * Returns the observable side-effects so the node + browser entries
  * can render the same payload.
@@ -24,9 +27,8 @@ export interface PagesDemoResult {
   movedSingle: PageMoveResult;
   movedBatch: PageMoveResult;
   after: PageListSnapshot;
-  /** Computed for the summary; true means the locked invariants held. */
+  /** Computed for the summary; true means the geometry invariants held. */
   invariants: {
-    revisionsUnchanged: boolean;
     ponSetPreserved: boolean;
     indicesDense: boolean;
   };
@@ -46,11 +48,6 @@ export async function runPagesDemo(
       throw new Error(`pages demo requires at least 2 pages; fixture has ${before.pages.length}`);
     }
 
-    // Capture every page's revision generation BEFORE the moves so we
-    // can assert they survive the reorder unchanged.
-    const beforeRevByPon = new Map<number, number>();
-    for (const p of before.pages) beforeRevByPon.set(p.pageObjectNumber, p.revision.generation);
-
     // 1) Single-page move: send the LAST page to the FRONT.
     const lastPon = before.pages[before.pages.length - 1].pageObjectNumber;
     const movedSingle = await doc.pages.move([lastPon], 0);
@@ -60,14 +57,13 @@ export async function runPagesDemo(
     //    semantics — the block is detached and re-inserted at the
     //    destination in the post-removal index space, preserving
     //    caller order.
-    const singlePageOrder = movedSingle.meta.affectedPages;
+    const singlePageOrder = movedSingle.layout.pages;
     if (singlePageOrder.length >= 3) {
       const block = [singlePageOrder[0].pageObjectNumber, singlePageOrder[1].pageObjectNumber];
       const dest = singlePageOrder.length - block.length;
       const movedBatch = await doc.pages.move(block, dest);
       const after = await doc.pages.list();
 
-      const invariants = computeInvariants(beforeRevByPon, before, after);
       return {
         label,
         docId: doc.id,
@@ -76,14 +72,13 @@ export async function runPagesDemo(
         movedSingle,
         movedBatch,
         after,
-        invariants,
+        invariants: computeInvariants(before, after),
       };
     }
 
     // <3 pages — report the single-move twice so the demo is still
     // observable without crashing.
     const after = await doc.pages.list();
-    const invariants = computeInvariants(beforeRevByPon, before, after);
     return {
       label,
       docId: doc.id,
@@ -92,7 +87,7 @@ export async function runPagesDemo(
       movedSingle,
       movedBatch: movedSingle,
       after,
-      invariants,
+      invariants: computeInvariants(before, after),
     };
   } finally {
     await doc.close();
@@ -100,17 +95,9 @@ export async function runPagesDemo(
 }
 
 function computeInvariants(
-  beforeRevByPon: Map<number, number>,
   before: PageListSnapshot,
   after: PageListSnapshot,
 ): PagesDemoResult['invariants'] {
-  let revisionsUnchanged = true;
-  for (const p of after.pages) {
-    if (beforeRevByPon.get(p.pageObjectNumber) !== p.revision.generation) {
-      revisionsUnchanged = false;
-      break;
-    }
-  }
   const beforePons = new Set(before.pages.map((p) => p.pageObjectNumber));
   const afterPons = new Set(after.pages.map((p) => p.pageObjectNumber));
   let ponSetPreserved = beforePons.size === afterPons.size;
@@ -124,12 +111,12 @@ function computeInvariants(
   }
   let indicesDense = true;
   for (let i = 0; i < after.pages.length; i++) {
-    if (after.pages[i].pageIndex !== i) {
+    if (after.pages[i].index !== i) {
       indicesDense = false;
       break;
     }
   }
-  return { revisionsUnchanged, ponSetPreserved, indicesDense };
+  return { ponSetPreserved, indicesDense };
 }
 
 export function summarizePages(result: PagesDemoResult) {
@@ -139,23 +126,25 @@ export function summarizePages(result: PagesDemoResult) {
     elapsedMs: result.elapsedMs,
     before: result.before.pages.map((p) => ({
       pon: p.pageObjectNumber,
-      idx: p.pageIndex,
-      gen: p.revision.generation,
+      idx: p.index,
+      w: p.width,
+      h: p.height,
+      rot: p.rotation,
     })),
-    movedSingle: result.movedSingle.meta.affectedPages.map((p) => ({
+    movedSingle: result.movedSingle.layout.pages.map((p) => ({
       pon: p.pageObjectNumber,
-      idx: p.pageIndex,
-      gen: p.revision.generation,
+      idx: p.index,
     })),
-    movedBatch: result.movedBatch.meta.affectedPages.map((p) => ({
+    movedBatch: result.movedBatch.layout.pages.map((p) => ({
       pon: p.pageObjectNumber,
-      idx: p.pageIndex,
-      gen: p.revision.generation,
+      idx: p.index,
     })),
     after: result.after.pages.map((p) => ({
       pon: p.pageObjectNumber,
-      idx: p.pageIndex,
-      gen: p.revision.generation,
+      idx: p.index,
+      w: p.width,
+      h: p.height,
+      rot: p.rotation,
     })),
     invariants: result.invariants,
   };

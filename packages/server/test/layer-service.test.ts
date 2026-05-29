@@ -72,7 +72,6 @@ describe('LayerService lazy materialization', () => {
     expect(materialized.pages).toHaveLength(2);
     expect(materialized.pages[1]).toMatchObject({
       pageObjectNumber: 22,
-      pageIndex: 1,
       contentVersion: 4,
       annotationVersion: 3,
       annotationGeneration: 2,
@@ -129,7 +128,6 @@ async function seedBasePages(db: Kysely<DbSchema>): Promise<void> {
   await new DocumentPagesRepo(db).replaceForDocument('doc-layer-service', [
     {
       pageObjectNumber: 11,
-      pageIndex: 0,
       contentVersion: 9,
       annotationVersion: 7,
       annotationGeneration: 5,
@@ -137,7 +135,6 @@ async function seedBasePages(db: Kysely<DbSchema>): Promise<void> {
     },
     {
       pageObjectNumber: 22,
-      pageIndex: 1,
       contentVersion: 4,
       annotationVersion: 3,
       annotationGeneration: 2,

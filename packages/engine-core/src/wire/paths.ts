@@ -38,6 +38,7 @@ import {
   encodeContentToken,
   encodeDocToken,
   encodeDownloadToken,
+  encodeLayoutToken,
   encodeRenderToken,
   type DownloadToken,
   type TokenInput,
@@ -83,6 +84,20 @@ export const wirePaths = {
    */
   layerManifest: (docId: string, layerName: string, docVersion: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/manifest@${encodeDocToken(docVersion)}`,
+
+  /**
+   * GET: page-geometry list for the whole layer at a specific
+   * `layoutVersion`. Content-addressed; CDN may cache forever. The
+   * `layoutVersion` lives in the manifest (doc-level pointer) and bumps
+   * only on structural page ops. Stale-version requests 404 and the SDK's
+   * transparent retry walks `/head` -> `/manifest@docVersion=N` to learn
+   * the new `layoutVersion`.
+   */
+  layerLayout: (docId: string, layerName: string, layoutVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/layout@${encodeLayoutToken(layoutVersion)}`,
+
+  layerLayoutCurrent: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/layout`,
 
   layerMetadata: (docId: string, layerName: string, docVersion: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/metadata@${encodeDocToken(docVersion)}`,

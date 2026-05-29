@@ -51,13 +51,12 @@ export function runPageTextConformance(
       if (engine) await engine.destroy();
     });
 
-    test('read() returns a PageTextSnapshot with pageState + non-empty text', async () => {
+    test('read() returns a PageTextSnapshot with non-empty text', async () => {
       const doc = await openFixture(engine, opts);
       try {
         const page = doc.page(opts.fixture.pageObjectNumber);
         const snap = await page.text.read();
         expect(PageTextSnapshotSchema.safeParse(snap).success).toBe(true);
-        expect(snap.pageState.pageObjectNumber).toBe(opts.fixture.pageObjectNumber);
         expect(snap.charCount >= opts.fixture.minCharCount).toBe(true);
         expect(snap.text.length > 0).toBe(true);
       } finally {

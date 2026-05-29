@@ -89,6 +89,7 @@ export { DocumentAnnotationMutator } from './mutation/DocumentAnnotationMutator'
 
 // Pages
 export { DocumentPagesMutator } from './pages/DocumentPagesMutator';
+export { PageLayoutReader } from './pages/PageLayoutReader';
 
 // Util
 export { generateUuid } from './util/uuid';

@@ -49,9 +49,7 @@ export class PageTextReader {
         throwIfAborted(signal);
         const charCount = fn.FPDFText_CountChars(textPagePtr);
         const text = readPageText(fn, mem, textPagePtr, charCount);
-        const pageState = this.session.pageState(pageObjectNumber);
         return {
-          pageState,
           text,
           charCount: Math.max(charCount, 0),
         };

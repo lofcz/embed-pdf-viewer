@@ -66,7 +66,6 @@ export class BrowserImageEncoder implements LocalImageEncoder {
     const format = options.format ?? 'png';
     if (format === 'bmp') {
       return {
-        pageState: raster.pageState,
         width: raster.width,
         height: raster.height,
         format,
@@ -80,7 +79,6 @@ export class BrowserImageEncoder implements LocalImageEncoder {
 
     const bytes = await this.encodePngOrWebp(raster, format, options.quality, signal);
     return {
-      pageState: raster.pageState,
       width: raster.width,
       height: raster.height,
       format,

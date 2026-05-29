@@ -61,7 +61,6 @@ export class CloudPageRenderService implements PageRenderService {
       );
       return createCloudPageImageHandle(
         {
-          pageState: page.state,
           format,
           contentType: `image/${format}`,
           source: { kind: 'url', url: this.http.absoluteUrl(requestPath) },

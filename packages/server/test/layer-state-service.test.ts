@@ -49,10 +49,9 @@ describe('LayerStateService durable authority', () => {
       })
       .execute();
     await new DocumentPagesRepo(db).replaceForDocument('doc-ls', [
-      { pageObjectNumber: 11, pageIndex: 0, hasWeakAnnotations: false },
+      { pageObjectNumber: 11, hasWeakAnnotations: false },
       {
         pageObjectNumber: 22,
-        pageIndex: 1,
         annotationVersion: 4,
         annotationGeneration: 2,
         hasWeakAnnotations: true,
@@ -73,7 +72,6 @@ describe('LayerStateService durable authority', () => {
     expect(pages).toHaveLength(2);
     expect(pages[1]).toMatchObject({
       pageObjectNumber: 22,
-      pageIndex: 1,
       contentVersion: 1,
       annotationVersion: 4,
       annotationGeneration: 2,

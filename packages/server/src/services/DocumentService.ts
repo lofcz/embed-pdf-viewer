@@ -10,12 +10,13 @@ import {
   type DocumentSecurityState,
   type DocumentMetadata,
   type DocumentSecurityProbeInfo,
+  type PageListSnapshot,
   type PageState,
   type PdfBits,
   type PdfSaveMode,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
-import type { ManifestPage } from '@embedpdf/engine-core/wire';
+import type { DocumentManifest } from '@embedpdf/engine-core/wire';
 import type { DocumentsRepo, DocumentRow } from '../db/repos/documents.repo';
 import type {
   PasswordSessionFacts,
@@ -70,21 +71,11 @@ export interface DocumentHead {
   };
 }
 
-/**
- * Versioned manifest. Each page reports the cache-busting integers
- * that drive `/pages/:pon/text@contentVersion=N` and `/pages/:pon/annotations@annotationVersion=N`,
- * so the SDK can build leaf URLs without further round-trips.
- *
- * Hard-coded `(contentVersion: 1, annotationVersion: 1)` in Phase 4.
- * `hasWeakAnnotations` is still computed from a real annotation scan before
- * being published, so the cacheable manifest never collapses unknown to false.
- * Phase 5 swaps the scan for a `LayerPagesRepo.find(docId)` lookup.
- */
-export interface DocumentManifest {
-  docVersion: number;
-  baseSha: string;
-  pages: ManifestPage[];
-}
+// The manifest shape is owned by engine-core (the wire contract). Re-export
+// it here so existing `@embedpdf/server` consumers keep their import path,
+// but there is a single source of truth — no server-local shadow that can
+// drift from the wire type (e.g. miss `layoutVersion`).
+export type { DocumentManifest } from '@embedpdf/engine-core/wire';
 
 export interface DocumentServiceOptions {
   documents: DocumentsRepo;
@@ -381,12 +372,47 @@ export class DocumentService {
       const pages = await this.layerState.ensureBasePages(docId, () =>
         this.loadDurableBasePageStates(docId),
       );
-      return this.layerState.buildLayerManifest(docId, head.baseSha, layerName, head, pages);
+      // No layer row yet -> immutable base view: docVersion from head, and
+      // the geometry pointer at its initial epoch (1), matching the base
+      // manifest.
+      return this.layerState.buildLayerManifest(
+        docId,
+        head.baseSha,
+        layerName,
+        { docVersion: head.docVersion, layoutVersion: 1 },
+        pages,
+      );
     }
 
     await this.layerState.ensureBasePages(docId, () => this.loadDurableBasePageStates(docId));
     const pages = await this.layerState.ensureLayerPagesFromBase({ layerId: layer.id, docId });
     return this.layerState.buildLayerManifest(docId, head.baseSha, layerName, layer, pages);
+  }
+
+  /**
+   * Page-geometry list for a layer. Reads the live worker session via the
+   * shared `pages.list` op (the same `PageLayoutReader` the local engine
+   * uses), so local and cloud return byte-identical layout. The route
+   * gates freshness on the manifest's `layoutVersion`; this method only
+   * produces the geometry for the current session.
+   */
+  async getLayerLayout(
+    ctx: OpenContext,
+    docId: string,
+    layerName: string,
+    signal?: AbortSignal,
+  ): Promise<PageListSnapshot> {
+    await this.ensureLayerOnPool(ctx, docId, layerName);
+    const build = (jobId: WorkerJobId) =>
+      wirePack({ kind: 'pages.list' as const, jobId, docId, layerName });
+    const result = await this.pool.run(docId, build, signal);
+    if (result.tag !== 'pages.list') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected pages.list payload: ${result.tag}`,
+      );
+    }
+    return result.snapshot;
   }
 
   async ensureLayerOnPool(

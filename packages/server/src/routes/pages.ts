@@ -36,7 +36,6 @@ import {
   parseTokenOrInvalidArg,
   setImmutableCache,
   setNoStore,
-  toPageState,
   type SchemaLike,
 } from './_helpers';
 
@@ -460,10 +459,10 @@ async function readPageText(input: {
   }
 
   input.requestedVersion === undefined ? setNoStore(input.reply) : setImmutableCache(input.reply);
-  return {
-    ...result.snapshot,
-    pageState: toPageState(page),
-  };
+  // The text body is immutable and keyed by contentVersion. Annotation
+  // liveness (revision / weak-state) changes on a different cadence, so it
+  // is intentionally NOT baked in here; it lives on annotation reads.
+  return result.snapshot;
 }
 
 async function readPageGeometry(input: {
@@ -517,10 +516,8 @@ async function readPageGeometry(input: {
   }
 
   input.requestedVersion === undefined ? setNoStore(input.reply) : setImmutableCache(input.reply);
-  return {
-    ...result.snapshot,
-    pageState: toPageState(page),
-  };
+  // See readPageText: geometry is content-cached; liveness is not baked in.
+  return result.snapshot;
 }
 
 async function resolvePageForRead(input: {

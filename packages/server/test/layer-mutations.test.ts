@@ -173,7 +173,7 @@ describe('Phase 5 layer mutation pipeline', () => {
       .selectFrom('layer_pages')
       .selectAll()
       .where('layer_id', '=', layer.id)
-      .orderBy('page_index', 'asc')
+      .orderBy('page_object_number', 'asc')
       .execute();
     expect(pages).toHaveLength(2);
     expect(pages[0]).toMatchObject({
@@ -517,26 +517,23 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('cache-control')).toBe(NO_STORE);
     const body = (await res.json()) as {
-      meta: {
-        affectedPages: Array<{ pageObjectNumber: number; pageIndex: number }>;
-        cacheDelta: {
-          previousDocVersion: number;
-          docVersion: number;
-          pages: Array<{
-            pageObjectNumber: number;
-            cache: {
-              annotationVersion: number;
-              contentVersion: number;
-            };
-          }>;
-        };
+      layout: {
+        pageCount: number;
+        pages: Array<{ pageObjectNumber: number; index: number }>;
       };
+      cache: {
+        previousDocVersion: number;
+        docVersion: number;
+        layoutVersion: number;
+      } | null;
     };
-    expect(body.meta.affectedPages.map((page) => page.pageObjectNumber)).toEqual([3, 1, 2]);
-    expect(body.meta.affectedPages.map((page) => page.pageIndex)).toEqual([0, 1, 2]);
-    expect(body.meta.cacheDelta.previousDocVersion).toBe(1);
-    expect(body.meta.cacheDelta.docVersion).toBe(2);
-    expect(body.meta.cacheDelta.pages).toEqual([]);
+    // A move returns the new geometry (order), not liveness.
+    expect(body.layout.pageCount).toBe(3);
+    expect(body.layout.pages.map((page) => page.pageObjectNumber)).toEqual([3, 1, 2]);
+    expect(body.layout.pages.map((page) => page.index)).toEqual([0, 1, 2]);
+    // Cloud coherence pins: docVersion + layoutVersion both advance by one,
+    // no per-page pin changes.
+    expect(body.cache).toEqual({ previousDocVersion: 1, docVersion: 2, layoutVersion: 2 });
 
     const layer = await fx.db
       .selectFrom('layers')
@@ -546,18 +543,20 @@ describe('Phase 5 layer mutation pipeline', () => {
       .executeTakeFirstOrThrow();
     expect(layer.current_version).toBe(1);
     expect(layer.doc_version).toBe(2);
+    expect(Number(layer.layout_version)).toBe(2);
     expect(layer.current_artifact_key).toBe(
       StorageKeys.layerArtifact(tenantId, docId, layerName, 1),
     );
 
+    // `layer_pages` rows are untouched by a move (display order lives in the
+    // artifact/layout, not the table). Assert the page set + pins survive.
     const pages = await fx.db
       .selectFrom('layer_pages')
-      .select(['page_object_number', 'page_index', 'annotation_version', 'annotation_generation'])
+      .select(['page_object_number', 'annotation_version', 'annotation_generation'])
       .where('layer_id', '=', layer.id)
-      .orderBy('page_index', 'asc')
+      .orderBy('page_object_number', 'asc')
       .execute();
-    expect(pages.map((page) => Number(page.page_object_number))).toEqual([3, 1, 2]);
-    expect(pages.map((page) => Number(page.page_index))).toEqual([0, 1, 2]);
+    expect(pages.map((page) => Number(page.page_object_number))).toEqual([1, 2, 3]);
     expect(pages.map((page) => Number(page.annotation_version))).toEqual([1, 1, 1]);
     expect(pages.map((page) => Number(page.annotation_generation))).toEqual([0, 0, 0]);
   });
@@ -723,7 +722,6 @@ async function seedLayerPage(
     .values({
       layer_id: `layer-${input.docId}`,
       page_object_number: 1,
-      page_index: 0,
       content_version: 1,
       annotation_version: input.annotationVersion,
       annotation_generation: input.annotationGeneration,

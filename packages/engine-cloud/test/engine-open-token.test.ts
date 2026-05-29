@@ -113,7 +113,6 @@ async function seedDocument(
       state: 'ready',
       base_sha: sha,
       storage_size_bytes: bytes.byteLength,
-      page_count: pageCount,
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,
@@ -134,7 +133,7 @@ function docToken(
     sub: 'user-token-open',
     tenant_id: tenantId,
     doc_id: docId,
-    scope: opts.scope ?? ['doc.read'],
+    scope: opts.scope ?? ['doc.open'],
   });
 }
 
@@ -241,10 +240,10 @@ describe('cloud engine — open({ kind: "token", token })', () => {
     const docId = 'docscope01';
     await seedDocument(fx, tenantId, docId);
     const engine = createCloudEngine({ baseUrl: fx.baseUrl });
-    // Doc token with only `doc.annotate` cannot hit /head (requires
-    // doc.read). The server's requireDocAccess(['doc.read']) returns
-    // 403, which the SDK surfaces as `Forbidden`.
-    const noReadTok = docToken(tenantId, docId, { scope: ['doc.annotate'] });
+    // Doc token with only `doc.annotate.read` cannot hit /head (which
+    // requires `doc.open`). The server's doc-access guard returns 403,
+    // which the SDK surfaces as `Forbidden`.
+    const noReadTok = docToken(tenantId, docId, { scope: ['doc.annotate.read'] });
     await expect(engine.open({ kind: 'token', token: noReadTok })).rejects.toMatchObject({
       code: EngineErrorCode.Forbidden,
     });
@@ -325,7 +324,7 @@ describe('decodeUnverifiedClaims (SDK-side)', () => {
       sub: 'u',
       tenant_id: 't',
       doc_id: 'd',
-      scope: ['doc.read'],
+      scope: ['doc.open'],
     });
     const claims = decodeUnverifiedClaims(tok);
     expect(claims.doc_id).toBe('d');

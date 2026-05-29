@@ -8,6 +8,10 @@ export const ContentTokenSchema = {
   fields: ['contentVersion'],
 } as const satisfies TokenSchema;
 
+export const LayoutTokenSchema = {
+  fields: ['layoutVersion'],
+} as const satisfies TokenSchema;
+
 export const AnnotationTokenSchema = {
   fields: ['annotationVersion'],
 } as const satisfies TokenSchema;

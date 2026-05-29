@@ -6,6 +6,7 @@ import {
   ContentTokenSchema,
   DocTokenSchema,
   DownloadTokenSchema,
+  LayoutTokenSchema,
   RenderTokenSchema,
 } from './tokenSchemas';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
@@ -24,6 +25,11 @@ export const encodeContentToken = (contentVersion: number): string =>
   encodeToken(ContentTokenSchema, { contentVersion });
 export const decodeContentToken = (raw: string): number =>
   decodePositiveInteger(decodeToken(ContentTokenSchema, raw).contentVersion, 'contentVersion');
+
+export const encodeLayoutToken = (layoutVersion: number): string =>
+  encodeToken(LayoutTokenSchema, { layoutVersion });
+export const decodeLayoutToken = (raw: string): number =>
+  decodePositiveInteger(decodeToken(LayoutTokenSchema, raw).layoutVersion, 'layoutVersion');
 
 export const encodeAnnotationToken = (annotationVersion: number): string =>
   encodeToken(AnnotationTokenSchema, { annotationVersion });

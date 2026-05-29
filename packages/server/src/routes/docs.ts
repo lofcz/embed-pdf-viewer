@@ -9,6 +9,7 @@ import {
 import {
   decodeDocToken,
   decodeDownloadToken,
+  decodeLayoutToken,
   PdfSaveModeSchema,
   wirePaths,
 } from '@embedpdf/engine-core/wire';
@@ -19,7 +20,12 @@ import {
   requireResource,
 } from '../app/jwt-plugin';
 import type { DocumentService, SavedPdfFile } from '../services/DocumentService';
-import { parseTokenOrInvalidArg, setImmutableCache, setNoStore } from './_helpers';
+import {
+  abortSignalFromRequest,
+  parseTokenOrInvalidArg,
+  setImmutableCache,
+  setNoStore,
+} from './_helpers';
 
 export interface DocsRouteDeps {
   service: DocumentService;
@@ -126,6 +132,49 @@ export async function registerDocsRoutes(app: FastifyInstance, deps: DocsRouteDe
     const manifest = await service.getLayerManifest(ctx, docId, layerName);
     setNoStore(reply);
     return manifest;
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/layout@:token', async (req, reply) => {
+    const { docId, layerName, token } = req.params as {
+      docId: string;
+      layerName: string;
+      token: string;
+    };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await bitsForLayer(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'layer-layout', pdfBits);
+    const requested = parseTokenOrInvalidArg(decodeLayoutToken, token, 'layoutVersion token');
+    const manifest = await service.getLayerManifest(ctx, docId, layerName);
+    if (requested !== manifest.layoutVersion) {
+      setNoStore(reply);
+      throw new EngineError(
+        EngineErrorCode.NotFound,
+        `layout version ${requested} no longer current (current=${manifest.layoutVersion})`,
+      );
+    }
+    const snapshot = await service.getLayerLayout(
+      ctx,
+      docId,
+      layerName,
+      abortSignalFromRequest(req),
+    );
+    setImmutableCache(reply);
+    return snapshot;
+  });
+
+  app.get('/v1/docs/:docId/layers/:layerName/layout', async (req, reply) => {
+    const { docId, layerName } = req.params as { docId: string; layerName: string };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await bitsForLayer(accessCtx, docId, layerName);
+    const ctx = requireLayerResource(req, docId, layerName, 'layer-layout', pdfBits);
+    const snapshot = await service.getLayerLayout(
+      ctx,
+      docId,
+      layerName,
+      abortSignalFromRequest(req),
+    );
+    setNoStore(reply);
+    return snapshot;
   });
 
   app.get('/v1/docs/:docId/layers/:layerName/download@:token', async (req, reply) => {

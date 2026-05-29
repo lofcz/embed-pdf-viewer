@@ -232,16 +232,6 @@ export class DocumentSession {
     return found;
   }
 
-  recordByIndex(pageIndex: number): PageRecord {
-    if (this.recordsByIndex.has(pageIndex)) return this.recordsByIndex.get(pageIndex)!;
-    this.ensureFullPageRegistry();
-    const found = this.recordsByIndex.get(pageIndex);
-    if (!found) {
-      throw new EngineError(EngineErrorCode.NotFound, `no page at index ${pageIndex}`);
-    }
-    return found;
-  }
-
   /** All page records, in display order. Forces full enumeration. */
   allRecords(): PageRecord[] {
     this.ensureFullPageRegistry();
@@ -264,13 +254,14 @@ export class DocumentSession {
     this.ensureFullPageRegistry();
   }
 
-  /** Per-page state envelope used by every read/mutation result. */
+  /** Per-page liveness envelope used by annotation read/mutation results. */
   pageState(pageObjectNumber: PageObjectNumber): PageState {
-    const record = this.recordByObjectNumber(pageObjectNumber);
+    // Validate the page exists (throws NotFound for bad pons); liveness is
+    // keyed by pon and carries no display order — that lives in PageLayout.
+    this.recordByObjectNumber(pageObjectNumber);
     const weakAnnotationState = this.requireRevisions().weakAnnotationState(pageObjectNumber);
     return {
       pageObjectNumber,
-      pageIndex: record.pageIndex,
       revision: this.requireRevisions().token(pageObjectNumber),
       weakAnnotationState,
     };

@@ -621,7 +621,7 @@ async function renderPage(): Promise<void> {
     background: renderBackground(),
     includeAnnotations: els.renderAnnotations.checked,
   });
-  await showRenderedImage(image);
+  await showRenderedImage(image, selectedPage());
 }
 
 async function listAnnotations(): Promise<void> {
@@ -795,7 +795,10 @@ function readPositiveInteger(raw: string, label: string): number {
   return value;
 }
 
-async function showRenderedImage(image: PageImageHandle): Promise<void> {
+async function showRenderedImage(
+  image: PageImageHandle,
+  pageObjectNumber: PageObjectNumber,
+): Promise<void> {
   clearRenderPreview();
   const objectUrl = await image.objectUrl();
   renderObjectUrl = objectUrl.url;
@@ -803,14 +806,14 @@ async function showRenderedImage(image: PageImageHandle): Promise<void> {
   els.renderImage.src = renderObjectUrl;
   els.renderPreview.classList.add('has-image');
   els.renderMeta.textContent = [
-    `${image.format.toUpperCase()} page ${image.pageState.pageObjectNumber}`,
+    `${image.format.toUpperCase()} page ${pageObjectNumber}`,
     image.width && image.height
       ? `${image.width}x${image.height}`
       : `width ${els.renderWidth.value}`,
     els.renderAnnotations.checked ? 'annotations on' : 'annotations off',
   ].join(' | ');
   setOutput({
-    pageState: image.pageState,
+    pageObjectNumber,
     format: image.format,
     contentType: image.contentType,
     source:
@@ -968,7 +971,6 @@ function safeFilePart(value: string): string {
 
 function summarizeGeometry(snapshot: PageGeometrySnapshot): unknown {
   return {
-    pageState: snapshot.pageState,
     runCount: snapshot.runs.length,
     glyphCount: snapshot.runs.reduce((total, run) => total + run.glyphs.length, 0),
     sampleRuns: snapshot.runs.slice(0, 5),
@@ -1057,6 +1059,7 @@ function exampleRequestPath(
     layerName: string;
     pageObjectNumber: number;
     docVersion: number;
+    layoutVersion: number;
     contentVersion: number;
     annotationVersion: number;
   },
@@ -1068,6 +1071,8 @@ function exampleRequestPath(
       return wirePaths.docManifest(ctx.docId, ctx.docVersion);
     case 'layer-manifest':
       return wirePaths.layerManifest(ctx.docId, ctx.layerName, ctx.docVersion);
+    case 'layer-layout':
+      return wirePaths.layerLayout(ctx.docId, ctx.layerName, ctx.layoutVersion);
     case 'page-render':
       return wirePaths.docPageRender(ctx.docId, ctx.pageObjectNumber, {
         contentVersion: ctx.contentVersion,
@@ -1123,6 +1128,7 @@ function buildPreview(): Promise<void> {
     layerName: els.previewLayer.value.trim() || 'default',
     pageObjectNumber: Number(els.previewPon.value) || 1,
     docVersion: Number(els.previewDocVer.value) || 1,
+    layoutVersion: Number(els.previewDocVer.value) || 1,
     contentVersion: Number(els.previewContentVer.value) || 1,
     annotationVersion: Number(els.previewAnnotVer.value) || 1,
   };

@@ -531,27 +531,25 @@ export class LayerService {
       docId,
       layerName,
       layer,
-      pageOrder: input.result.meta.affectedPages.map((page) => page.pageObjectNumber),
+      // The worker's layout IS the new order; derive the durable page order
+      // (by PON, in display order) from it for the commit-time validation.
+      pageOrder: input.result.layout.pages.map((page) => page.pageObjectNumber),
       artifactKey,
       artifactSha: uploaded.sha256,
       artifactSize: uploaded.size,
       nextVersion,
       payload: input.result,
     });
-    const cacheDelta = this.layerState.buildCacheDelta({
-      docId,
-      layerName,
-      previousDocVersion: committed.previousLayerDocVersion,
-      docVersion: committed.layerDocVersion,
-      pages: [],
-    });
 
+    // Return the worker's layout verbatim (no second /layout read needed) plus
+    // the coherence pins so a cloud client advances its cached manifest in
+    // place instead of refetching.
     return {
-      meta: {
-        affectedPages: committed.pages.map((page) =>
-          this.layerState.decorateLayerPageState(docId, layerName, page),
-        ),
-        cacheDelta,
+      layout: input.result.layout,
+      cache: {
+        previousDocVersion: committed.previousLayerDocVersion,
+        docVersion: committed.layerDocVersion,
+        layoutVersion: committed.layoutVersion,
       },
     };
   }
@@ -749,7 +747,6 @@ export class LayerService {
         });
         const nextPage: DurablePageRow = {
           pageObjectNumber: Number(page.page_object_number),
-          pageIndex: Number(page.page_index),
           contentVersion: Number(page.content_version) + (bumps.bumpContentVersion ? 1 : 0),
           annotationVersion:
             Number(page.annotation_version) + (bumps.bumpAnnotationVersion ? 1 : 0),
@@ -826,9 +823,9 @@ export class LayerService {
     nextVersion: number;
     payload: unknown;
   }): Promise<{
-    pages: DurablePageRow[];
     previousLayerDocVersion: number;
     layerDocVersion: number;
+    layoutVersion: number;
   }> {
     return this.requireDb()
       .transaction()
@@ -836,7 +833,7 @@ export class LayerService {
         const now = Date.now();
         const currentLayer = await trx
           .selectFrom('layers')
-          .select(['current_version', 'doc_version'])
+          .select(['current_version', 'doc_version', 'layout_version'])
           .where('id', '=', input.layer.id)
           .executeTakeFirst();
         if (!currentLayer) {
@@ -851,7 +848,7 @@ export class LayerService {
 
         const rows = await trx
           .selectFrom('layer_pages')
-          .selectAll()
+          .select('page_object_number')
           .where('layer_id', '=', input.layer.id)
           .execute();
         if (rows.length !== input.pageOrder.length) {
@@ -860,34 +857,33 @@ export class LayerService {
             `pages.move returned ${input.pageOrder.length} pages for ${rows.length} layer page rows`,
           );
         }
-
-        const byObjectNumber = new Map(rows.map((row) => [Number(row.page_object_number), row]));
-        const nextPages: DurablePageRow[] = input.pageOrder.map((pageObjectNumber, pageIndex) => {
-          const row = byObjectNumber.get(pageObjectNumber);
-          if (!row) {
+        const known = new Set(rows.map((row) => Number(row.page_object_number)));
+        for (const pageObjectNumber of input.pageOrder) {
+          if (!known.has(pageObjectNumber)) {
             throw new EngineError(
               EngineErrorCode.WireFormat,
               `pages.move returned unknown page object number ${pageObjectNumber}`,
             );
           }
-          return {
-            pageObjectNumber,
-            pageIndex,
-            contentVersion: Number(row.content_version),
-            annotationVersion: Number(row.annotation_version),
-            annotationGeneration: Number(row.annotation_generation),
-            hasWeakAnnotations: Boolean(row.has_weak_annotations),
-            updatedAt: now,
-          };
-        });
+        }
 
+        // A move changes neither the page set nor any page's per-page
+        // versions — only display order, which now lives in the artifact and
+        // is read back via /layout. So `layer_pages` rows are left entirely
+        // untouched (no staging-offset reshuffle): we only advance the layer
+        // version pointers below.
         const previousLayerDocVersion = Number(currentLayer.doc_version);
         const layerDocVersion = previousLayerDocVersion + 1;
+        // A page move is a structural op: bump the geometry pointer so the
+        // CDN-immutable /layout@layoutVersion leaf is re-fetched. Per-page
+        // content/annotation versions stay put (their caches stay warm).
+        const layoutVersion = Number(currentLayer.layout_version) + 1;
 
         await trx
           .updateTable('layers')
           .set({
             doc_version: layerDocVersion,
+            layout_version: layoutVersion,
             current_version: input.nextVersion,
             current_artifact_key: input.artifactKey,
             current_artifact_sha: input.artifactSha,
@@ -896,35 +892,6 @@ export class LayerService {
           })
           .where('id', '=', input.layer.id)
           .execute();
-
-        const maxPageIndex = rows.reduce((max, row) => Math.max(max, Number(row.page_index)), -1);
-        const stagingOffset = maxPageIndex + rows.length + 1;
-        // `layer_pages` enforces unique `(layer_id, page_index)`.
-        // Reordering is a valid permutation, but row-by-row updates can
-        // temporarily collide with another row's old index. Move the whole
-        // layer into an out-of-band index range inside this transaction, then
-        // write the canonical final order. Readers only see old-or-new
-        // committed state, never this staging range.
-        await trx
-          .updateTable('layer_pages')
-          .set((eb) => ({
-            page_index: eb('page_index', '+', stagingOffset),
-            updated_at: now,
-          }))
-          .where('layer_id', '=', input.layer.id)
-          .execute();
-
-        for (const page of nextPages) {
-          await trx
-            .updateTable('layer_pages')
-            .set({
-              page_index: page.pageIndex,
-              updated_at: now,
-            })
-            .where('layer_id', '=', input.layer.id)
-            .where('page_object_number', '=', page.pageObjectNumber)
-            .execute();
-        }
 
         const auditEvent = makeAuditEvent({
           ctx: input.ctx,
@@ -943,7 +910,7 @@ export class LayerService {
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return { pages: nextPages, previousLayerDocVersion, layerDocVersion };
+        return { previousLayerDocVersion, layerDocVersion, layoutVersion };
       });
   }
 

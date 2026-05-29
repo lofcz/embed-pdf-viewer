@@ -107,7 +107,6 @@ export async function seedDocumentFromBytes(
       state: 'ready',
       base_sha: sha,
       storage_size_bytes: bytes.byteLength,
-      page_count: pageCount,
       metadata_json: null,
       idempotency_key: null,
       failure_reason: null,
@@ -123,7 +122,7 @@ export function docScopedToken(
   fx: DbSeededFixture,
   tenantId: string,
   docId: string,
-  scope: ReadonlyArray<string> = ['doc.read', 'doc.annotate', 'doc.edit-pages'],
+  scope: ReadonlyArray<string> = ['*'],
 ): string {
   return signDevToken(fx.secret, {
     sub: 'cloud-test',

@@ -43,6 +43,7 @@ export type DocResourceId =
   // requests. See ADR-002 / paths-v2 design for the doc-vs-layer
   // split rationale.
   | 'layer-manifest'
+  | 'layer-layout'
   | 'layer-page-render'
   | 'layer-page-text'
   | 'layer-page-geometry'
@@ -164,6 +165,20 @@ export const DOC_RESOURCES: Readonly<Record<DocResourceId, DocResourceDescriptor
     pathPrefix: '/v1/docs/{docId}/render/pages/',
     resolvePathPrefix: (docId) => `/v1/docs/${docId}/render/pages/`,
     requirement: { kind: 'single', capability: 'doc.render' },
+    routeKind: 'versioned-read',
+    cdnCacheable: true,
+  },
+  'layer-layout': {
+    id: 'layer-layout',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/layout@*',
+    resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/layout@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/layout@',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/layout@`,
+    // Geometry is the same session-level read as the manifest; gate it
+    // behind `doc.open` just like `layer-manifest`.
+    requirement: { kind: 'single', capability: 'doc.open' },
     routeKind: 'versioned-read',
     cdnCacheable: true,
   },

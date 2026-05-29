@@ -108,6 +108,20 @@ function createFakeRuntime(): PdfRuntimeModule & {
       },
       FPDF_ClosePage: () => undefined,
       EPDFPage_GetObjectNumber: (pagePtr: Ptr) => ponByPagePtr.get(pagePtr) ?? 0,
+      // Security probe run on every open. The harness opens unencrypted
+      // fixtures: report success with kind=0 (none); the caller pre-zeroes
+      // the out-params so the defaults (no perms, revision 0) flow through.
+      EPDF_CheckPasswordPermissions: () => 1,
+      // Geometry bindings used by PageLayoutReader (pages.list). The harness
+      // only asserts page identity (pageObjectNumber/order), so return the
+      // "absent" sentinel for every box/size/unit/label and let the reader
+      // apply its documented fallbacks (0x0 size, rotation 0, userUnit 1,
+      // null label, zero-rect media).
+      EPDF_GetPageBoxByIndex: () => 0,
+      EPDF_GetPageSizeByIndexNormalized: () => 0,
+      EPDF_GetPageRotationByIndex: () => 0,
+      EPDF_GetPageUserUnitByIndex: () => 0,
+      FPDF_GetPageLabel: () => 0,
       EPDF_LoadMemBaseDocument64: (dataPtr: Ptr, size: number, password: string) => {
         calls.loadMemBases.push({ ptr: dataPtr, size, password });
         return ptr(201);

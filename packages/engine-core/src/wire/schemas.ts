@@ -11,6 +11,7 @@ import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageBoxes, PageLayout, PdfRect } from '../dto/PageLayout';
 import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
@@ -249,7 +250,6 @@ export const WeakAnnotationStateSchema: z.ZodType<WeakAnnotationState> = z.discr
 
 export const PageStateSchema: z.ZodType<PageState> = z.object({
   pageObjectNumber: z.number().int().positive(),
-  pageIndex: z.number().int().nonnegative(),
   revision: RevisionTokenSchema,
   weakAnnotationState: WeakAnnotationStateSchema,
 });
@@ -297,6 +297,7 @@ export type { ManifestPage } from '../dto/DocumentManifest';
  */
 export const DocumentManifestSchema: z.ZodType<DocumentManifest> = z.object({
   docVersion: z.number().int().positive(),
+  layoutVersion: z.number().int().positive(),
   baseSha: z.string(),
   pages: z.array(ManifestPageSchema),
 });
@@ -320,7 +321,6 @@ export const AnnotationListSnapshotAllPagesSchema: z.ZodType<AnnotationListSnaps
  * `text.length / 1` when astral-plane characters are present).
  */
 export const PageTextSnapshotSchema: z.ZodType<PageTextSnapshot> = z.object({
-  pageState: PageStateSchema,
   text: z.string(),
   charCount: z.number().int().nonnegative(),
 });
@@ -350,7 +350,6 @@ export const PageGeometryRunSchema = z.object({
 });
 
 export const PageGeometrySnapshotSchema: z.ZodType<PageGeometrySnapshot> = z.object({
-  pageState: PageStateSchema,
   runs: z.array(PageGeometryRunSchema),
 });
 
@@ -569,12 +568,47 @@ export const AnnotationMoveResultSchema: z.ZodType<AnnotationMoveResult> = z.obj
 });
 
 /**
+ * A raw PDF box `[llx, lly, urx, ury]` in PDF user space (un-rotated,
+ * not origin-normalized).
+ */
+export const PdfRectSchema: z.ZodType<PdfRect> = z.tuple([
+  z.number(),
+  z.number(),
+  z.number(),
+  z.number(),
+]);
+
+export const PageBoxesSchema: z.ZodType<PageBoxes> = z.object({
+  media: PdfRectSchema,
+  crop: PdfRectSchema,
+  bleed: PdfRectSchema.optional(),
+  trim: PdfRectSchema.optional(),
+  art: PdfRectSchema.optional(),
+});
+
+/**
+ * Pure geometry for one page (`pages.list()` element). No annotation
+ * liveness — that lives on annotation reads and the manifest.
+ */
+export const PageLayoutSchema: z.ZodType<PageLayout> = z.object({
+  index: z.number().int().nonnegative(),
+  pageObjectNumber: z.number().int().positive(),
+  label: z.string().nullable(),
+  width: z.number().nonnegative(),
+  height: z.number().nonnegative(),
+  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+  userUnit: z.number().positive(),
+  boxes: PageBoxesSchema,
+});
+
+/**
  * Snapshot of every page in display order. Pages are addressed by
- * `pageObjectNumber` everywhere except this read; the per-element
- * `pageIndex` is for rendering and is intentionally not an identity.
+ * `pageObjectNumber` everywhere except the per-element `index`, which is
+ * display order and intentionally not an identity. Carries geometry only.
  */
 export const PageListSnapshotSchema: z.ZodType<PageListSnapshot> = z.object({
-  pages: z.array(PageStateSchema),
+  pageCount: z.number().int().nonnegative(),
+  pages: z.array(PageLayoutSchema),
 });
 
 /**
@@ -592,7 +626,14 @@ export const PageMoveInputSchema: z.ZodType<PageMoveInput> = z.object({
  * post-move order is returned so callers can swap their snapshot directly.
  */
 export const PageMoveResultSchema: z.ZodType<PageMoveResult> = z.object({
-  meta: MutationMetaSchema,
+  layout: PageListSnapshotSchema,
+  cache: z
+    .object({
+      previousDocVersion: z.number().int().nonnegative(),
+      docVersion: z.number().int().positive(),
+      layoutVersion: z.number().int().positive(),
+    })
+    .nullable(),
 });
 
 export const WeakAnnotationSessionResponseSchema = z.object({

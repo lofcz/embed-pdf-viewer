@@ -1,5 +1,3 @@
-import type { PageState } from '../revision/PageState';
-
 export interface PageGeometryGlyph {
   x: number;
   y: number;
@@ -24,10 +22,11 @@ export interface PageGeometryRun {
  *
  * `runs` intentionally mirrors the old engine's `PdfPageGeometry`
  * payload so selection code can migrate without reshaping glyph data.
- * `pageState` is the v3 page-scoped read envelope used for revision
- * and weak-reference bookkeeping.
+ *
+ * Pure content, addressed and cached by `contentVersion`. Carries NO
+ * annotation liveness envelope (`PageState`) — see `PageTextSnapshot` for
+ * the rationale; liveness lives on annotation reads.
  */
 export interface PageGeometrySnapshot {
-  pageState: PageState;
   runs: PageGeometryRun[];
 }

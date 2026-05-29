@@ -194,7 +194,7 @@ describe('Phase 4 versioned reads — GET /pages/:pon/text@cN', () => {
     await tearDown(fx);
   });
 
-  test('returns text + pageState for the current contentVersion', async () => {
+  test('returns text + charCount for the current contentVersion (no liveness)', async () => {
     const tenantId = 'tenant-t';
     const docId = 'doctxx001';
     await seedDocument(fx, tenantId, docId, { pageCount: 4 });
@@ -203,12 +203,12 @@ describe('Phase 4 versioned reads — GET /pages/:pon/text@cN', () => {
       headers: { Authorization: `Bearer ${docToken(tenantId, docId)}` },
     });
     expect(res.status).toBe(200);
+    // Content reads carry geometry/text only — no `pageState`. Liveness
+    // (revision/weak state) rides on annotation reads + the manifest.
     const body = (await res.json()) as {
-      pageState: { pageObjectNumber: number };
       text: string;
       charCount: number;
     };
-    expect(body.pageState.pageObjectNumber).toBe(2);
     expect(body.text.length > 0).toBe(true);
     expect(body.charCount).toBe(body.text.length);
   });
@@ -379,7 +379,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
       pages: Array<{
         state: {
           pageObjectNumber: number;
-          pageIndex: number;
           revision: { docSessionId: string; generation: number };
           weakAnnotationState: { kind: string; hasAnyWeakAnnotations: boolean };
         };
@@ -393,7 +392,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
     expect(body.pages).toHaveLength(5);
     for (let i = 0; i < body.pages.length; i++) {
       const page = body.pages[i]!;
-      expect(page.state.pageIndex).toBe(i);
       expect(page.state.revision).toEqual({
         docSessionId: `cloud:base:${docId}`,
         pageObjectNumber: page.state.pageObjectNumber,
@@ -507,7 +505,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         {
           layer_id: layerId,
           page_object_number: 1,
-          page_index: 0,
           content_version: 2,
           annotation_version: 5,
           annotation_generation: 9,
@@ -517,7 +514,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         {
           layer_id: layerId,
           page_object_number: 2,
-          page_index: 1,
           content_version: 1,
           annotation_version: 1,
           annotation_generation: 0,
@@ -615,7 +611,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         {
           layer_id: layerId,
           page_object_number: 1,
-          page_index: 0,
           content_version: 4,
           annotation_version: 6,
           annotation_generation: 8,
@@ -625,7 +620,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         {
           layer_id: layerId,
           page_object_number: 2,
-          page_index: 1,
           content_version: 1,
           annotation_version: 1,
           annotation_generation: 0,
@@ -641,15 +635,13 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         headers: { Authorization: `Bearer ${token}` },
       },
     );
+    // The text leaf resolves at the durable contentVersion (4) and is
+    // immutably cacheable. It carries no liveness — `pageState` lives on
+    // annotation reads + the manifest, not on content reads.
     expect(text.status).toBe(200);
     expect(text.headers.get('cache-control')).toBe(IMMUTABLE_CACHE);
-    const textBody = (await text.json()) as {
-      pageState: { revision: { docSessionId: string; generation: number } };
-    };
-    expect(textBody.pageState.revision).toMatchObject({
-      docSessionId: `cloud:layer:${docId}:${layerName}`,
-      generation: 8,
-    });
+    const textBody = (await text.json()) as { text: string };
+    expect(typeof textBody.text).toBe('string');
 
     const annotations = await fetch(
       `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items@annotationVersion=6`,
@@ -708,7 +700,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         {
           layer_id: layerId,
           page_object_number: 1,
-          page_index: 0,
           content_version: 3,
           annotation_version: 1,
           annotation_generation: 0,
@@ -718,7 +709,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
         {
           layer_id: layerId,
           page_object_number: 2,
-          page_index: 1,
           content_version: 1,
           annotation_version: 1,
           annotation_generation: 0,
@@ -774,7 +764,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
       .values({
         layer_id: layerId,
         page_object_number: 1,
-        page_index: 0,
         content_version: 2,
         annotation_version: 1,
         annotation_generation: 0,
@@ -867,7 +856,6 @@ describe('Phase 4 manifest pages — per-page versions', () => {
       .values({
         layer_id: layerId,
         page_object_number: 1,
-        page_index: 0,
         content_version: 7,
         annotation_version: 9,
         annotation_generation: 4,

@@ -75,9 +75,35 @@ function layerMeta(msg) {
 function pageState(pon, generation = 0, hasWeak = false) {
   return {
     pageObjectNumber: pon,
-    pageIndex: pon - 1,
     revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation },
     weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: hasWeak },
+  };
+}
+
+// Pure geometry for one page. Mirrors `PageLayout`: durable PON, display
+// `index`, and a letter-sized media/crop box. No annotation liveness here —
+// that rides on annotation reads, not the geometry list.
+function pageLayout(pon, index) {
+  const box = [0, 0, 612, 792];
+  return {
+    index,
+    pageObjectNumber: pon,
+    label: null,
+    width: 612,
+    height: 792,
+    rotation: 0,
+    userUnit: 1,
+    boxes: { media: box, crop: box },
+  };
+}
+
+// Build a `PageListSnapshot` ({ pageCount, pages: PageLayout[] }) from the
+// session's current page order (falling back to 1..pageCount).
+function layoutSnapshot(meta) {
+  const order = meta.pageOrder ?? Array.from({ length: meta.pageCount }, (_, i) => i + 1);
+  return {
+    pageCount: order.length,
+    pages: order.map((pon, index) => pageLayout(pon, index)),
   };
 }
 
@@ -233,21 +259,12 @@ parentPort.on('message', (msg) => {
         });
         return;
       }
-      const pages = [];
-      for (let i = 0; i < meta.pageCount; i++) {
-        pages.push({
-          pageObjectNumber: i + 1,
-          pageIndex: i,
-          revision: { docSessionId: 'stub-session', pageObjectNumber: i + 1, generation: 0 },
-          weakAnnotationState: { kind: 'unknown' },
-        });
-      }
       parentPort.postMessage({
         kind: 'resolve',
         jobId: msg.jobId,
         result: {
           tag: 'pages.list',
-          snapshot: { pages },
+          snapshot: layoutSnapshot(meta),
         },
       });
       return;
@@ -267,7 +284,6 @@ parentPort.on('message', (msg) => {
         pages.push({
           pageState: {
             pageObjectNumber: i + 1,
-            pageIndex: i,
             revision: { docSessionId: 'stub-session', pageObjectNumber: i + 1, generation: 0 },
             weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
           },
@@ -317,13 +333,9 @@ parentPort.on('message', (msg) => {
         jobId: msg.jobId,
         result: {
           tag: 'pages.text',
+          // No pageState: content reads carry geometry/text only; liveness
+          // (revision/weak state) rides on annotation reads + the manifest.
           snapshot: {
-            pageState: {
-              pageObjectNumber: pon,
-              pageIndex: pon - 1,
-              revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
-              weakAnnotationState: { kind: 'unknown' },
-            },
             text,
             charCount: text.length,
           },
@@ -362,7 +374,6 @@ parentPort.on('message', (msg) => {
           snapshot: {
             pageState: {
               pageObjectNumber: pon,
-              pageIndex: pon - 1,
               revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
               weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
             },
@@ -433,14 +444,11 @@ parentPort.on('message', (msg) => {
         ...remaining.slice(msg.destIndex),
       ];
       meta.pageOrder = next;
-      const affectedPages = next.map((pon, pageIndex) => ({
-          pageObjectNumber: pon,
-          pageIndex,
-          revision: { docSessionId: 'stub-session', pageObjectNumber: pon, generation: 0 },
-          weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
-        }));
+      // A move returns geometry, not liveness: the new layout + null cache
+      // (the server fills in the real coherence pins on commit).
       const result = {
-        meta: { affectedPages, cacheDelta: null },
+        layout: layoutSnapshot(meta),
+        cache: null,
       };
       resolveMutation(msg, {
         tag: 'pages.move',

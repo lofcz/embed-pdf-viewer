@@ -56,7 +56,6 @@ export class PageGeometryReader {
         }
 
         return {
-          pageState: this.session.pageState(pageObjectNumber),
           runs: this.buildRunsFromGlyphs(glyphs, textPagePtr),
         };
       } finally {

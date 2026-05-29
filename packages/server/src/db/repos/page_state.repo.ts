@@ -3,7 +3,6 @@ import type { Database as Schema } from '../schema';
 
 export interface DurablePageRow {
   pageObjectNumber: number;
-  pageIndex: number;
   contentVersion: number;
   annotationVersion: number;
   annotationGeneration: number;
@@ -13,7 +12,6 @@ export interface DurablePageRow {
 
 export interface UpsertDurablePageInput {
   pageObjectNumber: number;
-  pageIndex: number;
   contentVersion?: number;
   annotationVersion?: number;
   annotationGeneration?: number;
@@ -29,7 +27,7 @@ export class DocumentPagesRepo {
       .selectFrom('document_pages')
       .selectAll()
       .where('doc_id', '=', docId)
-      .orderBy('page_index', 'asc')
+      .orderBy('page_object_number', 'asc')
       .execute();
     return rows.map(mapDocumentPageRow);
   }
@@ -55,7 +53,6 @@ export class DocumentPagesRepo {
           pages.map((page) => ({
             doc_id: docId,
             page_object_number: page.pageObjectNumber,
-            page_index: page.pageIndex,
             content_version: page.contentVersion ?? 1,
             annotation_version: page.annotationVersion ?? 1,
             annotation_generation: page.annotationGeneration ?? 0,
@@ -76,7 +73,6 @@ export class DocumentPagesRepo {
         pages.map((page) => ({
           doc_id: docId,
           page_object_number: page.pageObjectNumber,
-          page_index: page.pageIndex,
           content_version: page.contentVersion ?? 1,
           annotation_version: page.annotationVersion ?? 1,
           annotation_generation: page.annotationGeneration ?? 0,
@@ -86,7 +82,6 @@ export class DocumentPagesRepo {
       )
       .onConflict((oc) =>
         oc.columns(['doc_id', 'page_object_number']).doUpdateSet((eb) => ({
-          page_index: eb.ref('excluded.page_index'),
           content_version: eb.ref('excluded.content_version'),
           annotation_version: eb.ref('excluded.annotation_version'),
           annotation_generation: eb.ref('excluded.annotation_generation'),
@@ -135,6 +130,7 @@ export interface LayerRow {
   tenantId: string;
   name: string;
   docVersion: number;
+  layoutVersion: number;
   currentVersion: number;
   currentArtifactKey: string | null;
   currentArtifactSha: string | null;
@@ -173,6 +169,7 @@ export class LayersRepo {
         tenant_id: input.tenantId,
         name: input.name,
         doc_version: 1,
+        layout_version: 1,
         current_version: 0,
         current_artifact_key: null,
         current_artifact_sha: null,
@@ -197,7 +194,7 @@ export class LayerPagesRepo {
       .selectFrom('layer_pages')
       .selectAll()
       .where('layer_id', '=', layerId)
-      .orderBy('page_index', 'asc')
+      .orderBy('page_object_number', 'asc')
       .execute();
     return rows.map(mapLayerPageRow);
   }
@@ -223,7 +220,6 @@ export class LayerPagesRepo {
           pages.map((page) => ({
             layer_id: layerId,
             page_object_number: page.pageObjectNumber,
-            page_index: page.pageIndex,
             content_version: page.contentVersion ?? 1,
             annotation_version: page.annotationVersion ?? 1,
             annotation_generation: page.annotationGeneration ?? 0,
@@ -240,7 +236,6 @@ export class LayerPagesRepo {
       layerId,
       pages.map((page) => ({
         pageObjectNumber: page.pageObjectNumber,
-        pageIndex: page.pageIndex,
         // `document_pages` describes the immutable base view, so these
         // counters are the initial CDN/revision epoch. After snapshotting,
         // only `layer_pages` advance.
@@ -256,7 +251,6 @@ export class LayerPagesRepo {
 
 function mapDocumentPageRow(row: {
   page_object_number: number;
-  page_index: number;
   content_version: number;
   annotation_version: number;
   annotation_generation: number;
@@ -265,7 +259,6 @@ function mapDocumentPageRow(row: {
 }): DurablePageRow {
   return {
     pageObjectNumber: Number(row.page_object_number),
-    pageIndex: Number(row.page_index),
     contentVersion: Number(row.content_version),
     annotationVersion: Number(row.annotation_version),
     annotationGeneration: Number(row.annotation_generation),
@@ -276,7 +269,6 @@ function mapDocumentPageRow(row: {
 
 function mapLayerPageRow(row: {
   page_object_number: number;
-  page_index: number;
   content_version: number;
   annotation_version: number;
   annotation_generation: number;
@@ -292,6 +284,7 @@ function mapLayerRow(row: {
   tenant_id: string;
   name: string;
   doc_version: number;
+  layout_version: number;
   current_version: number;
   current_artifact_key: string | null;
   current_artifact_sha: string | null;
@@ -305,6 +298,7 @@ function mapLayerRow(row: {
     tenantId: row.tenant_id,
     name: row.name,
     docVersion: Number(row.doc_version),
+    layoutVersion: Number(row.layout_version),
     currentVersion: Number(row.current_version),
     currentArtifactKey: row.current_artifact_key,
     currentArtifactSha: row.current_artifact_sha,

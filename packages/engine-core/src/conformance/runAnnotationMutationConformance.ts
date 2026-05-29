@@ -655,6 +655,36 @@ export function runAnnotationMutationConformance(
         await doc.close();
       }
     });
+
+    test('a page move does NOT bump per-page RevisionTokens (weak refs survive reorder)', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const list = await doc.pages.list();
+        if (list.pages.length < 1) return;
+
+        // Revision is annotation liveness, keyed by `pageObjectNumber`. A
+        // page move is structural-geometry-only: no page's /Annots array is
+        // touched, so no `RevisionToken` bumps and index-kind refs captured
+        // before the reorder stay valid. We observe the host page's
+        // revision via `annotations.list().pageState` (the move result no
+        // longer carries liveness — it returns geometry).
+        const page = doc.page(fix.pageObjectNumber);
+        const beforeGen = (await page.annotations.list()).pageState.revision.generation;
+
+        // Pull some page to the front (prefer one that is NOT the host so
+        // we exercise the cross-page case; fall back to the host itself for
+        // single-page fixtures).
+        const mover =
+          list.pages.find((pg) => pg.pageObjectNumber !== fix.pageObjectNumber)?.pageObjectNumber ??
+          fix.pageObjectNumber;
+        await doc.pages.move([mover], 0);
+
+        const afterGen = (await page.annotations.list()).pageState.revision.generation;
+        expect(afterGen).toBe(beforeGen);
+      } finally {
+        await doc.close();
+      }
+    });
   });
 }
 

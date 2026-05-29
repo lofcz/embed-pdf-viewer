@@ -19,6 +19,7 @@ export type {
 } from './dto/OpenInput';
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
+export type { PageLayout, PageBoxes, PdfRect } from './dto/PageLayout';
 export type { PageTextSnapshot } from './dto/PageTextSnapshot';
 export type {
   PageGeometryGlyph,
@@ -142,7 +143,7 @@ export type {
   AnnotationMoveResult,
 } from './mutation/AnnotationMutationResults';
 export type { PageMoveInput } from './mutation/PageMoveInput';
-export type { PageMoveResult } from './mutation/PageMoveResult';
+export type { PageMoveResult, PageMoveCache } from './mutation/PageMoveResult';
 
 export type {
   AnnotationActor,

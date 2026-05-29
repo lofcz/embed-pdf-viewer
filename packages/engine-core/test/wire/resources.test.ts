@@ -271,6 +271,7 @@ describe('cdnCoverageForScope', () => {
       new Set([
         'manifest',
         'layer-manifest',
+        'layer-layout',
         'page-render',
         'layer-page-render',
         'page-text',

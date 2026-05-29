@@ -50,16 +50,11 @@ try {
     ),
   );
 
-  // Locked-invariant parity: both engines must preserve the PON set,
-  // keep per-page revisions untouched across page moves, and report
-  // dense indices. The reorder permutations must also agree.
+  // Geometry-invariant parity: both engines must preserve the PON set and
+  // report dense indices. The reorder permutations must also agree.
+  // (Per-page revision survival is annotation liveness, asserted by the
+  // annotation/reorder conformance suites, not this geometry demo.)
   const errs: string[] = [];
-  diffBool(
-    'invariants.revisionsUnchanged',
-    localResult.invariants.revisionsUnchanged,
-    cloudResult.invariants.revisionsUnchanged,
-    errs,
-  );
   diffBool(
     'invariants.ponSetPreserved',
     localResult.invariants.ponSetPreserved,
@@ -78,13 +73,6 @@ try {
     cloudResult.after.pages.map((p) => p.pageObjectNumber),
     errs,
   );
-
-  if (!localResult.invariants.revisionsUnchanged) {
-    errs.push('LOCAL: per-page revisions changed across page moves (locked invariant violated)');
-  }
-  if (!cloudResult.invariants.revisionsUnchanged) {
-    errs.push('CLOUD: per-page revisions changed across page moves (locked invariant violated)');
-  }
 
   if (errs.length > 0) {
     console.error('PARITY MISMATCH (page reorder) between local and cloud:');

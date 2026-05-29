@@ -7,7 +7,11 @@ import {
   type PageMoveResult,
   type PageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
-import { PageMoveResultSchema, wirePaths } from '@embedpdf/engine-core/wire';
+import {
+  PageListSnapshotSchema,
+  PageMoveResultSchema,
+  wirePaths,
+} from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
 import type { ManifestAccessor } from './CloudDocumentHandle';
 
@@ -20,9 +24,10 @@ import type { ManifestAccessor } from './CloudDocumentHandle';
  *     `pageObjectNumber`. The wire never sends a page index for a
  *     mutation. This keeps multi-call client logic from having to
  *     account for index drift between requests.
- *   - Successful `move()` returns the full new order in `meta.affectedPages`. The server
- *     does NOT bump per-page revisions on a page move (page reorder is
- *     intentionally outside the weak-ref staleness model).
+ *   - Successful `move()` returns the new `layout` (order + geometry) plus
+ *     cloud coherence pins. The server does NOT bump per-page revisions on a
+ *     page move (page reorder is intentionally outside the weak-ref staleness
+ *     model), only `docVersion` + `layoutVersion`.
  */
 export class CloudDocumentPagesService implements DocumentPagesService {
   constructor(
@@ -33,6 +38,16 @@ export class CloudDocumentPagesService implements DocumentPagesService {
     private readonly manifest: ManifestAccessor,
   ) {}
 
+  /**
+   * Page-geometry list. The geometry bytes live at the content-addressed
+   * `/layout@layoutVersion=N` leaf (not in the manifest); the manifest only
+   * publishes the `layoutVersion` pointer. So `list()` reads `layoutVersion`
+   * from the cached manifest, fetches the layout leaf, and on a 404 (stale
+   * pointer) transparently refreshes the manifest and retries once — the
+   * same ladder the per-page text/geometry reads use. `layoutVersion` bumps
+   * only on structural page ops, so this leaf stays cached across content
+   * and annotation edits.
+   */
   list(): AbortablePromise<PageListSnapshot> {
     if (this.isClosed()) {
       return AbortablePromise.rejectReason(
@@ -40,8 +55,18 @@ export class CloudDocumentPagesService implements DocumentPagesService {
       );
     }
     return AbortablePromise.run<PageListSnapshot>(async (signal) => {
-      const manifest = await this.manifest.get(signal);
-      return { pages: manifest.pages.map((page) => ({ ...page.state })) };
+      const buildPath = async (s: AbortSignal): Promise<string> => {
+        const manifest = await this.manifest.get(s);
+        return wirePaths.layerLayout(this.docId, this.layerName, manifest.layoutVersion);
+      };
+      return this.http.getJsonWithRefresh(
+        buildPath,
+        (raw) => PageListSnapshotSchema.parse(raw),
+        async (s) => {
+          await this.manifest.refresh(s);
+        },
+        signal,
+      );
     });
   }
 
@@ -58,7 +83,9 @@ export class CloudDocumentPagesService implements DocumentPagesService {
         (raw) => PageMoveResultSchema.parse(raw),
         signal,
       );
-      this.manifest.apply(result.meta);
+      // A move only advances docVersion + layoutVersion (no per-page pin
+      // changes), so the cached manifest can be patched in place — no refetch.
+      if (result.cache) this.manifest.applyPageMove(result.cache);
       return result;
     });
   }

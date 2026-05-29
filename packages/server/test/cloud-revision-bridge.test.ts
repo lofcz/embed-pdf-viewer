@@ -89,7 +89,6 @@ describe('CloudRevisionBridge', () => {
 function pageState(docSessionId: string, generation: number): PageState {
   return {
     pageObjectNumber: 3,
-    pageIndex: 0,
     revision: { docSessionId, pageObjectNumber: 3, generation },
     weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: true },
   };

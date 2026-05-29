@@ -33,6 +33,9 @@ export {
   AnnotationDeleteResultSchema,
   AnnotationMoveResultSchema,
   PageListSnapshotSchema,
+  PageLayoutSchema,
+  PageBoxesSchema,
+  PdfRectSchema,
   PageMoveInputSchema,
   PageMoveResultSchema,
   WeakAnnotationSessionResponseSchema,
@@ -80,6 +83,7 @@ export {
   AnnotationTokenSchema,
   ContentTokenSchema,
   DocTokenSchema,
+  LayoutTokenSchema,
   RenderTokenSchema,
 } from './wire/tokenSchemas';
 export {
@@ -87,11 +91,13 @@ export {
   decodeContentToken,
   decodeDocToken,
   decodeDownloadToken,
+  decodeLayoutToken,
   decodeRenderToken,
   encodeAnnotationToken,
   encodeContentToken,
   encodeDocToken,
   encodeDownloadToken,
+  encodeLayoutToken,
   encodeRenderToken,
 } from './wire/tokens';
 export type { DownloadToken } from './wire/tokens';

@@ -93,7 +93,6 @@ export class PageRasterReader {
 
       const pixels = mem.readBytes(pixelPtr, bytes);
       const raster: PageRaster = {
-        pageState: this.session.pageState(pageObjectNumber),
         width,
         height,
         stride,

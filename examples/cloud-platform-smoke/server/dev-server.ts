@@ -128,7 +128,7 @@ async function startEmbedPdfServer(): Promise<void> {
     sweepIntervalMs: 0,
     cacheRoot: `${dataRoot}/cache`,
     cacheMaxBytes: 512 * 1024 * 1024,
-    cdnSigner,
+    //cdnSigner,
   });
   await embedpdf.app.listen({ host, port: enginePort });
   console.log(`[cloud-smoke] EmbedPDF server: ${engineBaseUrl}`);

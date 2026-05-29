@@ -36,6 +36,7 @@ import {
  */
 interface ServerState {
   docVersion: number;
+  layoutVersion: number;
   pageContentVersion: number;
   pageAnnotationVersion: number;
   annotationCount: number;
@@ -110,13 +111,33 @@ function annotation(index: number) {
 function pageState(generation = 0) {
   return {
     pageObjectNumber: PAGE_OBJECT_NUMBER,
-    pageIndex: 0,
     revision: {
       docSessionId: 'stub-session',
       pageObjectNumber: PAGE_OBJECT_NUMBER,
       generation,
     },
     weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
+  };
+}
+
+// PageListSnapshot served by the /layout@layoutVersion leaf — pure geometry
+// for the single stub page (the harness only asserts page identity/order).
+function layoutSnapshot() {
+  const box: [number, number, number, number] = [0, 0, 612, 792];
+  return {
+    pageCount: 1,
+    pages: [
+      {
+        index: 0,
+        pageObjectNumber: PAGE_OBJECT_NUMBER,
+        label: null,
+        width: 612,
+        height: 792,
+        rotation: 0 as const,
+        userUnit: 1,
+        boxes: { media: box, crop: box },
+      },
+    ],
   };
 }
 
@@ -173,6 +194,7 @@ function buildStub(initial: ServerState): StubbedFixture {
       return new Response(
         JSON.stringify({
           docVersion: state.docVersion,
+          layoutVersion: state.layoutVersion,
           baseSha: 'stub-sha',
           pages: [
             {
@@ -186,6 +208,23 @@ function buildStub(initial: ServerState): StubbedFixture {
         }),
         { status: 200, headers: { 'content-type': 'application/json' } },
       );
+    }
+
+    const layoutMatch = path.match(
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/layout@layoutVersion=(\d+)$/,
+    );
+    if (layoutMatch && method === 'GET') {
+      const requested = Number(layoutMatch[3]);
+      if (requested !== state.layoutVersion) {
+        return new Response(
+          JSON.stringify({ error: { code: 'NotFound', message: 'stale layoutVersion' } }),
+          { status: 404, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return new Response(JSON.stringify(layoutSnapshot()), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
     }
 
     const textMatch = path.match(
@@ -390,6 +429,7 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
   beforeEach(() => {
     fx = buildStub({
       docVersion: 1,
+      layoutVersion: 1,
       pageContentVersion: 1,
       pageAnnotationVersion: 1,
       annotationCount: 0,
@@ -425,9 +465,12 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       const list = await doc.pages.list();
       expect(list.pages.map((page) => page.pageObjectNumber)).toEqual([PAGE_OBJECT_NUMBER]);
       const paths = fx.calls.map((call) => call.path);
+      // pages.list reads layoutVersion off the (seeded) manifest, then fetches
+      // the content-addressed /layout leaf — no extra /head.
       expect(paths).toEqual([
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=1`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/layout@layoutVersion=1`,
       ]);
       expect(paths.filter((path) => path.endsWith('/head'))).toHaveLength(1);
     } finally {
@@ -447,11 +490,14 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
       const list = await doc.pages.list();
       expect(list.pages.map((page) => page.pageObjectNumber)).toEqual([PAGE_OBJECT_NUMBER]);
       const paths = fx.calls.map((call) => call.path);
+      // Stale seed → manifest ladder refreshes to v2 first, then the /layout
+      // leaf is fetched at the refreshed layoutVersion.
       expect(paths).toEqual([
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=1`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
         `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=2`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/layout@layoutVersion=1`,
       ]);
     } finally {
       await doc.close();
@@ -700,12 +746,12 @@ describe('CloudEngine schema parity — DocumentHeadSchema / DocumentManifestSch
 
     const manifest = DocumentManifestSchema.safeParse({
       docVersion: 1,
+      layoutVersion: 1,
       baseSha: 'sha',
       pages: [
         {
           state: {
             pageObjectNumber: 5,
-            pageIndex: 0,
             revision: { docSessionId: 's', pageObjectNumber: 5, generation: 0 },
             weakAnnotationState: { kind: 'known', hasAnyWeakAnnotations: false },
           },

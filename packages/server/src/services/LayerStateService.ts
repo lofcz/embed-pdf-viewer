@@ -4,7 +4,6 @@ import type {
   DocumentManifest,
   ManifestPage,
   PageState,
-  PageTextSnapshot,
 } from '@embedpdf/engine-core/runtime';
 import {
   changesAnnotationList,
@@ -27,6 +26,12 @@ export interface LayerStateServiceOptions {
 }
 
 export type MutationImpactKind = AnnotationMutationKind;
+
+/**
+ * Geometry-pointer epoch for the immutable base view. The base topology is
+ * never reordered (structural ops always target a layer), so it stays at 1.
+ */
+const BASE_LAYOUT_VERSION = 1;
 
 /**
  * Durable authority for cloud/CDN page state.
@@ -58,7 +63,6 @@ export class LayerStateService {
       docId,
       observed.map((page) => ({
         pageObjectNumber: page.pageObjectNumber,
-        pageIndex: page.pageIndex,
         hasWeakAnnotations: requireKnownWeakAnnotationBoolean(page),
       })),
     );
@@ -79,6 +83,9 @@ export class LayerStateService {
   buildBaseManifest(head: DocumentHead, pages: DurablePageRow[]): DocumentManifest {
     return {
       docVersion: head.docVersion,
+      // The base view is never reordered (structural ops always target a
+      // layer), so its geometry pointer is the initial epoch.
+      layoutVersion: BASE_LAYOUT_VERSION,
       baseSha: head.baseSha,
       pages: pages.map((page) => this.toManifestPage(`cloud:base:${head.id}`, page)),
     };
@@ -88,11 +95,12 @@ export class LayerStateService {
     docId: string,
     baseSha: string,
     layerName: string,
-    layer: Pick<LayerRow, 'docVersion'>,
+    layer: Pick<LayerRow, 'docVersion' | 'layoutVersion'>,
     pages: DurablePageRow[],
   ): DocumentManifest {
     return {
       docVersion: layer.docVersion,
+      layoutVersion: layer.layoutVersion,
       baseSha,
       pages: pages.map((page) =>
         this.toManifestPage(this.layerRevisionScopeId(docId, layerName), page),
@@ -119,17 +127,6 @@ export class LayerStateService {
 
   decorateBasePageState(docId: string, page: DurablePageRow): PageState {
     return this.toPageState(`cloud:base:${docId}`, page);
-  }
-
-  decorateBaseTextSnapshot(
-    docId: string,
-    page: DurablePageRow,
-    snapshot: PageTextSnapshot,
-  ): PageTextSnapshot {
-    return {
-      ...snapshot,
-      pageState: this.decorateBasePageState(docId, page),
-    };
   }
 
   decorateLayerPageState(docId: string, layerName: string, page: DurablePageRow): PageState {
@@ -204,7 +201,6 @@ export class LayerStateService {
   private toPageState(scopeId: string, page: DurablePageRow): PageState {
     return {
       pageObjectNumber: page.pageObjectNumber,
-      pageIndex: page.pageIndex,
       revision: {
         docSessionId: scopeId,
         pageObjectNumber: page.pageObjectNumber,

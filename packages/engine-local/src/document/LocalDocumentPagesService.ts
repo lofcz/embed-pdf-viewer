@@ -39,8 +39,9 @@ export class LocalDocumentPagesService implements DocumentPagesService {
         new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
       );
     }
-    // pages.list maps to the cloud's /manifest endpoint: session-level
-    // read gated by `doc.open`.
+    // pages.list is the page-geometry read: a session-level read gated by
+    // `doc.open` (mirrors the cloud's /layout endpoint, which is itself
+    // gated behind the manifest's `doc.open` read).
     try {
       this.guard.assertCapability('doc.open');
     } catch (err) {

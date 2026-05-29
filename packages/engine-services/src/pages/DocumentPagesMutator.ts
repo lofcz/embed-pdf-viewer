@@ -2,13 +2,12 @@ import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 import {
   EngineError,
   EngineErrorCode,
-  type PageListSnapshot,
   type PageMoveResult,
   type PageObjectNumber,
-  type PageState,
 } from '@embedpdf/engine-core/runtime';
 import { throwIfAborted } from '../abort';
 import type { DocumentSession } from '../session/DocumentSession';
+import { PageLayoutReader } from './PageLayoutReader';
 
 /**
  * Synchronous orchestrator for page-level reads and reorder mutations.
@@ -45,18 +44,6 @@ export class DocumentPagesMutator {
   ) {}
 
   /**
-   * Snapshot of every page, in display order. Cheap; no `pagePtr` is
-   * acquired (page registry enumeration asks PDFium for each page dict's
-   * object number by index, without constructing page handles or parsing
-   * page content).
-   */
-  list(signal: AbortSignal): PageListSnapshot {
-    throwIfAborted(signal);
-    const records = this.session.allRecords();
-    return { pages: records.map((r) => this.session.pageState(r.pageObjectNumber)) };
-  }
-
-  /**
    * Reorder pages. Mirrors `FPDF_MovePages`: detach the supplied pages,
    * then re-insert them as a contiguous block at `destIndex` in the
    * post-removal index space, preserving caller order.
@@ -64,8 +51,8 @@ export class DocumentPagesMutator {
    * Atomicity:
    *   - `FPDF_MovePages` rejects atomically: if it returns false, no
    *     change has happened. We surface that as `InvalidArg`.
-   *   - On success we refresh the per-session page registry so the
-   *     `meta.affectedPages` returned reflects the new layout.
+   *   - On success we refresh the per-session page registry and read the
+   *     new layout back, which is what the result returns.
    *
    * Validation done up front (the helper repeats these checks; we do
    * them here for clean error messages):
@@ -150,8 +137,10 @@ export class DocumentPagesMutator {
     // both untouched by the reorder.
     this.session.refreshPageRegistry();
 
-    const records = this.session.allRecords();
-    const pageOrder: PageState[] = records.map((r) => this.session.pageState(r.pageObjectNumber));
-    return { meta: { affectedPages: pageOrder, cacheDelta: null } };
+    // A move returns geometry, not liveness: read the new layout off the
+    // reordered session via the shared reader (identical output local +
+    // cloud). `cache` is null — local engines have no manifest/CDN.
+    const layout = new PageLayoutReader(this.runtime, this.session).read(signal);
+    return { layout, cache: null };
   }
 }

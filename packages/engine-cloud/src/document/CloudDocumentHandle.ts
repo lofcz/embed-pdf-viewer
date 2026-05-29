@@ -10,6 +10,7 @@ import {
   type DocumentSecurityService,
   type MutationMeta,
   type PageHandle,
+  type PageMoveCache,
   type PageObjectNumber,
   type PdfSaveMode,
 } from '@embedpdf/engine-core/runtime';
@@ -41,6 +42,8 @@ export interface ManifestAccessor {
   refresh(signal: AbortSignal): Promise<DocumentManifest>;
   /** Absorb mutation-returned state/cache deltas when safe. */
   apply(meta: MutationMeta): void;
+  /** Advance the cached manifest's docVersion + layoutVersion after a page move. */
+  applyPageMove(cache: PageMoveCache): void;
 }
 
 export class CloudDocumentHandle implements DocumentHandle {
@@ -101,6 +104,7 @@ export class CloudDocumentHandle implements DocumentHandle {
       get: (signal) => this.getManifest(signal),
       refresh: (signal) => this.refreshManifest(signal),
       apply: (meta) => this.absorbMutation(meta),
+      applyPageMove: (cache) => this.absorbPageMove(cache),
     };
     this.metadata = new CloudMetadataService(
       http,
@@ -235,9 +239,37 @@ export class CloudDocumentHandle implements DocumentHandle {
     this.manifestCache = {
       ...this.manifestCache,
       docVersion: delta?.docVersion ?? this.manifestCache.docVersion,
+      // The manifest is a per-page registry keyed by pageObjectNumber, not a
+      // display-order list — geometry/order now lives in `pages.list()`
+      // (/layout). Keep a deterministic order by PON so cache merges are
+      // stable; display order is the SDK's concern via PageLayout.index.
       pages: Array.from(byPageObjectNumber.values()).sort(
-        (a, b) => a.state.pageIndex - b.state.pageIndex,
+        (a, b) => a.state.pageObjectNumber - b.state.pageObjectNumber,
       ),
+    };
+  }
+
+  /**
+   * Patch the cached manifest after a page move. A move is purely structural:
+   * it advances `docVersion` (so leaf URLs re-resolve) and `layoutVersion` (so
+   * the /layout leaf re-fetches), but leaves every per-page pin untouched. We
+   * raise the floor unconditionally and, when our cache is exactly one version
+   * behind, advance it in place; otherwise we drop it and refetch lazily.
+   */
+  private absorbPageMove(cache: PageMoveCache): void {
+    this.manifestFloorVersion = Math.max(this.manifestFloorVersion, cache.docVersion);
+    this.inflightManifest = null;
+
+    if (!this.manifestCache) return;
+    if (cache.docVersion <= this.manifestCache.docVersion) return;
+    if (cache.previousDocVersion !== this.manifestCache.docVersion) {
+      this.manifestCache = null;
+      return;
+    }
+    this.manifestCache = {
+      ...this.manifestCache,
+      docVersion: cache.docVersion,
+      layoutVersion: cache.layoutVersion,
     };
   }
 

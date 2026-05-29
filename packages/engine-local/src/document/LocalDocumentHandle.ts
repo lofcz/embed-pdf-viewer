@@ -56,9 +56,9 @@ export class LocalDocumentHandle implements DocumentHandle {
    * does that on the next call. This matches the cloud engine, which
    * cannot validate without a round-trip either.
    *
-   * `pageIndex` is reported as `-1` until the first read, when the
-   * snapshot's `pageState.pageIndex` overrides it. Clients that need
-   * accurate display order should read from `snapshot.pageState`.
+   * `pageIndex` is advisory metadata, reported as `-1`. Display order is
+   * geometry, not liveness: clients read it from `pages.list()` (each
+   * `PageLayout.index`), joined to this handle by `pageObjectNumber`.
    */
   page(pageObjectNumber: PageObjectNumber): PageHandle {
     return new LocalPageHandle(

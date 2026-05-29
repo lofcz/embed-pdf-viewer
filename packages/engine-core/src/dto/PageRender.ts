@@ -1,7 +1,6 @@
 import type { Rect, Rotation } from '../annotation/primitives';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
-import type { PageState } from '../revision/PageState';
 
 export type PageRenderEncodedFormat = 'png' | 'webp' | 'bmp';
 
@@ -69,7 +68,6 @@ export interface PageRenderQuery {
  * ownership instead of cloning it.
  */
 export interface PageRaster {
-  pageState: PageState;
   width: number;
   height: number;
   stride: number;
@@ -79,7 +77,6 @@ export interface PageRaster {
 }
 
 export interface PageImageResult {
-  pageState: PageState;
   width?: number;
   height?: number;
   format: PageRenderEncodedFormat;

@@ -42,6 +42,7 @@ import { PageRasterReader } from '../readers/render/PageRasterReader';
 import { DocumentSecurityReader } from '../readers/security/DocumentSecurityReader';
 import { DocumentAnnotationMutator } from '../mutation/DocumentAnnotationMutator';
 import { DocumentPagesMutator } from '../pages/DocumentPagesMutator';
+import { PageLayoutReader } from '../pages/PageLayoutReader';
 import { BaseDocumentRegistry } from '../session/BaseDocumentRegistry';
 import { openFatMemoryDocument, openLayerDocument } from '../session/PdfDocumentOpener';
 
@@ -309,8 +310,8 @@ export class WorkerHost {
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
-    const mutator = new DocumentPagesMutator(this.runtime, session);
-    const snapshot = mutator.list(signal);
+    const reader = new PageLayoutReader(this.runtime, session);
+    const snapshot = reader.read(signal);
     return wirePack({ tag: 'pages.list', snapshot });
   }
 

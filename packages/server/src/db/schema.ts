@@ -63,7 +63,6 @@ export interface DocumentsTable {
 export interface DocumentPagesTable {
   doc_id: string;
   page_object_number: number;
-  page_index: number;
   content_version: number;
   annotation_version: number;
   annotation_generation: number;
@@ -77,6 +76,12 @@ export interface LayersTable {
   tenant_id: string;
   name: string;
   doc_version: number;
+  /**
+   * Geometry-pointer epoch for `/layout@layoutVersion`. Bumps only on
+   * structural page ops (move/insert/delete/rotate), a different cadence
+   * than `doc_version`.
+   */
+  layout_version: number;
   current_version: number;
   current_artifact_key: string | null;
   current_artifact_sha: string | null;
@@ -88,7 +93,6 @@ export interface LayersTable {
 export interface LayerPagesTable {
   layer_id: string;
   page_object_number: number;
-  page_index: number;
   content_version: number;
   annotation_version: number;
   annotation_generation: number;

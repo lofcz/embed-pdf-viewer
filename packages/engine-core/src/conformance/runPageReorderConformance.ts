@@ -57,13 +57,14 @@ const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
  *
  *   1. `pages.list()` returns every page in display order, addressed
  *      by indirect `pageObjectNumber`.
- *   2. `pages.move()` returns the full new order via `meta.affectedPages`. There
- *      is no document-level revision; the wire never asks the caller
- *      for one. Per-page `RevisionToken`s are NOT bumped on a page
- *      move (this is the cornerstone of the design).
+ *   2. `pages.move()` returns the full new order + geometry via
+ *      `result.layout` (the same shape `pages.list()` returns). There is
+ *      no document-level revision; the wire never asks the caller for one.
  *   3. Index-based annotation refs survive a page reorder. This is the
  *      whole reason per-page revisions stay put across a move: a user
- *      shuffling pages mid-edit must not lose a pending highlight.
+ *      shuffling pages mid-edit must not lose a pending highlight. (The
+ *      "move never bumps a RevisionToken" invariant is asserted directly
+ *      in the annotation mutation suite, where revision liveness lives.)
  *   4. Invalid inputs (duplicate PONs, unknown PONs, out-of-range
  *      `destIndex`) reject with `InvalidArg`.
  *   5. Abort propagates as `AbortError`.
@@ -99,7 +100,7 @@ export function runPageReorderConformance(
 
         for (let i = 0; i < list.pages.length; i++) {
           // Strictly contiguous, 0..N-1.
-          expect(list.pages[i].pageIndex).toBe(i);
+          expect(list.pages[i].index).toBe(i);
           // Pages are durable by construction; PON > 0.
           expect(list.pages[i].pageObjectNumber > 0).toBe(true);
         }
@@ -130,45 +131,28 @@ export function runPageReorderConformance(
         const target = pons[pons.length - 1];
         const result = await doc.pages.move([target], 0);
         expect(PageMoveResultSchema.safeParse(result).success).toBe(true);
-        expect(result.meta.affectedPages.length).toBe(before.pages.length);
-        expect(result.meta.affectedPages[0].pageObjectNumber).toBe(target);
 
-        // Indices are recomputed and dense.
-        for (let i = 0; i < result.meta.affectedPages.length; i++) {
-          expect(result.meta.affectedPages[i].pageIndex).toBe(i);
+        // The result carries the new geometry: same count, contiguous
+        // indices, moved page leads.
+        const after = result.layout;
+        expect(after.pages.length).toBe(before.pages.length);
+        expect(after.pages[0].pageObjectNumber).toBe(target);
+        for (let i = 0; i < after.pages.length; i++) {
+          expect(after.pages[i].index).toBe(i);
         }
 
         // Set of PONs is preserved (no page lost or fabricated).
         const beforePons = new Set(before.pages.map((p) => p.pageObjectNumber));
-        const afterPons = new Set(result.meta.affectedPages.map((p) => p.pageObjectNumber));
+        const afterPons = new Set(after.pages.map((p) => p.pageObjectNumber));
         expect(beforePons.size).toBe(afterPons.size);
         for (const pon of beforePons) expect(afterPons.has(pon)).toBe(true);
-      } finally {
-        await doc.close();
-      }
-    });
 
-    test('pages.move() does NOT bump per-page RevisionTokens (locked invariant)', async () => {
-      const doc = await openFixture(engine, opts);
-      try {
-        const before = await doc.pages.list();
-        if (before.pages.length < 2) return;
-
-        // Capture the revisions of every page BEFORE the move.
-        const beforeByPon = new Map<number, number>();
-        for (const p of before.pages) {
-          beforeByPon.set(p.pageObjectNumber, p.revision.generation);
-        }
-
-        // Move the last page to the first slot. Single-page move is a
-        // valid case of the contiguous-block API.
-        const target = before.pages[before.pages.length - 1].pageObjectNumber;
-        const result = await doc.pages.move([target], 0);
-
-        // Every page's revision is unchanged.
-        for (const p of result.meta.affectedPages) {
-          expect(p.revision.generation).toBe(beforeByPon.get(p.pageObjectNumber));
-        }
+        // A subsequent `pages.list()` agrees with the returned layout
+        // (the move result is not a one-off view).
+        const relisted = await doc.pages.list();
+        expect(relisted.pages.map((p) => p.pageObjectNumber)).toEqual(
+          after.pages.map((p) => p.pageObjectNumber),
+        );
       } finally {
         await doc.close();
       }
