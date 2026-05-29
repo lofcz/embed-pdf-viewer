@@ -10,8 +10,9 @@ import type { AnnotationDTO } from '../annotation/kinds';
  * that local and cloud emit identical annotations for the same fixture.
  *
  * `RevisionToken.docSessionId` is intentionally NOT compared — sessions
- * are disjoint. We do compare `pageObjectNumber`, `pageIndex`, and
- * `generation` (which should be 0 for fresh reads on both sides).
+ * are disjoint. We do compare `pageObjectNumber` and `generation` (which
+ * should be 0 for fresh reads on both sides). Page order is no longer part
+ * of `PageState`; it lives in `PageLayout.index` (see `pages.list()`).
  */
 export function diffAnnotationListSnapshot(
   a: AnnotationListPageSnapshot,
@@ -23,9 +24,6 @@ export function diffAnnotationListSnapshot(
     errs.push(
       `pageState.pageObjectNumber mismatch: ${a.pageState.pageObjectNumber} vs ${b.pageState.pageObjectNumber}`,
     );
-  }
-  if (a.pageState.pageIndex !== b.pageState.pageIndex) {
-    errs.push(`pageState.pageIndex mismatch: ${a.pageState.pageIndex} vs ${b.pageState.pageIndex}`);
   }
   if (
     JSON.stringify(a.pageState.weakAnnotationState) !==

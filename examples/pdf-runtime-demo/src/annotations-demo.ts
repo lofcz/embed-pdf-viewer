@@ -69,9 +69,9 @@ export interface AnnotationsSummary {
 
 export function summarizeRawAll(snap: AnnotationListSnapshotAllPages): AnnotationsSummary {
   return {
-    pages: snap.pages.map((p) => ({
+    pages: snap.pages.map((p, pageIndex) => ({
       pageObjectNumber: p.pageState.pageObjectNumber,
-      pageIndex: p.pageState.pageIndex,
+      pageIndex,
       hasAnyWeakAnnotations: knownWeakFlag(p.pageState),
       annotations: p.annotations.map((a) => ({
         index: a.index,

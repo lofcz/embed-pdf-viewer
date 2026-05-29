@@ -26,7 +26,6 @@ try {
         pon,
         {
           pageObjectNumber: page.pageState.pageObjectNumber,
-          pageIndex: page.pageState.pageIndex,
           hasAnyWeakAnnotations:
             page.pageState.weakAnnotationState.kind === 'known'
               ? page.pageState.weakAnnotationState.hasAnyWeakAnnotations
