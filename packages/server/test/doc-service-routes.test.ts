@@ -684,6 +684,155 @@ describe('Phase 6 access route — POST /v1/access', () => {
   });
 });
 
+describe('Phase 6 access route — owner-password upgrade (permission-only encrypted)', () => {
+  let fx: Fixture;
+  beforeEach(async () => {
+    fx = await buildFixture();
+  });
+  afterEach(async () => {
+    await tearDown(fx);
+  });
+
+  // A permission-only encrypted PDF: owner password set, empty user
+  // password, so it opens anonymously at restricted user bits. The stub
+  // worker maps password 'owner' -> owner bits (0xfffffffc, copy allowed)
+  // and any other password -> user bits (0xfffff0c0, copy denied).
+  const PERMISSION_ONLY = {
+    encryptionState: 'encrypted' as const,
+    encryptionRequiresPassword: false,
+    securityHandlerRevision: 6,
+    pdfPermissionsBits: 0xfffff0c0,
+    pdfPermissionsAllAllowed: false,
+    pdfOpenedAs: 'user' as const,
+  };
+
+  async function postAccess(
+    docId: string,
+    token: string,
+    body: Record<string, unknown>,
+  ): Promise<Response> {
+    return fetch(`${fx.baseUrl}/v1/access`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ docId, layerName: 'default', ...body }),
+    });
+  }
+
+  test('owner password upgrades permissions, persists a session, and elevated bits stick on later reads', async () => {
+    const tenantId = 'tenant-perm-owner';
+    const docId = 'docperm001';
+    await seedDocument(fx, tenantId, docId, { security: PERMISSION_ONLY });
+    // Doc-scoped token whose only doc capability comes from expanding
+    // pdf.permissions against the document's bits — so page-text access
+    // tracks the effective (post-unlock) bits exactly.
+    const token = docToken(tenantId, docId, { layer: 'default', scope: ['pdf.permissions'] });
+    const textUrl = `${fx.baseUrl}/v1/docs/${docId}/text/pages/1/data`;
+
+    // Before unlock: user bits lack copy (bit 5) -> page-text denied.
+    const before = await fetch(textUrl, { headers: { Authorization: `Bearer ${token}` } });
+    expect(before.status).toBe(403);
+
+    const access = await postAccess(docId, token, { password: 'owner', mode: 'any' });
+    expect(access.status, await access.clone().text()).toBe(200);
+    const body = (await access.json()) as {
+      pdfPermissions: { openedAs: string; allAllowed: boolean };
+    };
+    expect(body.pdfPermissions.openedAs).toBe('owner');
+    expect(body.pdfPermissions.allAllowed).toBe(true);
+
+    // Session + verification persisted as owner.
+    const sessions = await fx.db.selectFrom('pdf_password_sessions').selectAll().execute();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.opened_as).toBe('owner');
+    const verifications = await fx.db
+      .selectFrom('pdf_password_verifications')
+      .selectAll()
+      .execute();
+    expect(verifications).toHaveLength(1);
+    expect(verifications[0]?.opened_as).toBe('owner');
+
+    // After unlock: the same token now resolves owner bits via the active
+    // session -> page-text allowed.
+    const after = await fetch(textUrl, { headers: { Authorization: `Bearer ${token}` } });
+    expect(after.status, await after.clone().text()).toBe(200);
+  });
+
+  test('mode "owner" with a non-owner password is rejected', async () => {
+    const tenantId = 'tenant-perm-mode';
+    const docId = 'docperm002';
+    await seedDocument(fx, tenantId, docId, { security: PERMISSION_ONLY });
+    const token = docToken(tenantId, docId, { layer: 'default' });
+
+    const res = await postAccess(docId, token, { password: 'not-the-owner', mode: 'owner' });
+    expect(res.status).toBe(422);
+    const resBody = (await res.json()) as { error?: { code?: string } };
+    expect(resBody.error?.code).toBe('DocPasswordIncorrect');
+  });
+
+  test('a cached owner verification lets a wrong password be rejected without the worker', async () => {
+    const tenantId = 'tenant-perm-reject';
+    const docId = 'docperm003';
+    await seedDocument(fx, tenantId, docId, { security: PERMISSION_ONLY });
+    const token = docToken(tenantId, docId, { layer: 'default' });
+
+    // Seed the cache with the owner verification + an owner session.
+    const first = await postAccess(docId, token, { password: 'owner', mode: 'any' });
+    expect(first.status, await first.clone().text()).toBe(200);
+    const afterOwner = await fx.db.selectFrom('pdf_password_verifications').selectAll().execute();
+    expect(afterOwner).toHaveLength(1);
+
+    // user password is empty (requiresPassword=false) and owner is cached,
+    // so a non-matching password is provably wrong: rejected WITHOUT the
+    // worker. The stub would otherwise return 'user' facts and write a new
+    // verification row + downgrade the session, so we assert neither happens.
+    const wrong = await postAccess(docId, token, { password: 'definitely-wrong', mode: 'any' });
+    expect(wrong.status).toBe(422);
+    const wrongBody = (await wrong.json()) as { error?: { code?: string } };
+    expect(wrongBody.error?.code).toBe('DocPasswordIncorrect');
+
+    const verifications = await fx.db
+      .selectFrom('pdf_password_verifications')
+      .selectAll()
+      .execute();
+    expect(verifications).toHaveLength(1);
+    const sessions = await fx.db.selectFrom('pdf_password_sessions').selectAll().execute();
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.opened_as).toBe('owner');
+  });
+
+  test('with both user and owner passwords cached, a third password is rejected without the worker', async () => {
+    const tenantId = 'tenant-perm-both';
+    const docId = 'docperm004';
+    await seedDocument(fx, tenantId, docId, {
+      security: {
+        encryptionState: 'encrypted',
+        encryptionRequiresPassword: true,
+        securityHandlerRevision: 6,
+        pdfPermissionsBits: null,
+        pdfPermissionsAllAllowed: null,
+        pdfOpenedAs: null,
+      },
+    });
+    const token = docToken(tenantId, docId, { layer: 'default' });
+
+    // Cache both passwords (stub: 'owner' -> owner, anything else -> user).
+    expect((await postAccess(docId, token, { password: 'owner', mode: 'any' })).status).toBe(200);
+    expect((await postAccess(docId, token, { password: 'the-user-pw', mode: 'any' })).status).toBe(
+      200,
+    );
+    const cached = await fx.db.selectFrom('pdf_password_verifications').selectAll().execute();
+    expect(cached).toHaveLength(2);
+    expect(new Set(cached.map((r) => r.opened_as))).toEqual(new Set(['owner', 'user']));
+
+    // Both passwords known -> a third is provably wrong, rejected without
+    // the worker (no new verification row).
+    const third = await postAccess(docId, token, { password: 'third-password', mode: 'any' });
+    expect(third.status).toBe(422);
+    const stillCached = await fx.db.selectFrom('pdf_password_verifications').selectAll().execute();
+    expect(stillCached).toHaveLength(2);
+  });
+});
+
 describe('Phase 3 doc routes — concurrency', () => {
   let fx: Fixture;
   beforeEach(async () => {

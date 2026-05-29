@@ -269,12 +269,21 @@ export class DocumentService {
     const row = await this.requireReadyRow(ctx, docId);
     const fromRow = decodePdfBits(row.security.pdfPermissionsBits ?? null);
 
-    if (!requiresPasswordSession(row) || !this.passwordSessions) {
+    // Only encrypted documents have per-caller (post-unlock) bits. This
+    // includes permission-only docs (empty user password), where an owner
+    // unlock elevates the bits even though no password is needed to open.
+    if (!isEncrypted(row) || !this.passwordSessions) {
       return fromRow;
     }
-    // Encrypted: prefer the active password session's post-unlock bits.
-    // openedAs (user vs owner) is already reflected in the bits the
-    // worker recorded at unlock time, so no extra branching here.
+    // A password session is bound to the token's `jti`. Tokens without one
+    // (e.g. tenant-wide tokens) can never have a session, so fall back to
+    // the row bits instead of throwing from `requireJwtJti`.
+    if (!ctx.jwt?.jti) {
+      return fromRow;
+    }
+    // Prefer the active password session's post-unlock bits. openedAs
+    // (user vs owner) is already reflected in the bits the worker recorded
+    // at unlock time, so no extra branching here.
     const binding = this.passwordSessionBinding(ctx, row, layerName);
     const session = await this.passwordSessions.findActive(binding);
     if (session) {
@@ -475,21 +484,48 @@ export class DocumentService {
     const row = await this.requireReadyRow(ctx, docId);
     const password = input.password ?? null;
     const mode = input.mode ?? 'any';
-    const binding = this.passwordSessionBinding(ctx, row, layerName);
     const now = Date.now();
 
-    if (!requiresPasswordSession(row)) {
+    // Unencrypted documents have no password concept; their bits are a
+    // static property of the PDF and never vary per caller.
+    if (!isEncrypted(row)) {
       return this.unlockedWithoutPassword(row);
     }
 
     if (!password) {
-      const renewed = await this.tryRenewFromPasswordGrant(ctx, binding, input.passwordGrant, now);
-      if (renewed) return renewed;
-      throw new EngineError(EngineErrorCode.DocPasswordRequired, 'document password required');
+      // Only an existing grant can be renewed without a password. Compute
+      // the binding lazily so anonymous access to a permission-only doc
+      // (no `jti` claim) is not forced through `requireJwtJti`.
+      if (input.passwordGrant) {
+        const binding = this.passwordSessionBinding(ctx, row, layerName);
+        const renewed = await this.tryRenewFromPasswordGrant(
+          ctx,
+          binding,
+          input.passwordGrant,
+          now,
+        );
+        if (renewed) return renewed;
+      }
+      // A user password is mandatory just to open the document → prompt.
+      if (requiresPasswordSession(row)) {
+        throw new EngineError(EngineErrorCode.DocPasswordRequired, 'document password required');
+      }
+      // Permission-only encryption (empty user password): anonymous
+      // user-level access is valid as-is.
+      return this.unlockedWithoutPassword(row);
     }
 
+    // A password was supplied: verify it (this is also how an owner
+    // password upgrades a permission-only doc). Persisting the resulting
+    // session requires `unlock_key` + `jti`; absent claims surface as a
+    // clear error rather than a silent no-op.
+    const binding = this.passwordSessionBinding(ctx, row, layerName);
     const cached = await this.tryCachedPasswordVerification(ctx, row, binding, password, mode, now);
     if (cached) return cached;
+
+    // Cache miss. If both the user and owner passwords are already known,
+    // a non-matching password is provably wrong — reject without the worker.
+    await this.rejectIfPasswordProvablyWrong(ctx, row, now);
 
     return this.openAndVerifyPassword(ctx, row, layerName, binding, password, mode, now);
   }
@@ -556,6 +592,42 @@ export class DocumentService {
       this.issuePasswordGrant(binding, ctx, now),
       this.boundSessionExpiry(ctx, now, this.passwordSessionTtlMs),
     );
+  }
+
+  /**
+   * Reject a supplied password without consulting the worker when it is
+   * provably wrong. A standard PDF security handler has at most one user
+   * and one owner password, and `pdf_password_verifications` only stores
+   * verified-good facts. So once BOTH passwords are known, a password that
+   * missed the per-password cache cannot be valid.
+   *
+   *   - owner known: a cached verification with `openedAs === 'owner'`.
+   *   - user known: empty user password (`encryptionRequiresPassword === false`)
+   *     OR a cached verification with `openedAs === 'user'`.
+   *
+   * No-ops (falls through to the worker) when verification storage is
+   * absent or knowledge is incomplete.
+   */
+  private async rejectIfPasswordProvablyWrong(
+    ctx: OpenContext,
+    row: DocumentRow,
+    now: number,
+  ): Promise<void> {
+    if (!this.passwordVerifications) return;
+    const known = await this.passwordVerifications.knownOpenedAs(
+      {
+        tenantId: ctx.tenantId,
+        docId: row.id,
+        baseSha: requireBaseSha(row),
+        securityFingerprint: securityFingerprint(row),
+      },
+      now,
+    );
+    const ownerKnown = known.has('owner');
+    const userKnown = row.security.encryptionRequiresPassword === false || known.has('user');
+    if (ownerKnown && userKnown) {
+      throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'incorrect document password');
+    }
   }
 
   private async openAndVerifyPassword(
@@ -1167,6 +1239,19 @@ function requiresPasswordSession(row: DocumentRow): boolean {
   return (
     row.security.encryptionState === 'encrypted' && row.security.encryptionRequiresPassword === true
   );
+}
+
+/**
+ * Whether the document is encrypted at all. Distinct from
+ * {@link requiresPasswordSession}: a permission-only encrypted PDF (owner
+ * password set, empty user password) is `isEncrypted` but does NOT require
+ * a password to open. Such docs are still "session-capable" — their
+ * effective bits can change after an owner-password unlock — so the unlock
+ * and effective-bits paths gate on this rather than on the open-time
+ * password requirement.
+ */
+function isEncrypted(row: DocumentRow): boolean {
+  return row.security.encryptionState === 'encrypted';
 }
 
 function safeFilePart(value: string): string {

@@ -70,6 +70,36 @@ export class PdfPasswordVerificationsRepo {
       : null;
   }
 
+  /**
+   * Distinct `opened_as` values among the non-expired verifications for a
+   * document (selected by doc, not by password). Used to decide whether
+   * both the user and owner passwords are already known — in which case a
+   * cache-miss password is provably wrong and can be rejected without the
+   * worker. Mirrors {@link findValid}'s expiry / hmac-key filters.
+   */
+  async knownOpenedAs(
+    input: {
+      tenantId: string;
+      docId: string;
+      baseSha: string;
+      securityFingerprint: string;
+    },
+    now = Date.now(),
+  ): Promise<Set<DocumentPdfOpenedAs>> {
+    const rows = await this.db
+      .selectFrom('pdf_password_verifications')
+      .select('opened_as')
+      .distinct()
+      .where('tenant_id', '=', input.tenantId)
+      .where('doc_id', '=', input.docId)
+      .where('base_sha', '=', input.baseSha)
+      .where('security_fingerprint', '=', input.securityFingerprint)
+      .where('hmac_key_id', '=', this.hmacKeyId())
+      .where('expires_at', '>', now)
+      .execute();
+    return new Set(rows.map((r) => r.opened_as));
+  }
+
   async upsert(
     input: PasswordProofInput,
     facts: PasswordVerificationFacts,
