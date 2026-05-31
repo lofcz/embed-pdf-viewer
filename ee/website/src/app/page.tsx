@@ -7,7 +7,7 @@ export default function HomePage() {
         </span>
 
         <h1 className="mt-6 text-5xl font-bold tracking-tight text-gray-900 sm:text-6xl">
-          CloudPDF
+          CloudPDF Test
         </h1>
 
         <p className="mt-6 text-lg leading-8 text-gray-600">
