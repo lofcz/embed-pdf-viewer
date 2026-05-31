@@ -249,6 +249,28 @@ h3 {
   background: #f8fbfb;
 }
 
+.metadata-tools {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d7e1e4;
+  border-radius: 6px;
+  background: #f8fbfb;
+}
+
+.metadata-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.metadata-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .render-preview {
   display: none;
   margin: 0;
@@ -545,6 +567,10 @@ pre {
   .security-head,
   .security-grid {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-grid {
     grid-template-columns: 1fr;
   }
 }

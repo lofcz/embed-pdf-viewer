@@ -1,24 +1,32 @@
 import type { FastifyInstance } from 'fastify';
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
-import { decodeDocToken } from '@embedpdf/engine-core/wire';
-import { requireLayerCapability, requireLayerDocAccessOnly } from '../app/jwt-plugin';
+import { EngineError, EngineErrorCode, type MetadataPatch } from '@embedpdf/engine-core/runtime';
+import { decodeMetadataToken, MetadataPatchSchema } from '@embedpdf/engine-core/wire';
+import {
+  requireLayerCapability,
+  requireLayerDocAccessOnly,
+  requireLayerResource,
+} from '../app/jwt-plugin';
 import type { DocumentService } from '../services/DocumentService';
+import type { LayerService } from '../services/LayerService';
 import {
   abortSignalFromRequest,
+  parseOrInvalidArg,
   parseTokenOrInvalidArg,
   setImmutableCache,
   setNoStore,
+  type SchemaLike,
 } from './_helpers';
 
 interface MetadataRouteDeps {
   service: DocumentService;
+  layerService: LayerService;
 }
 
 export async function registerMetadataRoutes(
   app: FastifyInstance,
   deps: MetadataRouteDeps,
 ): Promise<void> {
-  const { service } = deps;
+  const { service, layerService } = deps;
 
   app.get('/v1/docs/:docId/layers/:layerName/metadata@:token', async (req, reply) => {
     const { docId, layerName, token } = req.params as {
@@ -28,14 +36,14 @@ export async function registerMetadataRoutes(
     };
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
     const pdfBits = await service.getEffectivePdfBits(accessCtx, docId, layerName);
-    const ctx = requireLayerCapability(req, docId, layerName, 'doc.open', pdfBits);
-    const requested = parseTokenOrInvalidArg(decodeDocToken, token, 'layerDocVersion token');
-    const head = await service.getLayerHead(ctx, docId, layerName);
-    if (requested !== head.docVersion) {
+    const ctx = requireLayerResource(req, docId, layerName, 'layer-metadata', pdfBits);
+    const requested = parseTokenOrInvalidArg(decodeMetadataToken, token, 'metadataVersion token');
+    const manifest = await service.getLayerManifest(ctx, docId, layerName);
+    if (requested !== manifest.metadataVersion) {
       setNoStore(reply);
       throw new EngineError(
         EngineErrorCode.NotFound,
-        `layer metadata version ${requested} no longer current (current=${head.docVersion})`,
+        `metadata version ${requested} no longer current (current=${manifest.metadataVersion})`,
       );
     }
     const metadata = await service.readLayerMetadata(
@@ -55,7 +63,7 @@ export async function registerMetadataRoutes(
     };
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
     const pdfBits = await service.getEffectivePdfBits(accessCtx, docId, layerName);
-    const ctx = requireLayerCapability(req, docId, layerName, 'doc.open', pdfBits);
+    const ctx = requireLayerResource(req, docId, layerName, 'layer-metadata', pdfBits);
     const metadata = await service.readLayerMetadata(
       ctx,
       docId,
@@ -64,5 +72,27 @@ export async function registerMetadataRoutes(
     );
     setNoStore(reply);
     return metadata;
+  });
+
+  app.post('/v1/docs/:docId/layers/:layerName/metadata', async (req, reply) => {
+    const { docId, layerName } = req.params as {
+      docId: string;
+      layerName: string;
+    };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await service.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.metadata.modify', pdfBits);
+    const patch = parseOrInvalidArg<MetadataPatch>(
+      MetadataPatchSchema as unknown as SchemaLike<MetadataPatch>,
+      req.body,
+      'request body',
+    );
+
+    setNoStore(reply);
+    return layerService.updateMetadata(
+      ctx,
+      { docId, layerName, patch },
+      abortSignalFromRequest(req),
+    );
   });
 }

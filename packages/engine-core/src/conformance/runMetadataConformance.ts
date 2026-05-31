@@ -120,6 +120,59 @@ export function runMetadataConformance(
       expect(caught).toBeTruthy();
       expect(EngineError.is(caught, EngineErrorCode.DocNotOpen)).toBe(true);
     });
+
+    test('update() sets standard + custom fields and a subsequent read observes them', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const result = await doc.metadata.update({
+          title: 'Conformance Title',
+          subject: 'Conformance Subject',
+          custom: { ConformanceKey: 'conformance-value' },
+        });
+        // The result carries the re-read metadata; cloud also carries cache
+        // pins (local is null) — both expose the post-write values here.
+        expect(result.metadata.title).toBe('Conformance Title');
+        expect(result.metadata.subject).toBe('Conformance Subject');
+        expect(result.metadata.custom.ConformanceKey).toBe('conformance-value');
+
+        // A fresh read goes through the versioned leaf (cloud) / re-read
+        // (local) and must observe the same write.
+        const after = await doc.metadata.read();
+        expect(after.title).toBe('Conformance Title');
+        expect(after.subject).toBe('Conformance Subject');
+        expect(after.custom.ConformanceKey).toBe('conformance-value');
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('update() clears a field with null', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        await doc.metadata.update({ title: 'To Be Cleared' });
+        const set = await doc.metadata.read();
+        expect(set.title).toBe('To Be Cleared');
+
+        await doc.metadata.update({ title: null });
+        const cleared = await doc.metadata.read();
+        expect(cleared.title).toBe(null);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('update() after close throws DocNotOpen', async () => {
+      const doc = await openFixture(engine, opts);
+      await doc.close();
+      let caught: unknown;
+      try {
+        await doc.metadata.update({ title: 'nope' });
+      } catch (err) {
+        caught = err;
+      }
+      expect(caught).toBeTruthy();
+      expect(EngineError.is(caught, EngineErrorCode.DocNotOpen)).toBe(true);
+    });
   });
 }
 

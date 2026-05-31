@@ -8,6 +8,7 @@ import {
   type DocumentHandle,
   type DocumentPagesService,
   type DocumentSecurityService,
+  type MetadataCache,
   type MutationMeta,
   type PageHandle,
   type PageMoveCache,
@@ -44,6 +45,8 @@ export interface ManifestAccessor {
   apply(meta: MutationMeta): void;
   /** Advance the cached manifest's docVersion + layoutVersion after a page move. */
   applyPageMove(cache: PageMoveCache): void;
+  /** Advance the cached manifest's docVersion + metadataVersion after a metadata write. */
+  applyMetadata(cache: MetadataCache): void;
 }
 
 export class CloudDocumentHandle implements DocumentHandle {
@@ -105,6 +108,7 @@ export class CloudDocumentHandle implements DocumentHandle {
       refresh: (signal) => this.refreshManifest(signal),
       apply: (meta) => this.absorbMutation(meta),
       applyPageMove: (cache) => this.absorbPageMove(cache),
+      applyMetadata: (cache) => this.absorbMetadata(cache),
     };
     this.metadata = new CloudMetadataService(
       http,
@@ -270,6 +274,31 @@ export class CloudDocumentHandle implements DocumentHandle {
       ...this.manifestCache,
       docVersion: cache.docVersion,
       layoutVersion: cache.layoutVersion,
+    };
+  }
+
+  /**
+   * Patch the cached manifest after a metadata write. Symmetric with
+   * {@link absorbPageMove}: a metadata edit advances `docVersion` (so leaf
+   * URLs re-resolve) and `metadataVersion` (so the /metadata leaf re-fetches),
+   * but leaves `layoutVersion` and every per-page pin untouched. Raise the
+   * floor unconditionally and, when our cache is exactly one version behind,
+   * advance it in place; otherwise drop it and refetch lazily.
+   */
+  private absorbMetadata(cache: MetadataCache): void {
+    this.manifestFloorVersion = Math.max(this.manifestFloorVersion, cache.docVersion);
+    this.inflightManifest = null;
+
+    if (!this.manifestCache) return;
+    if (cache.docVersion <= this.manifestCache.docVersion) return;
+    if (cache.previousDocVersion !== this.manifestCache.docVersion) {
+      this.manifestCache = null;
+      return;
+    }
+    this.manifestCache = {
+      ...this.manifestCache,
+      docVersion: cache.docVersion,
+      metadataVersion: cache.metadataVersion,
     };
   }
 

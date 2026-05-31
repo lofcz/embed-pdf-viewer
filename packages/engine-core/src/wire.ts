@@ -7,6 +7,8 @@
 
 export {
   DocumentMetadataSchema,
+  MetadataPatchSchema,
+  MetadataUpdateResultSchema,
   AccessRequestSchema,
   AccessResponseSchema,
   OpenDocumentResponseSchema,
@@ -84,6 +86,7 @@ export {
   ContentTokenSchema,
   DocTokenSchema,
   LayoutTokenSchema,
+  MetadataTokenSchema,
   RenderTokenSchema,
 } from './wire/tokenSchemas';
 export {
@@ -92,12 +95,14 @@ export {
   decodeDocToken,
   decodeDownloadToken,
   decodeLayoutToken,
+  decodeMetadataToken,
   decodeRenderToken,
   encodeAnnotationToken,
   encodeContentToken,
   encodeDocToken,
   encodeDownloadToken,
   encodeLayoutToken,
+  encodeMetadataToken,
   encodeRenderToken,
 } from './wire/tokens';
 export type { DownloadToken } from './wire/tokens';

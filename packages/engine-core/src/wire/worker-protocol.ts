@@ -20,6 +20,8 @@ import type {
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
+import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
+import type { MetadataPatch } from '../dto/MetadataPatch';
 
 /**
  * Wire protocol used between an Engine-side queue and any Worker host
@@ -87,6 +89,15 @@ export interface MetadataReadWorkerRequest {
   jobId: WorkerJobId;
   docId: string;
   layerName?: string;
+}
+
+export interface MetadataUpdateWorkerRequest {
+  kind: 'metadata.update';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  patch: MetadataPatch;
+  artifactPath?: string;
 }
 
 export interface AnnotationsListRawAllWorkerRequest {
@@ -291,6 +302,7 @@ export interface LayerArtifactFileWorkerPayload {
 export type WorkerRequest =
   | OpenWorkerRequest
   | MetadataReadWorkerRequest
+  | MetadataUpdateWorkerRequest
   | AnnotationsListRawAllWorkerRequest
   | AnnotationsListRawPageWorkerRequest
   | AnnotationsListFullPageWorkerRequest
@@ -314,6 +326,12 @@ export type WorkerRequest =
 export type WorkerResultPayload =
   | { tag: 'open'; docId: string; security: DocumentSecurityProbeInfo }
   | { tag: 'metadata.read'; metadata: DocumentMetadata }
+  | {
+      tag: 'metadata.update';
+      result: MetadataUpdateResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
   | { tag: 'annotations.listRawAll'; snapshot: AnnotationListSnapshotAllPages }
   | { tag: 'annotations.listRawPage'; snapshot: AnnotationListPageSnapshot }
   | { tag: 'annotations.listFullPage'; snapshot: AnnotationListPageSnapshot }

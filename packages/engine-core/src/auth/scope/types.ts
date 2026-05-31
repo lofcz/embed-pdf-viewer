@@ -38,6 +38,9 @@ export type DocCapability =
   | 'doc.annotate.read' // structured read of annotation lists (cloud-only; no PDF-bit gate — reading is unconditional)
   | 'doc.annotate.modify' // broad write default for create/update/delete (PDF bit 6); narrowed per-action by collab scopes when present
 
+  // Metadata (Info-dict writes, PDF bit 4)
+  | 'doc.metadata.modify' // rewrite document metadata / Info dict (PDF bit 4)
+
   // Redaction apply (destructive content modification, PDF bit 4)
   | 'doc.redact';
 

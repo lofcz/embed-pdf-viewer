@@ -388,7 +388,7 @@ export class DocumentService {
         docId,
         head.baseSha,
         layerName,
-        { docVersion: head.docVersion, layoutVersion: 1 },
+        { docVersion: head.docVersion, layoutVersion: 1, metadataVersion: 1 },
         pages,
       );
     }

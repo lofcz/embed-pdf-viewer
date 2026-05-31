@@ -18,6 +18,7 @@ export type {
   TokenSource,
 } from './dto/OpenInput';
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
+export type { MetadataPatch } from './dto/MetadataPatch';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
 export type { PageLayout, PageBoxes, PdfRect } from './dto/PageLayout';
 export type { PageTextSnapshot } from './dto/PageTextSnapshot';
@@ -144,6 +145,7 @@ export type {
 } from './mutation/AnnotationMutationResults';
 export type { PageMoveInput } from './mutation/PageMoveInput';
 export type { PageMoveResult, PageMoveCache } from './mutation/PageMoveResult';
+export type { MetadataUpdateResult, MetadataCache } from './mutation/MetadataUpdateResult';
 
 export type {
   AnnotationActor,

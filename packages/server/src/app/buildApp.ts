@@ -379,7 +379,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         cdnSigner: opts.cdnSigner ?? new NoneCdnSigner(),
       });
       await registerDocsRoutes(app, { service: documentService });
-      await registerMetadataRoutes(app, { service: documentService });
+      await registerMetadataRoutes(app, { service: documentService, layerService });
       await registerPageRoutes(app, {
         documentService,
         layerService,

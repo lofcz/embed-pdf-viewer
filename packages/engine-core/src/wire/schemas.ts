@@ -9,6 +9,7 @@ import { AnnotationDTOSchema } from '../annotation/kinds';
 import type { CachePins } from '../dto/CachePins';
 import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
+import type { MetadataPatch } from '../dto/MetadataPatch';
 import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageBoxes, PageLayout, PdfRect } from '../dto/PageLayout';
@@ -30,6 +31,7 @@ import type { PageState } from '../revision/PageState';
 import type { WeakAnnotationState } from '../revision/WeakAnnotationState';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
+import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
 export type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
 
@@ -45,6 +47,26 @@ export const DocumentMetadataSchema: z.ZodType<DocumentMetadata> = z.object({
   trapped: z.enum(['true', 'false', 'unknown']),
   custom: z.record(z.string(), z.string()),
 });
+
+/**
+ * Three-state metadata patch. Mirrors annotation patch semantics:
+ * `undefined` leaves a field, `null` clears it, a value sets it. `custom`
+ * is a per-key three-state map (string set / null clear / absent leave).
+ */
+export const MetadataPatchSchema: z.ZodType<MetadataPatch> = z
+  .object({
+    title: z.string().nullable().optional(),
+    author: z.string().nullable().optional(),
+    subject: z.string().nullable().optional(),
+    keywords: z.string().nullable().optional(),
+    producer: z.string().nullable().optional(),
+    creator: z.string().nullable().optional(),
+    created: z.string().datetime().nullable().optional(),
+    modified: z.string().datetime().nullable().optional(),
+    trapped: z.enum(['true', 'false', 'unknown']).optional(),
+    custom: z.record(z.string(), z.string().nullable()).optional(),
+  })
+  .strict();
 
 export const OpenDocumentResponseSchema = z.object({
   id: z.string(),
@@ -298,6 +320,7 @@ export type { ManifestPage } from '../dto/DocumentManifest';
 export const DocumentManifestSchema: z.ZodType<DocumentManifest> = z.object({
   docVersion: z.number().int().positive(),
   layoutVersion: z.number().int().positive(),
+  metadataVersion: z.number().int().positive(),
   baseSha: z.string(),
   pages: z.array(ManifestPageSchema),
 });
@@ -632,6 +655,23 @@ export const PageMoveResultSchema: z.ZodType<PageMoveResult> = z.object({
       previousDocVersion: z.number().int().nonnegative(),
       docVersion: z.number().int().positive(),
       layoutVersion: z.number().int().positive(),
+    })
+    .nullable(),
+});
+
+/**
+ * Metadata write result. The Info dict is rewritten in place, so the
+ * result returns the re-read `metadata` plus cloud coherence pins. No
+ * `layoutVersion` is touched — a metadata edit bumps only `docVersion`
+ * and `metadataVersion`. `cache` is `null` for local engines.
+ */
+export const MetadataUpdateResultSchema: z.ZodType<MetadataUpdateResult> = z.object({
+  metadata: DocumentMetadataSchema,
+  cache: z
+    .object({
+      previousDocVersion: z.number().int().nonnegative(),
+      docVersion: z.number().int().positive(),
+      metadataVersion: z.number().int().positive(),
     })
     .nullable(),
 });

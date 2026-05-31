@@ -4,7 +4,9 @@ import {
   EngineErrorCode,
   wirePack,
   type DocumentMetadata,
+  type MetadataPatch,
   type MetadataService,
+  type MetadataUpdateResult,
 } from '@embedpdf/engine-core/runtime';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
@@ -54,6 +56,38 @@ export class LocalMetadataService implements MetadataService {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
       return payload.metadata;
+    });
+  }
+
+  update(patch: MetadataPatch): AbortablePromise<MetadataUpdateResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    // metadata.update maps to the cloud's POST /metadata (gated by
+    // `doc.metadata.modify`, PDF bit 4).
+    try {
+      this.guard.assertCapability('doc.metadata.modify');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
+    }
+    const docId = this.docId;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) => wirePack({ kind: 'metadata.update', jobId, docId, patch }),
+      },
+      { priority: Priority.HIGH },
+    );
+    return AbortablePromise.run<MetadataUpdateResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'metadata.update') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
     });
   }
 }

@@ -39,6 +39,7 @@ import {
   encodeDocToken,
   encodeDownloadToken,
   encodeLayoutToken,
+  encodeMetadataToken,
   encodeRenderToken,
   type DownloadToken,
   type TokenInput,
@@ -99,10 +100,22 @@ export const wirePaths = {
   layerLayoutCurrent: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/layout`,
 
-  layerMetadata: (docId: string, layerName: string, docVersion: number) =>
-    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/metadata@${encodeDocToken(docVersion)}`,
+  /**
+   * GET: full document metadata for the layer at a specific
+   * `metadataVersion`. Content-addressed; CDN may cache forever. The
+   * `metadataVersion` lives in the manifest (doc-level pointer) and bumps
+   * only on metadata writes. Stale-version requests 404 and the SDK's
+   * transparent retry walks `/head` -> `/manifest@docVersion=N` to learn
+   * the new `metadataVersion`.
+   */
+  layerMetadata: (docId: string, layerName: string, metadataVersion: number) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/metadata@${encodeMetadataToken(metadataVersion)}`,
 
   layerMetadataCurrent: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/metadata`,
+
+  /** POST: rewrite the document Info dict for the layer (metadata edit). */
+  layerMetadataUpdate: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/metadata`,
 
   /**

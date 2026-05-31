@@ -17,6 +17,7 @@ import {
   type AnnotationsUpdateWorkerRequest,
   type CloseWorkerRequest,
   type MetadataReadWorkerRequest,
+  type MetadataUpdateWorkerRequest,
   type OpenWorkerRequest,
   type PagesListWorkerRequest,
   type PagesGeometryWorkerRequest,
@@ -41,7 +42,7 @@ import {
 } from '../document-session/lifecycle/PdfDocumentOpener';
 import { AnnotationReader, AnnotationMutator, RawAnnotationReader } from '../features/annotations';
 import { PageGeometryReader } from '../features/geometry';
-import { MetadataReader } from '../features/metadata';
+import { MetadataMutator, MetadataReader } from '../features/metadata';
 import { PagesMutator, PagesReader } from '../features/pages';
 import { PageRenderReader } from '../features/render';
 import { DocumentSaver } from '../features/save';
@@ -105,6 +106,9 @@ export class WorkerHost {
           break;
         case 'metadata.read':
           resultPack = this.handleMetadataRead(msg, ctrl.signal);
+          break;
+        case 'metadata.update':
+          resultPack = this.handleMetadataUpdate(msg, ctrl.signal);
           break;
         case 'annotations.listRawAll':
           resultPack = this.handleAnnotationsListRawAll(msg, ctrl.signal);
@@ -228,6 +232,16 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const metadata = new MetadataReader(this.runtime, session).read(signal);
     return wirePack({ tag: 'metadata.read', metadata });
+  }
+
+  private handleMetadataUpdate(
+    req: MetadataUpdateWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new MetadataMutator(this.runtime, session);
+    const result = mutator.update(req.patch, signal);
+    return this.finishMutation(session, { tag: 'metadata.update', result }, req.artifactPath);
   }
 
   private handleAnnotationsListRawAll(

@@ -17,6 +17,8 @@ import {
   type AnnotationRef,
   type AnnotationUpdateResult,
   type IdentityClaims,
+  type MetadataPatch,
+  type MetadataUpdateResult,
   type PageMoveResult,
   type PageObjectNumber,
   type PageState,
@@ -441,6 +443,42 @@ export class LayerService {
     });
   }
 
+  async updateMetadata(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      patch: MetadataPatch;
+    },
+    signal?: AbortSignal,
+  ): Promise<MetadataUpdateResult> {
+    return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
+      const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'metadata.update' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            patch: input.patch,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'metadata.update') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected metadata.update payload: ${payload.tag}`,
+          );
+        }
+        return this.persistMetadataUpdate(ctx, input.docId, input.layerName, layer, {
+          result: payload.result,
+          artifact: requireLayerArtifact(payload as unknown),
+        });
+      });
+    });
+  }
+
   private async prepareLayerMutation(
     ctx: LayerWriteContext,
     docId: string,
@@ -550,6 +588,44 @@ export class LayerService {
         previousDocVersion: committed.previousLayerDocVersion,
         docVersion: committed.layerDocVersion,
         layoutVersion: committed.layoutVersion,
+      },
+    };
+  }
+
+  private async persistMetadataUpdate(
+    ctx: LayerWriteContext,
+    docId: string,
+    layerName: string,
+    layer: LayerRow,
+    input: {
+      result: MetadataUpdateResult;
+      artifact: LayerArtifactInput;
+    },
+  ): Promise<MetadataUpdateResult> {
+    const nextVersion = layer.currentVersion + 1;
+    const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
+    const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
+    const committed = await this.commitMetadataUpdate({
+      ctx,
+      docId,
+      layerName,
+      layer,
+      artifactKey,
+      artifactSha: uploaded.sha256,
+      artifactSize: uploaded.size,
+      nextVersion,
+      payload: input.result,
+    });
+
+    // Return the worker's re-read metadata verbatim plus the coherence pins
+    // so a cloud client advances its cached manifest in place instead of
+    // refetching.
+    return {
+      metadata: input.result.metadata,
+      cache: {
+        previousDocVersion: committed.previousLayerDocVersion,
+        docVersion: committed.layerDocVersion,
+        metadataVersion: committed.metadataVersion,
       },
     };
   }
@@ -911,6 +987,85 @@ export class LayerService {
         await this.eventLog?.appendDb(trx, auditEvent);
 
         return { previousLayerDocVersion, layerDocVersion, layoutVersion };
+      });
+  }
+
+  private async commitMetadataUpdate(input: {
+    ctx: LayerWriteContext;
+    docId: string;
+    layerName: string;
+    layer: LayerRow;
+    artifactKey: string;
+    artifactSha: string;
+    artifactSize: number;
+    nextVersion: number;
+    payload: unknown;
+  }): Promise<{
+    previousLayerDocVersion: number;
+    layerDocVersion: number;
+    metadataVersion: number;
+  }> {
+    return this.requireDb()
+      .transaction()
+      .execute(async (trx) => {
+        const now = Date.now();
+        const currentLayer = await trx
+          .selectFrom('layers')
+          .select(['current_version', 'doc_version', 'metadata_version'])
+          .where('id', '=', input.layer.id)
+          .executeTakeFirst();
+        if (!currentLayer) {
+          throw new EngineError(EngineErrorCode.NotFound, `layer not found: ${input.layer.id}`);
+        }
+        if (Number(currentLayer.current_version) !== input.layer.currentVersion) {
+          throw new EngineError(
+            EngineErrorCode.Aborted,
+            `layer version changed while saving artifact for ${input.layer.id}`,
+          );
+        }
+
+        // A metadata write touches only the document Info dict — no page set,
+        // no per-page versions, no display order. So `layer_pages` rows are
+        // left entirely untouched; we only advance the layer version pointers.
+        const previousLayerDocVersion = Number(currentLayer.doc_version);
+        const layerDocVersion = previousLayerDocVersion + 1;
+        // Metadata edit: bump the metadata pointer so the CDN-immutable
+        // /metadata@metadataVersion leaf is re-fetched. Layout + per-page
+        // content/annotation versions stay put (their caches stay warm).
+        const metadataVersion = Number(currentLayer.metadata_version) + 1;
+
+        await trx
+          .updateTable('layers')
+          .set({
+            doc_version: layerDocVersion,
+            metadata_version: metadataVersion,
+            current_version: input.nextVersion,
+            current_artifact_key: input.artifactKey,
+            current_artifact_sha: input.artifactSha,
+            current_artifact_size: input.artifactSize,
+            updated_at: now,
+          })
+          .where('id', '=', input.layer.id)
+          .execute();
+
+        const auditEvent = makeAuditEvent({
+          ctx: input.ctx,
+          docId: input.docId,
+          layer: input.layer,
+          layerName: input.layerName,
+          kind: 'metadata.update',
+          pageObjectNumber: null,
+          affectedPages: [],
+          artifactVersion: input.nextVersion,
+          artifactKey: input.artifactKey,
+          artifactSha: input.artifactSha,
+          artifactSize: input.artifactSize,
+          payload: input.payload,
+          ts: now,
+        });
+        await this.eventLog?.appendDb(trx, auditEvent);
+
+        return { previousLayerDocVersion, layerDocVersion, metadataVersion };
       });
   }
 

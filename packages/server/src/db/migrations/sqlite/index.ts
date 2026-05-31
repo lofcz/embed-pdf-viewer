@@ -10,6 +10,7 @@ import sql008 from './008_pdf_password_verifications.sql';
 import sql009 from './009_pdf_password_sessions.sql';
 import sql010 from './010_layer_layout_version.sql';
 import sql011 from './011_drop_page_index.sql';
+import sql012 from './012_layer_metadata_version.sql';
 
 /**
  * SQLite migration set. The `.sql` files in this directory are the
@@ -34,4 +35,5 @@ export const sqliteMigrations: ReadonlyArray<MigrationSource> = [
   { version: '009', name: '009_pdf_password_sessions.sql', sql: sql009 },
   { version: '010', name: '010_layer_layout_version.sql', sql: sql010 },
   { version: '011', name: '011_drop_page_index.sql', sql: sql011 },
+  { version: '012', name: '012_layer_metadata_version.sql', sql: sql012 },
 ];

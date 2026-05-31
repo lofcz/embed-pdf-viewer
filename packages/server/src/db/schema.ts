@@ -82,6 +82,12 @@ export interface LayersTable {
    * than `doc_version`.
    */
   layout_version: number;
+  /**
+   * Metadata-pointer epoch for `/metadata@metadataVersion`. Bumps only on
+   * metadata writes (Info-dict edits), a different cadence than
+   * `doc_version` and `layout_version`.
+   */
+  metadata_version: number;
   current_version: number;
   current_artifact_key: string | null;
   current_artifact_sha: string | null;

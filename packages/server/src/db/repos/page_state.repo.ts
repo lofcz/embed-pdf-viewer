@@ -131,6 +131,7 @@ export interface LayerRow {
   name: string;
   docVersion: number;
   layoutVersion: number;
+  metadataVersion: number;
   currentVersion: number;
   currentArtifactKey: string | null;
   currentArtifactSha: string | null;
@@ -170,6 +171,7 @@ export class LayersRepo {
         name: input.name,
         doc_version: 1,
         layout_version: 1,
+        metadata_version: 1,
         current_version: 0,
         current_artifact_key: null,
         current_artifact_sha: null,
@@ -285,6 +287,7 @@ function mapLayerRow(row: {
   name: string;
   doc_version: number;
   layout_version: number;
+  metadata_version: number;
   current_version: number;
   current_artifact_key: string | null;
   current_artifact_sha: string | null;
@@ -299,6 +302,7 @@ function mapLayerRow(row: {
     name: row.name,
     docVersion: Number(row.doc_version),
     layoutVersion: Number(row.layout_version),
+    metadataVersion: Number(row.metadata_version),
     currentVersion: Number(row.current_version),
     currentArtifactKey: row.current_artifact_key,
     currentArtifactSha: row.current_artifact_sha,

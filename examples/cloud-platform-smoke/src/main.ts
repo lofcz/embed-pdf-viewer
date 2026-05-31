@@ -5,6 +5,9 @@ import type {
   AnnotationRef,
   CdnAccessInfo,
   DocumentHandle,
+  DocumentMetadata,
+  DocumentMetadataTrapped,
+  MetadataPatch,
   PageGeometrySnapshot,
   PageImageHandle,
   PageListSnapshot,
@@ -53,6 +56,7 @@ const PREVIEW_RESOURCES: ReadonlyArray<{ id: DocResourceId; label: string }> = [
     label: 'layers/L/geometry/pages/N/data (layer-level — what the SDK calls)',
   },
   { id: 'annotations-read', label: 'annotations/pages/N/items@annotationVersion' },
+  { id: 'layer-metadata', label: 'layers/L/metadata@metadataVersion (layer-level)' },
   { id: 'download-current', label: 'download (origin-only)' },
   { id: 'download-versioned', label: 'download@docVersion' },
 ];
@@ -99,6 +103,7 @@ const DEFAULT_SCOPE = [
   'doc.text.copy',
   'doc.annotate.read',
   'doc.annotate.modify',
+  'doc.metadata.modify',
   'doc.pages.assemble',
   'doc.download',
   'doc.download.flattened',
@@ -111,6 +116,7 @@ const SCOPE_OPTIONS: ScopeOption[] = [
   { value: 'doc.text.copy', label: 'Text copy' },
   { value: 'doc.annotate.read', label: 'Read annotations' },
   { value: 'doc.annotate.modify', label: 'Modify all annotations' },
+  { value: 'doc.metadata.modify', label: 'Modify metadata' },
   { value: 'doc.pages.modify', label: 'Modify pages' },
   { value: 'doc.pages.assemble', label: 'Assemble pages' },
   { value: 'doc.download', label: 'Download' },
@@ -257,6 +263,37 @@ app.innerHTML = `
           <button id="downloadPdf" type="button">Download PDF</button>
         </div>
 
+        <div class="metadata-tools">
+          <div class="metadata-head">
+            <h3>Metadata</h3>
+            <button id="readMetadata" type="button">Read Metadata</button>
+          </div>
+          <div class="metadata-grid">
+            <label>Title <input id="metaTitle" autocomplete="off" /></label>
+            <label>Author <input id="metaAuthor" autocomplete="off" /></label>
+            <label>Subject <input id="metaSubject" autocomplete="off" /></label>
+            <label>Keywords <input id="metaKeywords" autocomplete="off" /></label>
+            <label>Creator <input id="metaCreator" autocomplete="off" /></label>
+            <label>Producer <input id="metaProducer" autocomplete="off" /></label>
+            <label>Trapped
+              <select id="metaTrapped">
+                <option value="">(leave)</option>
+                <option value="true">true</option>
+                <option value="false">false</option>
+                <option value="unknown">unknown</option>
+              </select>
+            </label>
+          </div>
+          <label>Custom (JSON map — string sets, null clears)
+            <textarea id="metaCustom" spellcheck="false" placeholder='{ "MyKey": "value", "Remove": null }'></textarea>
+          </label>
+          <label class="check">
+            <input id="metaClearEmpty" type="checkbox" />
+            <span>Treat empty standard fields as clear (null) instead of leave</span>
+          </label>
+          <button id="updateMetadata" type="button">Update Metadata</button>
+        </div>
+
         <div class="render-tools">
           <label>Render Format
             <select id="renderFormat">
@@ -390,6 +427,17 @@ const els = {
   readText: must<HTMLButtonElement>('readText'),
   readGeometry: must<HTMLButtonElement>('readGeometry'),
   listAnnots: must<HTMLButtonElement>('listAnnots'),
+  readMetadata: must<HTMLButtonElement>('readMetadata'),
+  updateMetadata: must<HTMLButtonElement>('updateMetadata'),
+  metaTitle: must<HTMLInputElement>('metaTitle'),
+  metaAuthor: must<HTMLInputElement>('metaAuthor'),
+  metaSubject: must<HTMLInputElement>('metaSubject'),
+  metaKeywords: must<HTMLInputElement>('metaKeywords'),
+  metaCreator: must<HTMLInputElement>('metaCreator'),
+  metaProducer: must<HTMLInputElement>('metaProducer'),
+  metaTrapped: must<HTMLSelectElement>('metaTrapped'),
+  metaCustom: must<HTMLTextAreaElement>('metaCustom'),
+  metaClearEmpty: must<HTMLInputElement>('metaClearEmpty'),
   renderFormat: must<HTMLSelectElement>('renderFormat'),
   renderWidth: must<HTMLInputElement>('renderWidth'),
   renderBackground: must<HTMLSelectElement>('renderBackground'),
@@ -457,6 +505,8 @@ els.listPages.addEventListener('click', () => void run(listPages));
 els.readText.addEventListener('click', () => void run(readText));
 els.readGeometry.addEventListener('click', () => void run(readGeometry));
 els.listAnnots.addEventListener('click', () => void run(listAnnotations));
+els.readMetadata.addEventListener('click', () => void run(readMetadata));
+els.updateMetadata.addEventListener('click', () => void run(updateMetadata));
 els.renderPage.addEventListener('click', () => void run(renderPage));
 els.createHighlight.addEventListener('click', () => void run(createHighlight));
 els.beginWeakEdit.addEventListener('click', () => void run(beginWeakEdit));
@@ -627,6 +677,93 @@ async function renderPage(): Promise<void> {
 async function listAnnotations(): Promise<void> {
   annotations = await requireDoc().page(selectedPage()).annotations.list();
   setOutput(annotations);
+}
+
+async function readMetadata(): Promise<void> {
+  const metadata = await requireDoc().metadata.read();
+  populateMetadataForm(metadata);
+  setOutput(metadata);
+}
+
+async function updateMetadata(): Promise<void> {
+  const patch = buildMetadataPatch();
+  const result = await requireDoc().metadata.update(patch);
+  populateMetadataForm(result.metadata);
+  setOutput({ patch, result });
+}
+
+/**
+ * Mirror the read DTO back into the form so the standard fields and the
+ * custom map reflect what is actually stored after a read or a write.
+ */
+function populateMetadataForm(metadata: DocumentMetadata): void {
+  els.metaTitle.value = metadata.title ?? '';
+  els.metaAuthor.value = metadata.author ?? '';
+  els.metaSubject.value = metadata.subject ?? '';
+  els.metaKeywords.value = metadata.keywords ?? '';
+  els.metaCreator.value = metadata.creator ?? '';
+  els.metaProducer.value = metadata.producer ?? '';
+  els.metaTrapped.value = '';
+  els.metaCustom.value =
+    Object.keys(metadata.custom).length > 0 ? JSON.stringify(metadata.custom, null, 2) : '';
+}
+
+/**
+ * Build a three-state {@link MetadataPatch} from the form. A non-empty
+ * standard field sets the value; an empty field either clears it (null)
+ * or leaves it untouched (undefined) depending on the "clear empty"
+ * toggle. `trapped` only ships when an explicit value is picked, and the
+ * custom JSON map carries its own per-key string/null three-state.
+ */
+function buildMetadataPatch(): MetadataPatch {
+  const clearEmpty = els.metaClearEmpty.checked;
+  const field = (raw: string): string | null | undefined => {
+    const value = raw.trim();
+    if (value) return value;
+    return clearEmpty ? null : undefined;
+  };
+  const patch: MetadataPatch = {};
+  const standard: Array<[keyof MetadataPatch, string]> = [
+    ['title', els.metaTitle.value],
+    ['author', els.metaAuthor.value],
+    ['subject', els.metaSubject.value],
+    ['keywords', els.metaKeywords.value],
+    ['creator', els.metaCreator.value],
+    ['producer', els.metaProducer.value],
+  ];
+  for (const [key, raw] of standard) {
+    const value = field(raw);
+    if (value !== undefined) (patch as Record<string, unknown>)[key] = value;
+  }
+  const trapped = els.metaTrapped.value;
+  if (trapped === 'true' || trapped === 'false' || trapped === 'unknown') {
+    patch.trapped = trapped as DocumentMetadataTrapped;
+  }
+  const custom = parseCustomMetadata(els.metaCustom.value);
+  if (custom) patch.custom = custom;
+  return patch;
+}
+
+function parseCustomMetadata(raw: string): Record<string, string | null> | undefined {
+  const text = raw.trim();
+  if (!text) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('Custom metadata must be valid JSON.');
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Custom metadata must be a JSON object of string|null values.');
+  }
+  const custom: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (value !== null && typeof value !== 'string') {
+      throw new Error(`Custom key "${key}" must be a string or null.`);
+    }
+    custom[key] = value;
+  }
+  return custom;
 }
 
 async function createHighlight(): Promise<void> {
@@ -1060,6 +1197,7 @@ function exampleRequestPath(
     pageObjectNumber: number;
     docVersion: number;
     layoutVersion: number;
+    metadataVersion: number;
     contentVersion: number;
     annotationVersion: number;
   },
@@ -1073,6 +1211,8 @@ function exampleRequestPath(
       return wirePaths.layerManifest(ctx.docId, ctx.layerName, ctx.docVersion);
     case 'layer-layout':
       return wirePaths.layerLayout(ctx.docId, ctx.layerName, ctx.layoutVersion);
+    case 'layer-metadata':
+      return wirePaths.layerMetadata(ctx.docId, ctx.layerName, ctx.metadataVersion);
     case 'page-render':
       return wirePaths.docPageRender(ctx.docId, ctx.pageObjectNumber, {
         contentVersion: ctx.contentVersion,
@@ -1129,6 +1269,7 @@ function buildPreview(): Promise<void> {
     pageObjectNumber: Number(els.previewPon.value) || 1,
     docVersion: Number(els.previewDocVer.value) || 1,
     layoutVersion: Number(els.previewDocVer.value) || 1,
+    metadataVersion: Number(els.previewDocVer.value) || 1,
     contentVersion: Number(els.previewContentVer.value) || 1,
     annotationVersion: Number(els.previewAnnotVer.value) || 1,
   };

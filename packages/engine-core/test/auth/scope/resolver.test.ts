@@ -114,10 +114,11 @@ describe('pdf.permissions expansion — bit-derived', () => {
     expect(checkCapability('doc.print.high', ['pdf.permissions'], both)).toBe(true);
   });
 
-  it('bit 4 grants doc.pages.modify and doc.redact', () => {
+  it('bit 4 grants doc.pages.modify, doc.redact, and doc.metadata.modify', () => {
     const bits = decodePdfBits(PDF_BITS.MODIFY);
     expect(checkCapability('doc.pages.modify', ['pdf.permissions'], bits)).toBe(true);
     expect(checkCapability('doc.redact', ['pdf.permissions'], bits)).toBe(true);
+    expect(checkCapability('doc.metadata.modify', ['pdf.permissions'], bits)).toBe(true);
   });
 
   it('bit 11 grants doc.pages.assemble', () => {

@@ -37,10 +37,12 @@ import {
 interface ServerState {
   docVersion: number;
   layoutVersion: number;
+  metadataVersion: number;
   pageContentVersion: number;
   pageAnnotationVersion: number;
   annotationCount: number;
   text: string;
+  title: string | null;
 }
 
 interface CallLog {
@@ -141,6 +143,22 @@ function layoutSnapshot() {
   };
 }
 
+// DocumentMetadata served by the /metadata@metadataVersion leaf.
+function metadataSnapshot(title: string | null) {
+  return {
+    title,
+    author: null,
+    subject: null,
+    keywords: null,
+    producer: null,
+    creator: null,
+    created: null,
+    modified: null,
+    trapped: 'unknown' as const,
+    custom: {},
+  };
+}
+
 function headPayload(id: string, docVersion: number, baseSha = 'stub-sha') {
   return {
     id,
@@ -195,6 +213,7 @@ function buildStub(initial: ServerState): StubbedFixture {
         JSON.stringify({
           docVersion: state.docVersion,
           layoutVersion: state.layoutVersion,
+          metadataVersion: state.metadataVersion,
           baseSha: 'stub-sha',
           pages: [
             {
@@ -225,6 +244,45 @@ function buildStub(initial: ServerState): StubbedFixture {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
+    }
+
+    const metadataLeafMatch = path.match(
+      /^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/metadata@metadataVersion=(\d+)$/,
+    );
+    if (metadataLeafMatch && method === 'GET') {
+      const requested = Number(metadataLeafMatch[3]);
+      if (requested !== state.metadataVersion) {
+        return new Response(
+          JSON.stringify({ error: { code: 'NotFound', message: 'stale metadataVersion' } }),
+          { status: 404, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      return new Response(JSON.stringify(metadataSnapshot(state.title)), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+
+    const metadataUpdateMatch = path.match(/^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/metadata$/);
+    if (metadataUpdateMatch && method === 'POST') {
+      const previousDocVersion = state.docVersion;
+      state.docVersion += 1;
+      state.metadataVersion += 1;
+      // Apply the patch's `title` field for read-back assertions (the only
+      // field the stub tracks). Three-state: undefined leaves, null clears.
+      const body = init?.body ? (JSON.parse(String(init.body)) as { title?: string | null }) : {};
+      if ('title' in body) state.title = body.title ?? null;
+      return new Response(
+        JSON.stringify({
+          metadata: metadataSnapshot(state.title),
+          cache: {
+            previousDocVersion,
+            docVersion: state.docVersion,
+            metadataVersion: state.metadataVersion,
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
     }
 
     const textMatch = path.match(
@@ -430,10 +488,12 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
     fx = buildStub({
       docVersion: 1,
       layoutVersion: 1,
+      metadataVersion: 1,
       pageContentVersion: 1,
       pageAnnotationVersion: 1,
       annotationCount: 0,
       text: 'initial',
+      title: 'initial-title',
     });
   });
 
@@ -616,6 +676,57 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
     }
   });
 
+  test('metadata read uses the same layer refresh-on-404 ladder as text/annotations', async () => {
+    const doc = new CloudDocumentHandle(fx.http, DOC_ID);
+    try {
+      const first = await doc.metadata.read();
+      expect(first.title).toBe('initial-title');
+
+      // A metadata write bumps docVersion + metadataVersion under the SDK.
+      fx.bump({ docVersion: 2, metadataVersion: 2, title: 'after-write' });
+
+      const callsBeforeRetry = fx.calls.length;
+      const second = await doc.metadata.read();
+      expect(second.title).toBe('after-write');
+
+      const retryPaths = fx.calls.slice(callsBeforeRetry).map((c) => c.path);
+      expect(retryPaths).toEqual([
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/metadata@metadataVersion=1`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/head`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/manifest@docVersion=2`,
+        `/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/metadata@metadataVersion=2`,
+      ]);
+    } finally {
+      await doc.close();
+    }
+  });
+
+  test('metadata update absorbs cache in place so the next read skips the 404 refresh', async () => {
+    const doc = new CloudDocumentHandle(fx.http, DOC_ID);
+    try {
+      const first = await doc.metadata.read();
+      expect(first.title).toBe('initial-title');
+
+      const result = await doc.metadata.update({ title: 'patched-title' });
+      expect(result.metadata.title).toBe('patched-title');
+      expect(result.cache).toEqual({
+        previousDocVersion: 1,
+        docVersion: 2,
+        metadataVersion: 2,
+      });
+
+      // applyMetadata advanced the cached manifest in place: the next read
+      // goes straight to the fresh /metadata leaf — no /head, no /manifest.
+      const callsBeforeRead = fx.calls.length;
+      const after = await doc.metadata.read();
+      expect(after.title).toBe('patched-title');
+      const paths = fx.calls.slice(callsBeforeRead).map((c) => c.path);
+      expect(paths).toEqual([`/v1/docs/${DOC_ID}/layers/${LAYER_NAME}/metadata@metadataVersion=2`]);
+    } finally {
+      await doc.close();
+    }
+  });
+
   test('mutation manifest delta moves the next annotation list to the fresh URL without 404 refresh', async () => {
     const doc = new CloudDocumentHandle(fx.http, DOC_ID);
     try {
@@ -747,6 +858,7 @@ describe('CloudEngine schema parity — DocumentHeadSchema / DocumentManifestSch
     const manifest = DocumentManifestSchema.safeParse({
       docVersion: 1,
       layoutVersion: 1,
+      metadataVersion: 1,
       baseSha: 'sha',
       pages: [
         {

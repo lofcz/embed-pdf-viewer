@@ -34,6 +34,12 @@ export type MutationImpactKind = AnnotationMutationKind;
 const BASE_LAYOUT_VERSION = 1;
 
 /**
+ * Metadata-pointer epoch for the immutable base view. The base Info dict is
+ * never edited (metadata writes always target a layer), so it stays at 1.
+ */
+const BASE_METADATA_VERSION = 1;
+
+/**
  * Durable authority for cloud/CDN page state.
  *
  * Worker sessions are still responsible for PDF parsing/mutation. This
@@ -86,6 +92,9 @@ export class LayerStateService {
       // The base view is never reordered (structural ops always target a
       // layer), so its geometry pointer is the initial epoch.
       layoutVersion: BASE_LAYOUT_VERSION,
+      // Likewise the base Info dict is never edited (metadata writes always
+      // target a layer), so its metadata pointer is the initial epoch.
+      metadataVersion: BASE_METADATA_VERSION,
       baseSha: head.baseSha,
       pages: pages.map((page) => this.toManifestPage(`cloud:base:${head.id}`, page)),
     };
@@ -95,12 +104,13 @@ export class LayerStateService {
     docId: string,
     baseSha: string,
     layerName: string,
-    layer: Pick<LayerRow, 'docVersion' | 'layoutVersion'>,
+    layer: Pick<LayerRow, 'docVersion' | 'layoutVersion' | 'metadataVersion'>,
     pages: DurablePageRow[],
   ): DocumentManifest {
     return {
       docVersion: layer.docVersion,
       layoutVersion: layer.layoutVersion,
+      metadataVersion: layer.metadataVersion,
       baseSha,
       pages: pages.map((page) =>
         this.toManifestPage(this.layerRevisionScopeId(docId, layerName), page),

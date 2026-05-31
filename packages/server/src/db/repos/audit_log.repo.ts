@@ -6,7 +6,8 @@ export type AuditMutationKind =
   | 'annot.update'
   | 'annot.delete'
   | 'annot.move'
-  | 'pages.move';
+  | 'pages.move'
+  | 'metadata.update';
 
 export interface AppendAuditLogInput {
   tenantId: string;

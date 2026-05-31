@@ -64,6 +64,7 @@ export type {
   OpenLayerFileBaseWorkerRequest,
   LayerOpenSource,
   MetadataReadWorkerRequest,
+  MetadataUpdateWorkerRequest,
   AnnotationsListRawAllWorkerRequest,
   AnnotationsListRawPageWorkerRequest,
   AnnotationsListFullPageWorkerRequest,

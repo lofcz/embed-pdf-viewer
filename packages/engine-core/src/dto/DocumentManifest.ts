@@ -22,10 +22,17 @@ export interface ManifestPage {
  * different cadence than `docVersion`. The layout bytes themselves are NOT
  * in the manifest; only this pointer is, mirroring how per-page
  * `cache.contentVersion` points at the immutable text/render leaves.
+ *
+ * `metadataVersion` is the doc-level version pointer for the document
+ * metadata resource (`/metadata@metadataVersion`). It bumps only on
+ * metadata writes (Info-dict edits), NOT on page or annotation edits —
+ * the same independent-cadence design as `layoutVersion`, so each CDN
+ * leaf only invalidates when its own bytes change.
  */
 export interface DocumentManifest {
   docVersion: number;
   layoutVersion: number;
+  metadataVersion: number;
   baseSha: string;
   pages: ManifestPage[];
 }
