@@ -2,10 +2,10 @@ import { describe, expect, test } from 'vitest';
 import { wirePack, type WorkerResponse } from '@embedpdf/engine-core/runtime';
 import { ManifestPageSchema } from '@embedpdf/engine-core/wire';
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
-import { BaseDocumentRegistry } from '../../engine-services/src/session/BaseDocumentRegistry';
-import { DocumentSession } from '../../engine-services/src/session/DocumentSession';
-import { openLayerDocument } from '../../engine-services/src/session/PdfDocumentOpener';
-import { WorkerHost } from '../../engine-services/src/worker/WorkerHost';
+import { BaseDocumentRegistry } from '../../engine-services/src/document-session/lifecycle/BaseDocumentRegistry';
+import { DocumentSession } from '../../engine-services/src/document-session/DocumentSession';
+import { openLayerDocument } from '../../engine-services/src/document-session/lifecycle/PdfDocumentOpener';
+import { WorkerHost } from '../../engine-services/src/worker-host/WorkerHost';
 
 const ptr = (value: number): Ptr => BigInt(value) as Ptr;
 
@@ -112,7 +112,7 @@ function createFakeRuntime(): PdfRuntimeModule & {
       // fixtures: report success with kind=0 (none); the caller pre-zeroes
       // the out-params so the defaults (no perms, revision 0) flow through.
       EPDF_CheckPasswordPermissions: () => 1,
-      // Geometry bindings used by PageLayoutReader (pages.list). The harness
+      // Geometry bindings used by PagesReader (pages.list). The harness
       // only asserts page identity (pageObjectNumber/order), so return the
       // "absent" sentinel for every box/size/unit/label and let the reader
       // apply its documented fallbacks (0x0 size, rotation 0, userUnit 1,

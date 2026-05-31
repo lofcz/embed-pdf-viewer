@@ -27,7 +27,7 @@ interface DocClosedView {
 /**
  * Page-scoped annotation service. `list()` is the slow path (acquires a
  * pagePtr server-side). Mutation methods are wired to the in-process
- * worker; the worker host runs `DocumentAnnotationMutator` synchronously
+ * worker; the worker host runs `AnnotationMutator` synchronously
  * inside the same PDFium runtime instance the read path uses, so create
  * sees its own writes immediately.
  */

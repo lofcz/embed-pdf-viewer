@@ -400,7 +400,7 @@ export class DocumentService {
 
   /**
    * Page-geometry list for a layer. Reads the live worker session via the
-   * shared `pages.list` op (the same `PageLayoutReader` the local engine
+   * shared `pages.list` op (the same `PagesReader` the local engine
    * uses), so local and cloud return byte-identical layout. The route
    * gates freshness on the manifest's `layoutVersion`; this method only
    * produces the geometry for the current session.
