@@ -510,8 +510,14 @@ export class DocumentService {
       if (requiresPasswordSession(row)) {
         throw new EngineError(EngineErrorCode.DocPasswordRequired, 'document password required');
       }
-      // Permission-only encryption (empty user password): anonymous
-      // user-level access is valid as-is.
+      // Permission-only encryption (empty user password): no password and
+      // no grant means "baseline". Revoke any active (owner) session so the
+      // anonymous response we return matches what reads will now enforce —
+      // otherwise the session would keep granting elevated bits via
+      // getEffectivePdfBits while this response claims a downgrade.
+      if (this.passwordSessions && ctx.jwt?.jti) {
+        await this.passwordSessions.revoke(this.passwordSessionBinding(ctx, row, layerName));
+      }
       return this.unlockedWithoutPassword(row);
     }
 

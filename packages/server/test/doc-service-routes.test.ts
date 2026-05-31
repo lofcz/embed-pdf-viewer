@@ -831,6 +831,63 @@ describe('Phase 6 access route — owner-password upgrade (permission-only encry
     const stillCached = await fx.db.selectFrom('pdf_password_verifications').selectAll().execute();
     expect(stillCached).toHaveLength(2);
   });
+
+  test('a no-password, no-grant /access downgrades by revoking the active owner session', async () => {
+    const tenantId = 'tenant-perm-downgrade';
+    const docId = 'docperm005';
+    await seedDocument(fx, tenantId, docId, { security: PERMISSION_ONLY });
+    const token = docToken(tenantId, docId, { layer: 'default', scope: ['pdf.permissions'] });
+    const textUrl = `${fx.baseUrl}/v1/docs/${docId}/text/pages/1/data`;
+
+    // Elevate to owner; page-text becomes readable.
+    const elevate = await postAccess(docId, token, { password: 'owner', mode: 'any' });
+    expect(elevate.status, await elevate.clone().text()).toBe(200);
+    expect((await fetch(textUrl, { headers: { Authorization: `Bearer ${token}` } })).status).toBe(
+      200,
+    );
+    expect(await fx.db.selectFrom('pdf_password_sessions').selectAll().execute()).toHaveLength(1);
+
+    // No password + no grant -> downgrade. Response reports anonymous bits
+    // and the session is revoked so enforcement matches.
+    const downgrade = await postAccess(docId, token, {});
+    expect(downgrade.status, await downgrade.clone().text()).toBe(200);
+    const body = (await downgrade.json()) as {
+      pdfPermissions: { openedAs: string; allAllowed: boolean };
+    };
+    expect(body.pdfPermissions.openedAs).not.toBe('owner');
+    expect(body.pdfPermissions.allAllowed).toBe(false);
+    expect(await fx.db.selectFrom('pdf_password_sessions').selectAll().execute()).toHaveLength(0);
+
+    // Enforcement now matches: page-text is denied again.
+    const after = await fetch(textUrl, { headers: { Authorization: `Bearer ${token}` } });
+    expect(after.status).toBe(403);
+  });
+
+  test('a no-password /access that presents the passwordGrant renews and stays elevated', async () => {
+    const tenantId = 'tenant-perm-renew';
+    const docId = 'docperm006';
+    await seedDocument(fx, tenantId, docId, { security: PERMISSION_ONLY });
+    const token = docToken(tenantId, docId, { layer: 'default', scope: ['pdf.permissions'] });
+    const textUrl = `${fx.baseUrl}/v1/docs/${docId}/text/pages/1/data`;
+
+    const elevate = await postAccess(docId, token, { password: 'owner', mode: 'any' });
+    expect(elevate.status, await elevate.clone().text()).toBe(200);
+    const { passwordGrant } = (await elevate.json()) as { passwordGrant: string | null };
+    expect(passwordGrant).toBeTruthy();
+
+    // No password but a valid grant -> renew (NOT downgrade). Session
+    // persists and page-text stays readable.
+    const renew = await postAccess(docId, token, { passwordGrant });
+    expect(renew.status, await renew.clone().text()).toBe(200);
+    const body = (await renew.json()) as {
+      pdfPermissions: { openedAs: string; allAllowed: boolean };
+    };
+    expect(body.pdfPermissions.openedAs).toBe('owner');
+    expect(await fx.db.selectFrom('pdf_password_sessions').selectAll().execute()).toHaveLength(1);
+
+    const after = await fetch(textUrl, { headers: { Authorization: `Bearer ${token}` } });
+    expect(after.status, await after.clone().text()).toBe(200);
+  });
 });
 
 describe('Phase 3 doc routes — concurrency', () => {

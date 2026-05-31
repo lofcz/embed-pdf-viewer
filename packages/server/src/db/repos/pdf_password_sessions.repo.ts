@@ -66,6 +66,25 @@ export class PdfPasswordSessionsRepo {
     return row ? mapRow(row) : null;
   }
 
+  /**
+   * Drop the session bound to this token (immediate downgrade). Deletes
+   * by the same identity columns `baseQuery` selects on, so it removes
+   * the at-most-one row for the binding. Idempotent: a missing row is a
+   * no-op.
+   */
+  async revoke(binding: PasswordSessionBinding): Promise<void> {
+    await this.db
+      .deleteFrom('pdf_password_sessions')
+      .where('tenant_id', '=', binding.tenantId)
+      .where('doc_id', '=', binding.docId)
+      .where('layer_name', '=', binding.layerName)
+      .where('sub', '=', binding.sub)
+      .where('jwt_jti', '=', binding.jwtJti)
+      .where('base_sha', '=', binding.baseSha)
+      .where('security_fingerprint', '=', binding.securityFingerprint)
+      .execute();
+  }
+
   async decryptActivePassword(
     binding: PasswordSessionBinding,
     unlockKey: string,
