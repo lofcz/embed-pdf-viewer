@@ -5,3 +5,20 @@ html {
   @apply text-base antialiased;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* Neutral docs prose styling. Restyle later. */
+.prose-cloudpdf :not(pre) > code {
+  border-radius: 0.25rem;
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.375rem;
+  font-size: 0.875em;
+}
+
+.prose-cloudpdf pre {
+  margin: 1rem 0;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
