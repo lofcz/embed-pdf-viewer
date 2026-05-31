@@ -4,6 +4,7 @@ packages:
   - 'examples/**'
   - 'viewers/*'
   - 'website'
+  - 'ee/*'
     # exclude the git submodule (and everything inside it)
   - '!packages/pdfium/pdfium-src/**'
   - '!packages/pdf-runtime/runtime-src/**'

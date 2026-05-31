@@ -1,0 +1,7 @@
+@import 'tailwindcss';
+@config '../../tailwind.config.ts';
+
+html {
+  @apply text-base antialiased;
+  -webkit-tap-highlight-color: transparent;
+}

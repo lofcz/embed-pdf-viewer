@@ -11,7 +11,7 @@ on:
       - 'packages/engine-services/**'
       - 'packages/engine-local/**'
       - 'packages/engine-cloud/**'
-      - 'packages/server/**'
+      - 'ee/server/**'
       - '.github/workflows/engine-conformance.yml'
   push:
     branches: [main]
@@ -20,7 +20,7 @@ on:
       - 'packages/engine-services/**'
       - 'packages/engine-local/**'
       - 'packages/engine-cloud/**'
-      - 'packages/server/**'
+      - 'ee/server/**'
       - '.github/workflows/engine-conformance.yml'
   workflow_dispatch: {}
 

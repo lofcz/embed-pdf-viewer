@@ -70,6 +70,8 @@ We love contributions! To get started, read our [contributing guide](CONTRIBUTIN
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
+The one exception is the `ee/` directory: all content under [ee/](ee) is proprietary and governed by [ee/LICENSE](ee/LICENSE), not the MIT License.
+
 ## Third-Party Licenses
 
 This project includes PDFium, licensed under the [Apache License, Version 2.0](packages/pdfium/LICENSE.pdfium).
