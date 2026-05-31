@@ -44,6 +44,7 @@ import { PageGeometryReader } from '../features/geometry';
 import { MetadataReader } from '../features/metadata';
 import { PagesMutator, PagesReader } from '../features/pages';
 import { PageRenderReader } from '../features/render';
+import { DocumentSaver } from '../features/save';
 import { SecurityReader } from '../features/security';
 import { PageTextReader } from '../features/text';
 import { ensureInitialized, destroyLibrary } from '../runtime/lifecycle/bootstrap';
@@ -89,13 +90,18 @@ export class WorkerHost {
     const ctrl = new AbortController();
     this.aborts.set(msg.jobId, ctrl);
 
+    // Abort policy: only handlers that loop over pages/annotations honor
+    // `ctrl.signal` (the read/mutation paths below). One-shot native
+    // operations — open, document save, security probe, close, shutdown —
+    // are effectively atomic from our side and intentionally non-abortable,
+    // so they do not receive the signal.
     let resultPack: WirePack<WorkerResultPayload>;
     try {
       switch (msg.kind) {
         case 'open.fatMem':
         case 'open.layerMemBase':
         case 'open.layerFileBase':
-          resultPack = this.handleOpen(msg, ctrl.signal);
+          resultPack = this.handleOpen(msg);
           break;
         case 'metadata.read':
           resultPack = this.handleMetadataRead(msg, ctrl.signal);
@@ -179,7 +185,7 @@ export class WorkerHost {
     }
   }
 
-  private handleOpen(req: OpenWorkerRequest, _signal: AbortSignal): WirePack<WorkerResultPayload> {
+  private handleOpen(req: OpenWorkerRequest): WirePack<WorkerResultPayload> {
     const key = sessionKey(req.docId, req.kind === 'open.fatMem' ? undefined : req.layerName);
     if (this.sessions.has(key)) {
       throw new EngineError(EngineErrorCode.InvalidArg, `document session already open: ${key}`);
@@ -208,7 +214,10 @@ export class WorkerHost {
     return wirePack({
       tag: 'open',
       docId: req.docId,
-      security: session.checkPasswordPermissions(req.password ?? ''),
+      security: new SecurityReader(this.runtime).checkPasswordPermissions(
+        session,
+        req.password ?? '',
+      ),
     });
   }
 
@@ -217,7 +226,7 @@ export class WorkerHost {
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
-    const metadata = new MetadataReader(this.runtime, session.requireDocPtr()).read(signal);
+    const metadata = new MetadataReader(this.runtime, session).read(signal);
     return wirePack({ tag: 'metadata.read', metadata });
   }
 
@@ -258,11 +267,7 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new AnnotationMutator(this.runtime, session);
     const result = mutator.create(req.pageObjectNumber, req.draft, signal, req.actor);
-    if (session.kind !== 'layer') {
-      return wirePack({ tag: 'annotations.create', result });
-    }
-    const saved = this.saveLayerArtifact(session, req.artifactPath);
-    return wirePack({ tag: 'annotations.create', result, ...saved.payload }, saved.transfer);
+    return this.finishMutation(session, { tag: 'annotations.create', result }, req.artifactPath);
   }
 
   private handleAnnotationsUpdate(
@@ -272,11 +277,7 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new AnnotationMutator(this.runtime, session);
     const result = mutator.update(req.ref, req.patch, signal, req.actor);
-    if (session.kind !== 'layer') {
-      return wirePack({ tag: 'annotations.update', result });
-    }
-    const saved = this.saveLayerArtifact(session, req.artifactPath);
-    return wirePack({ tag: 'annotations.update', result, ...saved.payload }, saved.transfer);
+    return this.finishMutation(session, { tag: 'annotations.update', result }, req.artifactPath);
   }
 
   private handleAnnotationsDelete(
@@ -286,11 +287,7 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new AnnotationMutator(this.runtime, session);
     const result = mutator.delete(req.ref, signal);
-    if (session.kind !== 'layer') {
-      return wirePack({ tag: 'annotations.delete', result });
-    }
-    const saved = this.saveLayerArtifact(session, req.artifactPath);
-    return wirePack({ tag: 'annotations.delete', result, ...saved.payload }, saved.transfer);
+    return this.finishMutation(session, { tag: 'annotations.delete', result }, req.artifactPath);
   }
 
   private handleAnnotationsMove(
@@ -300,11 +297,7 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new AnnotationMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumber, req.refs, req.toIndex, signal);
-    if (session.kind !== 'layer') {
-      return wirePack({ tag: 'annotations.move', result });
-    }
-    const saved = this.saveLayerArtifact(session, req.artifactPath);
-    return wirePack({ tag: 'annotations.move', result, ...saved.payload }, saved.transfer);
+    return this.finishMutation(session, { tag: 'annotations.move', result }, req.artifactPath);
   }
 
   private handlePagesList(
@@ -324,11 +317,7 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const mutator = new PagesMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumbers, req.destIndex, signal);
-    if (session.kind !== 'layer') {
-      return wirePack({ tag: 'pages.move', result });
-    }
-    const saved = this.saveLayerArtifact(session, req.artifactPath);
-    return wirePack({ tag: 'pages.move', result, ...saved.payload }, saved.transfer);
+    return this.finishMutation(session, { tag: 'pages.move', result }, req.artifactPath);
   }
 
   private handlePagesText(
@@ -365,7 +354,7 @@ export class WorkerHost {
     req: DocumentSaveBufferWorkerRequest,
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
-    const saved = session.saveStandaloneToBuffer(req.mode);
+    const saved = new DocumentSaver(this.runtime, session).saveStandaloneToBuffer(req.mode);
     return wirePack({ tag: 'document.saveBuffer', bytes: saved.bytes, size: saved.size }, [
       saved.bytes,
     ]);
@@ -375,7 +364,7 @@ export class WorkerHost {
     req: DocumentSaveFileWorkerRequest,
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
-    const saved = session.saveStandaloneToFile(req.path, req.mode);
+    const saved = new DocumentSaver(this.runtime, session).saveStandaloneToFile(req.path, req.mode);
     return wirePack({ tag: 'document.saveFile', path: saved.path });
   }
 
@@ -391,7 +380,11 @@ export class WorkerHost {
     req: DocumentCheckPasswordPermissionsWorkerRequest,
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
-    const security = session.checkPasswordPermissions(req.password, req.mode ?? 'any');
+    const security = new SecurityReader(this.runtime).checkPasswordPermissions(
+      session,
+      req.password,
+      req.mode ?? 'any',
+    );
     return wirePack({ tag: 'document.checkPasswordPermissions', security });
   }
 
@@ -424,22 +417,40 @@ export class WorkerHost {
     return session;
   }
 
-  private saveLayerArtifact(
+  /**
+   * Finalize a mutation response. For a standalone session the mutation
+   * result is returned as-is. For a layer session we additionally persist
+   * the layer artifact (to file when `artifactPath` is given, otherwise to
+   * a transferable buffer) and merge it onto the response envelope. This
+   * is the one place the layer-vs-standalone branch lives, shared by every
+   * annotation and page mutation handler.
+   */
+  private finishMutation<P extends WorkerResultPayload>(
     session: DocumentSession,
+    payload: P,
     artifactPath?: string,
-  ): {
-    payload:
-      | { artifact: { bytes: ArrayBuffer; size: number } }
-      | { artifactFile: { path: string } };
-    transfer: ArrayBuffer[];
-  } {
+  ): WirePack<WorkerResultPayload> {
+    if (session.kind !== 'layer') {
+      return wirePack(payload);
+    }
+    const saved = this.saveLayerArtifact(session, artifactPath);
+    return wirePack({ ...payload, ...saved.payload }, saved.transfer);
+  }
+
+  private saveLayerArtifact(session: DocumentSession, artifactPath?: string): LayerArtifactSave {
+    const saver = new DocumentSaver(this.runtime, session);
     if (artifactPath) {
-      const artifactFile = session.saveLayerArtifactToFile(artifactPath);
+      const artifactFile = saver.saveLayerArtifactToFile(artifactPath);
       return { payload: { artifactFile }, transfer: [] };
     }
-    const artifact = session.saveLayerArtifact();
+    const artifact = saver.saveLayerArtifact();
     return { payload: { artifact }, transfer: [artifact.bytes] };
   }
+}
+
+interface LayerArtifactSave {
+  payload: { artifact: { bytes: ArrayBuffer; size: number } } | { artifactFile: { path: string } };
+  transfer: ArrayBuffer[];
 }
 
 const BASE_SESSION_SUFFIX = '__base__';

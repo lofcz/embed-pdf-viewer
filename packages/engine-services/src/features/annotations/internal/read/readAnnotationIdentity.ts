@@ -23,7 +23,7 @@ export interface AnnotationIdentity {
  *      Always durable.
  *   2. /NM - if present and non-empty, use `nm`. Always durable.
  *   3. Fallback: `index + revision`. Always weak. The revision must be
- *      provided by the caller (sourced from the live `RevisionStore`).
+ *      provided by the caller (sourced from the live `RevisionAuthority`).
  */
 export function readAnnotationIdentity(
   fn: PdfFunctions,

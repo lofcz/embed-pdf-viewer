@@ -17,7 +17,7 @@ import { throwIfAborted } from '../../shared/abort';
  * `worker_thread`) share the same code path.
  *
  * Architectural anchor — locked with the user, do not loosen without
- * re-reading the doc comments on `PageMoveResult` and `RevisionStore`:
+ * re-reading the doc comments on `PageMoveResult` and `RevisionAuthority`:
  *
  *   - Pages are addressed by their durable `pageObjectNumber`. There is
  *     no "weak page ref" model in the engine; therefore there is no

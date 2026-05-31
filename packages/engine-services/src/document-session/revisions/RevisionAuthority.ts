@@ -92,5 +92,3 @@ export class LocalRevisionAuthority implements RevisionAuthority {
     this.weakAnnotationStates.clear();
   }
 }
-
-export { LocalRevisionAuthority as RevisionStore };

@@ -1,9 +1,10 @@
 import type { DocumentMetadata } from '@embedpdf/engine-core/runtime';
-import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
+import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 
 import { readAllCustomMeta } from './internal/readCustomMetadata';
 import { readMetaText } from './internal/readMetadataText';
 import { readTrapped } from './internal/readTrappedStatus';
+import type { DocumentSession } from '../../document-session/DocumentSession';
 import { throwIfAborted } from '../../shared/abort';
 import { pdfDateToIso } from '../../shared/pdf-date';
 
@@ -19,13 +20,13 @@ import { pdfDateToIso } from '../../shared/pdf-date';
 export class MetadataReader {
   constructor(
     private readonly runtime: PdfRuntimeModule,
-    private readonly docPtr: Ptr,
+    private readonly session: DocumentSession,
   ) {}
 
   read(signal: AbortSignal): DocumentMetadata {
     throwIfAborted(signal);
     const { fn, mem } = this.runtime;
-    const doc = this.docPtr;
+    const doc = this.session.requireDocPtr();
 
     const title = readMetaText(fn, mem, doc, 'Title');
     throwIfAborted(signal);

@@ -21,7 +21,7 @@ import type { DocumentSession } from '../../document-session/DocumentSession';
 import { throwIfAborted } from '../../shared/abort';
 import { generateUuid } from '../../shared/uuid';
 import { resolveAnnotPtr } from './internal/identity/resolveAnnotationPointer';
-import { MutationImpactComputer } from './internal/mutations/computeMutationImpact';
+import { computeMutationImpact } from './internal/mutations/computeMutationImpact';
 import { readAnnotString } from './internal/read/annotationReadPrimitives';
 import { readAnnotationFromPtr } from './internal/read/readAnnotationFromPtr';
 import { applyDraft, applyPatch } from './internal/write/annotationWriterRegistry';
@@ -85,7 +85,7 @@ export class AnnotationMutator {
       this.ensureKnownWeakStateFromPage(pageObjectNumber, pagePtr);
       // `create` is append-only: PDFium drops the new annotation at
       // `index = previousCount`, so no existing index ever shifts. Per
-      // the locked rule in `MutationImpactComputer`, that means create is
+      // the locked rule in `computeMutationImpact`, that means create is
       // non-invalidating — no per-page revision bump, no weak-ref
       // staleness signal. The DTO is read against the page's current
       // revision (which both pre-existing and freshly-created
@@ -147,7 +147,7 @@ export class AnnotationMutator {
       }
 
       const pageStateAfter = this.session.pageState(pageObjectNumber);
-      const meta: AnnotationListMutationMeta = MutationImpactComputer.compute({
+      const meta: AnnotationListMutationMeta = computeMutationImpact({
         mutation: 'create',
         pageStateBefore,
         pageStateAfter,
@@ -214,7 +214,7 @@ export class AnnotationMutator {
 
       this.recordWeakStateFromPage(ref.pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(ref.pageObjectNumber);
-      const meta = MutationImpactComputer.compute({
+      const meta = computeMutationImpact({
         mutation: 'update',
         pageStateBefore,
         pageStateAfter,
@@ -322,7 +322,7 @@ export class AnnotationMutator {
       this.recordWeakStateFromPage(ref.pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(ref.pageObjectNumber);
 
-      const meta = MutationImpactComputer.compute({
+      const meta = computeMutationImpact({
         mutation: 'delete',
         pageStateBefore,
         pageStateAfter,
@@ -508,7 +508,7 @@ export class AnnotationMutator {
 
       this.recordWeakStateFromPage(pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(pageObjectNumber);
-      const meta: AnnotationListMutationMeta = MutationImpactComputer.compute({
+      const meta: AnnotationListMutationMeta = computeMutationImpact({
         mutation: 'move',
         pageStateBefore,
         pageStateAfter,

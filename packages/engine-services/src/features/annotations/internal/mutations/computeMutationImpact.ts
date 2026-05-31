@@ -58,7 +58,7 @@ export interface ImpactInputs {
 }
 
 /**
- * Static helper: turn a mutation outcome into the side-effect envelope
+ * Pure helper: turn a mutation outcome into the side-effect envelope
  * every result type carries on its `meta` field.
  *
  * The rules — locked with the user, do not change without re-reading
@@ -113,31 +113,29 @@ export interface ImpactInputs {
  *   (2) — it shifts every index >= toIndex and is structural in the
  *   same way `delete` and `move` are.
  */
-export class MutationImpactComputer {
-  static compute(inputs: ImpactInputs): AnnotationListMutationMeta {
-    const { mutation, pageStateBefore, pageStateAfter, changed } = inputs;
+export function computeMutationImpact(inputs: ImpactInputs): AnnotationListMutationMeta {
+  const { mutation, pageStateBefore, pageStateAfter, changed } = inputs;
 
-    if (!shiftsExistingAnnotationIndices(mutation)) {
-      return {
-        affectedPages: [pageStateAfter],
-        cacheDelta: null,
-        changed,
-        weakRefsInvalidated: false,
-        shouldRefetch: null,
-      };
-    }
-
-    // delete / move: index-shifting.
-    const weakRefsInvalidated = invalidatesWeakIndexRefs(
-      mutation,
-      pageStateBefore.weakAnnotationState,
-    );
+  if (!shiftsExistingAnnotationIndices(mutation)) {
     return {
       affectedPages: [pageStateAfter],
       cacheDelta: null,
       changed,
-      weakRefsInvalidated,
-      shouldRefetch: weakRefsInvalidated ? { reason: 'weakRefsInvalidated' } : null,
+      weakRefsInvalidated: false,
+      shouldRefetch: null,
     };
   }
+
+  // delete / move: index-shifting.
+  const weakRefsInvalidated = invalidatesWeakIndexRefs(
+    mutation,
+    pageStateBefore.weakAnnotationState,
+  );
+  return {
+    affectedPages: [pageStateAfter],
+    cacheDelta: null,
+    changed,
+    weakRefsInvalidated,
+    shouldRefetch: weakRefsInvalidated ? { reason: 'weakRefsInvalidated' } : null,
+  };
 }

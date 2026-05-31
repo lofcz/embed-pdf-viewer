@@ -16,6 +16,11 @@ export { ensureInitialized, destroyLibrary } from './runtime/lifecycle/bootstrap
 export { throwIfAborted } from './shared/abort';
 export { generateUuid } from './shared/uuid';
 export { formatPdfDate, pdfDateToIso } from './shared/pdf-date';
+export {
+  ALL_STANDARD_SECURITY_PERMISSIONS,
+  hasAllStandardSecurityPermissions,
+  normalizeU32,
+} from './shared/securityPermissions';
 
 // Tier 2: document session
 export { DocumentSession } from './document-session/DocumentSession';
@@ -31,9 +36,8 @@ export {
 } from './document-session/lifecycle/PdfDocumentOpener';
 export {
   LocalRevisionAuthority,
-  RevisionStore,
   type RevisionAuthority,
-} from './document-session/revisions/RevisionStore';
+} from './document-session/revisions/RevisionAuthority';
 export { PagePtrPool } from './document-session/pages/PagePtrPool';
 export type { PageRecord } from './document-session/pages/PageRecord';
 
@@ -44,6 +48,8 @@ export * from './features/text';
 export * from './features/geometry';
 export * from './features/render';
 export * from './features/annotations';
+export * from './features/security';
+export * from './features/save';
 
 // Tier 4: worker host
 export { WorkerHost } from './worker-host/WorkerHost';

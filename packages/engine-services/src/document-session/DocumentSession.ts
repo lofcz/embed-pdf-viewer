@@ -1,8 +1,6 @@
 import type {
-  DocumentSecurityProbeInfo,
   PageObjectNumber,
   PageState,
-  PdfSaveMode,
   RevisionToken,
   WeakAnnotationState,
 } from '@embedpdf/engine-core/runtime';
@@ -14,7 +12,6 @@ import {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 
-import { hasAllStandardSecurityPermissions, normalizeU32 } from '../shared/securityPermissions';
 import {
   openFatMemoryDocument,
   type OpenedPdfDocument,
@@ -22,12 +19,12 @@ import {
 } from './lifecycle/PdfDocumentOpener';
 import { PagePtrPool } from './pages/PagePtrPool';
 import type { PageRecord } from './pages/PageRecord';
-import { LocalRevisionAuthority, type RevisionAuthority } from './revisions/RevisionStore';
+import { LocalRevisionAuthority, type RevisionAuthority } from './revisions/RevisionAuthority';
 
 /**
  * Owns the lifecycle of a single open PDFium document and the v3
  * identity machinery: page registry (pageObjectNumber <-> pageIndex),
- * `RevisionStore` (per-page generation counters), and `PagePtrPool`
+ * `RevisionAuthority` (per-page generation counters), and `PagePtrPool`
  * (refcounted pagePtr access).
  *
  * Both the local browser Worker and the server worker_thread instantiate
@@ -87,79 +84,6 @@ export class DocumentSession {
   /** Number of pages in the document. */
   pageCount(): number {
     return this.runtime.fn.FPDF_GetPageCount(this.requireDocPtr());
-  }
-
-  currentSecurityInfo(): DocumentSecurityProbeInfo {
-    const docPtr = this.requireDocPtr();
-    const encrypted = this.runtime.fn.EPDF_IsEncrypted(docPtr);
-    // Live session: `FPDF_GetDocUserPermissions` reports the EFFECTIVE
-    // permission word (e.g. after an owner unlock). Contrast with the cold
-    // file probe in `SecurityReader`, which reads the declared word
-    // via `FPDF_GetDocPermissions`.
-    const bits = normalizeU32(this.runtime.fn.FPDF_GetDocUserPermissions(docPtr));
-    return {
-      encryptionState: encrypted ? 'encrypted' : 'none',
-      encryptionRequiresPassword: false,
-      securityHandlerRevision: encrypted
-        ? this.runtime.fn.FPDF_GetSecurityHandlerRevision(docPtr)
-        : null,
-      pdfPermissionsBits: bits,
-      pdfPermissionsAllAllowed: hasAllStandardSecurityPermissions(bits),
-      pdfOpenedAs: encrypted
-        ? this.runtime.fn.EPDF_IsOwnerUnlocked(docPtr)
-          ? 'owner'
-          : 'user'
-        : 'none',
-      securityProbedAt: Date.now(),
-    };
-  }
-
-  checkPasswordPermissions(
-    password: string,
-    mode: 'any' | 'owner' = 'any',
-  ): DocumentSecurityProbeInfo {
-    const docPtr = this.requireDocPtr();
-    const { mem, fn } = this.runtime;
-    const kindPtr = mem.alloc(4);
-    const userPermissionsPtr = mem.alloc(4);
-    const effectivePermissionsPtr = mem.alloc(4);
-    const revisionPtr = mem.alloc(4);
-    try {
-      mem.poke(kindPtr, 'i32', 0);
-      mem.poke(userPermissionsPtr, 'i32', 0);
-      mem.poke(effectivePermissionsPtr, 'i32', 0);
-      mem.poke(revisionPtr, 'i32', 0);
-      const ok = fn.EPDF_CheckPasswordPermissions(
-        docPtr,
-        password,
-        kindPtr,
-        userPermissionsPtr,
-        effectivePermissionsPtr,
-        revisionPtr,
-      );
-      if (!ok) {
-        throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'incorrect document password');
-      }
-      const openedAs = openedAsFromCode(Number(mem.peek(kindPtr, 'i32')));
-      if (mode === 'owner' && openedAs !== 'owner') {
-        throw new EngineError(EngineErrorCode.DocPasswordIncorrect, 'owner password required');
-      }
-      const bits = normalizeU32(Number(mem.peek(effectivePermissionsPtr, 'i32')));
-      return {
-        encryptionState: openedAs === 'none' ? 'none' : 'encrypted',
-        encryptionRequiresPassword: false,
-        securityHandlerRevision: openedAs === 'none' ? null : Number(mem.peek(revisionPtr, 'i32')),
-        pdfPermissionsBits: bits,
-        pdfPermissionsAllAllowed: hasAllStandardSecurityPermissions(bits),
-        pdfOpenedAs: openedAs,
-        securityProbedAt: Date.now(),
-      };
-    } finally {
-      mem.free(revisionPtr);
-      mem.free(effectivePermissionsPtr);
-      mem.free(userPermissionsPtr);
-      mem.free(kindPtr);
-    }
   }
 
   /**
@@ -298,111 +222,6 @@ export class DocumentSession {
     return this.docPtr;
   }
 
-  saveLayerArtifact(): { bytes: ArrayBuffer; size: number } {
-    if (this._kind !== 'layer') {
-      throw new EngineError(EngineErrorCode.InvalidArg, 'document session is not a layer');
-    }
-
-    const { mem, fn } = this.runtime;
-    const sizePtr = mem.alloc(4);
-    const statusPtr = mem.alloc(4);
-    let artifactPtr: Ptr | null = null;
-    try {
-      mem.poke(sizePtr, 'i32', 0);
-      mem.poke(statusPtr, 'i32', -1);
-      artifactPtr = fn.EPDFLayer_SaveLayerArtifactToOwnedBuffer(
-        this.requireDocPtr(),
-        sizePtr,
-        statusPtr,
-      );
-      const status = Number(mem.peek(statusPtr, 'i32'));
-      const size = Number(mem.peek(sizePtr, 'i32'));
-      if (!artifactPtr || status !== 0 || size <= 0) {
-        throw layerSaveError(status);
-      }
-
-      const bytes = mem.readBytes(artifactPtr, size);
-      const buffer = new ArrayBuffer(bytes.byteLength);
-      new Uint8Array(buffer).set(bytes);
-      return { bytes: buffer, size };
-    } finally {
-      if (artifactPtr) fn.EPDF_FreeBuffer(artifactPtr);
-      mem.free(statusPtr);
-      mem.free(sizePtr);
-    }
-  }
-
-  saveLayerArtifactToFile(path: string): { path: string } {
-    if (this._kind !== 'layer') {
-      throw new EngineError(EngineErrorCode.InvalidArg, 'document session is not a layer');
-    }
-
-    const { mem, fn } = this.runtime;
-    const statusPtr = mem.alloc(4);
-    const writer = this.runtime.fileWrite.toNodeFile(path);
-    try {
-      mem.poke(statusPtr, 'i32', -1);
-      const ok = fn.EPDFLayer_SaveLayerArtifact(this.requireDocPtr(), writer.ptr, statusPtr);
-      const status = Number(mem.peek(statusPtr, 'i32'));
-      if (!ok || status !== 0) {
-        throw layerSaveError(status);
-      }
-      return { path };
-    } finally {
-      writer.close();
-      mem.free(statusPtr);
-    }
-  }
-
-  saveStandaloneToBuffer(mode: PdfSaveMode): { bytes: ArrayBuffer; size: number } {
-    const { mem, fn } = this.runtime;
-    const sizePtr = mem.alloc(4);
-    let pdfPtr: Ptr | null = null;
-    try {
-      mem.poke(sizePtr, 'i32', 0);
-      // Standalone saves are not layer artifacts. For a CPDF_LayerDocument,
-      // FPDF_INCREMENTAL copies the base bytes through and appends the layer
-      // delta as a normal PDF revision. The EPDFLayer_* artifact APIs are only
-      // for internal server storage.
-      pdfPtr = fn.EPDF_SaveDocumentToOwnedBuffer(
-        this.requireDocPtr(),
-        pdfSaveModeFlags(mode),
-        sizePtr,
-      );
-      const size = Number(mem.peek(sizePtr, 'i32'));
-      if (!pdfPtr || size <= 0) {
-        throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to save document');
-      }
-
-      const bytes = mem.readBytes(pdfPtr, size);
-      const buffer = new ArrayBuffer(bytes.byteLength);
-      new Uint8Array(buffer).set(bytes);
-      return { bytes: buffer, size };
-    } finally {
-      if (pdfPtr) fn.EPDF_FreeBuffer(pdfPtr);
-      mem.free(sizePtr);
-    }
-  }
-
-  saveStandaloneToFile(path: string, mode: PdfSaveMode): { path: string } {
-    const writer = this.runtime.fileWrite.toNodeFile(path);
-    try {
-      // See saveStandaloneToBuffer(): this exports a standalone PDF view,
-      // not the storage-optimized `.layer` artifact.
-      const ok = this.runtime.fn.FPDF_SaveAsCopy(
-        this.requireDocPtr(),
-        writer.ptr,
-        pdfSaveModeFlags(mode),
-      );
-      if (!ok) {
-        throw new EngineError(EngineErrorCode.DocOpenFailed, 'failed to save document');
-      }
-      return { path };
-    } finally {
-      writer.close();
-    }
-  }
-
   close(): void {
     let firstError: unknown = null;
     try {
@@ -443,29 +262,4 @@ function generateSessionId(): string {
   // Lightweight id; no crypto dependency. Sufficient for the docSessionId
   // bleed-over check (which is local-process anyway).
   return `sess_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
-}
-
-function layerSaveError(status: number): EngineError {
-  if (status === 1) {
-    return new EngineError(
-      EngineErrorCode.DocOpenFailed,
-      'layer artifact cannot be saved because append-only offsets exceed the supported range',
-    );
-  }
-  return new EngineError(EngineErrorCode.DocOpenFailed, 'failed to save layer artifact');
-}
-
-const FPDF_INCREMENTAL = 1 << 0;
-const FPDF_NO_INCREMENTAL = 1 << 1;
-
-function pdfSaveModeFlags(mode: PdfSaveMode): number {
-  return mode === 'incremental' ? FPDF_INCREMENTAL : FPDF_NO_INCREMENTAL;
-}
-
-function openedAsFromCode(code: number): 'none' | 'user' | 'owner' {
-  // Mirrors EPDF_PASSWORD_PERMISSION_* in public/fpdfview.h:
-  // invalid=0, none=1, user=2, owner=3.
-  if (code === 3) return 'owner';
-  if (code === 2) return 'user';
-  return 'none';
 }

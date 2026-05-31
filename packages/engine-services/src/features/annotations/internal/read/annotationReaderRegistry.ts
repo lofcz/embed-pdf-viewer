@@ -24,7 +24,7 @@ import { readUnsupported } from './readUnsupportedAnnotation';
  * reader landing for that subtype can replace it without a wire-format
  * version bump.
  */
-export type AnnotationReader = (
+export type AnnotationSubtypeReader = (
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
@@ -32,12 +32,12 @@ export type AnnotationReader = (
   rawSubtypeCode: number,
 ) => AnnotationDTO;
 
-const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationReader>> = {
-  highlight: (fn, mem, annot, base) => readHighlight(fn, mem, annot, base),
-  underline: (fn, mem, annot, base) => readUnderline(fn, mem, annot, base),
-  squiggly: (fn, mem, annot, base) => readSquiggly(fn, mem, annot, base),
-  strikeout: (fn, mem, annot, base) => readStrikeout(fn, mem, annot, base),
-  unsupported: (fn, mem, annot, base, code) => readUnsupported(fn, mem, annot, base, code),
+const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationSubtypeReader>> = {
+  highlight: readHighlight,
+  underline: readUnderline,
+  squiggly: readSquiggly,
+  strikeout: readStrikeout,
+  unsupported: readUnsupported,
 };
 
 /**
@@ -46,10 +46,11 @@ const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationReader>> = 
  * dedicated reader yet.
  */
 export function pickReader(rawSubtypeCode: number): {
-  reader: AnnotationReader;
+  reader: AnnotationSubtypeReader;
   subtype: AnnotationSubtype;
 } {
   const subtype = subtypeFromCode(rawSubtypeCode);
-  const reader = READER_BY_SUBTYPE[subtype] ?? READER_BY_SUBTYPE.unsupported!;
-  return { reader, subtype: reader === READER_BY_SUBTYPE.unsupported ? 'unsupported' : subtype };
+  const reader = READER_BY_SUBTYPE[subtype];
+  if (reader) return { reader, subtype };
+  return { reader: READER_BY_SUBTYPE.unsupported!, subtype: 'unsupported' };
 }
