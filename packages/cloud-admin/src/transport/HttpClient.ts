@@ -9,7 +9,7 @@ export interface HttpClientOptions {
   baseUrl: string;
   /**
    * Tenant-scoped admin credential. Either a string or a function returning a
-   * fresh token, matching the `engine-cloud` client shape.
+   * fresh token, matching the `@cloudpdf/engine` client shape.
    */
   tenantToken: string | (() => string | Promise<string>);
   /** Optional `fetch` override for tests or non-global runtimes. */
@@ -26,7 +26,7 @@ export interface RequestOptions {
 }
 
 /**
- * Thin HTTP client for cloud-admin. It mirrors engine-cloud's transport shape:
+ * Thin HTTP client for cloud-admin. It mirrors @cloudpdf/engine's transport shape:
  * endpoint methods pass a zod parser into `getJson`/`postJson`, while this
  * client owns auth, timeout, error mapping, and bad-response wrapping.
  */

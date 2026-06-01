@@ -6,9 +6,9 @@
  *
  * Everything under `wire/cdn/` is HTTP-wire CDN territory. Two consumers
  * import from here:
- *   1. `@embedpdf/engine-cloud` HttpClient — applies the access block
+ *   1. `@cloudpdf/engine` HttpClient — applies the access block
  *      to outgoing fetches so CDN tokens land on the wire.
- *   2. `@embedpdf/server` — feeds `cdnCoverageForScope` into adapter
+ *   2. `@cloudpdf/server` — feeds `cdnCoverageForScope` into adapter
  *      signers when /access is built.
  *
  * `@embedpdf/engine-local` MUST NOT import anything from this folder,

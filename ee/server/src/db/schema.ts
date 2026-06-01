@@ -1,5 +1,5 @@
 /**
- * Logical database schema for @embedpdf/server.
+ * Logical database schema for @cloudpdf/server.
  *
  * Source of truth for both SQLite (Phase 1) and Postgres (Phase 2). The
  * column shapes here are the dialect-agnostic view; per-dialect migration

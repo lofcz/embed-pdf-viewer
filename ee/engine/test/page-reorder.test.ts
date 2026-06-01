@@ -1,8 +1,8 @@
-import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import { resolve, dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import {
-  runPageTextConformance,
+  runPageReorderConformance,
   type ConformanceTestRunner,
 } from '@embedpdf/engine-core/conformance';
 import { createCloudEngine } from '../src/index';
@@ -15,7 +15,7 @@ import {
 } from './_helpers/db-seeded-app';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const samplePath = resolve(
+const fixturePath = resolve(
   here,
   '..',
   '..',
@@ -34,38 +34,26 @@ const runner: ConformanceTestRunner = {
   expect: expect as unknown as ConformanceTestRunner['expect'],
 };
 
-// sample.pdf is the USCIS Form I-140 (8 pages); page 0 has indirect
-// object number 3056 (verified via the wasm runtime probe). The
-// engine-local suite asserts the same pon + substring against a
-// WASM PDFium; here we exercise the same surface against the
-// native PDFium worker pool over HTTP, with the versioned URL
-// `/pages/3056/v1/text` and the manifest-driven cache invariant.
-const TENANT_ID = 'cloud-page-text-tenant';
-const DOC_ID = 'docptxt001';
-const PAGE_OBJECT_NUMBER = 3056;
-const PAGE_COUNT = 8;
-
 let fx: DbSeededFixture | undefined;
+const TENANT_ID = 'cloud-page-reorder-tenant';
+const DOC_ID = 'sample-pdf-page-reorder-cloud';
 
 beforeAll(async () => {
-  fx = await buildDbSeededFixture({ secret: 'cloud-page-text-secret' });
-  await seedDocumentFromBytes(fx, TENANT_ID, DOC_ID, samplePath, PAGE_COUNT);
+  fx = await buildDbSeededFixture({ secret: 'cloud-page-reorder-conformance-secret' });
+  await seedDocumentFromBytes(fx, TENANT_ID, DOC_ID, fixturePath, 8);
 });
 
 afterAll(async () => {
   await teardownDbSeededFixture(fx);
 });
 
-runPageTextConformance(runner, {
-  label: 'engine-cloud (HTTP -> @embedpdf/server, native runtime, versioned URLs)',
+runPageReorderConformance(runner, {
+  label: 'cloud engine (HTTP -> @cloudpdf/server, native runtime)',
   openKind: 'id',
   fixture: {
     id: DOC_ID,
     bytes: async () => new Uint8Array(),
     expected: { trapped: 'unknown' },
-    pageObjectNumber: PAGE_OBJECT_NUMBER,
-    expectedSubstring: 'Form I-140',
-    minCharCount: 100,
   },
   makeEngine: () => {
     if (!fx) throw new Error('fixture not initialised');

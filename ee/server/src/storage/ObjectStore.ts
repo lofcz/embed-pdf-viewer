@@ -1,5 +1,5 @@
 /**
- * Pluggable object-store interface for @embedpdf/server.
+ * Pluggable object-store interface for @cloudpdf/server.
  *
  * Adapters: `FsObjectStore`, `S3ObjectStore`, `GcsObjectStore`,
  * `AzureBlobObjectStore`. Every adapter exposes the same key shape

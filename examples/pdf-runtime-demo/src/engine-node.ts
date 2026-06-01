@@ -2,8 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLocalEngine } from '@embedpdf/engine-local';
-import { createCloudEngine } from '@embedpdf/engine-cloud';
-import { buildApp, signDevToken, defaultWorkerEntryUrl, type AppBundle } from '@embedpdf/server';
+import { createCloudEngine } from '@cloudpdf/engine';
+import { buildApp, signDevToken, defaultWorkerEntryUrl, type AppBundle } from '@cloudpdf/server';
 import { runEngineDemo, diffMetadata } from './engine-demo.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -29,7 +29,7 @@ try {
 
   const localResult = await runEngineDemo('local (node, native)', local, bytes, 'sample-pdf-local');
   const cloudResult = await runEngineDemo(
-    'cloud (node -> @embedpdf/server)',
+    'cloud (node -> @cloudpdf/server)',
     cloud,
     bytes,
     'sample-pdf-cloud',

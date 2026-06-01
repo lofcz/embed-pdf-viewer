@@ -2,8 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLocalEngine } from '@embedpdf/engine-local';
-import { createCloudEngine } from '@embedpdf/engine-cloud';
-import { buildApp, signDevToken, defaultWorkerEntryUrl, type AppBundle } from '@embedpdf/server';
+import { createCloudEngine } from '@cloudpdf/engine';
+import { buildApp, signDevToken, defaultWorkerEntryUrl, type AppBundle } from '@cloudpdf/server';
 import { runMutationsDemo, summarizeMutations } from './mutations-demo.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -39,7 +39,7 @@ try {
     'mutations-demo-local',
   );
   const cloudResult = await runMutationsDemo(
-    'cloud (node -> @embedpdf/server)',
+    'cloud (node -> @cloudpdf/server)',
     cloud,
     bytes,
     TEST_PAGE,

@@ -1,5 +1,10 @@
 export default {
-  documents: 'Documents',
-  'signed-urls': 'Signed URLs',
-  'access-control': 'Access control',
+  'engine-and-handles': 'Engine & handles',
+  'pages-and-rendering': 'Pages & rendering',
+  text: 'Text extraction',
+  annotations: 'Annotations',
+  metadata: 'Metadata',
+  'security-and-access': 'Security & access',
+  'async-and-errors': 'Async & errors',
+  downloading: 'Downloading',
 };

@@ -2,7 +2,7 @@
  * Pure function that turns a request path + a `CdnAccessInfo` block
  * into the final URL the SDK should hit, plus any header/cookie side
  * effects to attach. Used by both:
- *   - the engine-cloud HttpClient (to actually route requests through
+ *   - the @cloudpdf/engine HttpClient (to actually route requests through
  *     the CDN edge when an /access response says it can)
  *   - the smoke/diagnostic inspector (to PREVIEW what the SDK would do
  *     for a given path, with no network)

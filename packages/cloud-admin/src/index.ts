@@ -3,11 +3,11 @@
  *
  * Carries a tenant-scoped admin credential to mint user-scoped doc
  * JWTs, upload PDFs, and manage the document lifecycle against an
- * `@embedpdf/server` deployment.
+ * `@cloudpdf/server` deployment.
  *
  * NEVER ship this SDK or its credentials to the browser. End users
  * receive doc-scoped tokens (minted via `tokens.mintDocScoped`,
- * landing in Phase 2) and call the engine via `@embedpdf/engine-cloud`.
+ * landing in Phase 2) and call the engine via `@cloudpdf/engine`.
  */
 
 export { createCloudAdmin, CloudAdmin } from './CloudAdmin';

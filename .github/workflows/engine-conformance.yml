@@ -1,7 +1,7 @@
 name: Engine v3 Conformance
 
-# Boots @embedpdf/server in-process and runs the metadata conformance suite
-# against both engine-local (WASM) and engine-cloud (HTTP -> native PDFium).
+# Boots @cloudpdf/server in-process and runs the metadata conformance suite
+# against both engine-local (WASM) and the cloud engine (HTTP -> native PDFium).
 # Any divergence between the two implementations fails the job.
 
 on:
@@ -81,14 +81,14 @@ jobs:
           pnpm --filter @embedpdf/engine-core build
           pnpm --filter @embedpdf/engine-services build
           pnpm --filter @embedpdf/engine-local build
-          pnpm --filter @embedpdf/server build
-          pnpm --filter @embedpdf/engine-cloud build
+          pnpm --filter @cloudpdf/server build
+          pnpm --filter @cloudpdf/engine build
 
       - name: engine-local conformance (WASM)
         run: pnpm --filter @embedpdf/engine-local test
 
-      - name: engine-cloud conformance (HTTP -> @embedpdf/server, native)
-        run: pnpm --filter @embedpdf/engine-cloud test
+      - name: cloud engine conformance (HTTP -> @cloudpdf/server, native)
+        run: pnpm --filter @cloudpdf/engine test
 
       - name: Engine v3 parity demo (local vs cloud)
         run: pnpm --filter @embedpdf/example-pdf-runtime-demo run engine:node

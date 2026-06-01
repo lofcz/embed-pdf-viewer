@@ -1,6 +1,6 @@
 /**
- * Single source of truth for cloud HTTP paths. Both engine-cloud and
- * @embedpdf/server import these so they cannot drift.
+ * Single source of truth for cloud HTTP paths. Both @cloudpdf/engine and
+ * @cloudpdf/server import these so they cannot drift.
  *
  * **URL layout convention (paths v2)**
  *

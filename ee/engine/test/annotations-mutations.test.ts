@@ -48,7 +48,7 @@ afterAll(async () => {
 });
 
 runAnnotationMutationConformance(runner, {
-  label: 'engine-cloud (HTTP -> @embedpdf/server, native runtime)',
+  label: 'cloud engine (HTTP -> @cloudpdf/server, native runtime)',
   openKind: 'id',
   fixture: {
     id: DOC_ID,

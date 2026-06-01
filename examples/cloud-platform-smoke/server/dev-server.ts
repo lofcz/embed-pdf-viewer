@@ -27,7 +27,7 @@ import {
   type KmsConfig,
   type SecretsConfig,
   type TenantScope,
-} from '@embedpdf/server';
+} from '@cloudpdf/server';
 
 const root = resolve(import.meta.dirname, '..');
 const dataRoot = resolve(process.env['EMBEDPDF_SMOKE_DATA_ROOT'] ?? `${root}/.data`);

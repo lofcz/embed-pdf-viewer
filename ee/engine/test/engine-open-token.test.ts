@@ -15,7 +15,7 @@ import {
   StorageKeys,
   type AppBundle,
   type DbSchema,
-} from '@embedpdf/server';
+} from '@cloudpdf/server';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import { createCloudEngine } from '../src/index';
 import { decodeUnverifiedClaims } from '../src/transport/decodeUnverifiedClaims';

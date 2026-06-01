@@ -72,7 +72,7 @@ export interface DocumentHead {
 }
 
 // The manifest shape is owned by engine-core (the wire contract). Re-export
-// it here so existing `@embedpdf/server` consumers keep their import path,
+// it here so existing `@cloudpdf/server` consumers keep their import path,
 // but there is a single source of truth — no server-local shadow that can
 // drift from the wire type (e.g. miss `layoutVersion`).
 export type { DocumentManifest } from '@embedpdf/engine-core/wire';

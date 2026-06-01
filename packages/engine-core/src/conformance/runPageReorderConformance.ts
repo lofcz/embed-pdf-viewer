@@ -69,7 +69,7 @@ const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
  *      `destIndex`) reject with `InvalidArg`.
  *   5. Abort propagates as `AbortError`.
  *
- * Both local (worker host + WASM) and cloud (HTTP + @embedpdf/server)
+ * Both local (worker host + WASM) and cloud (HTTP + @cloudpdf/server)
  * implementations must pass identically.
  */
 export function runPageReorderConformance(

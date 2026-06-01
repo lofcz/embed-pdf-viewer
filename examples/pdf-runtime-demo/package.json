@@ -13,11 +13,11 @@
     "engine:pages": "tsx src/pages-node.ts"
   },
   "dependencies": {
-    "@embedpdf/engine-cloud": "workspace:*",
+    "@cloudpdf/engine": "workspace:*",
+    "@cloudpdf/server": "workspace:*",
     "@embedpdf/engine-core": "workspace:*",
     "@embedpdf/engine-local": "workspace:*",
-    "@embedpdf/pdf-runtime": "workspace:*",
-    "@embedpdf/server": "workspace:*"
+    "@embedpdf/pdf-runtime": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

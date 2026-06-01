@@ -4,7 +4,7 @@ import type { DocumentHandle } from './DocumentHandle';
 
 /**
  * Engine contract shared by `@embedpdf/engine-local` and
- * `@embedpdf/engine-cloud`. Both implementations expose the same
+ * `@cloudpdf/engine`. Both implementations expose the same
  * `open()` surface and return the same {@link DocumentHandle} shape;
  * the only observable difference is transport — local goes through a
  * Worker + WASM PDFium, cloud goes through HTTPS to a remote server.

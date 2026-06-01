@@ -81,7 +81,7 @@ export interface TenantClaims extends BaseClaims {
 /**
  * Doc-scoped end-user token. Minted by the customer's backend on
  * behalf of an end user (short-lived; typically minutes), carried in
- * the browser by `@embedpdf/engine-cloud`. Pinned to one document so
+ * the browser by `@cloudpdf/engine`. Pinned to one document so
  * an exfiltrated token can't be replayed against other docs.
  *
  * Carries its own `scope` of doc-level operations (`doc.read`,

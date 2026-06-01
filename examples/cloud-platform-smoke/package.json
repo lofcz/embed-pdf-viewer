@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build:deps": "pnpm --filter @embedpdf/engine-core build && pnpm --filter @embedpdf/cloud-api build && pnpm --filter @embedpdf/cloud-admin build && pnpm --filter @embedpdf/engine-cloud build && pnpm --filter @embedpdf/server build",
+    "build:deps": "pnpm --filter @embedpdf/engine-core build && pnpm --filter @embedpdf/cloud-api build && pnpm --filter @embedpdf/cloud-admin build && pnpm --filter @cloudpdf/engine build && pnpm --filter @cloudpdf/server build",
     "dev": "pnpm run build:deps && concurrently -k -n api,ui \"pnpm run dev:api\" \"pnpm run dev:ui\"",
     "dev:api": "tsx server/dev-server.ts",
     "dev:ui": "vite --host 127.0.0.1 --port 5178",
@@ -12,10 +12,10 @@
     "preview": "vite preview --host 127.0.0.1 --port 5178"
   },
   "dependencies": {
+    "@cloudpdf/engine": "workspace:*",
+    "@cloudpdf/server": "workspace:*",
     "@embedpdf/cloud-admin": "workspace:*",
-    "@embedpdf/engine-cloud": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/server": "workspace:*"
+    "@embedpdf/engine-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

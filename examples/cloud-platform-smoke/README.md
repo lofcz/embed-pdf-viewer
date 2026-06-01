@@ -4,7 +4,7 @@ Small end-to-end test app for the current cloud platform slices.
 
 It starts:
 
-- an embedded `@embedpdf/server` origin using SQLite + filesystem storage
+- an embedded `@cloudpdf/server` origin using SQLite + filesystem storage
 - a tiny Node admin helper that keeps the HS256 secret server-side
 - a Vite browser UI for admin upload, layer-specific token minting, and cloud-engine actions
 

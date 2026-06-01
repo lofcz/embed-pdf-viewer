@@ -11,7 +11,7 @@ export type TokenSource = string | (() => string | Promise<string>);
 /**
  * Local-engine open input. The caller hands the engine the full
  * PDF bytes and a stable id that doubles as the engine-side docId.
- * Rejected by `@embedpdf/engine-cloud` (use `'id'` or `'token'`
+ * Rejected by `@cloudpdf/engine` (use `'id'` or `'token'`
  * instead).
  */
 export interface OpenInputBytes {
@@ -35,7 +35,7 @@ export type OpenInputLayerSource =
  * `baseKey` with different `id`s. The layer artifact is intentionally small
  * and memory-backed.
  *
- * Rejected by `@embedpdf/engine-cloud`.
+ * Rejected by `@cloudpdf/engine`.
  */
 export interface OpenInputLayerBytes {
   kind: 'layerBytes';

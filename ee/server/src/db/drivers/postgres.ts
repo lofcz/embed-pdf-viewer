@@ -69,7 +69,7 @@ export function createPostgresDb(opts: CreatePostgresDbOptions): Kysely<Schema> 
     min: opts.poolMin ?? 0,
     max: opts.poolMax ?? 10,
     idleTimeoutMillis: opts.idleTimeoutMs ?? 10_000,
-    application_name: 'embedpdf-server',
+    application_name: 'cloudpdf-server',
     statement_timeout: statementTimeoutMs > 0 ? statementTimeoutMs : undefined,
   });
 

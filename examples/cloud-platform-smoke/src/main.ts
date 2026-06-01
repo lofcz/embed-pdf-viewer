@@ -1,4 +1,4 @@
-import { createCloudEngine } from '@embedpdf/engine-cloud';
+import { createCloudEngine } from '@cloudpdf/engine';
 import type {
   AnnotationDraft,
   AnnotationListPageSnapshot,

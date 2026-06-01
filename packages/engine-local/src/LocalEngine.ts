@@ -23,7 +23,7 @@ export interface LocalEngineOptions {
 }
 
 /**
- * Local engine: speaks the same Engine interface as @embedpdf/engine-cloud
+ * Local engine: speaks the same Engine interface as @cloudpdf/engine
  * but routes everything through a WorkerQueue + Transport (Web Worker or
  * inline) backed by a WASM PDFium runtime.
  */

@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup';
 export default defineConfig({
   entry: {
     index: 'src/index.ts',
-    'bin/embedpdf-server': 'src/bin/embedpdf-server.ts',
+    'bin/cloudpdf-server': 'src/bin/cloudpdf-server.ts',
     'runtime/worker-entry': 'src/runtime/worker-entry.ts',
   },
   format: ['esm'],

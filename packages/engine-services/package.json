@@ -2,7 +2,7 @@
   "name": "@embedpdf/engine-services",
   "version": "0.0.0",
   "private": false,
-  "description": "Engine v3 service implementations: synchronous, runtime-agnostic logic that runs identically inside the local WASM worker and the @embedpdf/server worker_thread.",
+  "description": "Engine v3 service implementations: synchronous, runtime-agnostic logic that runs identically inside the local WASM worker and the @cloudpdf/server worker_thread.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

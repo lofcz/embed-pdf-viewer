@@ -13,7 +13,7 @@ import { pdfDateToIso } from '../../shared/pdf-date';
  *
  * Lives in @embedpdf/engine-services so it can be reused unchanged by:
  *   - @embedpdf/engine-local (inside a browser Worker, WASM runtime)
- *   - @embedpdf/server       (inside a Node worker_thread, native runtime)
+ *   - @cloudpdf/server       (inside a Node worker_thread, native runtime)
  *
  * Async-ness lives at the worker boundary, not here.
  */

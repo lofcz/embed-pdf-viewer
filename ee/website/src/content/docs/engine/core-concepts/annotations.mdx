@@ -1,0 +1,121 @@
+---
+title: Annotations
+description: Read, address, create, update, delete, and reorder annotations — and when a weak edit session is required.
+---
+
+import { Callout } from '@/components/docs/callout';
+
+# Annotations
+
+Annotations are split across two services: a **document-scoped** service for
+cheap whole-document reads and edit sessions, and a **per-page** service for
+fully-typed reads and mutations.
+
+## Reading annotations
+
+The document service offers two fast "raw" read paths that don't load full
+per-subtype fields — ideal for "show me what's where" UX:
+
+```ts
+// Every page, cheapest possible read.
+const all = await doc.annotations.listRawAll();
+
+// A single page, by page object number.
+const onePage = await doc.annotations.listRaw(pageObjectNumber);
+```
+
+For fully-typed, per-subtype annotations on a page, use the page service's
+`list()` (the slower path that loads a page pointer):
+
+```ts
+const page = doc.page(pageObjectNumber);
+const { annotations } = await page.annotations.list();
+```
+
+## Addressing an annotation
+
+Mutations take an `AnnotationRef` — a discriminated union with three ways to
+point at an annotation, resolved in this order:
+
+```ts
+type AnnotationRef =
+  | { kind: 'objectNumber'; pageObjectNumber; annotObjectNumber: number }
+  | { kind: 'nm'; pageObjectNumber; nm: string }
+  | { kind: 'index'; pageObjectNumber; index: number; revision: RevisionToken };
+```
+
+- **`objectNumber`** — durable PDF indirect object number. Preferred.
+- **`nm`** — the annotation's `/NM` name.
+- **`index`** — a position in the page's annotation array. This is the strict
+  escape hatch for legacy/direct annotations: it must carry a fresh
+  `RevisionToken`, which the engine validates against the page's generation
+  counter on every dereference. A stale token fails with
+  `EngineError(InvalidReference)` rather than silently hitting the wrong
+  annotation.
+
+## Mutating annotations
+
+The per-page service supports create, update, delete, and batch move:
+
+```ts
+interface PageAnnotationsService {
+  list(): AbortablePromise<AnnotationListPageSnapshot>;
+  create(draft: AnnotationDraft): AbortablePromise<AnnotationCreateResult>;
+  update(ref: AnnotationRef, patch: AnnotationPatch): AbortablePromise<AnnotationUpdateResult>;
+  delete(ref: AnnotationRef): AbortablePromise<AnnotationDeleteResult>;
+  move(refs: AnnotationRef[], toIndex: number): AbortablePromise<AnnotationMoveResult>;
+}
+```
+
+```ts
+const page = doc.page(pageObjectNumber);
+
+const created = await page.annotations.create(draft);
+
+await page.annotations.update(
+  { kind: 'objectNumber', pageObjectNumber, annotObjectNumber: created.annotObjectNumber },
+  patch,
+);
+```
+
+`move()` accepts a contiguous block (`refs.length === 1` is the single
+annotation case) and inserts at `toIndex` in the post-removal index space. Refs
+may mix stable ids and weak `index` refs; weak refs are opportunistically
+upgraded to durable `/NM` before the move.
+
+## Weak edit sessions (cloud)
+
+The cloud handle advertises `capabilities.weakAnnotationEditSessions ===
+'required'`. Structural edits addressed by **index** (delete/move that shift the
+array) need an active edit session that proves you have sole edit presence on
+the affected pages — a collaboration guard against two clients shifting the same
+page at once.
+
+```ts
+const session = await doc.annotations.beginWeakEdit([pageObjectNumber]);
+
+try {
+  // …index-addressed structural edits on covered pages…
+  await session.heartbeat(); // keep the session alive (see heartbeatIntervalMs)
+} finally {
+  await session.release();
+}
+```
+
+A `WeakAnnotationEditSession` exposes `id`, `expiresAt`, `heartbeatIntervalMs`,
+the `pageObjectNumbers` it covers, and `covers()`, `updatePages()`,
+`heartbeat()`, and `release()`.
+
+<Callout type="info">
+  Stable references (<code>objectNumber</code>, <code>nm</code>) and
+  non-shifting updates don't need a session. You only need
+  <code>beginWeakEdit</code> for index-addressed structural edits. A conflicting
+  edit surfaces as a <code>WeakAnnotationSessionConflict</code> error.
+</Callout>
+
+<Callout type="warn">
+  Annotation writes are gated by the caller's scope on the cloud (for example
+  <code>doc.annotate.write</code> and the collab scopes like
+  <code>annotations:update:self</code>). Insufficient scope rejects with
+  <code>Forbidden</code>.
+</Callout>

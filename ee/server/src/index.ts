@@ -1,8 +1,8 @@
 /**
- * @embedpdf/server - self-hostable Engine v3 server.
+ * @cloudpdf/server - self-hostable Engine v3 server.
  *
  * Programmatic API used by tests and integrators. The CLI entry point lives
- * at bin/embedpdf-server.ts.
+ * at bin/cloudpdf-server.ts.
  */
 export { buildApp } from './app/buildApp';
 export type { BuildAppOptions, AppBundle } from './app/buildApp';

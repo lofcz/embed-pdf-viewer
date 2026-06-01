@@ -14,7 +14,7 @@ import {
   StorageKeys,
   type AppBundle,
   type DbSchema,
-} from '@embedpdf/server';
+} from '@cloudpdf/server';
 
 /**
  * Shared cloud-test scaffolding for the Phase 4 versioned read

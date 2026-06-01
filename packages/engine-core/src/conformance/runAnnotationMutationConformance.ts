@@ -23,7 +23,7 @@ import type { WeakAnnotationEditSession } from '../engine/DocumentAnnotationsSer
  * fields (id, bytes, etc.) come from `ConformanceFixture`; the bits below
  * pin the test page. The harness asserts behaviour, not exact wire
  * content, so the same fixture can run against both local (WASM) and
- * cloud (native via @embedpdf/server) engines.
+ * cloud (native via @cloudpdf/server) engines.
  */
 export interface AnnotationMutationConformanceFixture extends ConformanceFixture {
   /** PDF object number of the page used by the mutation tests. */
@@ -55,7 +55,7 @@ const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
  * Mutation conformance suite. Mirrors the read suite: tests are written
  * once and run against any engine that satisfies the public API
  * surface. Both local (worker host + WASM) and cloud (HTTP +
- * @embedpdf/server) implementations must pass identically.
+ * @cloudpdf/server) implementations must pass identically.
  *
  * The locked rules being verified here:
  *   - `create` is append-only: PDFium drops the new annotation at

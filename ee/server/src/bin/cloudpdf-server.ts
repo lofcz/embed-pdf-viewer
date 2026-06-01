@@ -16,14 +16,14 @@ import type { Kysely } from 'kysely';
 /**
  * Multi-command CLI:
  *
- *   embedpdf-server                          → serve (default)
- *   embedpdf-server serve
- *   embedpdf-server migrate status
- *   embedpdf-server migrate up [--dry-run]
- *   embedpdf-server migrate validate [--strict]
- *   embedpdf-server db doctor
- *   embedpdf-server audit export --day yesterday
- *   embedpdf-server --help
+ *   cloudpdf-server                          → serve (default)
+ *   cloudpdf-server serve
+ *   cloudpdf-server migrate status
+ *   cloudpdf-server migrate up [--dry-run]
+ *   cloudpdf-server migrate validate [--strict]
+ *   cloudpdf-server db doctor
+ *   cloudpdf-server audit export --day yesterday
+ *   cloudpdf-server --help
  *
  * Config is read from env (12-factor friendly):
  *   EMBEDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)
@@ -111,14 +111,14 @@ function redact(url: string): string {
 }
 
 function fail(code: number, msg: string): never {
-  console.error(`embedpdf-server: ${msg}`);
+  console.error(`cloudpdf-server: ${msg}`);
   process.exit(code);
 }
 
 function printHelp(): void {
   console.log(
     [
-      'embedpdf-server [command] [args]',
+      'cloudpdf-server [command] [args]',
       '',
       'Commands:',
       '  serve                  (default) Start the HTTP server',
@@ -308,7 +308,7 @@ async function cmdServe(): Promise<void> {
   const JWT_SECRET = process.env['EMBEDPDF_JWT_SECRET'] ?? 'embedpdf-dev-secret-change-me';
   if (JWT_SECRET === 'embedpdf-dev-secret-change-me') {
     console.warn(
-      '[embedpdf-server] WARNING: EMBEDPDF_JWT_SECRET not set, using insecure dev secret',
+      '[cloudpdf-server] WARNING: EMBEDPDF_JWT_SECRET not set, using insecure dev secret',
     );
   }
   const POOL_SIZE = process.env['POOL_SIZE'] ? Number(process.env['POOL_SIZE']) : undefined;
@@ -347,7 +347,7 @@ async function cmdServe(): Promise<void> {
   await bundle.app.listen({ port: PORT, host: HOST });
   bundle.app.log.info(
     { port: PORT, host: HOST, db: dbCtx?.describe ?? 'none' },
-    'embedpdf-server listening',
+    'cloudpdf-server listening',
   );
 }
 
@@ -373,20 +373,20 @@ async function main(): Promise<void> {
     if (sub === 'status') return cmdMigrateStatus();
     if (sub === 'up') return cmdMigrateUp(rest);
     if (sub === 'validate') return cmdMigrateValidate(rest);
-    fail(2, `unknown subcommand: migrate ${sub ?? '(missing)'}\nrun: embedpdf-server --help`);
+    fail(2, `unknown subcommand: migrate ${sub ?? '(missing)'}\nrun: cloudpdf-server --help`);
   }
   if (args[0] === 'db') {
     const sub = args[1];
     if (sub === 'doctor') return cmdDbDoctor();
-    fail(2, `unknown subcommand: db ${sub ?? '(missing)'}\nrun: embedpdf-server --help`);
+    fail(2, `unknown subcommand: db ${sub ?? '(missing)'}\nrun: cloudpdf-server --help`);
   }
   if (args[0] === 'audit') {
     const sub = args[1];
     const rest = args.slice(2);
     if (sub === 'export') return cmdAuditExport(rest);
-    fail(2, `unknown subcommand: audit ${sub ?? '(missing)'}\nrun: embedpdf-server --help`);
+    fail(2, `unknown subcommand: audit ${sub ?? '(missing)'}\nrun: cloudpdf-server --help`);
   }
-  fail(2, `unknown command: ${args[0]!}\nrun: embedpdf-server --help`);
+  fail(2, `unknown command: ${args[0]!}\nrun: cloudpdf-server --help`);
 }
 
 function readFlagValue(args: string[], name: string): string | undefined {
@@ -437,6 +437,6 @@ function dayFromOffsetUtc(offsetDays: number): string {
 }
 
 main().catch((err) => {
-  console.error('embedpdf-server: failed:', err);
+  console.error('cloudpdf-server: failed:', err);
   process.exit(1);
 });

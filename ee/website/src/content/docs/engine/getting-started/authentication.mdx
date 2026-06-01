@@ -1,66 +1,103 @@
 ---
 title: Authentication
-description: Understand publishable and secret keys, and where each one belongs.
+description: How the cloud engine authenticates — doc-scoped JWTs, opening by token vs. by id, and why scope lives server-side.
 ---
 
 import { Callout } from '@/components/docs/callout';
 
 # Authentication
 
-CloudPDF authenticates requests with two kinds of keys. Knowing which key goes
-where is the most important security decision when you integrate.
+The cloud engine authenticates every request with a **bearer JWT**. Your backend
+mints these tokens; the engine never holds your tenant secret and never signs
+anything itself. The CloudPDF server is the verifier of record — the SDK only
+*decodes* a token (unverified) to learn which document to route to.
 
-## The two keys
+## Where the token comes from
 
-| Key | Prefix | Where it lives | What it can do |
-| --- | --- | --- | --- |
-| Publishable | `pk_live_…` | Browser & client bundles | Initialize the viewer, load already-signed URLs |
-| Secret | `sk_live_…` | Server only | Mint signed URLs, manage documents, read audit logs |
-
-The publishable key is safe to expose. The secret key is not — treat it like a
-password.
-
-<Callout type="warn">
-  If a secret key is ever committed to a repo, pasted in a ticket, or shipped to
-  the browser, rotate it immediately from **Dashboard → API keys**. Rotation
-  invalidates the old key right away.
-</Callout>
-
-## Using the secret key
-
-Initialize the Node SDK once with your secret key, then reuse the instance:
+Set a token on the engine, on an individual `open()`, or both. A token may be a
+string or a function that returns a fresh one — the engine calls it on every
+request, so rotation is transparent.
 
 ```ts
-import { CloudPDF } from '@cloudpdf/node';
-
-const cloudpdf = new CloudPDF(process.env.CLOUDPDF_SECRET_KEY);
+const engine = createCloudEngine({
+  baseUrl: 'https://pdf.your-app.com',
+  token: () => getTenantToken(), // engine-level default bearer
+});
 ```
 
-## Using the publishable key
+<Callout type="warn">
+  Mint tokens on your server, never in the browser, and keep them short-lived.
+  A doc-scoped token is pinned to a single document, so an exfiltrated token
+  can't be replayed against other documents.
+</Callout>
 
-The viewer needs the publishable key to talk to CloudPDF's edge. Pass it once
-when you mount the provider:
+## Two ways to open
 
-```tsx
-import { CloudPDFProvider } from '@cloudpdf/react';
+The cloud engine accepts exactly two `OpenInput` shapes.
 
-export function App({ children }) {
-  return (
-    <CloudPDFProvider publishableKey={process.env.NEXT_PUBLIC_CLOUDPDF_KEY}>
-      {children}
-    </CloudPDFProvider>
-  );
-}
+### Open by token
+
+Use this for share-link / embed UX, where the bearer is authorized for exactly
+one document. Pass a **doc-scoped JWT** whose `doc_id` claim identifies the
+document. Each `open({ kind: 'token' })` is independent — one engine can hold
+many handles, each carrying its own per-document token.
+
+```ts
+const doc = await engine.open({
+  kind: 'token',
+  token: () => fetchDocToken(documentId),
+});
 ```
 
-## Key scopes
+The handle and all of its RPCs carry this token, not the engine-level one.
 
-Each key can be scoped to a subset of capabilities when you create it. A common
-pattern is a read-only secret key for a reporting service and a full-access key
-for your main backend.
+### Open by id
+
+Use this when your frontend has a tenant session (for example a JWT minted at
+login by your auth backend) and just needs to open one of many documents the
+tenant owns.
+
+```ts
+const doc = await engine.open({
+  kind: 'id',
+  id: 'doc_proposal_2026',
+  layerName: 'default', // optional; omit for the server default layer
+  token: () => fetchTenantToken(), // optional per-open override
+});
+```
+
+Without a per-open `token`, the engine uses the token supplied at construction.
+
+## Scope and identity live on the server
+
+Authorization — what the caller may do (`doc.text.copy`, `doc.annotate.read`,
+`annotations:update:self`, …) and who they are — is carried **inside the JWT**
+and enforced by the server. The engine reads them from the token; it does not
+accept them as client options.
 
 <Callout type="info">
-  Scopes are enforced server-side on every request, so a narrowly scoped key
-  can't be widened by the client. Learn more in
-  <a href="/docs/engine/core-concepts/access-control">Access control</a>.
+  The local engine takes <code>scope</code> and <code>identity</code> through
+  <code>open()</code> options because there's no JWT involved. The cloud engine
+  intentionally <strong>ignores</strong> those options — the token is the
+  authority. This is what keeps the same SDK code portable between local and
+  cloud. Read the resolved grants from
+  <a href="/docs/engine/core-concepts/security-and-access"><code>doc.security.effectiveScope</code></a>.
 </Callout>
+
+## Anonymous engines
+
+If every `open()` supplies its own doc-scoped token, the engine itself needs no
+credentials — omit `token` at construction. Requests then go out without an
+`Authorization` header until a per-open token is provided.
+
+```ts
+const engine = createCloudEngine({ baseUrl: 'https://pdf.your-app.com' });
+const doc = await engine.open({ kind: 'token', token: shareLinkJwt });
+```
+
+## What failures look like
+
+Auth problems surface as typed `EngineError`s: a `401` becomes
+`Unauthenticated`, a `403` becomes `Forbidden`. See
+[Async & errors](/docs/engine/core-concepts/async-and-errors) for the full list
+and handling patterns.

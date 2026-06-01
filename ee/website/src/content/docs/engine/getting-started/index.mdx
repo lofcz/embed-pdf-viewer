@@ -1,85 +1,88 @@
 ---
 title: Introduction
-description: The core CloudPDF document engine — storage, rendering, access control, and collaboration through one API.
+description: The @cloudpdf/engine cloud client — open documents, render pages, read text, and manage annotations over HTTP with one Engine API.
 ---
 
 import { Cards, Card } from '@/components/docs/cards';
 import { Callout } from '@/components/docs/callout';
 
-# Engine
+# The engine
 
-The CloudPDF **engine** is the core document API that powers everything else —
-secure storage, rendering, annotations, access control, and real-time
-collaboration. Every viewer, framework binding, and dashboard feature is built
-on top of the same engine you can call directly.
+`@cloudpdf/engine` is the **cloud client** for CloudPDF. It implements the same
+`Engine` interface as the local WASM engine that powers EmbedPDF, but instead of
+running PDFium in a Web Worker it routes every call over HTTPS to a
+`@cloudpdf/server` deployment (self-hosted or CloudPDF SaaS).
 
-If you are integrating CloudPDF into a product, you'll typically use one of the
-framework packages (`@cloudpdf/react`, `@cloudpdf/vue`, `@cloudpdf/svelte`).
-Reach for the engine API directly when you need to mint signed URLs, manage
-documents from your backend, or build a fully custom experience.
+That means the same SDK code that drives a fully local viewer also drives a
+cloud-backed one — only the transport differs. You get document open, page
+rendering, text extraction, annotations, metadata, and security/access through a
+single, abortable, strongly-typed API.
 
 <Callout type="info">
-  New to CloudPDF? Start with the <a href="/docs/engine/getting-started/quick-start">Quick start</a> —
-  you'll render your first secure, access-controlled PDF in under five minutes.
+  New here? Jump to the <a href="/docs/engine/getting-started/quick-start">Quick start</a> to
+  open a document and render its first page in a few lines of code.
 </Callout>
 
-## What the engine does
+## What the engine gives you
 
-- **Document storage** — upload once, then stream pages on demand. Bring your
-  own S3-compatible bucket or use managed storage.
-- **Signed URLs** — every document is served through short-lived, scoped URLs
-  so raw files are never exposed to the browser.
-- **Access control** — gate viewers by role, domain, expiry, and per-document
-  permissions like `download` and `print`.
-- **Annotations & collaboration** — highlights, comments, and signatures sync
-  in real time across every connected viewer.
-- **Audit logging** — capture every open, page view, and download as a
-  structured event stream.
+- **One `Engine` contract** — `createCloudEngine(...)` returns an object with a
+  single `open()` method that resolves to a `DocumentHandle`.
+- **Document handles** — a `DocumentHandle` exposes `metadata`, `annotations`,
+  `pages`, `security`, and a `page(pon)` accessor for per-page work.
+- **Rendering** — request a page as an encoded image (`png`/`webp`) or raw RGBA,
+  at any scale or target rectangle.
+- **Text & geometry** — extract a page's plain text or geometry snapshot.
+- **Annotations** — list, create, update, delete, and reorder annotations.
+- **Security & access** — inspect encryption/permission state, unlock
+  password-protected documents, and read the caller's effective scope.
+- **Abortable everything** — every async call returns an `AbortablePromise` you
+  can cancel, with typed `EngineError`s on failure.
 
 ## How it fits together
 
 ```ts
-import { CloudPDF } from '@cloudpdf/node';
+import { createCloudEngine } from '@cloudpdf/engine';
 
-const cloudpdf = new CloudPDF(process.env.CLOUDPDF_SECRET_KEY);
-
-// 1. Upload a document (server-side, once)
-const doc = await cloudpdf.documents.create({ file: './proposal.pdf' });
-
-// 2. Mint a short-lived signed URL for a specific viewer
-const { url } = await cloudpdf.documents.sign({
-  documentId: doc.id,
-  expiresIn: '15m',
-  permissions: { download: false, print: false },
+const engine = createCloudEngine({
+  baseUrl: 'https://pdf.your-app.com',
+  token: () => getDocToken(), // doc-scoped JWT from your backend
 });
 
-// 3. Hand `url` to the viewer in your frontend
+const doc = await engine.open({ kind: 'token', token: () => getDocToken() });
+const page = doc.page(/* pageObjectNumber */ 4);
+const image = await page.render.image({ viewport: { kind: 'width', width: 1200 } });
+
+const { url, revoke } = await image.objectUrl();
+// …draw `url` into an <img>, then revoke() when done.
+
+await doc.close();
+await engine.destroy();
 ```
 
-The frontend never sees your secret key or the underlying storage — it only
-receives the scoped, expiring URL.
+Your backend mints the short-lived, document-scoped JWT; the browser never sees
+storage credentials or your tenant secret.
 
 ## Next steps
 
 <Cards>
   <Card
+    title="Installation"
+    description="Add @cloudpdf/engine and point it at your server."
+    href="/docs/engine/getting-started/installation"
+  />
+  <Card
     title="Quick start"
-    description="Render your first secure PDF in five minutes."
+    description="Open a document and render a page in minutes."
     href="/docs/engine/getting-started/quick-start"
   />
   <Card
     title="Authentication"
-    description="Publishable vs. secret keys and where each belongs."
+    description="Doc-scoped tokens, opening by token vs. by id."
     href="/docs/engine/getting-started/authentication"
   />
   <Card
-    title="Signed URLs"
-    description="How CloudPDF enforces access control and expiry."
-    href="/docs/engine/core-concepts/signed-urls"
-  />
-  <Card
-    title="Documents"
-    description="Upload, organize, and manage document lifecycles."
-    href="/docs/engine/core-concepts/documents"
+    title="Engine & handles"
+    description="The Engine, DocumentHandle, and PageHandle model."
+    href="/docs/engine/core-concepts/engine-and-handles"
   />
 </Cards>

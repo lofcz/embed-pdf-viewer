@@ -2,7 +2,7 @@
   "name": "@embedpdf/cloud-admin",
   "version": "0.0.0",
   "private": true,
-  "description": "EmbedPDF cloud admin SDK. Node-only client used by a customer's backend to upload PDFs, manage documents, and mint user tokens against @embedpdf/server.",
+  "description": "EmbedPDF cloud admin SDK. Node-only client used by a customer's backend to upload PDFs, manage documents, and mint user tokens against @cloudpdf/server.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

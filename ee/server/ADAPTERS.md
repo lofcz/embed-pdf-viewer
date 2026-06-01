@@ -206,7 +206,7 @@ A test (`test/config-redact.test.ts`) pins that secret material never leaks thro
 
 ## The bootstrap recipe
 
-In `bin/embedpdf-server.ts`:
+In `bin/cloudpdf-server.ts`:
 
 ```typescript
 // 1. Secrets — primary user-facing utility.

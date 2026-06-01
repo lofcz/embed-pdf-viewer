@@ -86,6 +86,28 @@ importers:
         specifier: ^6.3.5
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  ee/engine:
+    dependencies:
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../packages/engine-core
+    devDependencies:
+      '@cloudpdf/server':
+        specifier: workspace:*
+        version: link:../server
+      '@embedpdf/build':
+        specifier: workspace:*
+        version: link:../../packages/build
+      rimraf:
+        specifier: ^5.0.0
+        version: 5.0.10
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
   ee/server:
     dependencies:
       '@embedpdf/cloud-api':
@@ -250,18 +272,18 @@ importers:
 
   examples/cloud-platform-smoke:
     dependencies:
+      '@cloudpdf/engine':
+        specifier: workspace:*
+        version: link:../../ee/engine
+      '@cloudpdf/server':
+        specifier: workspace:*
+        version: link:../../ee/server
       '@embedpdf/cloud-admin':
         specifier: workspace:*
         version: link:../../packages/cloud-admin
-      '@embedpdf/engine-cloud':
-        specifier: workspace:*
-        version: link:../../packages/engine-cloud
       '@embedpdf/engine-core':
         specifier: workspace:*
         version: link:../../packages/engine-core
-      '@embedpdf/server':
-        specifier: workspace:*
-        version: link:../../ee/server
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -281,9 +303,12 @@ importers:
 
   examples/pdf-runtime-demo:
     dependencies:
-      '@embedpdf/engine-cloud':
+      '@cloudpdf/engine':
         specifier: workspace:*
-        version: link:../../packages/engine-cloud
+        version: link:../../ee/engine
+      '@cloudpdf/server':
+        specifier: workspace:*
+        version: link:../../ee/server
       '@embedpdf/engine-core':
         specifier: workspace:*
         version: link:../../packages/engine-core
@@ -293,9 +318,6 @@ importers:
       '@embedpdf/pdf-runtime':
         specifier: workspace:*
         version: link:../../packages/pdf-runtime
-      '@embedpdf/server':
-        specifier: workspace:*
-        version: link:../../ee/server
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -1133,28 +1155,6 @@ importers:
         version: 5.9.3
 
   packages/default-stamps: {}
-
-  packages/engine-cloud:
-    dependencies:
-      '@embedpdf/engine-core':
-        specifier: workspace:*
-        version: link:../engine-core
-    devDependencies:
-      '@embedpdf/build':
-        specifier: workspace:*
-        version: link:../build
-      '@embedpdf/server':
-        specifier: workspace:*
-        version: link:../../ee/server
-      rimraf:
-        specifier: ^5.0.0
-        version: 5.0.10
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-      vitest:
-        specifier: ^2.1.0
-        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
 
   packages/engine-core:
     dependencies:

@@ -2,7 +2,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import {
-  runPageReorderConformance,
+  runMetadataConformance,
   type ConformanceTestRunner,
 } from '@embedpdf/engine-core/conformance';
 import { createCloudEngine } from '../src/index';
@@ -15,7 +15,7 @@ import {
 } from './_helpers/db-seeded-app';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const fixturePath = resolve(
+const samplePath = resolve(
   here,
   '..',
   '..',
@@ -35,25 +35,27 @@ const runner: ConformanceTestRunner = {
 };
 
 let fx: DbSeededFixture | undefined;
-const TENANT_ID = 'cloud-page-reorder-tenant';
-const DOC_ID = 'sample-pdf-page-reorder-cloud';
+const TENANT_ID = 'cloud-metadata-tenant';
+const DOC_ID = 'sample-pdf-cloud';
 
 beforeAll(async () => {
-  fx = await buildDbSeededFixture({ secret: 'cloud-page-reorder-conformance-secret' });
-  await seedDocumentFromBytes(fx, TENANT_ID, DOC_ID, fixturePath, 8);
+  fx = await buildDbSeededFixture({ secret: 'cloud-conformance-secret' });
+  await seedDocumentFromBytes(fx, TENANT_ID, DOC_ID, samplePath, 8);
 });
 
 afterAll(async () => {
   await teardownDbSeededFixture(fx);
 });
 
-runPageReorderConformance(runner, {
-  label: 'engine-cloud (HTTP -> @embedpdf/server, native runtime)',
+runMetadataConformance(runner, {
+  label: 'cloud engine (HTTP -> @cloudpdf/server, native runtime)',
   openKind: 'id',
   fixture: {
     id: DOC_ID,
     bytes: async () => new Uint8Array(),
-    expected: { trapped: 'unknown' },
+    expected: {
+      trapped: 'unknown',
+    },
   },
   makeEngine: () => {
     if (!fx) throw new Error('fixture not initialised');

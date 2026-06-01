@@ -1,6 +1,6 @@
 /**
  * Worker protocol shapes are defined in @embedpdf/engine-core so that
- * @embedpdf/server can use the same wire format. This file re-exports the
+ * @cloudpdf/server can use the same wire format. This file re-exports the
  * subset engine-local needs and adds local aliases so existing imports
  * continue to work.
  */

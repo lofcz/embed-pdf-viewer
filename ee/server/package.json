@@ -1,8 +1,8 @@
 {
-  "name": "@embedpdf/server",
+  "name": "@cloudpdf/server",
   "version": "0.0.0",
-  "private": true,
-  "description": "Self-hostable EmbedPDF document engine server: Fastify-based HTTP/REST API in front of a Node worker_thread pool running native PDFium via @embedpdf/pdf-runtime. Uses the same engine-services code as the local browser engine.",
+  "private": false,
+  "description": "Self-hostable CloudPDF document engine server: Fastify-based HTTP/REST API in front of a Node worker_thread pool running native PDFium via @embedpdf/pdf-runtime. Uses the same engine-services code as the local browser engine.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -12,17 +12,17 @@
       "default": "./dist/index.js"
     },
     "./bin": {
-      "default": "./dist/bin/embedpdf-server.js"
+      "default": "./dist/bin/cloudpdf-server.js"
     }
   },
   "bin": {
-    "embedpdf-server": "./dist/bin/embedpdf-server.js"
+    "cloudpdf-server": "./dist/bin/cloudpdf-server.js"
   },
   "scripts": {
     "build": "tsup",
     "clean": "rimraf dist",
     "dev": "tsup --watch",
-    "start": "node dist/bin/embedpdf-server.js",
+    "start": "node dist/bin/cloudpdf-server.js",
     "lint": "eslint src --color",
     "lint:fix": "eslint src --color --fix",
     "test": "vitest run"
@@ -43,11 +43,11 @@
   },
   "keywords": [
     "pdf",
-    "embedpdf",
+    "cloudpdf",
     "server",
     "self-hosted"
   ],
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
     "@embedpdf/cloud-api": "workspace:*",
     "@embedpdf/engine-core": "workspace:*",

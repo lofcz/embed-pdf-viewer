@@ -18,7 +18,7 @@ import type { ManifestPage } from '@embedpdf/engine-core/wire';
 
 /**
  * Minimal structural view of zod's `safeParse` return so we don't need
- * `zod` as a direct dep of @embedpdf/server. Schemas come through
+ * `zod` as a direct dep of @cloudpdf/server. Schemas come through
  * @embedpdf/engine-core fully typed; we just need a shape we can
  * narrow on `success`.
  */

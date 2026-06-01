@@ -1,142 +1,134 @@
 ---
 title: Quick start
-description: Render your first secure, access-controlled PDF in under five minutes.
+description: Open a document over HTTP and render its first page with @cloudpdf/engine in a few lines.
 ---
 
 import { Callout } from '@/components/docs/callout';
 import { Cards, Card } from '@/components/docs/cards';
-import { Demo } from '@/content/docs/engine/code-examples/quick-start-viewer';
 
 # Quick start
 
-Render your first secure, access-controlled PDF in under five minutes. We'll
-install the SDK, mint a signed URL on your server, and drop the viewer into your
-app.
+This walkthrough opens a document on your CloudPDF server, lists its pages, and
+renders the first one to an image — entirely from the client, using a
+document-scoped token your backend mints.
 
-## Before you begin
-
-You'll need a CloudPDF account and a project. Everything below works on the free
-tier — no card required. Make sure you have:
-
-- A **CloudPDF project** with a publishable key and a secret key (find both in
-  Dashboard → API keys).
-- **Node 18+** on the server that mints signed URLs, and a React, Vue, or
-  Svelte frontend.
-- One PDF uploaded to your project — or use our sample `proposal.pdf`.
-
-## Install the SDK
-
-Add the CloudPDF package for your framework. The viewer ships as an isolated
-bundle, so it won't collide with the rest of your app.
+## 1. Install and create an engine
 
 ```sh npm2yarn
-npm install @cloudpdf/react
+npm install @cloudpdf/engine
 ```
-
-Vue and Svelte builds live at `@cloudpdf/vue` and `@cloudpdf/svelte` with the
-same API surface.
-
-## Authenticate your app
-
-CloudPDF uses two keys. The **publishable key** is safe to ship to the browser;
-the **secret key** stays on your server and signs document URLs. Store them as
-environment variables.
-
-```bash
-# Safe to expose in the browser
-CLOUDPDF_PUBLISHABLE_KEY=pk_live_8sQ2…f0a1
-
-# Server only — never ship to the client
-CLOUDPDF_SECRET_KEY=sk_live_3vR9…c7d4
-```
-
-<Callout type="warn">
-  **Keep the secret key server-side.** It can mint signed URLs for any document
-  in your project. If it leaks, rotate it immediately from the dashboard.
-</Callout>
-
-## Generate a signed URL
-
-Rather than exposing raw file links, your server mints a short-lived **signed
-URL** scoped to one document and one viewer. This is how CloudPDF enforces
-access control, expiry, and download permissions.
 
 ```ts
-import { CloudPDF } from '@cloudpdf/node';
+import { createCloudEngine } from '@cloudpdf/engine';
 
-const cloudpdf = new CloudPDF(process.env.CLOUDPDF_SECRET_KEY);
-
-export async function GET() {
-  const { url } = await cloudpdf.documents.sign({
-    documentId: 'doc_proposal_2026',
-    expiresIn: '15m',
-    permissions: { download: false, print: false },
-  });
-
-  return Response.json({ url });
-}
+const engine = createCloudEngine({
+  baseUrl: 'https://pdf.your-app.com',
+});
 ```
 
-## Embed the viewer
+## 2. Open a document
 
-On the client, fetch the signed URL and pass it to `<CloudPDFViewer>`. The
-component handles rendering, search, thumbnails, and annotations out of the box.
+For share-link and embed flows, open with a **doc-scoped JWT**. The engine reads
+the `doc_id` claim from the token (without verifying it — the server is the
+verifier of record), then fetches the document head.
 
-```tsx
-import { CloudPDFViewer } from '@cloudpdf/react';
-import { useEffect, useState } from 'react';
+```ts
+const doc = await engine.open({
+  kind: 'token',
+  token: () => fetchDocToken(), // your backend mints this
+});
 
-export function DocumentPage() {
-  const [url, setUrl] = useState(null);
+console.log(doc.id);
+```
 
-  useEffect(() => {
-    fetch('/api/sign')
-      .then((r) => r.json())
-      .then((d) => setUrl(d.url));
-  }, []);
+If your frontend already holds a tenant session and knows the document id, open
+by id instead:
 
-  return <CloudPDFViewer src={url} annotations theme="light" style={{ height: '80vh' }} />;
-}
+```ts
+const doc = await engine.open({ kind: 'id', id: 'doc_proposal_2026' });
 ```
 
 <Callout type="info">
-  That's it — load the page and your PDF renders inside a secure, sandboxed
-  viewer. Because **download** and **print** were disabled in the signed URL,
-  those controls won't appear.
+  The two cloud open modes are <code>kind: 'token'</code> and
+  <code>kind: 'id'</code>. The local-engine modes (<code>'bytes'</code>,
+  <code>'layerBytes'</code>) are rejected — the cloud engine never receives raw
+  PDF bytes.
 </Callout>
 
-## Live example
+## 3. List pages and render the first one
 
-The viewer is fully interactive. Try the zoom and page controls below, then
-expand **See code** to see exactly what's rendering it.
+Pages are addressed by their durable **page object number**, never by index.
+`pages.list()` returns every page's geometry in display order, so grab the first
+one's `pageObjectNumber` and render it.
 
-<CodeExample codePaths={["content/docs/engine/code-examples/quick-start-viewer.tsx"]}>
-  <Demo />
-</CodeExample>
+```ts
+const { pages } = await doc.pages.list();
+const first = doc.page(pages[0].pageObjectNumber);
+
+const image = await first.render.image({
+  viewport: { kind: 'width', width: 1200 }, // 1200px wide, aspect preserved
+  format: 'webp',
+});
+
+const { url, revoke } = await image.objectUrl();
+document.querySelector('img')!.src = url;
+// Call revoke() once the <img> no longer needs the object URL.
+```
+
+`render.image()` returns a `PageImageHandle` describing the encoded result
+(`format`, `contentType`, `width`/`height`) plus an `objectUrl()` helper for the
+browser. For raw pixels (e.g. canvas compositing) use `first.render.raw()`,
+which returns an RGBA `PageRaster`.
+
+## 4. Read the page text (optional)
+
+```ts
+const { text, charCount } = await first.text.read();
+console.log(`page has ${charCount} characters`);
+```
+
+## 5. Clean up
+
+Close the handle when you're done with a document, and destroy the engine when
+your app shuts down.
+
+```ts
+await doc.close();
+await engine.destroy();
+```
+
+## Cancelling work
+
+Every async call returns an `AbortablePromise`. Calling `.abort()` rejects it
+with an `AbortError` and signals the in-flight request to stop.
+
+```ts
+const pending = first.render.image({ viewport: { kind: 'scale', scale: 2 } });
+// Changed your mind (user scrolled away)?
+pending.abort();
+```
 
 ## Next steps
 
-You've got a working viewer. Here's where most teams go next:
-
 <Cards>
   <Card
-    title="Access control"
-    description="Scope viewers by role, domain, and expiry."
-    href="/docs/engine/core-concepts/access-control"
+    title="Engine & handles"
+    description="The Engine, DocumentHandle, and PageHandle model."
+    href="/docs/engine/core-concepts/engine-and-handles"
   />
   <Card
-    title="Signed URLs"
-    description="A deeper look at how authorization works."
-    href="/docs/engine/core-concepts/signed-urls"
+    title="Pages & rendering"
+    description="Viewports, targets, formats, and raw rasters."
+    href="/docs/engine/core-concepts/pages-and-rendering"
   />
   <Card
-    title="Documents"
-    description="Upload, organize, and manage your files."
-    href="/docs/engine/core-concepts/documents"
+    title="Security & access"
+    description="Unlock protected docs and read effective scope."
+    href="/docs/engine/core-concepts/security-and-access"
   />
   <Card
-    title="Installation"
-    description="Framework-specific setup and configuration."
-    href="/docs/engine/getting-started/installation"
+    title="Async & errors"
+    description="AbortablePromise and typed EngineError handling."
+    href="/docs/engine/core-concepts/async-and-errors"
   />
 </Cards>

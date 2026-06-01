@@ -1,6 +1,6 @@
 export default {
   index: 'Introduction',
-  'quick-start': 'Quick start',
   installation: 'Installation',
+  'quick-start': 'Quick start',
   authentication: 'Authentication',
 };
