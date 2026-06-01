@@ -41,7 +41,7 @@ const VANILLA = (
 function FrameworkLink({ fw, tone }: { fw: Framework; tone: Tone }) {
   return (
     <Link
-      href="/docs/engine"
+      href="/docs/engine/getting-started"
       className={`border-cp-border group flex items-center gap-2.5 rounded-xl border bg-white px-3 py-3 no-underline transition-all hover:-translate-y-0.5 ${toneStyles[tone].fwHover}`}
     >
       <span className="inline-flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-[9px] bg-[#F4F7FD] transition-colors">
@@ -165,7 +165,7 @@ function DeployCard({
   const s = toneStyles[tone];
   return (
     <Link
-      href="/docs/engine"
+      href="/docs/engine/getting-started"
       className={`border-cp-border group flex items-center gap-[18px] rounded-[18px] border bg-white px-6 py-[22px] no-underline shadow-[0_1px_2px_rgba(10,26,77,0.04),0_18px_40px_-32px_rgba(10,26,77,0.18)] transition-all ${s.hover}`}
     >
       <span

@@ -10,6 +10,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@theguild/remark-npm2yarn": "^0.3.3",
     "next": "^15.4.10",
     "nextra": "^4.6.1",
     "react": "^18.2.0",

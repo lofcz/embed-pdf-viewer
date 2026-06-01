@@ -3,6 +3,7 @@
 import type { ComponentProps } from 'react';
 import { useRef, useState } from 'react';
 
+import { useInTabs } from '@/components/docs/tabs/index.client';
 import { CheckIcon, CopyIcon } from '@/components/site/icons';
 
 type PreProps = ComponentProps<'pre'> & {
@@ -12,6 +13,21 @@ type PreProps = ComponentProps<'pre'> & {
 export function Pre({ children, className, 'data-filename': filename, ...props }: PreProps) {
   const preRef = useRef<HTMLPreElement>(null);
   const [copied, setCopied] = useState(false);
+  const inTabs = useInTabs();
+
+  // Inside a Tabs shell (e.g. npm2yarn), render bare so the surrounding
+  // cp-cb box owns the chrome (tab bar + copy button).
+  if (inTabs) {
+    return (
+      <pre
+        ref={preRef}
+        className={`m-0 overflow-x-auto px-[18px] py-[17px] font-mono text-[13px] leading-[1.8] text-[#C8D3EA] [&_code]:bg-transparent [&_code]:p-0 ${className ?? ''}`}
+        {...props}
+      >
+        {children}
+      </pre>
+    );
+  }
 
   async function copy() {
     const text = preRef.current?.textContent ?? '';

@@ -1,6 +1,8 @@
 import { CpButton } from '@/components/site/button';
 import { HeroScene } from '@/components/site/hero-scene';
 import { ArrowRight, PlayIcon } from '@/components/site/icons';
+import { PlanSection } from '@/components/site/plan-section';
+import { ProblemSection } from '@/components/site/problem-section';
 
 const TRUST = [
   {
@@ -93,6 +95,9 @@ export default function HomePage() {
         {/* hero bottom-left dot grid */}
         <div className="cp-dots-fine pointer-events-none absolute bottom-[-104px] left-[-30px] z-0 h-[110px] w-[132px] text-[#ABC9FD] max-[980px]:hidden" />
       </div>
+
+      <ProblemSection />
+      <PlanSection />
     </main>
   );
 }

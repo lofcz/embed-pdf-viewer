@@ -20,17 +20,12 @@ function SidebarLink({ item, pathname }: { item: TreeItem; pathname: string }) {
   return (
     <Link
       href={item.route}
-      className={`group flex items-center gap-2.5 rounded-[9px] px-3 py-2 font-sans text-[14.5px] leading-[1.3] no-underline transition-colors ${
+      className={`-ml-[1.5px] flex items-center border-l-[1.5px] py-2 pl-[17px] pr-3 font-sans text-[14.5px] font-medium leading-[1.3] no-underline transition-colors ${
         active
-          ? 'bg-cp-surface text-cp-blue font-bold shadow-[inset_2px_0_0_#1677FF]'
-          : 'text-cp-ink hover:text-cp-navy hover:bg-[#EEF3FC]'
+          ? 'border-cp-blue text-cp-blue font-bold'
+          : 'text-cp-muted hover:text-cp-navy border-transparent hover:border-[#C2CEE6]'
       }`}
     >
-      <span
-        className={`h-[5px] w-[5px] flex-shrink-0 rounded-full transition-colors ${
-          active ? 'bg-cp-blue' : 'group-hover:bg-cp-blue bg-[#C2CEE6]'
-        }`}
-      />
       {item.title}
     </Link>
   );
@@ -44,11 +39,14 @@ function SidebarTree({ items, pathname }: { items: TreeItem[]; pathname: string 
 
         if (hasChildren) {
           return (
-            <div key={item.name} className="mt-[26px] first:mt-0">
-              <p className="font-display text-cp-muted px-3 pb-2.5 text-[11.5px] font-extrabold uppercase tracking-[0.1em]">
+            <div
+              key={item.name}
+              className="mt-7 border-t border-[#EAEFF7] pt-6 first:mt-0 first:border-t-0 first:pt-0"
+            >
+              <p className="font-display text-cp-navy px-3 pb-3 text-[12px] font-extrabold uppercase tracking-[0.11em]">
                 {item.title}
               </p>
-              <div className="flex flex-col gap-px">
+              <div className="ml-3 flex flex-col border-l-[1.5px] border-[#E7EDF6]">
                 <SidebarTree items={item.children ?? []} pathname={pathname} />
               </div>
             </div>
@@ -70,7 +68,7 @@ export function Sidebar() {
   if (!docsDirectories || docsDirectories.length === 0) return null;
 
   return (
-    <aside className="sticky top-[84px] hidden h-[calc(100vh-84px)] w-[268px] shrink-0 overflow-y-auto py-8 pr-3.5 [scrollbar-color:#D5DEEF_transparent] [scrollbar-width:thin] md:block">
+    <aside className="sticky top-[84px] hidden h-[calc(100vh-84px)] w-[268px] shrink-0 overflow-y-auto pb-16 pr-3.5 pt-[52px] [scrollbar-color:#D5DEEF_transparent] [scrollbar-width:thin] md:block">
       <nav className="flex flex-col">
         <SidebarTree items={docsDirectories as TreeItem[]} pathname={pathname} />
       </nav>
