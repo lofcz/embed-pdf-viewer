@@ -24,6 +24,18 @@ export const metadata: Metadata = {
   title: 'CloudPDF — The document platform for modern apps',
   description:
     'CloudPDF is the backend for your PDFs: secure storage, multi-tenant access control, real-time collaboration, annotations, forms, redaction, e-signatures, and server-side processing. Built on the open-source EmbedPDF viewer. Managed SaaS or self-hosted.',
+  icons: {
+    icon: [
+      { url: '/favicon-96x96.png', type: 'image/png', sizes: '96x96' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: { url: '/apple-touch-icon.png', sizes: '180x180' },
+  },
+  appleWebApp: {
+    title: 'CloudPDF',
+  },
+  manifest: '/site.webmanifest',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
