@@ -2,6 +2,9 @@ import type { MDXComponents } from 'mdx/types';
 import Link from 'next/link';
 import type { AnchorHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
 
+import { CodeExample } from '@/components/site/code-example';
+
+import { Pre } from './pre';
 import { Toc, type TocItem } from './toc';
 
 type WrapperProps = {
@@ -12,8 +15,8 @@ type WrapperProps = {
 
 function Wrapper({ children, toc }: WrapperProps) {
   return (
-    <div className="flex gap-8">
-      <article className="prose-cloudpdf min-w-0 flex-1 py-2">{children}</article>
+    <div className="flex gap-[clamp(28px,4vw,60px)]">
+      <article className="prose-cloudpdf min-w-0 flex-1 pb-20 pt-9">{children}</article>
       <Toc toc={toc} />
     </div>
   );
@@ -22,13 +25,13 @@ function Wrapper({ children, toc }: WrapperProps) {
 function createHeading(Tag: 'h2' | 'h3' | 'h4', className: string) {
   return function Heading({ id, children, ...props }: HTMLAttributes<HTMLHeadingElement>) {
     return (
-      <Tag id={id} className={`group scroll-mt-20 ${className}`} {...props}>
+      <Tag id={id} className={`group scroll-mt-[100px] ${className}`} {...props}>
         {children}
         {id ? (
           <a
             href={`#${id}`}
             aria-label="Link to this section"
-            className="hover:text-primary-600 ml-2 select-none text-gray-300 opacity-0 transition group-hover:opacity-100"
+            className="hover:text-cp-blue ml-2 select-none text-[#C2CEE6] opacity-0 transition group-hover:opacity-100"
           >
             #
           </a>
@@ -43,43 +46,69 @@ export function useMDXComponents(components?: MDXComponents): MDXComponents {
     wrapper: Wrapper,
     h1: (props) => (
       <h1
-        className="mb-4 mt-2 scroll-mt-20 text-3xl font-bold tracking-tight text-gray-900"
+        className="font-display text-cp-navy scroll-mt-[100px] text-[clamp(34px,4vw,46px)] font-extrabold leading-[1.08] tracking-[-0.025em]"
         {...props}
       />
     ),
     h2: createHeading(
       'h2',
-      'mb-3 mt-10 border-b border-gray-100 pb-2 text-2xl font-semibold tracking-tight text-gray-900',
+      'mt-[52px] font-display text-[27px] font-extrabold leading-[1.2] tracking-[-0.02em] text-cp-navy',
     ),
-    h3: createHeading('h3', 'mb-2 mt-8 text-xl font-semibold text-gray-900'),
-    h4: createHeading('h4', 'mb-2 mt-6 text-lg font-semibold text-gray-900'),
-    p: (props) => <p className="my-4 leading-7 text-gray-700" {...props} />,
+    h3: createHeading(
+      'h3',
+      'mt-[34px] font-display text-[18px] font-extrabold leading-[1.3] tracking-[-0.01em] text-cp-navy',
+    ),
+    h4: createHeading('h4', 'mt-7 font-display text-base font-extrabold text-cp-navy'),
+    p: (props) => (
+      <p
+        className="text-cp-ink mt-4 max-w-[70ch] font-sans text-[16.5px] leading-[1.7]"
+        {...props}
+      />
+    ),
     a: ({ href = '', ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) => (
       <Link
         href={href}
-        className="text-primary-600 font-medium underline-offset-4 hover:underline"
+        className="text-cp-blue font-semibold underline-offset-[3px] hover:underline"
         {...props}
       />
     ),
-    ul: (props) => <ul className="my-4 list-disc space-y-2 pl-6 text-gray-700" {...props} />,
-    ol: (props) => <ol className="my-4 list-decimal space-y-2 pl-6 text-gray-700" {...props} />,
-    li: (props) => <li className="leading-7" {...props} />,
+    strong: (props) => <strong className="text-cp-navy font-bold" {...props} />,
+    ul: (props) => (
+      <ul
+        className="text-cp-ink marker:text-cp-blue mt-4 max-w-[70ch] list-disc space-y-2.5 pl-6 font-sans text-base leading-[1.55]"
+        {...props}
+      />
+    ),
+    ol: (props) => (
+      <ol
+        className="text-cp-ink marker:text-cp-blue mt-4 max-w-[70ch] list-decimal space-y-2.5 pl-6 font-sans text-base leading-[1.55] marker:font-semibold"
+        {...props}
+      />
+    ),
+    li: (props) => <li className="pl-1 leading-[1.55]" {...props} />,
     blockquote: (props) => (
       <blockquote
-        className="my-4 border-l-4 border-gray-200 pl-4 italic text-gray-600"
+        className="mt-6 max-w-[72ch] rounded-[14px] border border-[#C9DEFF] bg-[#F2F7FF] px-[18px] py-4 font-sans text-[15px] leading-[1.6] text-[#2A4574] [&>p]:mt-0 [&>p]:max-w-none [&>p]:text-inherit"
         {...props}
       />
     ),
-    hr: (props) => <hr className="my-8 border-gray-200" {...props} />,
+    hr: (props) => <hr className="border-cp-border my-10" {...props} />,
     table: (props) => (
-      <div className="my-4 overflow-x-auto">
+      <div className="mt-6 max-w-full overflow-x-auto">
         <table className="w-full border-collapse text-sm" {...props} />
       </div>
     ),
     th: (props) => (
-      <th className="border-b border-gray-200 px-3 py-2 text-left font-semibold" {...props} />
+      <th
+        className="border-cp-border font-display text-cp-navy border-b px-3 py-2 text-left font-bold"
+        {...props}
+      />
     ),
-    td: (props) => <td className="border-b border-gray-100 px-3 py-2" {...props} />,
+    td: (props) => (
+      <td className="border-cp-borderSoft text-cp-ink border-b px-3 py-2" {...props} />
+    ),
+    pre: Pre,
+    CodeExample,
     ...components,
   };
 }

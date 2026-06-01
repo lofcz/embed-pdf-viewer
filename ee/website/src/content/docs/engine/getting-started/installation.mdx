@@ -1,0 +1,68 @@
+---
+title: Installation
+description: Install the CloudPDF SDK and framework bindings.
+---
+
+import { Callout } from '@/components/docs/callout';
+
+# Installation
+
+CloudPDF ships as a small set of focused packages. Install the framework
+binding for your frontend and, if you mint signed URLs yourself, the Node SDK
+for your backend.
+
+## Frontend packages
+
+Pick the package that matches your framework — they share the same API surface
+and component props.
+
+```bash
+# React
+npm install @cloudpdf/react
+
+# Vue
+npm install @cloudpdf/vue
+
+# Svelte
+npm install @cloudpdf/svelte
+
+# Framework-agnostic (vanilla JS / web component)
+npm install @cloudpdf/js
+```
+
+## Backend SDK
+
+The Node SDK signs document URLs and manages documents from your server. It
+should only ever run in a trusted server environment.
+
+```bash
+npm install @cloudpdf/node
+```
+
+<Callout type="warn">
+  Never import `@cloudpdf/node` into client-side bundles. It expects your secret
+  key, which must stay on the server.
+</Callout>
+
+## Requirements
+
+- **Node 18+** for the backend SDK.
+- A modern browser with WebAssembly support for the viewer (all evergreen
+  browsers qualify).
+- A CloudPDF project with API keys — create one from the dashboard.
+
+## Verify your install
+
+After installing, confirm the SDK is wired up by printing your project info:
+
+```ts
+import { CloudPDF } from '@cloudpdf/node';
+
+const cloudpdf = new CloudPDF(process.env.CLOUDPDF_SECRET_KEY);
+const project = await cloudpdf.projects.current();
+
+console.log(project.name, project.plan);
+```
+
+If that resolves without throwing, you're ready to
+[generate your first signed URL](/docs/engine/getting-started/quick-start).

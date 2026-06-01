@@ -1,9 +1,24 @@
 import type { Metadata } from 'next';
+import { Inter, Manrope } from 'next/font/google';
 import type { ReactNode } from 'react';
 
-import { SiteNavbar } from '@/components/site-navbar';
+import { Header } from '@/components/site/header';
 
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-sans',
+  display: 'swap',
+});
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+  variable: '--font-display',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'CloudPDF — The document platform for modern apps',
@@ -13,9 +28,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-white text-gray-900 antialiased">
-        <SiteNavbar />
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${manrope.variable}`}>
+      <body className="bg-cp-bg text-cp-ink min-h-screen font-sans antialiased">
+        <Header />
         {children}
       </body>
     </html>

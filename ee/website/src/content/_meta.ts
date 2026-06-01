@@ -1,6 +1,15 @@
 export default {
+  // The marketing homepage (app/page.tsx) shows up as a root "index" page.
+  // Hide it so it never leaks into the docs sidebar navigation.
+  index: {
+    display: 'hidden',
+  },
   docs: {
     title: 'Docs',
+    type: 'page',
+  },
+  pricing: {
+    title: 'Pricing',
     type: 'page',
   },
 };

@@ -1,14 +1,85 @@
 ---
-title: Engine
-description: The core CloudPDF document engine and API.
+title: Introduction
+description: The core CloudPDF document engine — storage, rendering, access control, and collaboration through one API.
 ---
+
+import { Cards, Card } from '@/components/docs/cards';
+import { Callout } from '@/components/docs/callout';
 
 # Engine
 
-The CloudPDF engine is the core document API that powers everything else —
-storage, rendering, annotations, and collaboration. This is a placeholder page;
-section content will be added here.
+The CloudPDF **engine** is the core document API that powers everything else —
+secure storage, rendering, annotations, access control, and real-time
+collaboration. Every viewer, framework binding, and dashboard feature is built
+on top of the same engine you can call directly.
 
-## Overview
+If you are integrating CloudPDF into a product, you'll typically use one of the
+framework packages (`@cloudpdf/react`, `@cloudpdf/vue`, `@cloudpdf/svelte`).
+Reach for the engine API directly when you need to mint signed URLs, manage
+documents from your backend, or build a fully custom experience.
 
-This section will cover the engine API, authentication, and document lifecycle.
+<Callout type="info">
+  New to CloudPDF? Start with the <a href="/docs/engine/getting-started/quick-start">Quick start</a> —
+  you'll render your first secure, access-controlled PDF in under five minutes.
+</Callout>
+
+## What the engine does
+
+- **Document storage** — upload once, then stream pages on demand. Bring your
+  own S3-compatible bucket or use managed storage.
+- **Signed URLs** — every document is served through short-lived, scoped URLs
+  so raw files are never exposed to the browser.
+- **Access control** — gate viewers by role, domain, expiry, and per-document
+  permissions like `download` and `print`.
+- **Annotations & collaboration** — highlights, comments, and signatures sync
+  in real time across every connected viewer.
+- **Audit logging** — capture every open, page view, and download as a
+  structured event stream.
+
+## How it fits together
+
+```ts
+import { CloudPDF } from '@cloudpdf/node';
+
+const cloudpdf = new CloudPDF(process.env.CLOUDPDF_SECRET_KEY);
+
+// 1. Upload a document (server-side, once)
+const doc = await cloudpdf.documents.create({ file: './proposal.pdf' });
+
+// 2. Mint a short-lived signed URL for a specific viewer
+const { url } = await cloudpdf.documents.sign({
+  documentId: doc.id,
+  expiresIn: '15m',
+  permissions: { download: false, print: false },
+});
+
+// 3. Hand `url` to the viewer in your frontend
+```
+
+The frontend never sees your secret key or the underlying storage — it only
+receives the scoped, expiring URL.
+
+## Next steps
+
+<Cards>
+  <Card
+    title="Quick start"
+    description="Render your first secure PDF in five minutes."
+    href="/docs/engine/getting-started/quick-start"
+  />
+  <Card
+    title="Authentication"
+    description="Publishable vs. secret keys and where each belongs."
+    href="/docs/engine/getting-started/authentication"
+  />
+  <Card
+    title="Signed URLs"
+    description="How CloudPDF enforces access control and expiry."
+    href="/docs/engine/core-concepts/signed-urls"
+  />
+  <Card
+    title="Documents"
+    description="Upload, organize, and manage document lifecycles."
+    href="/docs/engine/core-concepts/documents"
+  />
+</Cards>

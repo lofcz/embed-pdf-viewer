@@ -31,9 +31,11 @@ export function ConfigProvider({
 
   return (
     <ConfigContext.Provider value={normalized}>
-      <div className="mx-auto flex w-full max-w-7xl gap-8 px-6">
-        <Sidebar />
-        <main className="min-w-0 flex-1 py-10">{children}</main>
+      <div className="mx-auto w-full max-w-[1440px] px-[clamp(20px,4vw,78px)]">
+        <div className="flex items-start gap-[clamp(28px,4vw,60px)]">
+          <Sidebar />
+          <main className="min-w-0 flex-1 pb-20 pt-2">{children}</main>
+        </div>
       </div>
     </ConfigContext.Provider>
   );

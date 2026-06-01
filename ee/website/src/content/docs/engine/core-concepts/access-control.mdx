@@ -1,0 +1,72 @@
+---
+title: Access control
+description: Gate documents by role, domain, expiry, and per-document permissions.
+---
+
+import { Callout } from '@/components/docs/callout';
+
+# Access control
+
+Access control determines **who** can open a document and **what** they can do
+with it. It is enforced entirely server-side, so the rules can't be bypassed
+from the browser.
+
+## Layers of control
+
+CloudPDF evaluates access in layers, from broad to specific:
+
+1. **Project keys** — which API keys may sign URLs at all.
+2. **Document policy** — rules attached to an individual document.
+3. **Signed URL flags** — per-session overrides like `download` and `print`.
+
+The most restrictive rule across all layers always wins.
+
+## Setting a document policy
+
+```ts
+await cloudpdf.documents.update('doc_3kZ…', {
+  policy: {
+    allowedDomains: ['acme.com'],
+    requireViewerEmail: true,
+    permissions: { download: false, print: false },
+  },
+});
+```
+
+With this policy, only viewers whose session email ends in `@acme.com` can be
+issued a signed URL, and downloads are disabled regardless of the per-URL flag.
+
+## Roles
+
+Attach a role to a viewer when you mint a URL and branch on it in your own
+backend logic:
+
+```ts
+const { url } = await cloudpdf.documents.sign({
+  documentId: 'doc_3kZ…',
+  viewer: { id: 'user_2231', role: 'reviewer' },
+  permissions: { download: false },
+});
+```
+
+<Callout type="info">
+  Roles are recorded on every audit event, making it easy to answer questions
+  like "which reviewers opened this contract last week?"
+</Callout>
+
+## Auditing access
+
+Every authorization decision — granted or denied — is written to the audit log.
+Stream it to your SIEM or query it directly:
+
+```ts
+const events = await cloudpdf.audit.list({
+  documentId: 'doc_3kZ…',
+  type: ['document.opened', 'access.denied'],
+});
+```
+
+<Callout type="warn">
+  An `access.denied` event is not an error in your integration — it's the system
+  working as intended. Alert on unusual spikes rather than individual denials.
+</Callout>

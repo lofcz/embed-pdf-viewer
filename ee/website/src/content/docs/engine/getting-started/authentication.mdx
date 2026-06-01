@@ -1,0 +1,66 @@
+---
+title: Authentication
+description: Understand publishable and secret keys, and where each one belongs.
+---
+
+import { Callout } from '@/components/docs/callout';
+
+# Authentication
+
+CloudPDF authenticates requests with two kinds of keys. Knowing which key goes
+where is the most important security decision when you integrate.
+
+## The two keys
+
+| Key | Prefix | Where it lives | What it can do |
+| --- | --- | --- | --- |
+| Publishable | `pk_live_…` | Browser & client bundles | Initialize the viewer, load already-signed URLs |
+| Secret | `sk_live_…` | Server only | Mint signed URLs, manage documents, read audit logs |
+
+The publishable key is safe to expose. The secret key is not — treat it like a
+password.
+
+<Callout type="warn">
+  If a secret key is ever committed to a repo, pasted in a ticket, or shipped to
+  the browser, rotate it immediately from **Dashboard → API keys**. Rotation
+  invalidates the old key right away.
+</Callout>
+
+## Using the secret key
+
+Initialize the Node SDK once with your secret key, then reuse the instance:
+
+```ts
+import { CloudPDF } from '@cloudpdf/node';
+
+const cloudpdf = new CloudPDF(process.env.CLOUDPDF_SECRET_KEY);
+```
+
+## Using the publishable key
+
+The viewer needs the publishable key to talk to CloudPDF's edge. Pass it once
+when you mount the provider:
+
+```tsx
+import { CloudPDFProvider } from '@cloudpdf/react';
+
+export function App({ children }) {
+  return (
+    <CloudPDFProvider publishableKey={process.env.NEXT_PUBLIC_CLOUDPDF_KEY}>
+      {children}
+    </CloudPDFProvider>
+  );
+}
+```
+
+## Key scopes
+
+Each key can be scoped to a subset of capabilities when you create it. A common
+pattern is a read-only secret key for a reporting service and a full-access key
+for your main backend.
+
+<Callout type="info">
+  Scopes are enforced server-side on every request, so a narrowly scoped key
+  can't be widened by the client. Learn more in
+  <a href="/docs/engine/core-concepts/access-control">Access control</a>.
+</Callout>

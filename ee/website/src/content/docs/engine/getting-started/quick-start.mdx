@@ -1,0 +1,142 @@
+---
+title: Quick start
+description: Render your first secure, access-controlled PDF in under five minutes.
+---
+
+import { Callout } from '@/components/docs/callout';
+import { Cards, Card } from '@/components/docs/cards';
+import { Demo } from '@/content/docs/engine/code-examples/quick-start-viewer';
+
+# Quick start
+
+Render your first secure, access-controlled PDF in under five minutes. We'll
+install the SDK, mint a signed URL on your server, and drop the viewer into your
+app.
+
+## Before you begin
+
+You'll need a CloudPDF account and a project. Everything below works on the free
+tier — no card required. Make sure you have:
+
+- A **CloudPDF project** with a publishable key and a secret key (find both in
+  Dashboard → API keys).
+- **Node 18+** on the server that mints signed URLs, and a React, Vue, or
+  Svelte frontend.
+- One PDF uploaded to your project — or use our sample `proposal.pdf`.
+
+## Install the SDK
+
+Add the CloudPDF package for your framework. The viewer ships as an isolated
+bundle, so it won't collide with the rest of your app.
+
+```bash
+npm install @cloudpdf/react
+```
+
+Vue and Svelte builds live at `@cloudpdf/vue` and `@cloudpdf/svelte` with the
+same API surface.
+
+## Authenticate your app
+
+CloudPDF uses two keys. The **publishable key** is safe to ship to the browser;
+the **secret key** stays on your server and signs document URLs. Store them as
+environment variables.
+
+```bash
+# Safe to expose in the browser
+CLOUDPDF_PUBLISHABLE_KEY=pk_live_8sQ2…f0a1
+
+# Server only — never ship to the client
+CLOUDPDF_SECRET_KEY=sk_live_3vR9…c7d4
+```
+
+<Callout type="warn">
+  **Keep the secret key server-side.** It can mint signed URLs for any document
+  in your project. If it leaks, rotate it immediately from the dashboard.
+</Callout>
+
+## Generate a signed URL
+
+Rather than exposing raw file links, your server mints a short-lived **signed
+URL** scoped to one document and one viewer. This is how CloudPDF enforces
+access control, expiry, and download permissions.
+
+```ts
+import { CloudPDF } from '@cloudpdf/node';
+
+const cloudpdf = new CloudPDF(process.env.CLOUDPDF_SECRET_KEY);
+
+export async function GET() {
+  const { url } = await cloudpdf.documents.sign({
+    documentId: 'doc_proposal_2026',
+    expiresIn: '15m',
+    permissions: { download: false, print: false },
+  });
+
+  return Response.json({ url });
+}
+```
+
+## Embed the viewer
+
+On the client, fetch the signed URL and pass it to `<CloudPDFViewer>`. The
+component handles rendering, search, thumbnails, and annotations out of the box.
+
+```tsx
+import { CloudPDFViewer } from '@cloudpdf/react';
+import { useEffect, useState } from 'react';
+
+export function DocumentPage() {
+  const [url, setUrl] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/sign')
+      .then((r) => r.json())
+      .then((d) => setUrl(d.url));
+  }, []);
+
+  return <CloudPDFViewer src={url} annotations theme="light" style={{ height: '80vh' }} />;
+}
+```
+
+<Callout type="info">
+  That's it — load the page and your PDF renders inside a secure, sandboxed
+  viewer. Because **download** and **print** were disabled in the signed URL,
+  those controls won't appear.
+</Callout>
+
+## Live example
+
+The viewer is fully interactive. Try the zoom and page controls below, then
+expand **View code** to see exactly what's rendering it.
+
+<CodeExample codePaths={["content/docs/engine/code-examples/quick-start-viewer.tsx"]}>
+  <Demo />
+</CodeExample>
+
+## Next steps
+
+You've got a working viewer. Here's where most teams go next:
+
+<Cards>
+  <Card
+    title="Access control"
+    description="Scope viewers by role, domain, and expiry."
+    href="/docs/engine/core-concepts/access-control"
+  />
+  <Card
+    title="Signed URLs"
+    description="A deeper look at how authorization works."
+    href="/docs/engine/core-concepts/signed-urls"
+  />
+  <Card
+    title="Documents"
+    description="Upload, organize, and manage your files."
+    href="/docs/engine/core-concepts/documents"
+  />
+  <Card
+    title="Installation"
+    description="Framework-specific setup and configuration."
+    href="/docs/engine/getting-started/installation"
+  />
+</Cards>
