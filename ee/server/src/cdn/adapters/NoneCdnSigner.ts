@@ -4,7 +4,7 @@
  * browser-private cache, no signing channels populated.
  *
  * Used for single-server deployments, local dev, and as the default
- * when `EMBEDPDF_CDN_KIND` is unset. Purge is a no-op.
+ * when `CLOUDPDF_CDN_KIND` is unset. Purge is a no-op.
  */
 
 import type { CdnAccessInfo } from '@embedpdf/engine-core/runtime';

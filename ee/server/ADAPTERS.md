@@ -173,7 +173,7 @@ The `{ resolver }` opt is the shared mechanism for resolving `SecretRef` fields 
 
 ```typescript
 export function load<Family>ConfigFromEnv(env: NodeJS.ProcessEnv): <Family>Config {
-  const kind = env['EMBEDPDF_<FAMILY>_KIND'] ?? '<default>';
+  const kind = env['CLOUDPDF_<FAMILY>_KIND'] ?? '<default>';
   const raw = { kind, ...kindSpecificFields(env, kind) };
   return <Family>ConfigSchema.parse(raw); // throws with helpful message
 }
@@ -181,8 +181,8 @@ export function load<Family>ConfigFromEnv(env: NodeJS.ProcessEnv): <Family>Confi
 
 Env-var conventions:
 
-- `EMBEDPDF_<FAMILY>_KIND` — selector
-- `EMBEDPDF_<FAMILY>_<KIND>_<FIELD>` — variant-specific fields
+- `CLOUDPDF_<FAMILY>_KIND` — selector
+- `CLOUDPDF_<FAMILY>_<KIND>_<FIELD>` — variant-specific fields
 - Secret values accept the `secret://<provider>/<name>?jsonKey=...&encoding=...` URI form (parsed to `SecretRef`) or plain strings (used literally)
 
 ---
@@ -235,8 +235,8 @@ No `createServerRuntime` or other bundler. Five lines of factory composition is 
 | Goal                                                      | How                                                                                                                                                            |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Default deployment (caching on)                           | `config.cache: { ttlSec: 3600 }` — `loadSecretsConfigFromEnv` sets this by default                                                                             |
-| Custom TTL                                                | `config.cache: { ttlSec: 300 }` (or `EMBEDPDF_SECRETS_CACHE_TTL_SEC=300`)                                                                                      |
-| No caching                                                | Omit `cache` from the programmatic config; or `EMBEDPDF_SECRETS_CACHE_TTL_SEC=0`                                                                               |
+| Custom TTL                                                | `config.cache: { ttlSec: 300 }` (or `CLOUDPDF_SECRETS_CACHE_TTL_SEC=300`)                                                                                      |
+| No caching                                                | Omit `cache` from the programmatic config; or `CLOUDPDF_SECRETS_CACHE_TTL_SEC=0`                                                                               |
 | Per-provider caching, custom decorators, mocked providers | Skip the registry helper — build providers manually via `createSecretsProvider`, compose into a `Map<string, SecretsProvider>`, pass to `createSecretResolver` |
 
 ---

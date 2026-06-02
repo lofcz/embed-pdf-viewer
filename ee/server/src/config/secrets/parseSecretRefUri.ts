@@ -8,9 +8,9 @@
  * or a secret://… URI (resolved through the SecretsProvider).
  *
  * Examples:
- *   secret://env/EMBEDPDF_DEV_KEK?encoding=base64
- *   secret://awsProd/embedpdf/prod/kek?encoding=base64
- *   secret://awsProd/embedpdf/s3-creds?jsonKey=accessKeyId
+ *   secret://env/CLOUDPDF_DEV_KEK?encoding=base64
+ *   secret://awsProd/cloudpdf/prod/kek?encoding=base64
+ *   secret://awsProd/cloudpdf/s3-creds?jsonKey=accessKeyId
  *   secret://gcpProd/projects/123/secrets/foo/versions/latest
  *
  * The `<name>` portion may contain `/` (everything after the first

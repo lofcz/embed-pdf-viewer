@@ -325,12 +325,12 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       const passwordSessionServerSecret = {
         id:
           opts.pdfPasswordSessionServerSecretId ??
-          process.env['EMBEDPDF_PASSWORD_SESSION_SERVER_SECRET_ID'] ??
+          process.env['CLOUDPDF_PASSWORD_SESSION_SERVER_SECRET_ID'] ??
           'dev-v1',
         secret:
           opts.pdfPasswordSessionServerSecret ??
-          process.env['EMBEDPDF_PASSWORD_SESSION_SERVER_SECRET'] ??
-          'embedpdf-dev-password-session-secret',
+          process.env['CLOUDPDF_PASSWORD_SESSION_SERVER_SECRET'] ??
+          'cloudpdf-dev-password-session-secret',
       };
       // CDN-signaling rule for /head: non-`none` adapters need /access
       // to be called before the first cacheable read so the SDK has
@@ -347,8 +347,8 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         passwordVerifications: new PdfPasswordVerificationsRepo(opts.db, {
           hmacSecret:
             opts.pdfPasswordVerificationHmacSecret ??
-            process.env['EMBEDPDF_PASSWORD_VERIFICATION_HMAC_SECRET'] ??
-            'embedpdf-dev-password-verification-secret',
+            process.env['CLOUDPDF_PASSWORD_VERIFICATION_HMAC_SECRET'] ??
+            'cloudpdf-dev-password-verification-secret',
           ttlMs: opts.pdfPasswordVerificationTtlMs,
         }),
         ...(opts.kms

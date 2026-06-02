@@ -30,14 +30,14 @@ examples/cloud-platform-smoke/.data
 ## Useful Env
 
 ```bash
-EMBEDPDF_SMOKE_JWT_SECRET=embedpdf-dev-secret-change-me
-EMBEDPDF_SMOKE_STATIC_KMS_KEK=<base64-encoded-32-byte-key>
-EMBEDPDF_SMOKE_TENANT=tenant-demo
-EMBEDPDF_SMOKE_ENGINE_PORT=3210
-EMBEDPDF_SMOKE_API_PORT=3211
+CLOUDPDF_SMOKE_JWT_SECRET=cloudpdf-dev-secret-change-me
+CLOUDPDF_SMOKE_STATIC_KMS_KEK=<base64-encoded-32-byte-key>
+CLOUDPDF_SMOKE_TENANT=tenant-demo
+CLOUDPDF_SMOKE_ENGINE_PORT=3210
+CLOUDPDF_SMOKE_API_PORT=3211
 ```
 
-`EMBEDPDF_SMOKE_STATIC_KMS_KEK` is optional for local smoke testing; the
+`CLOUDPDF_SMOKE_STATIC_KMS_KEK` is optional for local smoke testing; the
 dev server supplies an in-memory-only development key when it is omitted.
 
 Layer testing flow:

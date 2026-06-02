@@ -30,16 +30,16 @@ import {
 } from '@cloudpdf/server';
 
 const root = resolve(import.meta.dirname, '..');
-const dataRoot = resolve(process.env['EMBEDPDF_SMOKE_DATA_ROOT'] ?? `${root}/.data`);
-const enginePort = Number(process.env['EMBEDPDF_SMOKE_ENGINE_PORT'] ?? 3210);
-const apiPort = Number(process.env['EMBEDPDF_SMOKE_API_PORT'] ?? 3211);
-const host = process.env['EMBEDPDF_SMOKE_HOST'] ?? '127.0.0.1';
-const defaultTenant = process.env['EMBEDPDF_SMOKE_TENANT'] ?? 'tenant-demo';
+const dataRoot = resolve(process.env['CLOUDPDF_SMOKE_DATA_ROOT'] ?? `${root}/.data`);
+const enginePort = Number(process.env['CLOUDPDF_SMOKE_ENGINE_PORT'] ?? 3210);
+const apiPort = Number(process.env['CLOUDPDF_SMOKE_API_PORT'] ?? 3211);
+const host = process.env['CLOUDPDF_SMOKE_HOST'] ?? '127.0.0.1';
+const defaultTenant = process.env['CLOUDPDF_SMOKE_TENANT'] ?? 'tenant-demo';
 const staticKmsKek =
-  process.env['EMBEDPDF_SMOKE_STATIC_KMS_KEK'] ?? Buffer.alloc(32, 7).toString('base64');
+  process.env['CLOUDPDF_SMOKE_STATIC_KMS_KEK'] ?? Buffer.alloc(32, 7).toString('base64');
 
 /**
- * Which CDN signer to mount. Set `EMBEDPDF_SMOKE_CDN` to one of:
+ * Which CDN signer to mount. Set `CLOUDPDF_SMOKE_CDN` to one of:
  *   none, bunny, cloud-cdn, cloudfront-cookies, cloudfront-urls,
  *   azure-fd, custom-hmac-query, custom-hmac-header
  *
@@ -48,10 +48,10 @@ const staticKmsKek =
  * the goal is to see what URLs and tokens the server emits, not to
  * actually hit a real edge.
  */
-const cdnKind = (process.env['EMBEDPDF_SMOKE_CDN'] ?? 'bunny').toLowerCase();
+const cdnKind = (process.env['CLOUDPDF_SMOKE_CDN'] ?? 'bunny').toLowerCase();
 const smokeSecretRefs = {
-  jwtSigningSecret: { provider: 'env', name: 'EMBEDPDF_SMOKE_JWT_SECRET' },
-  staticKmsKek: { provider: 'env', name: 'EMBEDPDF_SMOKE_STATIC_KMS_KEK', encoding: 'base64' },
+  jwtSigningSecret: { provider: 'env', name: 'CLOUDPDF_SMOKE_JWT_SECRET' },
+  staticKmsKek: { provider: 'env', name: 'CLOUDPDF_SMOKE_STATIC_KMS_KEK', encoding: 'base64' },
 } as const;
 const smokeSecretsConfig = {
   providers: {
@@ -92,14 +92,14 @@ async function startEmbedPdfServer(): Promise<void> {
   await mkdir(`${dataRoot}/objects`, { recursive: true });
   await mkdir(`${dataRoot}/cache`, { recursive: true });
 
-  db = createSqliteDb({ path: `${dataRoot}/embedpdf.db` });
+  db = createSqliteDb({ path: `${dataRoot}/cloudpdf.db` });
   await migrate(db, { source: { kind: 'inline', migrations: sqliteMigrations } });
   storage = new FsObjectStore({ root: `${dataRoot}/objects` });
   const securityEnv = {
     ...process.env,
-    EMBEDPDF_SMOKE_JWT_SECRET:
-      process.env['EMBEDPDF_SMOKE_JWT_SECRET'] ?? 'embedpdf-dev-secret-change-me',
-    EMBEDPDF_SMOKE_STATIC_KMS_KEK: staticKmsKek,
+    CLOUDPDF_SMOKE_JWT_SECRET:
+      process.env['CLOUDPDF_SMOKE_JWT_SECRET'] ?? 'cloudpdf-dev-secret-change-me',
+    CLOUDPDF_SMOKE_STATIC_KMS_KEK: staticKmsKek,
   };
   const secrets = createSecretsProviderRegistry(smokeSecretsConfig, { env: securityEnv });
   const resolver = createSecretResolver(secrets);
@@ -185,7 +185,7 @@ function buildSmokeCdnSigner(kind: string): CdnSigner {
       });
     default:
       throw new Error(
-        `Unknown EMBEDPDF_SMOKE_CDN=${kind}. Valid: none, bunny, cloud-cdn, cloudfront-cookies, cloudfront-urls, azure-fd, custom-hmac-query, custom-hmac-header.`,
+        `Unknown CLOUDPDF_SMOKE_CDN=${kind}. Valid: none, bunny, cloud-cdn, cloudfront-cookies, cloudfront-urls, azure-fd, custom-hmac-query, custom-hmac-header.`,
       );
   }
 }

@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
-const apiPort = Number(process.env['EMBEDPDF_SMOKE_API_PORT'] ?? 3211);
-const enginePort = Number(process.env['EMBEDPDF_SMOKE_ENGINE_PORT'] ?? 3210);
+const apiPort = Number(process.env['CLOUDPDF_SMOKE_API_PORT'] ?? 3211);
+const enginePort = Number(process.env['CLOUDPDF_SMOKE_ENGINE_PORT'] ?? 3210);
 
 export default defineConfig({
   server: {

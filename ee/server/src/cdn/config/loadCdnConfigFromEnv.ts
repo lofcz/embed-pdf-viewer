@@ -2,38 +2,38 @@
  * Build a CdnConfig from environment variables.
  *
  * Convention:
- *   EMBEDPDF_CDN_KIND=none|bunny|cloud-cdn|cloudfront|azure-fd|custom-hmac
+ *   CLOUDPDF_CDN_KIND=none|bunny|cloud-cdn|cloudfront|azure-fd|custom-hmac
  *      (default: none)
  *
  *   # bunny
- *   EMBEDPDF_CDN_BUNNY_ZONE_HOSTNAME=embedpdf-prod.b-cdn.net
- *   EMBEDPDF_CDN_BUNNY_ZONE_TOKEN=secret://<provider>/<name>  (or literal)
- *   EMBEDPDF_CDN_BUNNY_API_KEY=secret://...                   (optional, for purge)
+ *   CLOUDPDF_CDN_BUNNY_ZONE_HOSTNAME=cloudpdf-prod.b-cdn.net
+ *   CLOUDPDF_CDN_BUNNY_ZONE_TOKEN=secret://<provider>/<name>  (or literal)
+ *   CLOUDPDF_CDN_BUNNY_API_KEY=secret://...                   (optional, for purge)
  *
  *   # cloud-cdn
- *   EMBEDPDF_CDN_CLOUD_CDN_URL_PREFIX=https://cdn.example.com
- *   EMBEDPDF_CDN_CLOUD_CDN_KEY_NAME=embedpdf-key
- *   EMBEDPDF_CDN_CLOUD_CDN_KEY_VALUE=secret://...
- *   EMBEDPDF_CDN_CLOUD_CDN_PROJECT_ID=...                     (optional, for purge)
+ *   CLOUDPDF_CDN_CLOUD_CDN_URL_PREFIX=https://cdn.example.com
+ *   CLOUDPDF_CDN_CLOUD_CDN_KEY_NAME=cloudpdf-key
+ *   CLOUDPDF_CDN_CLOUD_CDN_KEY_VALUE=secret://...
+ *   CLOUDPDF_CDN_CLOUD_CDN_PROJECT_ID=...                     (optional, for purge)
  *
  *   # cloudfront
- *   EMBEDPDF_CDN_CLOUDFRONT_DISTRIBUTION_DOMAIN=d123.cloudfront.net
- *   EMBEDPDF_CDN_CLOUDFRONT_KEY_PAIR_ID=K2JCJMDEHXQW5F
- *   EMBEDPDF_CDN_CLOUDFRONT_PRIVATE_KEY_PEM=secret://...
- *   EMBEDPDF_CDN_CLOUDFRONT_MODE=cookies|urls                 (default: cookies)
- *   EMBEDPDF_CDN_CLOUDFRONT_DISTRIBUTION_ID=E1ABCDEFGHIJK     (optional, for purge)
- *   EMBEDPDF_CDN_CLOUDFRONT_COOKIE_DOMAIN=.example.com        (optional)
+ *   CLOUDPDF_CDN_CLOUDFRONT_DISTRIBUTION_DOMAIN=d123.cloudfront.net
+ *   CLOUDPDF_CDN_CLOUDFRONT_KEY_PAIR_ID=K2JCJMDEHXQW5F
+ *   CLOUDPDF_CDN_CLOUDFRONT_PRIVATE_KEY_PEM=secret://...
+ *   CLOUDPDF_CDN_CLOUDFRONT_MODE=cookies|urls                 (default: cookies)
+ *   CLOUDPDF_CDN_CLOUDFRONT_DISTRIBUTION_ID=E1ABCDEFGHIJK     (optional, for purge)
+ *   CLOUDPDF_CDN_CLOUDFRONT_COOKIE_DOMAIN=.example.com        (optional)
  *
  *   # azure-fd
- *   EMBEDPDF_CDN_AZURE_FD_ENDPOINT=https://embedpdf.azurefd.net
- *   EMBEDPDF_CDN_AZURE_FD_SECRET=secret://...
- *   EMBEDPDF_CDN_AZURE_FD_PROFILE_NAME=...                    (optional, for purge)
+ *   CLOUDPDF_CDN_AZURE_FD_ENDPOINT=https://embedpdf.azurefd.net
+ *   CLOUDPDF_CDN_AZURE_FD_SECRET=secret://...
+ *   CLOUDPDF_CDN_AZURE_FD_PROFILE_NAME=...                    (optional, for purge)
  *
  *   # custom-hmac
- *   EMBEDPDF_CDN_CUSTOM_HMAC_CDN_ORIGIN=https://cdn.example.com
- *   EMBEDPDF_CDN_CUSTOM_HMAC_SECRET=secret://...
- *   EMBEDPDF_CDN_CUSTOM_HMAC_TRANSPORT=header|query           (default: header)
- *   EMBEDPDF_CDN_CUSTOM_HMAC_PURGE_WEBHOOK_URL=https://...    (optional)
+ *   CLOUDPDF_CDN_CUSTOM_HMAC_CDN_ORIGIN=https://cdn.example.com
+ *   CLOUDPDF_CDN_CUSTOM_HMAC_SECRET=secret://...
+ *   CLOUDPDF_CDN_CUSTOM_HMAC_TRANSPORT=header|query           (default: header)
+ *   CLOUDPDF_CDN_CUSTOM_HMAC_PURGE_WEBHOOK_URL=https://...    (optional)
  */
 
 import type { SecretRefConfig } from '../../config/secrets/SecretRef';
@@ -41,14 +41,14 @@ import { parseSecretRefUri } from '../../config/secrets/parseSecretRefUri';
 import { CdnConfigSchema, type CdnConfig } from './CdnConfigSchema';
 
 export function loadCdnConfigFromEnv(env: NodeJS.ProcessEnv = process.env): CdnConfig {
-  const kind = (env['EMBEDPDF_CDN_KIND'] ?? 'none').toLowerCase();
+  const kind = (env['CLOUDPDF_CDN_KIND'] ?? 'none').toLowerCase();
   switch (kind) {
     case 'none':
       return CdnConfigSchema.parse({ kind: 'none' });
     case 'bunny': {
-      const zoneHostname = req(env, 'EMBEDPDF_CDN_BUNNY_ZONE_HOSTNAME');
-      const zoneToken = parseSecretOrLiteral(req(env, 'EMBEDPDF_CDN_BUNNY_ZONE_TOKEN'));
-      const apiKeyRaw = env['EMBEDPDF_CDN_BUNNY_API_KEY'];
+      const zoneHostname = req(env, 'CLOUDPDF_CDN_BUNNY_ZONE_HOSTNAME');
+      const zoneToken = parseSecretOrLiteral(req(env, 'CLOUDPDF_CDN_BUNNY_ZONE_TOKEN'));
+      const apiKeyRaw = env['CLOUDPDF_CDN_BUNNY_API_KEY'];
       return CdnConfigSchema.parse({
         kind: 'bunny',
         zoneHostname,
@@ -57,11 +57,11 @@ export function loadCdnConfigFromEnv(env: NodeJS.ProcessEnv = process.env): CdnC
       });
     }
     case 'cloud-cdn': {
-      const urlPrefix = req(env, 'EMBEDPDF_CDN_CLOUD_CDN_URL_PREFIX');
-      const keyName = req(env, 'EMBEDPDF_CDN_CLOUD_CDN_KEY_NAME');
-      const keyValue = parseSecretOrLiteral(req(env, 'EMBEDPDF_CDN_CLOUD_CDN_KEY_VALUE'));
-      const projectId = env['EMBEDPDF_CDN_CLOUD_CDN_PROJECT_ID'];
-      const serviceAccountKeyRaw = env['EMBEDPDF_CDN_CLOUD_CDN_SERVICE_ACCOUNT_KEY'];
+      const urlPrefix = req(env, 'CLOUDPDF_CDN_CLOUD_CDN_URL_PREFIX');
+      const keyName = req(env, 'CLOUDPDF_CDN_CLOUD_CDN_KEY_NAME');
+      const keyValue = parseSecretOrLiteral(req(env, 'CLOUDPDF_CDN_CLOUD_CDN_KEY_VALUE'));
+      const projectId = env['CLOUDPDF_CDN_CLOUD_CDN_PROJECT_ID'];
+      const serviceAccountKeyRaw = env['CLOUDPDF_CDN_CLOUD_CDN_SERVICE_ACCOUNT_KEY'];
       return CdnConfigSchema.parse({
         kind: 'cloud-cdn',
         urlPrefix,
@@ -74,15 +74,15 @@ export function loadCdnConfigFromEnv(env: NodeJS.ProcessEnv = process.env): CdnC
       });
     }
     case 'cloudfront': {
-      const distributionDomain = req(env, 'EMBEDPDF_CDN_CLOUDFRONT_DISTRIBUTION_DOMAIN');
-      const keyPairId = req(env, 'EMBEDPDF_CDN_CLOUDFRONT_KEY_PAIR_ID');
+      const distributionDomain = req(env, 'CLOUDPDF_CDN_CLOUDFRONT_DISTRIBUTION_DOMAIN');
+      const keyPairId = req(env, 'CLOUDPDF_CDN_CLOUDFRONT_KEY_PAIR_ID');
       const privateKeyPem = parseSecretOrLiteral(
-        req(env, 'EMBEDPDF_CDN_CLOUDFRONT_PRIVATE_KEY_PEM'),
+        req(env, 'CLOUDPDF_CDN_CLOUDFRONT_PRIVATE_KEY_PEM'),
       );
-      const mode = env['EMBEDPDF_CDN_CLOUDFRONT_MODE'] ?? 'cookies';
-      const distributionId = env['EMBEDPDF_CDN_CLOUDFRONT_DISTRIBUTION_ID'];
-      const awsRegion = env['EMBEDPDF_CDN_CLOUDFRONT_AWS_REGION'];
-      const cookieDomain = env['EMBEDPDF_CDN_CLOUDFRONT_COOKIE_DOMAIN'];
+      const mode = env['CLOUDPDF_CDN_CLOUDFRONT_MODE'] ?? 'cookies';
+      const distributionId = env['CLOUDPDF_CDN_CLOUDFRONT_DISTRIBUTION_ID'];
+      const awsRegion = env['CLOUDPDF_CDN_CLOUDFRONT_AWS_REGION'];
+      const cookieDomain = env['CLOUDPDF_CDN_CLOUDFRONT_COOKIE_DOMAIN'];
       return CdnConfigSchema.parse({
         kind: 'cloudfront',
         distributionDomain,
@@ -95,10 +95,10 @@ export function loadCdnConfigFromEnv(env: NodeJS.ProcessEnv = process.env): CdnC
       });
     }
     case 'azure-fd': {
-      const endpoint = req(env, 'EMBEDPDF_CDN_AZURE_FD_ENDPOINT');
-      const secret = parseSecretOrLiteral(req(env, 'EMBEDPDF_CDN_AZURE_FD_SECRET'));
-      const profileName = env['EMBEDPDF_CDN_AZURE_FD_PROFILE_NAME'];
-      const subscriptionId = env['EMBEDPDF_CDN_AZURE_FD_SUBSCRIPTION_ID'];
+      const endpoint = req(env, 'CLOUDPDF_CDN_AZURE_FD_ENDPOINT');
+      const secret = parseSecretOrLiteral(req(env, 'CLOUDPDF_CDN_AZURE_FD_SECRET'));
+      const profileName = env['CLOUDPDF_CDN_AZURE_FD_PROFILE_NAME'];
+      const subscriptionId = env['CLOUDPDF_CDN_AZURE_FD_SUBSCRIPTION_ID'];
       return CdnConfigSchema.parse({
         kind: 'azure-fd',
         endpoint,
@@ -108,10 +108,10 @@ export function loadCdnConfigFromEnv(env: NodeJS.ProcessEnv = process.env): CdnC
       });
     }
     case 'custom-hmac': {
-      const cdnOrigin = req(env, 'EMBEDPDF_CDN_CUSTOM_HMAC_CDN_ORIGIN');
-      const secret = parseSecretOrLiteral(req(env, 'EMBEDPDF_CDN_CUSTOM_HMAC_SECRET'));
-      const transport = env['EMBEDPDF_CDN_CUSTOM_HMAC_TRANSPORT'] ?? 'header';
-      const purgeWebhookUrl = env['EMBEDPDF_CDN_CUSTOM_HMAC_PURGE_WEBHOOK_URL'];
+      const cdnOrigin = req(env, 'CLOUDPDF_CDN_CUSTOM_HMAC_CDN_ORIGIN');
+      const secret = parseSecretOrLiteral(req(env, 'CLOUDPDF_CDN_CUSTOM_HMAC_SECRET'));
+      const transport = env['CLOUDPDF_CDN_CUSTOM_HMAC_TRANSPORT'] ?? 'header';
+      const purgeWebhookUrl = env['CLOUDPDF_CDN_CUSTOM_HMAC_PURGE_WEBHOOK_URL'];
       return CdnConfigSchema.parse({
         kind: 'custom-hmac',
         cdnOrigin,
@@ -122,7 +122,7 @@ export function loadCdnConfigFromEnv(env: NodeJS.ProcessEnv = process.env): CdnC
     }
     default:
       throw new Error(
-        `EMBEDPDF_CDN_KIND="${kind}" is not recognized (expected none|bunny|cloud-cdn|cloudfront|azure-fd|custom-hmac)`,
+        `CLOUDPDF_CDN_KIND="${kind}" is not recognized (expected none|bunny|cloud-cdn|cloudfront|azure-fd|custom-hmac)`,
       );
   }
 }

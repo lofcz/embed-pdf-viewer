@@ -26,19 +26,19 @@ import type { Kysely } from 'kysely';
  *   cloudpdf-server --help
  *
  * Config is read from env (12-factor friendly):
- *   EMBEDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)
- *   EMBEDPDF_DB_SQLITE_PATH                  (default: ./data/embedpdf.db)
- *   EMBEDPDF_DB_URL         postgres://...
- *   EMBEDPDF_JWT_SECRET    (default: dev secret; warn at startup)
- *   EMBEDPDF_STORAGE_KIND  fs|s3            (default: fs for audit export)
- *   EMBEDPDF_STORAGE_FS_ROOT                (default: ./data/objects)
- *   EMBEDPDF_STORAGE_S3_BUCKET
- *   EMBEDPDF_STORAGE_S3_REGION
- *   EMBEDPDF_STORAGE_S3_ENDPOINT            (optional)
+ *   CLOUDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)
+ *   CLOUDPDF_DB_SQLITE_PATH                  (default: ./data/cloudpdf.db)
+ *   CLOUDPDF_DB_URL         postgres://...
+ *   CLOUDPDF_JWT_SECRET    (default: dev secret; warn at startup)
+ *   CLOUDPDF_STORAGE_KIND  fs|s3            (default: fs for audit export)
+ *   CLOUDPDF_STORAGE_FS_ROOT                (default: ./data/objects)
+ *   CLOUDPDF_STORAGE_S3_BUCKET
+ *   CLOUDPDF_STORAGE_S3_REGION
+ *   CLOUDPDF_STORAGE_S3_ENDPOINT            (optional)
  *   PORT                   (default: 3000)
  *   HOST                   (default: 0.0.0.0)
  *   POOL_SIZE              (default: auto)
- *   EMBEDPDF_FAIL_ON_PENDING=1   refuse to start with pending migrations
+ *   CLOUDPDF_FAIL_ON_PENDING=1   refuse to start with pending migrations
  *
  * Exit codes:
  *   0  success
@@ -61,11 +61,11 @@ function readDbConfig(): {
   pgOpts?: CreatePostgresDbOptions;
   describe: string;
 } {
-  const driver = (process.env['EMBEDPDF_DB_DRIVER'] ?? 'sqlite').toLowerCase() as Dialect;
+  const driver = (process.env['CLOUDPDF_DB_DRIVER'] ?? 'sqlite').toLowerCase() as Dialect;
   if (driver === 'postgres') {
-    const url = process.env['EMBEDPDF_DB_URL'];
+    const url = process.env['CLOUDPDF_DB_URL'];
     if (!url) {
-      fail(2, 'EMBEDPDF_DB_DRIVER=postgres requires EMBEDPDF_DB_URL=postgres://...');
+      fail(2, 'CLOUDPDF_DB_DRIVER=postgres requires CLOUDPDF_DB_URL=postgres://...');
     }
     return {
       dialect: 'postgres',
@@ -74,9 +74,9 @@ function readDbConfig(): {
     };
   }
   if (driver !== 'sqlite') {
-    fail(2, `EMBEDPDF_DB_DRIVER must be 'sqlite' or 'postgres' (got ${driver!})`);
+    fail(2, `CLOUDPDF_DB_DRIVER must be 'sqlite' or 'postgres' (got ${driver!})`);
   }
-  const path = process.env['EMBEDPDF_DB_SQLITE_PATH'] ?? './data/embedpdf.db';
+  const path = process.env['CLOUDPDF_DB_SQLITE_PATH'] ?? './data/cloudpdf.db';
   return { dialect: 'sqlite', sqliteOpts: { path }, describe: `sqlite ${path}` };
 }
 
@@ -132,15 +132,15 @@ function printHelp(): void {
       '                          Export closed-day audit_log rows to JSONL storage',
       '',
       'Environment:',
-      '  EMBEDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)',
-      '  EMBEDPDF_DB_SQLITE_PATH                  (default: ./data/embedpdf.db)',
-      '  EMBEDPDF_DB_URL        postgres://...',
-      '  EMBEDPDF_STORAGE_KIND  fs|s3            (default: fs)',
-      '  EMBEDPDF_STORAGE_FS_ROOT                (default: ./data/objects)',
-      '  EMBEDPDF_STORAGE_S3_BUCKET, EMBEDPDF_STORAGE_S3_REGION',
-      '  EMBEDPDF_JWT_SECRET    (required in production)',
+      '  CLOUDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)',
+      '  CLOUDPDF_DB_SQLITE_PATH                  (default: ./data/cloudpdf.db)',
+      '  CLOUDPDF_DB_URL        postgres://...',
+      '  CLOUDPDF_STORAGE_KIND  fs|s3            (default: fs)',
+      '  CLOUDPDF_STORAGE_FS_ROOT                (default: ./data/objects)',
+      '  CLOUDPDF_STORAGE_S3_BUCKET, CLOUDPDF_STORAGE_S3_REGION',
+      '  CLOUDPDF_JWT_SECRET    (required in production)',
       '  PORT, HOST, POOL_SIZE',
-      '  EMBEDPDF_FAIL_ON_PENDING=1  refuse to serve with pending migrations',
+      '  CLOUDPDF_FAIL_ON_PENDING=1  refuse to serve with pending migrations',
     ].join('\n'),
   );
 }
@@ -305,19 +305,19 @@ async function cmdAuditExport(args: string[]): Promise<void> {
 async function cmdServe(): Promise<void> {
   const PORT = Number(process.env['PORT'] ?? 3000);
   const HOST = process.env['HOST'] ?? '0.0.0.0';
-  const JWT_SECRET = process.env['EMBEDPDF_JWT_SECRET'] ?? 'embedpdf-dev-secret-change-me';
-  if (JWT_SECRET === 'embedpdf-dev-secret-change-me') {
+  const JWT_SECRET = process.env['CLOUDPDF_JWT_SECRET'] ?? 'cloudpdf-dev-secret-change-me';
+  if (JWT_SECRET === 'cloudpdf-dev-secret-change-me') {
     console.warn(
-      '[cloudpdf-server] WARNING: EMBEDPDF_JWT_SECRET not set, using insecure dev secret',
+      '[cloudpdf-server] WARNING: CLOUDPDF_JWT_SECRET not set, using insecure dev secret',
     );
   }
   const POOL_SIZE = process.env['POOL_SIZE'] ? Number(process.env['POOL_SIZE']) : undefined;
-  const FAIL_ON_PENDING = process.env['EMBEDPDF_FAIL_ON_PENDING'] === '1';
+  const FAIL_ON_PENDING = process.env['CLOUDPDF_FAIL_ON_PENDING'] === '1';
 
   const WORKER_ENTRY_URL = new URL('../runtime/worker-entry.js', import.meta.url);
 
-  // Open DB (if EMBEDPDF_DB_* env is set; otherwise serve admin-less).
-  const driverEnv = process.env['EMBEDPDF_DB_DRIVER'];
+  // Open DB (if CLOUDPDF_DB_* env is set; otherwise serve admin-less).
+  const driverEnv = process.env['CLOUDPDF_DB_DRIVER'];
   let dbCtx: DbContext | null = null;
   if (driverEnv) {
     dbCtx = openDb();

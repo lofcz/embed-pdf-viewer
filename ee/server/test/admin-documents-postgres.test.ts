@@ -12,14 +12,14 @@ import { runAdminE2e } from './_helpers/admin-e2e-suite';
  * If this passes, the (sqlite|postgres) abstraction is real.
  *
  * Skips silently when Docker isn't reachable; set
- * `EMBEDPDF_REQUIRE_PG_TESTS=1` to turn that into a hard failure
+ * `CLOUDPDF_REQUIRE_PG_TESTS=1` to turn that into a hard failure
  * (matrix CI job).
  */
 
-const REQUIRE = process.env.EMBEDPDF_REQUIRE_PG_TESTS === '1';
+const REQUIRE = process.env.CLOUDPDF_REQUIRE_PG_TESTS === '1';
 
 function dockerProbe(): boolean {
-  if (process.env.EMBEDPDF_PG_TEST_URI) return true;
+  if (process.env.CLOUDPDF_PG_TEST_URI) return true;
   try {
     execSync('docker info', { stdio: 'ignore', timeout: 3000 });
     return true;
@@ -30,7 +30,7 @@ function dockerProbe(): boolean {
 
 const RUN_PG = REQUIRE || dockerProbe();
 if (REQUIRE && !RUN_PG) {
-  throw new Error('EMBEDPDF_REQUIRE_PG_TESTS=1 but Docker is unavailable');
+  throw new Error('CLOUDPDF_REQUIRE_PG_TESTS=1 but Docker is unavailable');
 }
 
 interface StartedPg {
@@ -39,7 +39,7 @@ interface StartedPg {
 }
 
 let container: StartedPg | null = null;
-let connectionString = process.env.EMBEDPDF_PG_TEST_URI ?? '';
+let connectionString = process.env.CLOUDPDF_PG_TEST_URI ?? '';
 let schemaCounter = 0;
 
 beforeAll(async () => {

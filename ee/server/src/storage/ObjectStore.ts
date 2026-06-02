@@ -197,7 +197,7 @@ export interface MaterializeResult {
  * Discriminator for `ObjectStore.info.kind`. Matches the variants in
  * `ObjectStoreConfigSchema`. `azure-blob` replaces the older
  * `'azure'` label so it's symmetric with the env-var naming
- * (`EMBEDPDF_STORAGE_AZURE_BLOB_*`).
+ * (`CLOUDPDF_STORAGE_AZURE_BLOB_*`).
  */
 export type ObjectStoreKind = 'fs' | 's3' | 'gcs' | 'azure-blob';
 

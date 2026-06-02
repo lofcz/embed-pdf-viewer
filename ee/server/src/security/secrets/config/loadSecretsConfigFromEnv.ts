@@ -2,18 +2,18 @@
  * Build a SecretsConfig from environment variables.
  *
  * Convention:
- *   EMBEDPDF_SECRETS_PROVIDERS=env,file,awsProd,gcpProd,azureKv
+ *   CLOUDPDF_SECRETS_PROVIDERS=env,file,awsProd,gcpProd,azureKv
  *      (comma-separated list of registry names; case-sensitive)
  *
- *   EMBEDPDF_SECRETS_PROVIDER_<NAME>_KIND=<kind>
- *   EMBEDPDF_SECRETS_PROVIDER_<NAME>_<FIELD>=<value>
+ *   CLOUDPDF_SECRETS_PROVIDER_<NAME>_KIND=<kind>
+ *   CLOUDPDF_SECRETS_PROVIDER_<NAME>_<FIELD>=<value>
  *      (per-provider configuration; <NAME> matches the registry name
  *      uppercased with non-alphanumeric chars replaced by '_')
  *
- *   EMBEDPDF_SECRETS_CACHE_TTL_SEC=3600
+ *   CLOUDPDF_SECRETS_CACHE_TTL_SEC=3600
  *      (TTL for the CachingSecretsProvider decorator)
  *
- * When `EMBEDPDF_SECRETS_PROVIDERS` is unset, defaults to a single
+ * When `CLOUDPDF_SECRETS_PROVIDERS` is unset, defaults to a single
  * `env` provider — matches today's `defaultEnvSecurityConfig`
  * behaviour for the secrets piece.
  *
@@ -28,7 +28,7 @@ import {
 } from './SecretsConfigSchema';
 
 export function loadSecretsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): SecretsConfig {
-  const providersList = parseProvidersList(env['EMBEDPDF_SECRETS_PROVIDERS']);
+  const providersList = parseProvidersList(env['CLOUDPDF_SECRETS_PROVIDERS']);
   const providers: Record<string, SecretProviderConfig> = {};
   for (const name of providersList) {
     providers[name] = readProvider(env, name);
@@ -37,8 +37,8 @@ export function loadSecretsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): 
   // users who omit `cache` from a hand-built SecretsConfig get raw
   // providers (no decoration) — see SecretsConfigSchema docstring.
   // To explicitly disable caching via env, set
-  // EMBEDPDF_SECRETS_CACHE_TTL_SEC=0 (parsed below; 0 → cache omitted).
-  const ttlSecRaw = env['EMBEDPDF_SECRETS_CACHE_TTL_SEC'];
+  // CLOUDPDF_SECRETS_CACHE_TTL_SEC=0 (parsed below; 0 → cache omitted).
+  const ttlSecRaw = env['CLOUDPDF_SECRETS_CACHE_TTL_SEC'];
   const ttlSec = ttlSecRaw !== undefined ? Number(ttlSecRaw) : 3600;
   return SecretsConfigSchema.parse({
     providers,
@@ -55,7 +55,7 @@ function parseProvidersList(raw: string | undefined): string[] {
 }
 
 function readProvider(env: NodeJS.ProcessEnv, name: string): SecretProviderConfig {
-  const prefix = `EMBEDPDF_SECRETS_PROVIDER_${envSlug(name)}_`;
+  const prefix = `CLOUDPDF_SECRETS_PROVIDER_${envSlug(name)}_`;
   const kind = env[`${prefix}KIND`];
   if (!kind) {
     throw new Error(

@@ -2,25 +2,25 @@
  * Build an ObjectStoreConfig from environment variables.
  *
  * Convention:
- *   EMBEDPDF_STORAGE_KIND=fs|s3|gcs|azure-blob   (default: fs)
+ *   CLOUDPDF_STORAGE_KIND=fs|s3|gcs|azure-blob   (default: fs)
  *
  *   # fs
- *   EMBEDPDF_STORAGE_FS_ROOT=./data/objects      (default; also accepts EMBEDPDF_STORAGE_ROOT for back-compat)
+ *   CLOUDPDF_STORAGE_FS_ROOT=./data/objects      (default)
  *
  *   # s3
- *   EMBEDPDF_STORAGE_S3_BUCKET=embedpdf-prod
- *   EMBEDPDF_STORAGE_S3_REGION=us-east-1
- *   EMBEDPDF_STORAGE_S3_ENDPOINT=https://...      (optional, for S3-compatible)
+ *   CLOUDPDF_STORAGE_S3_BUCKET=cloudpdf-prod
+ *   CLOUDPDF_STORAGE_S3_REGION=us-east-1
+ *   CLOUDPDF_STORAGE_S3_ENDPOINT=https://...      (optional, for S3-compatible)
  *
  *   # gcs (adapter ships in follow-up commit)
- *   EMBEDPDF_STORAGE_GCS_BUCKET=embedpdf-prod
- *   EMBEDPDF_STORAGE_GCS_PROJECT_ID=...           (optional)
+ *   CLOUDPDF_STORAGE_GCS_BUCKET=cloudpdf-prod
+ *   CLOUDPDF_STORAGE_GCS_PROJECT_ID=...           (optional)
  *
  *   # azure-blob
- *   EMBEDPDF_STORAGE_AZURE_BLOB_CONTAINER=embedpdf
- *   EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_NAME=embedpdfprod
- *   EMBEDPDF_STORAGE_AZURE_BLOB_ENDPOINT=https://... (optional)
- *   EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_KEY=...      (optional; keyed-SAS
+ *   CLOUDPDF_STORAGE_AZURE_BLOB_CONTAINER=cloudpdf
+ *   CLOUDPDF_STORAGE_AZURE_BLOB_ACCOUNT_NAME=cloudpdfprod
+ *   CLOUDPDF_STORAGE_AZURE_BLOB_ENDPOINT=https://... (optional)
+ *   CLOUDPDF_STORAGE_AZURE_BLOB_ACCOUNT_KEY=...      (optional; keyed-SAS
  *       fallback. Omit for keyless user-delegation SAS via managed identity.
  *       A `secret://` URI is parsed as a SecretRef; any other value is a
  *       literal key.)
@@ -32,17 +32,16 @@ import { parseSecretRefUri } from '../../config/secrets/parseSecretRefUri';
 export function loadObjectStoreConfigFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): ObjectStoreConfig {
-  const kind = (env['EMBEDPDF_STORAGE_KIND'] ?? 'fs').toLowerCase();
+  const kind = (env['CLOUDPDF_STORAGE_KIND'] ?? 'fs').toLowerCase();
   switch (kind) {
     case 'fs': {
-      const root =
-        env['EMBEDPDF_STORAGE_FS_ROOT'] ?? env['EMBEDPDF_STORAGE_ROOT'] ?? './data/objects';
+      const root = env['CLOUDPDF_STORAGE_FS_ROOT'] ?? './data/objects';
       return ObjectStoreConfigSchema.parse({ kind: 'fs', root });
     }
     case 's3': {
-      const bucket = req(env, 'EMBEDPDF_STORAGE_S3_BUCKET');
-      const region = req(env, 'EMBEDPDF_STORAGE_S3_REGION');
-      const endpoint = env['EMBEDPDF_STORAGE_S3_ENDPOINT'];
+      const bucket = req(env, 'CLOUDPDF_STORAGE_S3_BUCKET');
+      const region = req(env, 'CLOUDPDF_STORAGE_S3_REGION');
+      const endpoint = env['CLOUDPDF_STORAGE_S3_ENDPOINT'];
       return ObjectStoreConfigSchema.parse({
         kind: 's3',
         bucket,
@@ -51,8 +50,8 @@ export function loadObjectStoreConfigFromEnv(
       });
     }
     case 'gcs': {
-      const bucket = req(env, 'EMBEDPDF_STORAGE_GCS_BUCKET');
-      const projectId = env['EMBEDPDF_STORAGE_GCS_PROJECT_ID'];
+      const bucket = req(env, 'CLOUDPDF_STORAGE_GCS_BUCKET');
+      const projectId = env['CLOUDPDF_STORAGE_GCS_PROJECT_ID'];
       return ObjectStoreConfigSchema.parse({
         kind: 'gcs',
         bucket,
@@ -60,10 +59,10 @@ export function loadObjectStoreConfigFromEnv(
       });
     }
     case 'azure-blob': {
-      const container = req(env, 'EMBEDPDF_STORAGE_AZURE_BLOB_CONTAINER');
-      const accountName = req(env, 'EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_NAME');
-      const endpoint = env['EMBEDPDF_STORAGE_AZURE_BLOB_ENDPOINT'];
-      const accountKeyRaw = env['EMBEDPDF_STORAGE_AZURE_BLOB_ACCOUNT_KEY'];
+      const container = req(env, 'CLOUDPDF_STORAGE_AZURE_BLOB_CONTAINER');
+      const accountName = req(env, 'CLOUDPDF_STORAGE_AZURE_BLOB_ACCOUNT_NAME');
+      const endpoint = env['CLOUDPDF_STORAGE_AZURE_BLOB_ENDPOINT'];
+      const accountKeyRaw = env['CLOUDPDF_STORAGE_AZURE_BLOB_ACCOUNT_KEY'];
       const accountKey = accountKeyRaw
         ? accountKeyRaw.startsWith('secret://')
           ? parseSecretRefUri(accountKeyRaw)
@@ -79,7 +78,7 @@ export function loadObjectStoreConfigFromEnv(
     }
     default:
       throw new Error(
-        `EMBEDPDF_STORAGE_KIND="${kind}" is not recognized (expected fs|s3|gcs|azure-blob)`,
+        `CLOUDPDF_STORAGE_KIND="${kind}" is not recognized (expected fs|s3|gcs|azure-blob)`,
       );
   }
 }

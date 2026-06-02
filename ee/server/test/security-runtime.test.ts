@@ -19,7 +19,7 @@ import {
 describe('symmetric bootstrap of secrets + kms', () => {
   test('static KMS resolves its KEK via the injected resolver; user code can use the same providers for its own secrets', async () => {
     const env = {
-      EMBEDPDF_STATIC_KMS_KEK: Buffer.alloc(32, 9).toString('base64'),
+      CLOUDPDF_STATIC_KMS_KEK: Buffer.alloc(32, 9).toString('base64'),
       APP_JWT_SECRET: 'demo-jwt-secret',
       APP_JSON_SECRET: JSON.stringify({ answer: 42 }),
     };
@@ -40,7 +40,7 @@ describe('symmetric bootstrap of secrets + kms', () => {
       {
         kind: 'static',
         keyId: 'static-dev',
-        kek: { provider: 'env', name: 'EMBEDPDF_STATIC_KMS_KEK', encoding: 'base64' },
+        kek: { provider: 'env', name: 'CLOUDPDF_STATIC_KMS_KEK', encoding: 'base64' },
       },
       { resolver },
     );
@@ -81,13 +81,13 @@ describe('symmetric bootstrap of secrets + kms', () => {
       createKmsKeyring({
         kind: 'static',
         keyId: 'static-dev',
-        kek: { provider: 'env', name: 'EMBEDPDF_STATIC_KMS_KEK' },
+        kek: { provider: 'env', name: 'CLOUDPDF_STATIC_KMS_KEK' },
       }),
     ).rejects.toThrow(/static KMS requires opts\.resolver/);
   });
 
   test('kms info exposes public diagnostics only', async () => {
-    const env = { EMBEDPDF_STATIC_KMS_KEK: Buffer.alloc(32, 1).toString('base64') };
+    const env = { CLOUDPDF_STATIC_KMS_KEK: Buffer.alloc(32, 1).toString('base64') };
     const providers = createSecretsProviderRegistry(
       { providers: { env: { kind: 'env' } } },
       { env },
@@ -98,7 +98,7 @@ describe('symmetric bootstrap of secrets + kms', () => {
       {
         kind: 'static',
         keyId: 'my-static-key',
-        kek: { provider: 'env', name: 'EMBEDPDF_STATIC_KMS_KEK', encoding: 'base64' },
+        kek: { provider: 'env', name: 'CLOUDPDF_STATIC_KMS_KEK', encoding: 'base64' },
       },
       { resolver },
     );

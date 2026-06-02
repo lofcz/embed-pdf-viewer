@@ -18,16 +18,16 @@ import { runDbConformance } from './_helpers/db-conformance';
  *
  * Docker probe is **synchronous** so that vitest's collection-time
  * `describe.runIf` sees the right value. Set
- * `EMBEDPDF_REQUIRE_PG_TESTS=1` (CI matrix job) to force inclusion and
+ * `CLOUDPDF_REQUIRE_PG_TESTS=1` (CI matrix job) to force inclusion and
  * turn a missing Docker into a hard error instead of a silent skip.
  */
 
-const REQUIRE = process.env.EMBEDPDF_REQUIRE_PG_TESTS === '1';
+const REQUIRE = process.env.CLOUDPDF_REQUIRE_PG_TESTS === '1';
 
 function dockerProbe(): { available: boolean; reason: string } {
   // Allow callers to bypass the probe and point at a real PG (eg a CI
-  // service container) via `EMBEDPDF_PG_TEST_URI=postgres://...`.
-  if (process.env.EMBEDPDF_PG_TEST_URI) return { available: true, reason: '' };
+  // service container) via `CLOUDPDF_PG_TEST_URI=postgres://...`.
+  if (process.env.CLOUDPDF_PG_TEST_URI) return { available: true, reason: '' };
   try {
     execSync('docker info', { stdio: 'ignore', timeout: 3000 });
     return { available: true, reason: '' };
@@ -38,7 +38,7 @@ function dockerProbe(): { available: boolean; reason: string } {
 
 const probe = dockerProbe();
 if (REQUIRE && !probe.available) {
-  throw new Error(`EMBEDPDF_REQUIRE_PG_TESTS=1 but docker is unavailable: ${probe.reason}`);
+  throw new Error(`CLOUDPDF_REQUIRE_PG_TESTS=1 but docker is unavailable: ${probe.reason}`);
 }
 const RUN_PG = REQUIRE || probe.available;
 
@@ -48,7 +48,7 @@ interface StartedPg {
 }
 
 let container: StartedPg | null = null;
-let connectionString = process.env.EMBEDPDF_PG_TEST_URI ?? '';
+let connectionString = process.env.CLOUDPDF_PG_TEST_URI ?? '';
 let schemaCounter = 0;
 
 beforeAll(async () => {
