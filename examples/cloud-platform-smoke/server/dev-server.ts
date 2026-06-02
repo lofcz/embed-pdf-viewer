@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { createCloudAdmin } from '@embedpdf/cloud-admin';
+import { createCloudAdmin } from '@cloudpdf/admin';
 import {
   AzureFrontDoorCdnSigner,
   BunnyCdnSigner,

@@ -1,8 +1,8 @@
 {
-  "name": "@embedpdf/cloud-api",
+  "name": "@cloudpdf/admin",
   "version": "0.0.0",
   "private": false,
-  "description": "Shared EmbedPDF cloud HTTP contracts and zod schemas.",
+  "description": "CloudPDF admin SDK. Node-only client used by a customer's backend to upload PDFs, manage documents, and mint user tokens against a @cloudpdf/server deployment.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -17,7 +17,8 @@
     "clean": "rimraf dist",
     "dev": "tsup --watch",
     "lint": "eslint src --color",
-    "lint:fix": "eslint src --color --fix"
+    "lint:fix": "eslint src --color --fix",
+    "test": "vitest run"
   },
   "files": [
     "dist",
@@ -27,27 +28,28 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/embedpdf/embed-pdf-viewer",
-    "directory": "packages/cloud-api"
+    "directory": "ee/admin"
   },
-  "homepage": "https://www.embedpdf.com",
+  "homepage": "https://www.cloudpdf.com",
   "bugs": {
     "url": "https://github.com/embedpdf/embed-pdf-viewer/issues"
   },
   "keywords": [
     "pdf",
-    "embedpdf",
-    "cloud-api",
-    "contracts"
+    "cloudpdf",
+    "admin",
+    "sdk"
   ],
-  "license": "Apache-2.0",
+  "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
-    "zod": "^3.23.8"
+    "@cloudpdf/admin-api": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "latest",
     "rimraf": "^5.0.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.0"
   },
   "publishConfig": {
     "access": "public"

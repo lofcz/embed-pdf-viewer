@@ -8,14 +8,14 @@ export type {
   AdminDocumentListResponse as ListResponse,
   AdminDocumentResponse as DocumentResponse,
   AdminErrorPayload,
-} from '@embedpdf/cloud-api';
+} from '@cloudpdf/admin-api';
 
 export type InitResponseCreatedOrResumed = Extract<
-  import('@embedpdf/cloud-api').AdminDocumentInitResponse,
+  import('@cloudpdf/admin-api').AdminDocumentInitResponse,
   { tag: 'created' | 'resumed' }
 >;
 
 export type InitResponseDeduped = Extract<
-  import('@embedpdf/cloud-api').AdminDocumentInitResponse,
+  import('@cloudpdf/admin-api').AdminDocumentInitResponse,
   { tag: 'deduped' }
 >;

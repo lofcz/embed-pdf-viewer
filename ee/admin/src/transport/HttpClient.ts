@@ -26,7 +26,7 @@ export interface RequestOptions {
 }
 
 /**
- * Thin HTTP client for cloud-admin. It mirrors @cloudpdf/engine's transport shape:
+ * Thin HTTP client for @cloudpdf/admin. It mirrors @cloudpdf/engine's transport shape:
  * endpoint methods pass a zod parser into `getJson`/`postJson`, while this
  * client owns auth, timeout, error mapping, and bad-response wrapping.
  */

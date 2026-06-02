@@ -13,7 +13,7 @@ import {
   type AppBundle,
   type DbSchema,
 } from '../../src/index';
-import { createCloudAdmin, AdminError } from '@embedpdf/cloud-admin';
+import { createCloudAdmin, AdminError } from '@cloudpdf/admin';
 
 const SECRET = 'admin-e2e-secret';
 

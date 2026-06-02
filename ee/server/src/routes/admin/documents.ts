@@ -5,7 +5,7 @@ import {
   adminWirePaths,
   type AdminDocumentCommitRequest,
   type AdminDocumentInitRequest,
-} from '@embedpdf/cloud-api';
+} from '@cloudpdf/admin-api';
 import { requireScope } from '../../app/jwt-plugin';
 import type { DocumentLifecycleService } from '../../services/DocumentLifecycleService';
 
@@ -38,7 +38,7 @@ export async function registerAdminDocumentsRoutes(
   const { lifecycle } = deps;
 
   /**
-   * Stable direct-upload URL builder. The cloud-admin SDK uses this
+   * Stable direct-upload URL builder. The @cloudpdf/admin SDK uses this
    * URL exactly as returned (no string interpolation on its side).
    */
   const directUrlForDoc = (docId: string): string => adminWirePaths.documentUploadDirect(docId);
@@ -104,7 +104,7 @@ export async function registerAdminDocumentsRoutes(
     }
 
     // We accept either a raw application/pdf body or a multipart
-    // upload with a single "file" field. The cloud-admin SDK uses
+    // upload with a single "file" field. The @cloudpdf/admin SDK uses
     // raw body; `curl -F file=@x.pdf` works via multipart for ops
     // convenience. Raw PDF uploads land in `req.body` as a Buffer
     // thanks to the content-type parser registered in `buildApp`.

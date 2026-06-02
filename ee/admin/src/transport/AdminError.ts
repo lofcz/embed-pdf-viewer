@@ -1,7 +1,7 @@
-import { AdminErrorPayloadSchema, type AdminErrorPayload } from '@embedpdf/cloud-api';
+import { AdminErrorPayloadSchema, type AdminErrorPayload } from '@cloudpdf/admin-api';
 
 /**
- * Error thrown by every cloud-admin call on a non-2xx HTTP response.
+ * Error thrown by every @cloudpdf/admin call on a non-2xx HTTP response.
  * Carries the wire `code` for typed handling and the original HTTP
  * status for fallback diagnostics.
  */

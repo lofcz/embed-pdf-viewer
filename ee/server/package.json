@@ -49,7 +49,7 @@
   ],
   "license": "SEE LICENSE IN LICENSE.md",
   "dependencies": {
-    "@embedpdf/cloud-api": "workspace:*",
+    "@cloudpdf/admin-api": "workspace:*",
     "@embedpdf/engine-core": "workspace:*",
     "@embedpdf/engine-services": "workspace:*",
     "@embedpdf/pdf-runtime": "workspace:*",
@@ -64,7 +64,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@embedpdf/cloud-admin": "workspace:^",
+    "@cloudpdf/admin": "workspace:^",
     "@smithy/util-stream": "^4.6.1",
     "@testcontainers/postgresql": "^11.14.0",
     "@types/better-sqlite3": "^7.6.13",

@@ -6,7 +6,7 @@ import {
   AdminDocumentResponseSchema,
   AdminUploadDirectResponseSchema,
   adminWirePaths,
-} from '@embedpdf/cloud-api';
+} from '@cloudpdf/admin-api';
 import { AdminError } from '../transport/AdminError';
 import { HttpClient } from '../transport/HttpClient';
 import type { CommitResponse, DedupMode, DocumentRecord, InitResponse } from './types';

@@ -6,7 +6,7 @@ import {
   renderImageOptionsToToken,
   renderImageOptionsToWire,
   unflatten,
-} from '../../engine-core/src/wire';
+} from '../../../packages/engine-core/src/wire';
 
 describe('wire token codec', () => {
   test('render tokens use dotted SDK paths in canonical alphabetical order', () => {

@@ -7,7 +7,7 @@ import {
   PageRenderQuerySchema,
   renderImageOptionsToWire,
   unflatten,
-} from '../../engine-core/src/wire';
+} from '../../../packages/engine-core/src/wire';
 
 /**
  * Design-proof tests. They exercise the full round trip:

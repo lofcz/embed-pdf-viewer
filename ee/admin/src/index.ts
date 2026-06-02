@@ -1,5 +1,5 @@
 /**
- * @embedpdf/cloud-admin - Node-only SDK for a customer's backend.
+ * @cloudpdf/admin - Node-only SDK for a customer's backend.
  *
  * Carries a tenant-scoped admin credential to mint user-scoped doc
  * JWTs, upload PDFs, and manage the document lifecycle against an
