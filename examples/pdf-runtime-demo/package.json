@@ -16,7 +16,7 @@
     "@cloudpdf/engine": "workspace:*",
     "@cloudpdf/server": "workspace:*",
     "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/engine-local": "workspace:*",
+    "@embedpdf/engine": "workspace:*",
     "@embedpdf/pdf-runtime": "workspace:*"
   },
   "devDependencies": {

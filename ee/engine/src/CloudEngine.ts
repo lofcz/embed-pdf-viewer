@@ -16,7 +16,7 @@ import { decodeUnverifiedClaims } from './transport/decodeUnverifiedClaims';
 export interface CloudEngineOptions extends HttpClientOptions {}
 
 /**
- * Cloud engine: speaks the same Engine interface as @embedpdf/engine-local
+ * Cloud engine: speaks the same Engine interface as @embedpdf/engine
  * but routes everything through HTTPS to a remote @cloudpdf/server (or
  * CloudPDF SaaS). Identical observable contract; only the transport differs.
  */

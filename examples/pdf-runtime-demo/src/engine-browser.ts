@@ -1,4 +1,4 @@
-import { createLocalEngine } from '@embedpdf/engine-local';
+import { createLocalEngine } from '@embedpdf/engine';
 import { runEngineDemo } from './engine-demo.ts';
 
 const out = document.getElementById('out');

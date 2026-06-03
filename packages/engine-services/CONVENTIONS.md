@@ -1,7 +1,7 @@
 # engine-services conventions
 
 `@embedpdf/engine-services` contains the synchronous, runtime-agnostic engine logic shared by
-`@embedpdf/engine-local` and `@cloudpdf/server`.
+`@embedpdf/engine` and `@cloudpdf/server`.
 
 The package should read like a small framework: a developer should know what a file does from its
 directory before opening it.

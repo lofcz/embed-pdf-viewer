@@ -59,7 +59,7 @@ import type { Kysely } from 'kysely';
  *   CLOUDPDF_AUTO_PROVISION_TENANT=1   lazily create tenant rows (dev)
  *   PORT                   (default: 3000)
  *   HOST                   (default: 0.0.0.0)
- *   POOL_SIZE              (default: auto)
+ *   CLOUDPDF_WORKER_POOL_SIZE  int|max  (default: min(2, cpus))
  *
  * Exit codes:
  *   0  success
@@ -212,7 +212,8 @@ function printHelp(): void {
       '    CLOUDPDF_FAIL_ON_PENDING=1  refuse to serve with pending migrations',
       '    CLOUDPDF_AUTO_PROVISION_TENANT=1  lazily create tenant rows (dev convenience)',
       '  Process',
-      '    PORT (default: 3000), HOST (default: 0.0.0.0), POOL_SIZE (default: auto)',
+      '    PORT (default: 3000), HOST (default: 0.0.0.0)',
+      '    CLOUDPDF_WORKER_POOL_SIZE  int|max  (default: min(2, cpus))',
     ].join('\n'),
   );
 }
@@ -455,7 +456,6 @@ async function cmdServe(): Promise<void> {
       '[cloudpdf-server] WARNING: CLOUDPDF_JWT_SECRET not set, using insecure dev secret',
     );
   }
-  const POOL_SIZE = process.env['POOL_SIZE'] ? Number(process.env['POOL_SIZE']) : undefined;
   const FAIL_ON_PENDING = process.env['CLOUDPDF_FAIL_ON_PENDING'] === '1';
   const AUTO_PROVISION_TENANT = process.env['CLOUDPDF_AUTO_PROVISION_TENANT'] === '1';
   const CACHE_ROOT = process.env['CLOUDPDF_CACHE_ROOT'] ?? './data/cache';
@@ -493,7 +493,6 @@ async function cmdServe(): Promise<void> {
 
   const bundle = await buildApp({
     verifier: { mode: 'hs256', secret: JWT_SECRET },
-    poolSize: POOL_SIZE,
     workerEntry: WORKER_ENTRY_URL,
     db: dbCtx.db,
     objectStore,

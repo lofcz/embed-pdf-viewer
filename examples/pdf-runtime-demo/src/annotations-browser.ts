@@ -1,5 +1,5 @@
-import { createLocalEngineWithWorker } from '@embedpdf/engine-local';
-import EngineWorker from '@embedpdf/engine-local/worker-entry?worker';
+import { createLocalEngineWithWorker } from '@embedpdf/engine';
+import EngineWorker from '@embedpdf/engine/worker-entry?worker';
 import { runAnnotationsDemo, summarizeRawAll } from './annotations-demo.ts';
 
 const out = document.getElementById('out');

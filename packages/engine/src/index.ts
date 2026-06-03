@@ -1,5 +1,5 @@
 /**
- * @embedpdf/engine-local - Engine v3 local implementation.
+ * @embedpdf/engine - Engine v3 local implementation.
  *
  * Public API:
  *   createLocalEngine()                 -> LocalEngine using inline transport

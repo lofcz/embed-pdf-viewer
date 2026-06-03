@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createLocalEngine } from '@embedpdf/engine-local';
+import { createLocalEngine } from '@embedpdf/engine';
 import { createCloudEngine } from '@cloudpdf/engine';
 import { buildApp, signDevToken, defaultWorkerEntryUrl, type AppBundle } from '@cloudpdf/server';
 import { runPagesDemo, summarizePages } from './pages-demo.ts';

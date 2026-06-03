@@ -58,7 +58,7 @@ export interface OpenInputLayerBytes {
  * login by your auth backend) and just needs to open one of many
  * documents the tenant owns.
  *
- * Rejected by `@embedpdf/engine-local`.
+ * Rejected by `@embedpdf/engine`.
  */
 export interface OpenInputById {
   kind: 'id';
@@ -89,7 +89,7 @@ export interface OpenInputById {
  * token is authorised for exactly one document (e.g. a third-party
  * reviewer the customer has shared a single doc with).
  *
- * Rejected by `@embedpdf/engine-local`.
+ * Rejected by `@embedpdf/engine`.
  */
 export interface OpenInputToken {
   kind: 'token';

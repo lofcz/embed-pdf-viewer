@@ -79,6 +79,8 @@ function createFakeRuntime(): PdfRuntimeModule & {
     fn: {
       FPDF_InitLibrary: () => undefined,
       FPDF_DestroyLibrary: () => undefined,
+      EPDF_InitThread: () => undefined,
+      EPDF_ShutdownThread: () => undefined,
       FPDF_LoadMemDocument64: (dataPtr: Ptr, size: number, password: string) => {
         calls.loadMemDocuments.push({ ptr: dataPtr, size, password });
         const docPtr = ptr(101);

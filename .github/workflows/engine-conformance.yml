@@ -9,8 +9,8 @@ on:
     paths:
       - 'packages/engine-core/**'
       - 'packages/engine-services/**'
-      - 'packages/engine-local/**'
-      - 'packages/engine-cloud/**'
+      - 'packages/engine/**'
+      - 'ee/engine/**'
       - 'ee/server/**'
       - '.github/workflows/engine-conformance.yml'
   push:
@@ -18,8 +18,8 @@ on:
     paths:
       - 'packages/engine-core/**'
       - 'packages/engine-services/**'
-      - 'packages/engine-local/**'
-      - 'packages/engine-cloud/**'
+      - 'packages/engine/**'
+      - 'ee/engine/**'
       - 'ee/server/**'
       - '.github/workflows/engine-conformance.yml'
   workflow_dispatch: {}
@@ -80,12 +80,12 @@ jobs:
           pnpm --filter @embedpdf/pdf-runtime build
           pnpm --filter @embedpdf/engine-core build
           pnpm --filter @embedpdf/engine-services build
-          pnpm --filter @embedpdf/engine-local build
+          pnpm --filter @embedpdf/engine build
           pnpm --filter @cloudpdf/server build
           pnpm --filter @cloudpdf/engine build
 
       - name: engine-local conformance (WASM)
-        run: pnpm --filter @embedpdf/engine-local test
+        run: pnpm --filter @embedpdf/engine test
 
       - name: cloud engine conformance (HTTP -> @cloudpdf/server, native)
         run: pnpm --filter @cloudpdf/engine test

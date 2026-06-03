@@ -58,9 +58,9 @@ export interface WorkerThreadPoolOptions {
    * sticky-by-docId routing — so N workers render in parallel in-process with
    * zero-copy `postMessage` transfer preserved.
    *
-   * Resolution order: this explicit value, else `CLOUDPDF_WORKER_POOL_SIZE` /
-   * `EMBEDPDF_WORKER_POOL_SIZE` env (an integer, or `max` for one worker per
-   * CPU), else a conservative default of `min(2, cpus)`. Raise it (e.g. to
+   * Resolution order: this explicit value, else the `CLOUDPDF_WORKER_POOL_SIZE`
+   * env (an integer, or `max` for one worker per CPU), else a conservative
+   * default of `min(2, cpus)`. Raise it (e.g. to
    * `cpus`) only after the TSAN + threaded-soak gate is green for the deployed
    * native build; see `testing/tools:epdf_thread_soak`.
    */
@@ -101,7 +101,7 @@ function resolvePoolSize(explicit: number | undefined): number {
   if (explicit !== undefined) {
     return Math.max(1, Math.floor(explicit));
   }
-  const fromEnv = process.env.CLOUDPDF_WORKER_POOL_SIZE ?? process.env.EMBEDPDF_WORKER_POOL_SIZE;
+  const fromEnv = process.env.CLOUDPDF_WORKER_POOL_SIZE;
   if (fromEnv) {
     const trimmed = fromEnv.trim().toLowerCase();
     if (trimmed === 'max') {

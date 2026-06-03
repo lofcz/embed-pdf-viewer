@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/engine-local",
+  "name": "@embedpdf/engine",
   "version": "0.0.0",
   "private": false,
   "description": "Engine v3 local implementation: WASM PDFium running inside a Web Worker (or inline for Node), driven by an O(log n) abort-aware WorkerQueue. Speaks the same Engine interface as the cloud engine.",
@@ -32,7 +32,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/embedpdf/embed-pdf-viewer",
-    "directory": "packages/engine-local"
+    "directory": "packages/engine"
   },
   "homepage": "https://www.embedpdf.com",
   "bugs": {
@@ -42,7 +42,7 @@
     "pdf",
     "embedpdf",
     "engine",
-    "engine-local"
+    "wasm"
   ],
   "license": "Apache-2.0",
   "dependencies": {

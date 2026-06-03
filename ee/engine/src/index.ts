@@ -1,7 +1,7 @@
 /**
  * @cloudpdf/engine - Engine v3 cloud client.
  *
- * Implements the same {@link Engine} interface as `@embedpdf/engine-local` but
+ * Implements the same {@link Engine} interface as `@embedpdf/engine` but
  * routes calls to a remote `@cloudpdf/server` over HTTP. Same observable
  * contract: {@link AbortablePromise}-based, EngineError-coded, parity-tested
  * with `runMetadataConformance`.

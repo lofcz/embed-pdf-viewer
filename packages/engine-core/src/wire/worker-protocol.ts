@@ -28,7 +28,7 @@ import type { MetadataPatch } from '../dto/MetadataPatch';
  * (browser Web Worker, Node worker_thread, inline). Cloud HTTP traffic
  * uses a different envelope; this is purely the worker boundary.
  *
- * Identical between @embedpdf/engine-local and @cloudpdf/server because
+ * Identical between @embedpdf/engine and @cloudpdf/server because
  * the WorkerHost dispatch logic is the same on both sides — only the
  * underlying PdfRuntimeModule (WASM vs native) differs.
  */

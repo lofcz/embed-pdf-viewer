@@ -3,7 +3,7 @@ import type { OpenInput, OpenOptions } from '../dto/OpenInput';
 import type { DocumentHandle } from './DocumentHandle';
 
 /**
- * Engine contract shared by `@embedpdf/engine-local` and
+ * Engine contract shared by `@embedpdf/engine` and
  * `@cloudpdf/engine`. Both implementations expose the same
  * `open()` surface and return the same {@link DocumentHandle} shape;
  * the only observable difference is transport — local goes through a

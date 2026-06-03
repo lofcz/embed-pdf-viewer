@@ -12,7 +12,7 @@ import { pdfDateToIso } from '../../shared/pdf-date';
  * Synchronous, runtime-agnostic implementation of the metadata read.
  *
  * Lives in @embedpdf/engine-services so it can be reused unchanged by:
- *   - @embedpdf/engine-local (inside a browser Worker, WASM runtime)
+ *   - @embedpdf/engine (inside a browser Worker, WASM runtime)
  *   - @cloudpdf/server       (inside a Node worker_thread, native runtime)
  *
  * Async-ness lives at the worker boundary, not here.

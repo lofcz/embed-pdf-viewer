@@ -11,7 +11,7 @@
  *   2. `@cloudpdf/server` — feeds `cdnCoverageForScope` into adapter
  *      signers when /access is built.
  *
- * `@embedpdf/engine-local` MUST NOT import anything from this folder,
+ * `@embedpdf/engine` MUST NOT import anything from this folder,
  * directly or via re-export. The `shared.ts` / root entry of
  * engine-core does not re-export this module — only `wire.ts` does.
  *

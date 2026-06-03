@@ -6,6 +6,7 @@ on:
     paths:
       - "packages/**"
       - "viewers/**"
+      - "ee/**"
       - ".changeset/**"
       - "pnpm-lock.yaml"
   workflow_dispatch: {}
