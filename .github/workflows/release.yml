@@ -31,6 +31,9 @@ jobs:
   release:
     needs: build-runtime
     runs-on: ubuntu-latest
+    outputs:
+      did_publish: ${{ steps.published.outputs.did_publish }}
+      published: ${{ steps.published.outputs.published }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       NPM_TOKEN:    ${{ secrets.NPM_TOKEN }}
@@ -50,7 +53,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           registry-url: "https://registry.npmjs.org"
 
@@ -77,7 +80,7 @@ jobs:
         run: pnpm run verify:pdf-runtime-packages
 
       - name: Build packages
-        run: pnpm run build:viewers
+        run: pnpm run build:release
 
       # Changesets will either open a version PR or publish if already versioned
       - name: Version / Publish via Changesets
@@ -133,8 +136,11 @@ jobs:
           mkdir -p release-assets
           echo "$PUBLISHED_JSON" | jq -r '.[].name' | while read name; do
             short=$(echo "$name" | sed 's!.*/!!')
+            # Enterprise packages live in ee/, not packages/.
+            if [[ "$name" == @cloudpdf/* ]]; then
+              dir="ee/$short"
             # Handle viewers (snippet, react, vue, svelte) which are in viewers/
-            if [ "$short" = "snippet" ] || [ "$short" = "react-pdf-viewer" ] || [ "$short" = "vue-pdf-viewer" ] || [ "$short" = "svelte-pdf-viewer" ]; then
+            elif [ "$short" = "snippet" ] || [ "$short" = "react-pdf-viewer" ] || [ "$short" = "vue-pdf-viewer" ] || [ "$short" = "svelte-pdf-viewer" ]; then
               # Map package name to directory name
               case "$short" in
                 "react-pdf-viewer") dir="viewers/react" ;;
@@ -147,7 +153,7 @@ jobs:
             fi
             if [ -d "$dir/dist" ]; then
               echo "Packaging $short from $dir"
-              (cd "$dir" && zip -r "../../release-assets/${short}-dist.zip" dist >/dev/null 2>&1 || zip -r "../release-assets/${short}-dist.zip" dist >/dev/null)
+              (cd "$dir" && zip -r "$GITHUB_WORKSPACE/release-assets/${short}-dist.zip" dist >/dev/null)
               tar -czf "release-assets/${short}-dist.tar.gz" -C "$dir" dist
             else
               echo "No dist for $short"
@@ -166,3 +172,63 @@ jobs:
           draft: false
           prerelease: false
           make_latest: true
+
+  # Publish the @cloudpdf/server container image to GHCR, in sync with the
+  # npm release. Only runs when @cloudpdf/server was actually published.
+  # The native runtime is the pinned linux-x64 artifact from build-runtime
+  # (NATIVE_SRC=prebuilt), so the image ships the exact released binary.
+  publish-image:
+    needs: [build-runtime, release]
+    if: needs.release.outputs.did_publish == 'true' && contains(needs.release.outputs.published, '@cloudpdf/server')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read server version
+        id: ver
+        run: |
+          v="$(jq -r .version ee/server/package.json)"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "minor=${v%.*}" >> "$GITHUB_OUTPUT"
+
+      - name: Download linux-x64 native runtime
+        uses: actions/download-artifact@v7
+        with:
+          name: pdf-runtime-linux-x64
+          path: packages/pdf-runtime/npm/linux-x64
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/embedpdf/cloudpdf-server
+          tags: |
+            type=raw,value=${{ steps.ver.outputs.version }}
+            type=raw,value=${{ steps.ver.outputs.minor }}
+            type=raw,value=latest
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ee/server/Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            NATIVE_SRC=prebuilt
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
