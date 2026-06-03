@@ -3,21 +3,22 @@ import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 const initialized = new WeakSet<PdfRuntimeModule>();
 
 /**
- * Ensure FPDF_InitLibrary has been called for this runtime instance.
- * Safe to call multiple times.
+ * Initialize the thread-confined PDFium runtime for the calling thread. Each
+ * worker thread owns its own PDFium state, so this must run on every thread
+ * that uses the runtime. Safe to call multiple times.
  */
 export function ensureInitialized(runtime: PdfRuntimeModule): void {
   if (initialized.has(runtime)) return;
-  runtime.fn.FPDF_InitLibrary();
+  runtime.fn.EPDF_InitThread();
   initialized.add(runtime);
 }
 
 /**
- * Tear down the PDFium library bound to this runtime. Pair with the
- * runtime's own destroy() if the host wants the runtime gone too.
+ * Tear down PDFium for the calling thread. Lifecycle-strict: every PDFium
+ * handle created on this thread must already be closed.
  */
 export function destroyLibrary(runtime: PdfRuntimeModule): void {
   if (!initialized.has(runtime)) return;
-  runtime.fn.FPDF_DestroyLibrary();
+  runtime.fn.EPDF_ShutdownThread();
   initialized.delete(runtime);
 }

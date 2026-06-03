@@ -70,10 +70,11 @@ The returned `PageImageHandle` carries `format`, `contentType`, optional
 `width`/`height`, a `source` (`bytes` or `url`), and the `objectUrl()` helper
 that builds (and lets you revoke) a browser object URL.
 
-### Raw rasters
+### Raw rasters (local engine only)
 
 For canvas compositing or custom pipelines, `render.raw()` returns a `PageRaster`
-with an RGBA `ArrayBuffer`:
+with an RGBA `ArrayBuffer`. This is local/WASM only — the cloud engine serves
+encoded images, so use `render.image()` there.
 
 ```ts
 const raster = await page.render.raw({ viewport: { kind: 'scale', scale: 2 } });

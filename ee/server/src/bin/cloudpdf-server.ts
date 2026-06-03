@@ -11,6 +11,14 @@ import { EventLogService } from '../services/EventLogService';
 import type { ObjectStore } from '../storage/ObjectStore';
 import { createObjectStore } from '../storage/createObjectStore';
 import { loadObjectStoreConfigFromEnv } from '../storage/config/loadObjectStoreConfigFromEnv';
+import { createCdnSigner } from '../cdn/createCdnSigner';
+import { loadCdnConfigFromEnv } from '../cdn/config/loadCdnConfigFromEnv';
+import { createKmsKeyring } from '../security/kms/createKmsKeyring';
+import { loadKmsConfigFromEnv } from '../security/kms/config/loadKmsConfigFromEnv';
+import type { KmsKeyring } from '../security/kms/KmsKeyring';
+import { createSecretsProviderRegistry } from '../security/secrets/createSecretsProvider';
+import { createSecretResolver, type SecretResolver } from '../security/secrets/SecretResolver';
+import { loadSecretsConfigFromEnv } from '../security/secrets/config/loadSecretsConfigFromEnv';
 import type { Kysely } from 'kysely';
 
 /**
@@ -25,20 +33,26 @@ import type { Kysely } from 'kysely';
  *   cloudpdf-server audit export --day yesterday
  *   cloudpdf-server --help
  *
- * Config is read from env (12-factor friendly):
+ * Config is read from env (12-factor friendly). `serve` runs the full
+ * adapter bootstrap (secrets -> storage -> CDN -> KMS, see ADAPTERS.md)
+ * so the same binary scales from zero-config SQLite + filesystem to
+ * Postgres + S3/GCS/Azure purely by changing env:
  *   CLOUDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)
  *   CLOUDPDF_DB_SQLITE_PATH                  (default: ./data/cloudpdf.db)
- *   CLOUDPDF_DB_URL         postgres://...
+ *   CLOUDPDF_DB_URL         postgres://...    (required for postgres)
  *   CLOUDPDF_JWT_SECRET    (default: dev secret; warn at startup)
- *   CLOUDPDF_STORAGE_KIND  fs|s3            (default: fs for audit export)
+ *   CLOUDPDF_STORAGE_KIND  fs|s3|gcs|azure-blob   (default: fs)
  *   CLOUDPDF_STORAGE_FS_ROOT                (default: ./data/objects)
- *   CLOUDPDF_STORAGE_S3_BUCKET
- *   CLOUDPDF_STORAGE_S3_REGION
- *   CLOUDPDF_STORAGE_S3_ENDPOINT            (optional)
+ *   CLOUDPDF_CACHE_ROOT                      (default: ./data/cache; enables /v1/docs/*)
+ *   CLOUDPDF_CDN_KIND       none|bunny|...    (default: none)
+ *   CLOUDPDF_KMS_KIND       static|aws-kms|... (opt-in; encrypted-PDF sessions)
+ *   CLOUDPDF_SECRETS_PROVIDERS  registry names (default: env)
+ *   CLOUDPDF_AUTO_MIGRATE=0|1    apply migrations on boot (default: on for sqlite)
+ *   CLOUDPDF_FAIL_ON_PENDING=1   refuse to start with pending migrations
+ *   CLOUDPDF_AUTO_PROVISION_TENANT=1   lazily create tenant rows (dev)
  *   PORT                   (default: 3000)
  *   HOST                   (default: 0.0.0.0)
  *   POOL_SIZE              (default: auto)
- *   CLOUDPDF_FAIL_ON_PENDING=1   refuse to start with pending migrations
  *
  * Exit codes:
  *   0  success
@@ -98,9 +112,39 @@ function openDb(): DbContext {
   };
 }
 
+/**
+ * Build the secrets resolver from env (`CLOUDPDF_SECRETS_*`). Defaults
+ * to a single `env` provider with 1h caching, so this is safe with no
+ * extra config. Adapter factories use it to resolve `secret://` refs.
+ */
+function buildSecretResolver(): SecretResolver {
+  return createSecretResolver(createSecretsProviderRegistry(loadSecretsConfigFromEnv(process.env)));
+}
+
 async function openObjectStore(): Promise<ObjectStore> {
   try {
-    return await createObjectStore(loadObjectStoreConfigFromEnv(process.env));
+    return await createObjectStore(loadObjectStoreConfigFromEnv(process.env), {
+      resolver: buildSecretResolver(),
+    });
+  } catch (err) {
+    fail(2, err instanceof Error ? err.message : String(err));
+  }
+}
+
+/**
+ * Build a KMS keyring only when explicitly configured. KMS powers
+ * encrypted-PDF password-session persistence; without it the server
+ * still serves normal documents (that feature just stays off). Static
+ * KMS requires CLOUDPDF_KMS_STATIC_KEK, so we never call the loader
+ * unless the operator opted in via CLOUDPDF_KMS_*.
+ */
+async function buildKms(resolver: SecretResolver): Promise<KmsKeyring | null> {
+  const configured =
+    process.env['CLOUDPDF_KMS_KIND'] !== undefined ||
+    process.env['CLOUDPDF_KMS_STATIC_KEK'] !== undefined;
+  if (!configured) return null;
+  try {
+    return await createKmsKeyring(loadKmsConfigFromEnv(process.env), { resolver });
   } catch (err) {
     fail(2, err instanceof Error ? err.message : String(err));
   }
@@ -132,15 +176,29 @@ function printHelp(): void {
       '                          Export closed-day audit_log rows to JSONL storage',
       '',
       'Environment:',
-      '  CLOUDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)',
-      '  CLOUDPDF_DB_SQLITE_PATH                  (default: ./data/cloudpdf.db)',
-      '  CLOUDPDF_DB_URL        postgres://...',
-      '  CLOUDPDF_STORAGE_KIND  fs|s3            (default: fs)',
-      '  CLOUDPDF_STORAGE_FS_ROOT                (default: ./data/objects)',
-      '  CLOUDPDF_STORAGE_S3_BUCKET, CLOUDPDF_STORAGE_S3_REGION',
-      '  CLOUDPDF_JWT_SECRET    (required in production)',
-      '  PORT, HOST, POOL_SIZE',
-      '  CLOUDPDF_FAIL_ON_PENDING=1  refuse to serve with pending migrations',
+      '  Database',
+      '    CLOUDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)',
+      '    CLOUDPDF_DB_SQLITE_PATH                  (default: ./data/cloudpdf.db)',
+      '    CLOUDPDF_DB_URL        postgres://...     (required for postgres)',
+      '  Storage (object store)',
+      '    CLOUDPDF_STORAGE_KIND  fs|s3|gcs|azure-blob   (default: fs)',
+      '    CLOUDPDF_STORAGE_FS_ROOT                 (default: ./data/objects)',
+      '    CLOUDPDF_STORAGE_S3_BUCKET, CLOUDPDF_STORAGE_S3_REGION, CLOUDPDF_STORAGE_S3_ENDPOINT',
+      '  Auth',
+      '    CLOUDPDF_JWT_SECRET    HS256 secret      (required in production)',
+      '  Engine cache (enables /v1/docs/* read+render routes)',
+      '    CLOUDPDF_CACHE_ROOT                      (default: ./data/cache)',
+      '    CLOUDPDF_CACHE_MAX_BYTES                 (default: 4 GiB)',
+      '  Optional adapters (see ADAPTERS.md)',
+      '    CLOUDPDF_CDN_KIND      none|bunny|cloud-cdn|cloudfront|azure-fd|custom-hmac (default: none)',
+      '    CLOUDPDF_KMS_KIND      static|aws-kms|gcp-kms|azure-kv  (opt-in; needed for encrypted-PDF sessions)',
+      '    CLOUDPDF_SECRETS_PROVIDERS  comma-separated provider registry (default: env)',
+      '  Lifecycle',
+      '    CLOUDPDF_AUTO_MIGRATE=0|1   apply migrations on boot (default: on for sqlite, off for postgres)',
+      '    CLOUDPDF_FAIL_ON_PENDING=1  refuse to serve with pending migrations',
+      '    CLOUDPDF_AUTO_PROVISION_TENANT=1  lazily create tenant rows (dev convenience)',
+      '  Process',
+      '    PORT (default: 3000), HOST (default: 0.0.0.0), POOL_SIZE (default: auto)',
     ].join('\n'),
   );
 }
@@ -313,22 +371,52 @@ async function cmdServe(): Promise<void> {
   }
   const POOL_SIZE = process.env['POOL_SIZE'] ? Number(process.env['POOL_SIZE']) : undefined;
   const FAIL_ON_PENDING = process.env['CLOUDPDF_FAIL_ON_PENDING'] === '1';
+  const AUTO_PROVISION_TENANT = process.env['CLOUDPDF_AUTO_PROVISION_TENANT'] === '1';
+  const CACHE_ROOT = process.env['CLOUDPDF_CACHE_ROOT'] ?? './data/cache';
+  const CACHE_MAX_BYTES = process.env['CLOUDPDF_CACHE_MAX_BYTES']
+    ? Number(process.env['CLOUDPDF_CACHE_MAX_BYTES'])
+    : undefined;
 
   const WORKER_ENTRY_URL = new URL('../runtime/worker-entry.js', import.meta.url);
 
-  // Open DB (if CLOUDPDF_DB_* env is set; otherwise serve admin-less).
-  const driverEnv = process.env['CLOUDPDF_DB_DRIVER'];
-  let dbCtx: DbContext | null = null;
-  if (driverEnv) {
-    dbCtx = openDb();
+  // Database defaults to SQLite (see readDbConfig), so a bare `serve`
+  // boots the full admin + document pipeline with zero external infra.
+  const dbCtx = openDb();
+
+  // Auto-migrate defaults ON for SQLite (frictionless local/try-it-out)
+  // and OFF for Postgres (production runs `migrate up` explicitly and
+  // sets CLOUDPDF_FAIL_ON_PENDING=1). Override with CLOUDPDF_AUTO_MIGRATE.
+  const autoMigrateEnv = process.env['CLOUDPDF_AUTO_MIGRATE'];
+  const autoMigrate =
+    autoMigrateEnv !== undefined ? autoMigrateEnv === '1' : dbCtx.dialect === 'sqlite';
+  if (autoMigrate) {
+    const applied = await migrate(dbCtx.db, {
+      source: { kind: 'inline', migrations: dbCtx.migrations },
+      onApply: (m) => console.log(`applying ${m.version} ${m.name}`),
+    });
+    if (applied.length > 0) console.log(`auto-migrate: applied ${applied.length} migration(s)`);
   }
+
+  // Adapter bootstrap (see ADAPTERS.md): secrets registry -> resolver,
+  // then storage / CDN / KMS. Storage defaults to filesystem and CDN to
+  // `none`, so this works with no extra env. KMS is opt-in.
+  const resolver = buildSecretResolver();
+  const objectStore = await createObjectStoreOrExit(resolver);
+  const cdnSigner = await createCdnSigner(loadCdnConfigFromEnv(process.env), { resolver });
+  const kms = await buildKms(resolver);
 
   const bundle = await buildApp({
     verifier: { mode: 'hs256', secret: JWT_SECRET },
     poolSize: POOL_SIZE,
     workerEntry: WORKER_ENTRY_URL,
-    db: dbCtx?.db,
-    expectedMigrations: dbCtx?.migrations,
+    db: dbCtx.db,
+    objectStore,
+    cdnSigner,
+    ...(kms ? { kms } : {}),
+    cacheRoot: CACHE_ROOT,
+    ...(CACHE_MAX_BYTES !== undefined ? { cacheMaxBytes: CACHE_MAX_BYTES } : {}),
+    ...(AUTO_PROVISION_TENANT ? { autoProvisionTenant: true } : {}),
+    expectedMigrations: dbCtx.migrations,
     failOnPending: FAIL_ON_PENDING,
   });
 
@@ -336,7 +424,7 @@ async function cmdServe(): Promise<void> {
     bundle.app.log.info({ sig }, 'received signal, shutting down');
     try {
       await bundle.shutdown();
-      if (dbCtx) await dbCtx.db.destroy();
+      await dbCtx.db.destroy();
     } finally {
       process.exit(0);
     }
@@ -346,9 +434,25 @@ async function cmdServe(): Promise<void> {
 
   await bundle.app.listen({ port: PORT, host: HOST });
   bundle.app.log.info(
-    { port: PORT, host: HOST, db: dbCtx?.describe ?? 'none' },
+    {
+      port: PORT,
+      host: HOST,
+      db: dbCtx.describe,
+      storage: objectStore.info.kind,
+      cdn: cdnSigner.info.kind,
+      kms: kms ? 'on' : 'off',
+      cacheRoot: CACHE_ROOT,
+    },
     'cloudpdf-server listening',
   );
+}
+
+async function createObjectStoreOrExit(resolver: SecretResolver): Promise<ObjectStore> {
+  try {
+    return await createObjectStore(loadObjectStoreConfigFromEnv(process.env), { resolver });
+  } catch (err) {
+    fail(2, err instanceof Error ? err.message : String(err));
+  }
 }
 
 function pad(s: string, width: number): string {

@@ -45,7 +45,7 @@ jobs:
         id: payload-cache
         uses: actions/cache@v5
         with:
-          path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/lib
           key: >-
             pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
@@ -58,13 +58,6 @@ jobs:
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
             ) }}
-      - if: steps.payload-cache.outputs.cache-hit == 'true'
-        name: Restore payload from cache
-        shell: bash
-        run: |
-          mkdir -p "packages/pdf-runtime/npm/${{ matrix.target }}"
-          cp -R "packages/pdf-runtime/.cache/payloads/${{ matrix.target }}/." \
-                "packages/pdf-runtime/npm/${{ matrix.target }}/"
       - if: ${{ steps.payload-cache.outputs.cache-hit != 'true' && !contains(matrix.target, 'linuxmusl') }}
         run: pnpm install --frozen-lockfile
       - if: ${{ steps.payload-cache.outputs.cache-hit != 'true' && !contains(matrix.target, 'linuxmusl') }}
@@ -93,24 +86,6 @@ jobs:
             -w /workspace \
             node:22-alpine \
             sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}"
-      - if: steps.payload-cache.outputs.cache-hit != 'true'
-        name: Stage payload to cache path
-        shell: bash
-        run: |
-          src="packages/pdf-runtime/npm/${{ matrix.target }}"
-          dst="packages/pdf-runtime/.cache/payloads/${{ matrix.target }}"
-          mkdir -p "$dst"
-          case "${{ matrix.target }}" in
-            wasm32)
-              cp "$src/pdfium.js" "$src/pdfium.cjs" "$src/pdfium.wasm" "$dst/"
-              ;;
-            win32-*)
-              cp "$src/pdf-runtime.node" "$src/pdfium.dll" "$dst/"
-              ;;
-            *)
-              cp "$src/pdf-runtime.node" "$dst/"
-              ;;
-          esac
       - name: Verify payload
         shell: bash
         run: bash packages/pdf-runtime/scripts/verify-packages.sh ${{ matrix.target }}
@@ -141,7 +116,7 @@ jobs:
         id: payload-cache
         uses: actions/cache@v5
         with:
-          path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/lib
           key: >-
             pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
@@ -154,13 +129,6 @@ jobs:
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
             ) }}
-      - if: steps.payload-cache.outputs.cache-hit == 'true'
-        name: Restore payload from cache
-        shell: bash
-        run: |
-          mkdir -p "packages/pdf-runtime/npm/${{ matrix.target }}"
-          cp -R "packages/pdf-runtime/.cache/payloads/${{ matrix.target }}/." \
-                "packages/pdf-runtime/npm/${{ matrix.target }}/"
       - if: ${{ steps.payload-cache.outputs.cache-hit != 'true' && !contains(matrix.target, 'linuxmusl') }}
         run: pnpm install --frozen-lockfile
       - if: ${{ steps.payload-cache.outputs.cache-hit != 'true' && !contains(matrix.target, 'linuxmusl') }}
@@ -181,14 +149,6 @@ jobs:
             -w /workspace \
             node:22-alpine \
             sh -lc "apk add --no-cache bash cmake clang g++ make python3 curl tar git && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}"
-      - if: steps.payload-cache.outputs.cache-hit != 'true'
-        name: Stage payload to cache path
-        shell: bash
-        run: |
-          src="packages/pdf-runtime/npm/${{ matrix.target }}"
-          dst="packages/pdf-runtime/.cache/payloads/${{ matrix.target }}"
-          mkdir -p "$dst"
-          cp "$src/pdf-runtime.node" "$dst/"
       - name: Verify payload
         shell: bash
         run: bash packages/pdf-runtime/scripts/verify-packages.sh ${{ matrix.target }}
@@ -217,7 +177,7 @@ jobs:
         id: payload-cache
         uses: actions/cache@v5
         with:
-          path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/lib
           key: >-
             pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
@@ -230,26 +190,11 @@ jobs:
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
             ) }}
-      - if: steps.payload-cache.outputs.cache-hit == 'true'
-        name: Restore payload from cache
-        shell: bash
-        run: |
-          mkdir -p "packages/pdf-runtime/npm/${{ matrix.target }}"
-          cp -R "packages/pdf-runtime/.cache/payloads/${{ matrix.target }}/." \
-                "packages/pdf-runtime/npm/${{ matrix.target }}/"
       - if: steps.payload-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
       - if: steps.payload-cache.outputs.cache-hit != 'true'
         name: Build target
         run: pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}
-      - if: steps.payload-cache.outputs.cache-hit != 'true'
-        name: Stage payload to cache path
-        shell: bash
-        run: |
-          src="packages/pdf-runtime/npm/${{ matrix.target }}"
-          dst="packages/pdf-runtime/.cache/payloads/${{ matrix.target }}"
-          mkdir -p "$dst"
-          cp "$src/pdf-runtime.node" "$dst/"
       - name: Verify payload
         shell: bash
         run: bash packages/pdf-runtime/scripts/verify-packages.sh ${{ matrix.target }}
@@ -278,7 +223,7 @@ jobs:
         id: payload-cache
         uses: actions/cache@v5
         with:
-          path: packages/pdf-runtime/.cache/payloads/${{ matrix.target }}
+          path: packages/pdf-runtime/npm/${{ matrix.target }}/lib
           key: >-
             pdf-runtime-payload-${{ matrix.target }}-${{ hashFiles(
             'packages/pdf-runtime/pdf-runtime-build.json',
@@ -291,27 +236,12 @@ jobs:
             'packages/pdf-runtime/build/compile.sh',
             'packages/pdf-runtime/build/compile.esm.sh'
             ) }}
-      - if: steps.payload-cache.outputs.cache-hit == 'true'
-        name: Restore payload from cache
-        shell: bash
-        run: |
-          mkdir -p "packages/pdf-runtime/npm/${{ matrix.target }}"
-          cp -R "packages/pdf-runtime/.cache/payloads/${{ matrix.target }}/." \
-                "packages/pdf-runtime/npm/${{ matrix.target }}/"
       - if: steps.payload-cache.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
       - if: steps.payload-cache.outputs.cache-hit != 'true'
         name: Build target
         shell: bash
         run: pnpm --filter @embedpdf/pdf-runtime build:target ${{ matrix.target }}
-      - if: steps.payload-cache.outputs.cache-hit != 'true'
-        name: Stage payload to cache path
-        shell: bash
-        run: |
-          src="packages/pdf-runtime/npm/${{ matrix.target }}"
-          dst="packages/pdf-runtime/.cache/payloads/${{ matrix.target }}"
-          mkdir -p "$dst"
-          cp "$src/pdf-runtime.node" "$src/pdfium.dll" "$dst/"
       - name: Verify payload
         shell: bash
         run: bash packages/pdf-runtime/scripts/verify-packages.sh ${{ matrix.target }}

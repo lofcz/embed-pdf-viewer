@@ -44,7 +44,7 @@
     "build": "rollup -c",
     "build:target": "bash ./scripts/build-target.sh",
     "build:local": "bash ./scripts/build-all-local.sh",
-    "clean": "rimraf dist build/libpdfium build/generated npm/*/pdf-runtime.node npm/win32-*/pdfium.dll npm/wasm32/pdfium.js npm/wasm32/pdfium.cjs npm/wasm32/pdfium.wasm",
+    "clean": "rimraf dist build/libpdfium build/generated npm/*/lib",
     "fetch": "bash ./scripts/fetch-libpdfium.sh",
     "generate:functions": "node ./build/generate-functions.mjs",
     "generate:napi": "node ./build/generate-napi-binding.mjs",

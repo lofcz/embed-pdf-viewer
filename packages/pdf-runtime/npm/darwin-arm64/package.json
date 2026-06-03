@@ -11,10 +11,9 @@
   "cpu": [
     "arm64"
   ],
-  "main": "./pdf-runtime.node",
+  "main": "./lib/pdf-runtime.node",
   "files": [
-    "pdf-runtime.node",
-    "libpdfium.dylib",
+    "lib",
     "README.md",
     "LICENSE"
   ]

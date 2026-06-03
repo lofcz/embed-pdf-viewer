@@ -19,6 +19,7 @@ export interface PdfFunctions {
   EPDF_GetPageSizeByIndexNormalized: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   EPDF_GetPageUserUnitByIndex: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
   EPDF_HasMetaText: (arg0: Ptr, arg1: string) => boolean;
+  EPDF_InitThread: () => void;
   EPDF_IsEncrypted: (arg0: Ptr) => boolean;
   EPDF_IsOwnerUnlocked: (arg0: Ptr) => boolean;
   EPDF_LoadBaseDocument: (arg0: Ptr, arg1: string) => Ptr;
@@ -62,6 +63,7 @@ export interface PdfFunctions {
   EPDF_SetMetaText: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDF_SetMetaTrapped: (arg0: Ptr, arg1: number) => boolean;
   EPDF_SetRuntimeOwnerPermissions: (arg0: Ptr, arg1: boolean) => boolean;
+  EPDF_ShutdownThread: () => void;
   EPDF_UnlockOwnerPermissions: (arg0: Ptr, arg1: string) => boolean;
   EPDFAction_CreateGoTo: (arg0: Ptr, arg1: Ptr) => Ptr;
   EPDFAction_CreateGoToNamed: (arg0: Ptr, arg1: string) => Ptr;
@@ -1307,6 +1309,7 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
+  EPDF_InitThread: { params: [], result: null },
   EPDF_IsEncrypted: {
     params: [
       {
@@ -1711,6 +1714,7 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
+  EPDF_ShutdownThread: { params: [], result: null },
   EPDF_UnlockOwnerPermissions: {
     params: [
       {

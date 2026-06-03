@@ -51,6 +51,19 @@ interface WorkerSlot {
 }
 
 export interface WorkerThreadPoolOptions {
+  /**
+   * Number of worker threads. Each worker runs an independent, thread-confined
+   * PDFium runtime (the native lib is built with `embedpdf_thread_local_globals`
+   * so per-thread globals never race), and docs are pinned to a worker via
+   * sticky-by-docId routing — so N workers render in parallel in-process with
+   * zero-copy `postMessage` transfer preserved.
+   *
+   * Resolution order: this explicit value, else `CLOUDPDF_WORKER_POOL_SIZE` /
+   * `EMBEDPDF_WORKER_POOL_SIZE` env (an integer, or `max` for one worker per
+   * CPU), else a conservative default of `min(2, cpus)`. Raise it (e.g. to
+   * `cpus`) only after the TSAN + threaded-soak gate is green for the deployed
+   * native build; see `testing/tools:epdf_thread_soak`.
+   */
   size?: number;
   /**
    * Location of the worker_thread entry script. Required because Vite's
@@ -74,6 +87,32 @@ export interface WorkerThreadPoolOptions {
    * request lazily re-opens.
    */
   onEvict?: (evt: { docId: string; baseSha: string; slot: number }) => void;
+}
+
+/** Conservative default worker count until the thread-confined gate is validated. */
+const DEFAULT_POOL_SIZE_CAP = 2;
+
+/**
+ * Resolve the worker-thread count. See `WorkerThreadPoolOptions.size` for the
+ * contract and resolution order (explicit -> env -> conservative default).
+ */
+function resolvePoolSize(explicit: number | undefined): number {
+  const cpuCount = Math.max(1, cpus().length);
+  if (explicit !== undefined) {
+    return Math.max(1, Math.floor(explicit));
+  }
+  const fromEnv = process.env.CLOUDPDF_WORKER_POOL_SIZE ?? process.env.EMBEDPDF_WORKER_POOL_SIZE;
+  if (fromEnv) {
+    const trimmed = fromEnv.trim().toLowerCase();
+    if (trimmed === 'max') {
+      return cpuCount;
+    }
+    const parsed = Number.parseInt(trimmed, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return Math.min(DEFAULT_POOL_SIZE_CAP, cpuCount);
 }
 
 /**
@@ -111,7 +150,7 @@ export class WorkerThreadPool {
 
   static async create(opts: WorkerThreadPoolOptions): Promise<WorkerThreadPool> {
     const pool = new WorkerThreadPool(opts);
-    const size = Math.max(1, opts.size ?? Math.min(2, Math.max(1, cpus().length)));
+    const size = resolvePoolSize(opts.size);
     const entry = opts.workerEntry;
 
     for (let i = 0; i < size; i++) {

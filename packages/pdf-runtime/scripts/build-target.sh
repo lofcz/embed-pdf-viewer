@@ -42,18 +42,18 @@ cmake-js compile \
   --CDPDFIUM_LIB_DIR="$LIB_DIR/lib" \
   --CDPDFIUM_INCLUDE_DIR="$LIB_DIR/include"
 
-mkdir -p "$ROOT/npm/$TARGET"
-cp "$ROOT/build/build/Release/pdf-runtime.node" "$ROOT/npm/$TARGET/pdf-runtime.node"
+mkdir -p "$ROOT/npm/$TARGET/lib"
+cp "$ROOT/build/build/Release/pdf-runtime.node" "$ROOT/npm/$TARGET/lib/pdf-runtime.node"
 case "$TARGET" in
   win32-*)
-    cp "$LIB_DIR/bin/pdfium.dll" "$ROOT/npm/$TARGET/pdfium.dll"
+    cp "$LIB_DIR/bin/pdfium.dll" "$ROOT/npm/$TARGET/lib/pdfium.dll"
     ;;
   darwin-*)
-    cp "$LIB_DIR/lib/libpdfium.dylib" "$ROOT/npm/$TARGET/libpdfium.dylib"
+    cp "$LIB_DIR/lib/libpdfium.dylib" "$ROOT/npm/$TARGET/lib/libpdfium.dylib"
     ;;
   linux-*)
     if [[ -f "$LIB_DIR/lib/libpdfium.so" ]]; then
-      cp "$LIB_DIR/lib/libpdfium.so" "$ROOT/npm/$TARGET/libpdfium.so"
+      cp "$LIB_DIR/lib/libpdfium.so" "$ROOT/npm/$TARGET/lib/libpdfium.so"
     fi
     ;;
 esac

@@ -78,7 +78,8 @@ document.querySelector('img')!.src = url;
 `render.image()` returns a `PageImageHandle` describing the encoded result
 (`format`, `contentType`, `width`/`height`) plus an `objectUrl()` helper for the
 browser. For raw pixels (e.g. canvas compositing) use `first.render.raw()`,
-which returns an RGBA `PageRaster`.
+which returns an RGBA `PageRaster` — note this is **local-engine only**; the
+cloud engine serves encoded images, so use `render.image()` there.
 
 ## 4. Read the page text (optional)
 

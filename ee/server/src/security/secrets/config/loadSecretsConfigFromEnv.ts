@@ -28,10 +28,15 @@ import {
 } from './SecretsConfigSchema';
 
 export function loadSecretsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): SecretsConfig {
-  const providersList = parseProvidersList(env['CLOUDPDF_SECRETS_PROVIDERS']);
+  const providersRaw = env['CLOUDPDF_SECRETS_PROVIDERS'];
+  const usingDefault = !providersRaw || providersRaw.trim().length === 0;
+  const providersList = parseProvidersList(providersRaw);
   const providers: Record<string, SecretProviderConfig> = {};
   for (const name of providersList) {
-    providers[name] = readProvider(env, name);
+    // Zero-config default: a single `env` provider needs no per-provider
+    // KIND var (matches this loader's documented contract). Explicitly
+    // listed providers stay strict and must declare their kind.
+    providers[name] = usingDefault && name === 'env' ? { kind: 'env' } : readProvider(env, name);
   }
   // Env-driven deployments get caching by default (1h). Programmatic
   // users who omit `cache` from a hand-built SecretsConfig get raw

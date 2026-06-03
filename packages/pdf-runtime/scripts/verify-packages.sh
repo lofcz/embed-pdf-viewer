@@ -8,19 +8,39 @@ check() {
   test -s "$root/$1" || { echo "missing $1" >&2; exit 1; }
 }
 
+# Require the dynamic libpdfium to ship beside pdf-runtime.node whenever the
+# addon links it dynamically (rpath $ORIGIN / @loader_path). Statically-linked
+# targets have no NEEDED entry and are skipped.
+check_native_deps() {
+  local node="$root/npm/$1/lib/pdf-runtime.node"
+  case "$1" in
+    darwin-*)
+      if otool -L "$node" 2>/dev/null | grep -q 'libpdfium\.dylib'; then
+        check "npm/$1/lib/libpdfium.dylib"
+      fi
+      ;;
+    linux-*|linuxmusl-*)
+      if { objdump -p "$node" 2>/dev/null || readelf -d "$node" 2>/dev/null; } | grep -q 'libpdfium\.so'; then
+        check "npm/$1/lib/libpdfium.so"
+      fi
+      ;;
+  esac
+}
+
 check_target() {
   case "$1" in
     wasm32)
-      check npm/wasm32/pdfium.js
-      check npm/wasm32/pdfium.cjs
-      check npm/wasm32/pdfium.wasm
+      check npm/wasm32/lib/pdfium.js
+      check npm/wasm32/lib/pdfium.cjs
+      check npm/wasm32/lib/pdfium.wasm
       ;;
     win32-*)
-      check "npm/$1/pdf-runtime.node"
-      check "npm/$1/pdfium.dll"
+      check "npm/$1/lib/pdf-runtime.node"
+      check "npm/$1/lib/pdfium.dll"
       ;;
     *)
-      check "npm/$1/pdf-runtime.node"
+      check "npm/$1/lib/pdf-runtime.node"
+      check_native_deps "$1"
       ;;
   esac
 }

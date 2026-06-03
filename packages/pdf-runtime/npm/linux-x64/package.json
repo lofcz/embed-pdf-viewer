@@ -14,10 +14,9 @@
   "libc": [
     "glibc"
   ],
-  "main": "./pdf-runtime.node",
+  "main": "./lib/pdf-runtime.node",
   "files": [
-    "pdf-runtime.node",
-    "libpdfium.so",
+    "lib",
     "README.md",
     "LICENSE"
   ]

@@ -14,9 +14,9 @@
   "libc": [
     "musl"
   ],
-  "main": "./pdf-runtime.node",
+  "main": "./lib/pdf-runtime.node",
   "files": [
-    "pdf-runtime.node",
+    "lib",
     "README.md",
     "LICENSE"
   ]

@@ -11,10 +11,9 @@
   "cpu": [
     "x64"
   ],
-  "main": "./pdf-runtime.node",
+  "main": "./lib/pdf-runtime.node",
   "files": [
-    "pdf-runtime.node",
-    "pdfium.dll",
+    "lib",
     "README.md",
     "LICENSE"
   ]

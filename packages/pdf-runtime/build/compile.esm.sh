@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TARGET="${PDF_RUNTIME_TARGET:-wasm32}"
 LIB_DIR="$ROOT/build/libpdfium/$TARGET"
-OUT_DIR="$ROOT/npm/wasm32"
+OUT_DIR="$ROOT/npm/wasm32/lib"
 GEN_DIR="$ROOT/build/generated"
 
 mkdir -p "$OUT_DIR"
