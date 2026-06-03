@@ -155,17 +155,19 @@ function DeployCard({
   title,
   lead,
   sub,
+  href,
 }: {
   tone: Tone;
   icon: ReactNode;
   title: string;
   lead: string;
   sub: string;
+  href: string;
 }) {
   const s = toneStyles[tone];
   return (
     <Link
-      href="/docs/engine/getting-started"
+      href={href}
       className={`border-cp-border group flex items-center gap-[18px] rounded-[18px] border bg-white px-6 py-[22px] no-underline shadow-[0_1px_2px_rgba(10,26,77,0.04),0_18px_40px_-32px_rgba(10,26,77,0.18)] transition-all ${s.hover}`}
     >
       <span
@@ -355,6 +357,7 @@ export function DocsLanding() {
               title="Managed SaaS"
               lead="We host and manage everything."
               sub="Get secure, scalable infrastructure so you can focus on your product."
+              href="/docs/engine/getting-started"
             />
           </div>
           <div className="max-[880px]:order-4">
@@ -379,6 +382,7 @@ export function DocsLanding() {
               title="Self-hosted Server"
               lead="Deploy in your own environment."
               sub="Full control, private data, and enterprise compliance on your terms."
+              href="/docs/server/getting-started"
             />
           </div>
         </div>
