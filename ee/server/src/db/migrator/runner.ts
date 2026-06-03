@@ -15,6 +15,13 @@ export interface MigrationSource {
   name: string;
   /** Raw SQL text. May contain multiple `;`-separated statements. */
   sql: string;
+  /**
+   * Optional inverse SQL applied by `migrateDown` to undo `sql`. Same
+   * multi-statement + `-- pragma: no-transaction` rules as `sql`. When
+   * absent or empty the migration is considered irreversible and
+   * `migrateDown` refuses to roll past it.
+   */
+  down?: string;
 }
 
 export interface MigrationRecord {
@@ -44,6 +51,11 @@ export interface MigrationStatusEntry {
   appliedAt?: number;
   /** Set for `drift` rows: codeChecksum vs dbChecksum. */
   drift?: { dbChecksum: string; codeChecksum: string };
+  /**
+   * True when the migration declares `down` SQL and can therefore be
+   * rolled back by `migrateDown`. Undefined for `orphan` rows (no code).
+   */
+  reversible?: boolean;
 }
 
 export type DriftKind = 'checksum_mismatch' | 'missing_in_code' | 'renamed' | 'unknown_in_db';
@@ -87,6 +99,117 @@ export async function migrate(
   return pending;
 }
 
+export interface MigrateDownOptions {
+  /** Where the migration set (with `down` SQL) comes from. */
+  source: MigrateInput;
+  /**
+   * Roll back every applied migration whose version is strictly greater
+   * than `to`, leaving `to` (and everything below it) applied. Use
+   * `'000'` to revert the entire history. Takes precedence over `steps`.
+   */
+  to?: string;
+  /**
+   * Roll back this many of the highest applied migrations. Default 1.
+   * Ignored when `to` or `all` is set.
+   */
+  steps?: number;
+  /** Roll back every applied migration (down to an empty schema). */
+  all?: boolean;
+  /**
+   * Proceed even when an applied migration's stored up-checksum no
+   * longer matches the code's `sql` (i.e. the migration was edited after
+   * apply). Off by default so we never run a `down` that does not match
+   * the `up` that is actually in the database.
+   */
+  force?: boolean;
+  /** Called once per migration just before its `down` SQL runs. */
+  onRevert?: (m: MigrationSource) => void;
+}
+
+/**
+ * Reverse applied migrations by running their `down` SQL in descending
+ * version order and deleting the corresponding `schema_migrations` row.
+ *
+ * This is a manual break-glass operation — nothing calls it on boot. It
+ * is the symmetric inverse of {@link migrate}:
+ *   - Selection: `to` (everything `> to`), else `steps` (the N highest),
+ *     else `all`.
+ *   - The whole revert set is validated *before* any DB change: each
+ *     target must exist in code, its stored up-checksum must still match
+ *     `sql` (unless `force`), and it must declare non-empty `down` SQL —
+ *     otherwise the migration is irreversible and we refuse.
+ *   - Each `down` runs like an `up` (multi-statement, honours
+ *     `-- pragma: no-transaction`), then its row is removed so
+ *     `migrate up` re-applies it cleanly.
+ *
+ * Returns the migrations that were reverted (newest first).
+ */
+export async function migrateDown(
+  db: Kysely<Schema>,
+  opts: MigrateDownOptions,
+): Promise<MigrationSource[]> {
+  await ensureMigrationsTable(db);
+  const migrations =
+    opts.source.kind === 'inline'
+      ? sortByVersion([...opts.source.migrations])
+      : await discoverMigrations(opts.source.dir);
+  const byVersion = new Map(migrations.map((m) => [m.version, m]));
+  const applied = await listApplied(db);
+
+  const appliedVersionsDesc = [...applied.keys()].sort().reverse();
+
+  let targetVersions: string[];
+  if (opts.all) {
+    targetVersions = appliedVersionsDesc;
+  } else if (opts.to !== undefined) {
+    const to = opts.to;
+    targetVersions = appliedVersionsDesc.filter((v) => v > to);
+  } else {
+    const steps = opts.steps ?? 1;
+    targetVersions = appliedVersionsDesc.slice(0, Math.max(0, steps));
+  }
+
+  // Resolve + validate the entire revert set before touching the DB so
+  // a half-finished rollback can never strand the schema in a state the
+  // code cannot describe.
+  const plan: MigrationSource[] = [];
+  for (const version of targetVersions) {
+    const rec = applied.get(version)!;
+    const m = byVersion.get(version);
+    if (!m) {
+      throw new Error(
+        `migrator: cannot roll back ${version} (${rec.name}): no migration source in code`,
+      );
+    }
+    if (!opts.force) {
+      const codeChecksum = sha256(m.sql);
+      if (codeChecksum !== rec.checksum) {
+        throw new Error(
+          `migrator: cannot roll back ${version} (${m.name}): up-checksum drift ` +
+            `(db=${rec.checksum.slice(0, 12)}.. code=${codeChecksum.slice(0, 12)}..); ` +
+            `pass force to override`,
+        );
+      }
+    }
+    if (!isReversible(m)) {
+      throw new Error(`migrator: migration ${version} (${m.name}) is irreversible (no down SQL)`);
+    }
+    plan.push(m);
+  }
+
+  const reverted: MigrationSource[] = [];
+  for (const m of plan) {
+    opts.onRevert?.(m);
+    await applyDown(db, m);
+    reverted.push(m);
+  }
+  return reverted;
+}
+
+function isReversible(m: MigrationSource): boolean {
+  return typeof m.down === 'string' && m.down.trim().length > 0;
+}
+
 async function ensureMigrationsTable(db: Kysely<Schema>): Promise<void> {
   // BIGINT, not INTEGER: epoch-ms timestamps (13 digits) overflow PG's
   // 4-byte INTEGER (max ~2.14B). SQLite treats `BIGINT` as an alias for
@@ -105,14 +228,29 @@ async function ensureMigrationsTable(db: Kysely<Schema>): Promise<void> {
 async function discoverMigrations(dir: string): Promise<MigrationSource[]> {
   const entries = await readdir(dir);
   const out: MigrationSource[] = [];
+  // `NNN_name.down.sql` files are inverses, not standalone migrations.
+  // Collect them first, then attach onto their matching up entry so the
+  // `^(\d+)_(.+)\.sql$` up regex never mistakes `011_x.down.sql` for a
+  // bogus migration `011`.
+  const downByVersion = new Map<string, string>();
   for (const entry of entries) {
-    if (!entry.endsWith('.sql')) continue;
+    if (!entry.endsWith('.down.sql')) continue;
+    const dm = entry.match(/^(\d+)_(.+)\.down\.sql$/);
+    if (!dm) {
+      throw new Error(`migrator: unrecognised down filename ${entry} (expected NNN_name.down.sql)`);
+    }
+    downByVersion.set(dm[1]!, await readFile(join(dir, entry), 'utf8'));
+  }
+  for (const entry of entries) {
+    if (!entry.endsWith('.sql') || entry.endsWith('.down.sql')) continue;
     const match = entry.match(/^(\d+)_(.+)\.sql$/);
     if (!match) {
       throw new Error(`migrator: unrecognised filename ${entry} (expected NNN_name.sql)`);
     }
     const text = await readFile(join(dir, entry), 'utf8');
-    out.push({ version: match[1]!, name: entry, sql: text });
+    const version = match[1]!;
+    const down = downByVersion.get(version);
+    out.push({ version, name: entry, sql: text, ...(down !== undefined ? { down } : {}) });
   }
   return sortByVersion(out);
 }
@@ -156,13 +294,19 @@ export async function status(
       continue;
     }
     if (m && !a) {
-      out.push({ version: m.version, name: m.name, state: 'pending' });
+      out.push({ version: m.version, name: m.name, state: 'pending', reversible: isReversible(m) });
       continue;
     }
     if (m && a) {
       const codeChecksum = sha256(m.sql);
       if (codeChecksum === a.checksum) {
-        out.push({ version: m.version, name: m.name, state: 'applied', appliedAt: a.applied_at });
+        out.push({
+          version: m.version,
+          name: m.name,
+          state: 'applied',
+          appliedAt: a.applied_at,
+          reversible: isReversible(m),
+        });
       } else {
         out.push({
           version: m.version,
@@ -170,6 +314,7 @@ export async function status(
           state: 'drift',
           appliedAt: a.applied_at,
           drift: { dbChecksum: a.checksum, codeChecksum },
+          reversible: isReversible(m),
         });
       }
     }
@@ -303,6 +448,25 @@ async function applyOne(db: Kysely<Schema>, m: MigrationSource): Promise<void> {
       .insertInto('schema_migrations')
       .values({ version: m.version, name: m.name, checksum, applied_at: Date.now() })
       .execute();
+  };
+
+  if (noTx) {
+    await run(db);
+  } else {
+    await db.transaction().execute(run);
+  }
+}
+
+async function applyDown(db: Kysely<Schema>, m: MigrationSource): Promise<void> {
+  const down = m.down ?? '';
+  const noTx = /^\s*--\s*pragma:\s*no-transaction\s*$/im.test(down);
+  const statements = splitStatements(down);
+
+  const run = async (tx: Kysely<Schema>) => {
+    for (const stmt of statements) {
+      await sql.raw(stmt).execute(tx);
+    }
+    await tx.deleteFrom('schema_migrations').where('version', '=', m.version).execute();
   };
 
   if (noTx) {

@@ -45,11 +45,12 @@ export { createSqliteDb } from './db/drivers/sqlite';
 export type { CreateSqliteDbOptions } from './db/drivers/sqlite';
 export { createPostgresDb } from './db/drivers/postgres';
 export type { CreatePostgresDbOptions } from './db/drivers/postgres';
-export { migrate, status, validate, validateOrThrow } from './db/migrator/runner';
+export { migrate, migrateDown, status, validate, validateOrThrow } from './db/migrator/runner';
 export type {
   MigrationSource,
   MigrateInput,
   MigrateOptions,
+  MigrateDownOptions,
   MigrationStatusEntry,
   DriftIssue,
   DriftKind,

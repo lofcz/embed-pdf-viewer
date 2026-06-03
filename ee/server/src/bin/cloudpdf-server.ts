@@ -3,7 +3,13 @@
 import { buildApp } from '../app/buildApp';
 import { createSqliteDb, type CreateSqliteDbOptions } from '../db/drivers/sqlite';
 import { createPostgresDb, type CreatePostgresDbOptions } from '../db/drivers/postgres';
-import { migrate, status, validate, type MigrationSource } from '../db/migrator/runner';
+import {
+  migrate,
+  migrateDown,
+  status,
+  validate,
+  type MigrationSource,
+} from '../db/migrator/runner';
 import { sqliteMigrations } from '../db/migrations/sqlite/index';
 import { postgresMigrations } from '../db/migrations/postgres/index';
 import type { Database as Schema } from '../db/schema';
@@ -28,6 +34,7 @@ import type { Kysely } from 'kysely';
  *   cloudpdf-server serve
  *   cloudpdf-server migrate status
  *   cloudpdf-server migrate up [--dry-run]
+ *   cloudpdf-server migrate down [--to NNN | --steps N | --all] [--dry-run] [--yes] [--force]
  *   cloudpdf-server migrate validate [--strict]
  *   cloudpdf-server db doctor
  *   cloudpdf-server audit export --day yesterday
@@ -169,6 +176,13 @@ function printHelp(): void {
       '  migrate status         Show applied / pending / drift state',
       '  migrate up             Apply pending migrations',
       '  migrate up --dry-run   List what would be applied without changing the DB',
+      '  migrate down           Roll back migrations (manual break-glass; destructive)',
+      '    --to NNN               Roll back everything newer than version NNN',
+      '    --steps N              Roll back the N highest applied (default 1)',
+      '    --all                  Roll back every applied migration',
+      '    --dry-run              Preview the rollback plan without touching the DB',
+      '    --yes                  Required to actually run (containers are non-interactive)',
+      '    --force                Roll back even if the up-checksum drifted from code',
       '  migrate validate       Refuse to exit 0 if drift is detected',
       '  migrate validate --strict  Treat pending migrations as drift too',
       '  db doctor              Connect, run validate, print version info',
@@ -258,6 +272,78 @@ async function cmdMigrateUp(args: string[]): Promise<void> {
     } else {
       console.log(`applied ${applied.length} migration(s)`);
     }
+  } finally {
+    await ctx.db.destroy();
+  }
+}
+
+async function cmdMigrateDown(args: string[]): Promise<void> {
+  const dryRun = args.includes('--dry-run');
+  const yes = args.includes('--yes');
+  const force = args.includes('--force');
+  const all = args.includes('--all');
+  const to = readFlagValue(args, '--to');
+  const steps = readOptionalNumberFlag(args, '--steps');
+
+  if (to !== undefined && steps !== undefined) {
+    fail(2, 'migrate down: pass either --to or --steps, not both');
+  }
+  if (all && (to !== undefined || steps !== undefined)) {
+    fail(2, 'migrate down: --all cannot be combined with --to or --steps');
+  }
+
+  const ctx = openDb();
+  try {
+    // Build the human-readable plan from status (read-only). The runner
+    // recomputes + validates the same set; this is just the preview.
+    const rows = await status(ctx.db, ctx.migrations);
+    const appliedDesc = rows
+      .filter((r) => r.state === 'applied' || r.state === 'drift')
+      .sort((a, b) => (a.version < b.version ? 1 : a.version > b.version ? -1 : 0));
+
+    let planned: typeof appliedDesc;
+    if (all) {
+      planned = appliedDesc;
+    } else if (to !== undefined) {
+      planned = appliedDesc.filter((r) => r.version > to);
+    } else {
+      planned = appliedDesc.slice(0, steps ?? 1);
+    }
+
+    console.log(`db: ${ctx.describe}`);
+    if (planned.length === 0) {
+      console.log('nothing to roll back');
+      return;
+    }
+
+    console.log(`${planned.length} migration(s) will be rolled back (newest first):`);
+    for (const p of planned) {
+      const flag = p.reversible === false ? '  [IRREVERSIBLE — will fail]' : '';
+      const drift = p.state === 'drift' ? '  [up-checksum drift]' : '';
+      console.log(`  ${p.version}  ${p.name}${flag}${drift}`);
+    }
+
+    if (dryRun) {
+      console.log('(dry-run: nothing rolled back)');
+      return;
+    }
+    if (!yes) {
+      fail(
+        1,
+        'refusing to roll back without --yes (down migrations are destructive and ' +
+          'restore structure, not data). Re-run with --yes, or use --dry-run to preview.',
+      );
+    }
+
+    const reverted = await migrateDown(ctx.db, {
+      source: { kind: 'inline', migrations: ctx.migrations },
+      ...(all ? { all: true } : {}),
+      ...(to !== undefined ? { to } : {}),
+      ...(steps !== undefined ? { steps } : {}),
+      force,
+      onRevert: (m) => console.log(`reverting ${m.version} ${m.name}`),
+    });
+    console.log(`rolled back ${reverted.length} migration(s)`);
   } finally {
     await ctx.db.destroy();
   }
@@ -476,6 +562,7 @@ async function main(): Promise<void> {
     const rest = args.slice(2);
     if (sub === 'status') return cmdMigrateStatus();
     if (sub === 'up') return cmdMigrateUp(rest);
+    if (sub === 'down') return cmdMigrateDown(rest);
     if (sub === 'validate') return cmdMigrateValidate(rest);
     fail(2, `unknown subcommand: migrate ${sub ?? '(missing)'}\nrun: cloudpdf-server --help`);
   }

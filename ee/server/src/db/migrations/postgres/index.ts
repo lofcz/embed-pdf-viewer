@@ -11,6 +11,18 @@ import sql009 from './009_pdf_password_sessions.sql';
 import sql010 from './010_layer_layout_version.sql';
 import sql011 from './011_drop_page_index.sql';
 import sql012 from './012_layer_metadata_version.sql';
+import down001 from './001_initial.down.sql';
+import down002 from './002_auth.down.sql';
+import down003 from './003_layer_state.down.sql';
+import down004 from './004_weak_annotation_sessions.down.sql';
+import down005 from './005_audit_log.down.sql';
+import down006 from './006_audit_exports.down.sql';
+import down007 from './007_document_security.down.sql';
+import down008 from './008_pdf_password_verifications.down.sql';
+import down009 from './009_pdf_password_sessions.down.sql';
+import down010 from './010_layer_layout_version.down.sql';
+import down011 from './011_drop_page_index.down.sql';
+import down012 from './012_layer_metadata_version.down.sql';
 
 /**
  * Postgres migration set, dialect-parallel to `./sqlite`. The `.sql`
@@ -24,16 +36,16 @@ import sql012 from './012_layer_metadata_version.sql';
  * real.
  */
 export const postgresMigrations: ReadonlyArray<MigrationSource> = [
-  { version: '001', name: '001_initial.sql', sql: sql001 },
-  { version: '002', name: '002_auth.sql', sql: sql002 },
-  { version: '003', name: '003_layer_state.sql', sql: sql003 },
-  { version: '004', name: '004_weak_annotation_sessions.sql', sql: sql004 },
-  { version: '005', name: '005_audit_log.sql', sql: sql005 },
-  { version: '006', name: '006_audit_exports.sql', sql: sql006 },
-  { version: '007', name: '007_document_security.sql', sql: sql007 },
-  { version: '008', name: '008_pdf_password_verifications.sql', sql: sql008 },
-  { version: '009', name: '009_pdf_password_sessions.sql', sql: sql009 },
-  { version: '010', name: '010_layer_layout_version.sql', sql: sql010 },
-  { version: '011', name: '011_drop_page_index.sql', sql: sql011 },
-  { version: '012', name: '012_layer_metadata_version.sql', sql: sql012 },
+  { version: '001', name: '001_initial.sql', sql: sql001, down: down001 },
+  { version: '002', name: '002_auth.sql', sql: sql002, down: down002 },
+  { version: '003', name: '003_layer_state.sql', sql: sql003, down: down003 },
+  { version: '004', name: '004_weak_annotation_sessions.sql', sql: sql004, down: down004 },
+  { version: '005', name: '005_audit_log.sql', sql: sql005, down: down005 },
+  { version: '006', name: '006_audit_exports.sql', sql: sql006, down: down006 },
+  { version: '007', name: '007_document_security.sql', sql: sql007, down: down007 },
+  { version: '008', name: '008_pdf_password_verifications.sql', sql: sql008, down: down008 },
+  { version: '009', name: '009_pdf_password_sessions.sql', sql: sql009, down: down009 },
+  { version: '010', name: '010_layer_layout_version.sql', sql: sql010, down: down010 },
+  { version: '011', name: '011_drop_page_index.sql', sql: sql011, down: down011 },
+  { version: '012', name: '012_layer_metadata_version.sql', sql: sql012, down: down012 },
 ];
