@@ -19,7 +19,7 @@ export function Card({
   return (
     <Link
       href={href}
-      className="border-cp-border group flex items-start gap-3.5 rounded-[14px] border bg-white p-[18px] no-underline transition-all hover:-translate-y-0.5 hover:border-[#CFE0FF] hover:shadow-[0_14px_30px_-20px_rgba(22,119,255,0.4)]"
+      className="border-cp-border group flex items-start gap-3.5 rounded-[14px] border bg-white p-[18px] no-underline transition-all hover:border-[#CFE0FF] hover:shadow-[0_14px_30px_-20px_rgba(22,119,255,0.4)]"
     >
       <span className="bg-cp-surface text-cp-blue inline-flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-[11px]">
         <ArrowRight

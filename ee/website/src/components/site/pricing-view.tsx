@@ -119,7 +119,7 @@ function Plan({
 }) {
   const isAnnual = billing === 'annual';
   return (
-    <div className="border-cp-border flex flex-col rounded-[20px] border bg-white p-[30px] pb-[26px] shadow-[0_1px_2px_rgba(10,26,77,0.04),0_18px_40px_-28px_rgba(10,26,77,0.18)] transition-all hover:-translate-y-[3px] hover:border-[#CFE0FF] hover:shadow-[0_1px_2px_rgba(10,26,77,0.04),0_26px_56px_-28px_rgba(22,119,255,0.3)]">
+    <div className="border-cp-border flex flex-col rounded-[20px] border bg-white p-[30px] pb-[26px] shadow-[0_1px_2px_rgba(10,26,77,0.04),0_18px_40px_-28px_rgba(10,26,77,0.18)] transition-all hover:border-[#CFE0FF] hover:shadow-[0_1px_2px_rgba(10,26,77,0.04),0_26px_56px_-28px_rgba(22,119,255,0.3)]">
       <div className="flex items-center gap-4">
         <span className="bg-cp-surface text-cp-blue inline-flex h-[54px] w-[54px] flex-shrink-0 items-center justify-center rounded-[14px]">
           {icon}
@@ -153,7 +153,7 @@ function Plan({
 
       <a
         href="#"
-        className={`mt-[26px] flex h-[50px] w-full items-center justify-center gap-2.5 rounded-[10px] font-sans text-base font-bold no-underline transition-all hover:-translate-y-px ${
+        className={`mt-[26px] flex h-[50px] w-full items-center justify-center gap-2.5 rounded-[10px] font-sans text-base font-bold no-underline transition-all ${
           variant === 'primary'
             ? 'bg-cp-blue hover:bg-cp-blue600 text-white hover:shadow-[0_8px_20px_rgba(22,119,255,0.28)]'
             : 'border-cp-blue text-cp-blue hover:border-cp-blue600 hover:text-cp-blue600 border-2 hover:bg-[rgba(22,119,255,0.08)]'
@@ -338,7 +338,7 @@ export function PricingView() {
               </div>
               <a
                 href="mailto:hello@cloudpdf.io"
-                className="border-cp-violet text-cp-violet hover:border-cp-violetDeep hover:text-cp-violetDeep flex h-[50px] flex-shrink-0 items-center justify-center gap-2.5 rounded-[10px] border-2 px-[22px] font-sans text-base font-bold no-underline transition-all hover:-translate-y-px hover:bg-[rgba(124,92,252,0.08)] max-[720px]:w-full"
+                className="border-cp-violet text-cp-violet hover:border-cp-violetDeep hover:text-cp-violetDeep flex h-[50px] flex-shrink-0 items-center justify-center gap-2.5 rounded-[10px] border-2 px-[22px] font-sans text-base font-bold no-underline transition-all hover:bg-[rgba(124,92,252,0.08)] max-[720px]:w-full"
               >
                 <span>Contact sales</span>
                 <ArrowRight width={20} height={20} />

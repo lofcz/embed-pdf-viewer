@@ -11,28 +11,28 @@ const CARDS: ProblemCard[] = [
     title: 'Annotations and comments',
     body: 'Users need to highlight, comment, and collaborate inside documents.',
     callout: 'Without it, workflows break outside your product.',
-    image: '/annotations-comments.svg',
+    image: '/problem-section/annotations-comments.svg',
     imageAlt: 'Document with highlights and a comment bubble',
   },
   {
     title: 'Permissions and signed URLs',
     body: 'Secure access, expirations, and role-based controls are table stakes.',
     callout: 'Ad-hoc sharing and downloads create risk and support load.',
-    image: '/permissions-signed-urls.svg',
+    image: '/problem-section/permissions-signed-urls.svg',
     imageAlt: 'Secure document with a link and lock',
   },
   {
     title: 'Custom UI complexity',
     body: 'Building a polished PDF experience with permissions and tools takes months.',
     callout: 'Reinventing the viewer slows down your roadmap.',
-    image: '/custom-ui-complexity.svg',
+    image: '/problem-section/custom-ui-complexity.svg',
     imageAlt: 'Code editor next to a UI layout',
   },
   {
     title: 'Hosting, scale, and compliance',
     body: 'Global delivery, large files, compliance, and audit logs are hard to get right.',
     callout: 'Infrastructure distractions pull focus from your product.',
-    image: '/hosting-scale-compliance.svg',
+    image: '/problem-section/hosting-scale-compliance.svg',
     imageAlt: 'Cloud server with a globe and security shield',
   },
 ];
@@ -87,7 +87,7 @@ export function ProblemSection() {
           {CARDS.map((card) => (
             <article
               key={card.title}
-              className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[20px_20px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.28),0_3px_10px_rgba(10,26,77,0.05)]"
+              className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[20px_20px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.28),0_3px_10px_rgba(10,26,77,0.05)]"
             >
               <div className="overflow-hidden rounded-[12px]">
                 <img

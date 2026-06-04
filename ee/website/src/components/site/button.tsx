@@ -5,7 +5,7 @@ type Variant = 'primary' | 'outline' | 'violet';
 type Size = 'sm' | 'md';
 
 const base =
-  'relative inline-flex items-center justify-center gap-2.5 rounded-[10px] font-sans font-bold whitespace-nowrap no-underline transition-all duration-200 hover:-translate-y-px active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-cp-blue';
+  'relative inline-flex items-center justify-center gap-2.5 rounded-[10px] font-sans font-bold whitespace-nowrap no-underline transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-cp-blue';
 
 const sizes: Record<Size, string> = {
   md: 'h-[50px] px-[22px] text-base',

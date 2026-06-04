@@ -1,19 +1,67 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 import { ArrowRight, CloudIcon, ReactLogo, SvelteLogo, VueLogo } from './icons';
 
-function FwChip({ children }: { children: ReactNode }) {
+type Tone = 'blue' | 'violet';
+
+const REACT = <ReactLogo width={18} height={18} />;
+const VUE = <VueLogo width={17} height={17} />;
+const SVELTE = <SvelteLogo width={15} height={15} />;
+const VANILLA = (
+  <span className="font-display inline-flex h-[18px] w-[18px] items-center justify-center rounded-[4px] bg-[#F7DF1E] text-[9px] font-extrabold leading-none text-[#1A1A1A]">
+    JS
+  </span>
+);
+
+const fwToneStyles: Record<Tone, { link: string; arrow: string }> = {
+  blue: {
+    link: 'border-[#D7E5FF] bg-[#F2F8FF] hover:border-cp-blue hover:bg-white hover:shadow-[0_12px_24px_-12px_rgba(22,119,255,0.55)]',
+    arrow: 'text-cp-blue',
+  },
+  violet: {
+    link: 'border-[#E2DAFF] bg-[#F7F4FF] hover:border-cp-violet hover:bg-white hover:shadow-[0_12px_24px_-12px_rgba(124,92,252,0.55)]',
+    arrow: 'text-cp-violet',
+  },
+};
+
+function FrameworkButton({
+  tone,
+  href,
+  name,
+  logo,
+}: {
+  tone: Tone;
+  href: string;
+  name: string;
+  logo: ReactNode;
+}) {
+  const s = fwToneStyles[tone];
   return (
-    <span className="border-cp-border text-cp-navy inline-flex h-[34px] items-center gap-[7px] whitespace-nowrap rounded-[9px] border bg-white px-3 font-sans text-[13px] font-semibold">
-      {children}
-    </span>
+    <Link
+      href={href}
+      className={`group flex items-center gap-2.5 rounded-xl border px-3 py-2.5 no-underline transition-all ${s.link}`}
+    >
+      <span className="inline-flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[8px] bg-white shadow-[0_1px_2px_rgba(10,26,77,0.06)]">
+        {logo}
+      </span>
+      <span className="font-display text-cp-navy min-w-0 flex-1 truncate text-[14px] font-bold tracking-[-0.01em]">
+        {name}
+      </span>
+      <ArrowRight
+        width={16}
+        height={16}
+        strokeWidth={2.4}
+        className={`flex-shrink-0 transition-transform group-hover:translate-x-0.5 ${s.arrow}`}
+      />
+    </Link>
   );
 }
 
-function PlanLink({ children }: { children: ReactNode }) {
+function PlanLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <a
-      href="#"
+    <Link
+      href={href}
       className="text-cp-blue hover:text-cp-blue600 group/link inline-flex items-center gap-[7px] whitespace-nowrap font-sans text-[15px] font-bold no-underline transition-colors"
     >
       {children}
@@ -22,7 +70,7 @@ function PlanLink({ children }: { children: ReactNode }) {
         height={17}
         className="transition-transform duration-200 group-hover/link:translate-x-[3px]"
       />
-    </a>
+    </Link>
   );
 }
 
@@ -67,23 +115,15 @@ export function PlanSection() {
 
               <div className="mt-[22px] flex flex-col gap-[18px]">
                 {/* Ready-made Viewer */}
-                <article className="border-cp-border grid grid-cols-[64px_1fr] gap-x-[22px] rounded-[18px] border bg-white p-[28px_30px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:-translate-y-[3px] hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)] max-[540px]:grid-cols-1 max-[540px]:gap-y-[18px] max-[540px]:p-[24px_22px]">
-                  <span className="bg-cp-blue/10 text-cp-blue inline-flex h-16 w-16 items-center justify-center rounded-[16px]">
-                    <svg
-                      width={30}
-                      height={30}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.9"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="4" width="18" height="16" rx="2.5" />
-                      <path d="M3 9h18" />
-                      <path d="M6.5 6.5h.01M9 6.5h.01" />
-                    </svg>
-                  </span>
+                <article className="border-cp-border grid grid-cols-[minmax(0,300px)_1fr] items-center gap-x-[30px] rounded-[18px] border bg-white p-[28px_30px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)] max-[640px]:grid-cols-1 max-[640px]:gap-y-[22px] max-[540px]:p-[24px_22px]">
+                  <div className="flex items-center justify-center overflow-hidden rounded-[14px] bg-[#F4F7FE] p-4">
+                    <img
+                      src="/plan-section/ready-made-viewer.svg"
+                      alt="Preview of the ready-made PDF viewer interface"
+                      loading="lazy"
+                      className="block h-auto w-full"
+                    />
+                  </div>
                   <div>
                     <h4 className="font-display text-cp-navy m-0 text-[20px] font-extrabold leading-[1.2] tracking-[-0.012em]">
                       Ready-made Viewer
@@ -94,48 +134,45 @@ export function PlanSection() {
                     <p className="text-cp-muted font-display mt-5 text-[11px] font-bold uppercase leading-none tracking-[0.06em]">
                       Frameworks
                     </p>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-[18px] gap-y-3.5">
-                      <div className="flex flex-wrap gap-[9px]">
-                        <FwChip>
-                          <span className="font-display inline-flex h-[18px] w-[18px] items-center justify-center rounded-[4px] bg-[#F7DF1E] text-[9px] font-extrabold leading-none text-[#1A1A1A]">
-                            JS
-                          </span>
-                          Vanilla JS
-                        </FwChip>
-                        <FwChip>
-                          <ReactLogo width={15} height={15} />
-                          React
-                        </FwChip>
-                        <FwChip>
-                          <VueLogo width={15} height={15} />
-                          Vue
-                        </FwChip>
-                        <FwChip>
-                          <SvelteLogo width={15} height={15} />
-                          Svelte
-                        </FwChip>
-                      </div>
-                      <PlanLink>Get started</PlanLink>
+                    <div className="mt-3 grid grid-cols-2 gap-2.5 max-[400px]:grid-cols-1">
+                      <FrameworkButton
+                        tone="blue"
+                        href="/docs/engine/getting-started"
+                        name="Vanilla JS"
+                        logo={VANILLA}
+                      />
+                      <FrameworkButton
+                        tone="blue"
+                        href="/docs/engine/getting-started"
+                        name="React"
+                        logo={REACT}
+                      />
+                      <FrameworkButton
+                        tone="blue"
+                        href="/docs/engine/getting-started"
+                        name="Vue"
+                        logo={VUE}
+                      />
+                      <FrameworkButton
+                        tone="blue"
+                        href="/docs/engine/getting-started"
+                        name="Svelte"
+                        logo={SVELTE}
+                      />
                     </div>
                   </div>
                 </article>
 
                 {/* Headless Components */}
-                <article className="border-cp-border grid grid-cols-[64px_1fr] gap-x-[22px] rounded-[18px] border bg-white p-[28px_30px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:-translate-y-[3px] hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)] max-[540px]:grid-cols-1 max-[540px]:gap-y-[18px] max-[540px]:p-[24px_22px]">
-                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-[16px] bg-[#7A5AF8]/10 text-[#7A5AF8]">
-                    <svg
-                      width={30}
-                      height={30}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M14 4.5a2 2 0 1 0-4 0v.7a1.3 1.3 0 0 1-1.3 1.3H5.5a1 1 0 0 0-1 1v3.2a1.3 1.3 0 0 0 1.3 1.3h.4a2 2 0 1 1 0 4h-.4a1.3 1.3 0 0 0-1.3 1.3v3.2a1 1 0 0 0 1 1h3.2a1.3 1.3 0 0 0 1.3-1.3v-.4a2 2 0 1 1 4 0v.4a1.3 1.3 0 0 0 1.3 1.3h3.2a1 1 0 0 0 1-1v-3.2a1.3 1.3 0 0 0-1.3-1.3h-.7a2 2 0 1 1 0-4h.7a1.3 1.3 0 0 0 1.3-1.3V7.5a1 1 0 0 0-1-1h-3.2A1.3 1.3 0 0 1 14 5.2z" />
-                    </svg>
-                  </span>
+                <article className="border-cp-border grid grid-cols-[minmax(0,300px)_1fr] items-center gap-x-[30px] rounded-[18px] border bg-white p-[28px_30px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)] max-[640px]:grid-cols-1 max-[640px]:gap-y-[22px] max-[540px]:p-[24px_22px]">
+                  <div className="flex items-center justify-center overflow-hidden rounded-[14px] bg-[#F5F4FE] p-4">
+                    <img
+                      src="/plan-section/headless-components.svg"
+                      alt="Headless components and code building blocks"
+                      loading="lazy"
+                      className="block h-auto w-full"
+                    />
+                  </div>
                   <div>
                     <h4 className="font-display text-cp-navy m-0 text-[20px] font-extrabold leading-[1.2] tracking-[-0.012em]">
                       Headless Components
@@ -146,22 +183,25 @@ export function PlanSection() {
                     <p className="text-cp-muted font-display mt-5 text-[11px] font-bold uppercase leading-none tracking-[0.06em]">
                       Frameworks
                     </p>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-[18px] gap-y-3.5">
-                      <div className="flex flex-wrap gap-[9px]">
-                        <FwChip>
-                          <ReactLogo width={15} height={15} />
-                          React
-                        </FwChip>
-                        <FwChip>
-                          <VueLogo width={15} height={15} />
-                          Vue
-                        </FwChip>
-                        <FwChip>
-                          <SvelteLogo width={15} height={15} />
-                          Svelte
-                        </FwChip>
-                      </div>
-                      <PlanLink>Explore components</PlanLink>
+                    <div className="mt-3 grid grid-cols-2 gap-2.5 max-[400px]:grid-cols-1">
+                      <FrameworkButton
+                        tone="violet"
+                        href="/docs/engine/getting-started"
+                        name="React"
+                        logo={REACT}
+                      />
+                      <FrameworkButton
+                        tone="violet"
+                        href="/docs/engine/getting-started"
+                        name="Vue"
+                        logo={VUE}
+                      />
+                      <FrameworkButton
+                        tone="violet"
+                        href="/docs/engine/getting-started"
+                        name="Svelte"
+                        logo={SVELTE}
+                      />
                     </div>
                   </div>
                 </article>
@@ -201,7 +241,7 @@ export function PlanSection() {
 
               <div className="mt-[22px] grid grid-cols-1 gap-[18px] min-[621px]:grid-cols-2">
                 {/* Managed SaaS */}
-                <article className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[26px_26px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:-translate-y-[3px] hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)]">
+                <article className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[26px_26px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)]">
                   <div className="flex items-center gap-3.5">
                     <span className="bg-cp-blue/10 text-cp-blue inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[13px]">
                       <CloudIcon width={24} height={24} />
@@ -215,12 +255,12 @@ export function PlanSection() {
                     secure by default.
                   </p>
                   <div className="mt-[18px]">
-                    <PlanLink>Learn more</PlanLink>
+                    <PlanLink href="/docs/engine/getting-started">Learn more</PlanLink>
                   </div>
                 </article>
 
                 {/* Self-hosted Server */}
-                <article className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[26px_26px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:-translate-y-[3px] hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)]">
+                <article className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[26px_26px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.26),0_3px_10px_rgba(10,26,77,0.05)]">
                   <div className="flex items-center gap-3.5">
                     <span className="inline-flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[13px] bg-[#7A5AF8]/10 text-[#7A5AF8]">
                       <svg
@@ -233,9 +273,9 @@ export function PlanSection() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <rect x="3" y="4" width="18" height="7" rx="1.8" />
-                        <rect x="3" y="13" width="18" height="7" rx="1.8" />
-                        <path d="M7 7.5h.01M7 16.5h.01" />
+                        <rect x="3" y="4" width="18" height="6" rx="1.5" />
+                        <rect x="3" y="14" width="18" height="6" rx="1.5" />
+                        <path d="M7 7h.01M7 17h.01" />
                       </svg>
                     </span>
                     <h4 className="font-display text-cp-navy m-0 text-[19px] font-extrabold leading-[1.2] tracking-[-0.012em]">
@@ -247,7 +287,7 @@ export function PlanSection() {
                     terms.
                   </p>
                   <div className="mt-[18px]">
-                    <PlanLink>Learn more</PlanLink>
+                    <PlanLink href="/docs/server/getting-started">Learn more</PlanLink>
                   </div>
                 </article>
               </div>

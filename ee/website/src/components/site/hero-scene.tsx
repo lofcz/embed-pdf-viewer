@@ -202,26 +202,29 @@ export function HeroScene() {
 
         {/* store anywhere card */}
         <div className="absolute left-[392px] top-[500px] z-[5] w-[398px] rounded-2xl border border-[#EAEFF7] bg-white px-5 pb-5 pt-4 shadow-[0_18px_40px_-16px_rgba(10,26,77,0.20),0_2px_6px_rgba(10,26,77,0.05)] max-[980px]:hidden">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-display text-cp-navy text-[15px] font-extrabold tracking-[-0.01em]">
-                Store anywhere.
-              </div>
-              <div className="text-cp-muted mt-0.5 font-sans text-[12.5px] font-medium">
-                Deploy your way.
-              </div>
+          <div>
+            <div className="font-display text-cp-navy text-[15px] font-extrabold tracking-[-0.01em]">
+              Store anywhere.
             </div>
-            <span className="font-display text-cp-muted flex-shrink-0 rounded-full bg-[#F2F5FA] px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-[0.07em]">
-              BYO storage
-            </span>
+            <div className="text-cp-muted mt-0.5 font-sans text-[12.5px] font-medium">
+              Deploy your way.
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2.5">
-            {['Amazon S3', 'Google Cloud', 'Azure Blob'].map((label) => (
+            {[
+              { label: 'Amazon S3', icon: '/hero-section/aws.svg' },
+              { label: 'Google Cloud', icon: '/hero-section/google-cloud.svg' },
+              { label: 'Azure Blob', icon: '/hero-section/azure-cloud.svg' },
+            ].map(({ label, icon }) => (
               <div
                 key={label}
-                className="border-cp-border text-cp-muted flex h-[54px] items-center justify-center rounded-xl border bg-gradient-to-b from-white to-[#FAFCFF] font-sans text-[11px] font-semibold transition-all hover:-translate-y-0.5 hover:border-[#CFE0FF] hover:shadow-[0_8px_18px_-10px_rgba(22,119,255,0.4)]"
+                className="border-cp-border group/store relative flex h-[64px] items-center justify-center rounded-xl border bg-gradient-to-b from-white to-[#FAFCFF] transition-all hover:border-[#CFE0FF] hover:shadow-[0_8px_18px_-10px_rgba(22,119,255,0.4)]"
               >
-                {label}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={icon} alt={label} className="h-10 w-10 select-none object-contain" />
+                <span className="bg-cp-navy after:border-t-cp-navy pointer-events-none absolute -top-9 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-md px-2.5 py-1 font-sans text-[11px] font-semibold text-white opacity-0 shadow-[0_6px_16px_-6px_rgba(8,24,72,0.6)] transition-opacity duration-150 after:absolute after:left-1/2 after:top-full after:-translate-x-1/2 after:border-4 after:border-transparent after:content-[''] group-hover/store:opacity-100">
+                  {label}
+                </span>
               </div>
             ))}
           </div>
