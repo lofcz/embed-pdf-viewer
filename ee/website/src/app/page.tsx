@@ -1,4 +1,5 @@
 import { CpButton } from '@/components/site/button';
+import { CredibilitySection } from '@/components/site/credibility-section';
 import { HeroScene } from '@/components/site/hero-scene';
 import { ArrowRight, PlayIcon } from '@/components/site/icons';
 import { PlanSection } from '@/components/site/plan-section';
@@ -98,6 +99,7 @@ export default function HomePage() {
 
       <ProblemSection />
       <PlanSection />
+      <CredibilitySection />
     </main>
   );
 }
