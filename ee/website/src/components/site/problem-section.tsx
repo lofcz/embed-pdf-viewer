@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
-
 type ProblemCard = {
   title: string;
   body: string;
   callout: string;
-  icon: ReactNode;
+  image: string;
+  imageAlt: string;
 };
 
 const CARDS: ProblemCard[] = [
@@ -12,48 +11,29 @@ const CARDS: ProblemCard[] = [
     title: 'Annotations and comments',
     body: 'Users need to highlight, comment, and collaborate inside documents.',
     callout: 'Without it, workflows break outside your product.',
-    icon: (
-      <>
-        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-        <path d="M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01" />
-      </>
-    ),
+    image: '/annotations-comments.svg',
+    imageAlt: 'Document with highlights and a comment bubble',
   },
   {
     title: 'Permissions and signed URLs',
     body: 'Secure access, expirations, and role-based controls are table stakes.',
     callout: 'Ad-hoc sharing and downloads create risk and support load.',
-    icon: (
-      <>
-        <rect x="4" y="10.5" width="16" height="10.5" rx="2.2" />
-        <path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" />
-        <circle cx="12" cy="15.5" r="1.3" />
-      </>
-    ),
+    image: '/permissions-signed-urls.svg',
+    imageAlt: 'Secure document with a link and lock',
   },
   {
     title: 'Custom UI complexity',
     body: 'Building a polished PDF experience with permissions and tools takes months.',
     callout: 'Reinventing the viewer slows down your roadmap.',
-    icon: (
-      <>
-        <path d="m8 8-4 4 4 4" />
-        <path d="m16 8 4 4-4 4" />
-        <path d="m13.5 6-3 12" />
-      </>
-    ),
+    image: '/custom-ui-complexity.svg',
+    imageAlt: 'Code editor next to a UI layout',
   },
   {
     title: 'Hosting, scale, and compliance',
     body: 'Global delivery, large files, compliance, and audit logs are hard to get right.',
     callout: 'Infrastructure distractions pull focus from your product.',
-    icon: (
-      <>
-        <rect x="3" y="4" width="18" height="6" rx="1.6" />
-        <rect x="3" y="14" width="18" height="6" rx="1.6" />
-        <path d="M7 7h.01M7 17h.01" />
-      </>
-    ),
+    image: '/hosting-scale-compliance.svg',
+    imageAlt: 'Cloud server with a globe and security shield',
   },
 ];
 
@@ -94,7 +74,7 @@ export function ProblemSection() {
       />
       <div className="cp-dots-fine pointer-events-none absolute right-[clamp(24px,6vw,96px)] top-[clamp(72px,8vw,116px)] z-[1] h-24 w-[150px] text-[#BBD3FB] [mask-image:linear-gradient(255deg,#000_30%,transparent_92%)] max-[1080px]:hidden" />
 
-      <div className="relative z-[2] mx-auto w-full max-w-[1280px] px-[clamp(20px,4vw,78px)]">
+      <div className="relative z-[2] mx-auto w-full max-w-[1440px] px-[clamp(20px,4vw,78px)]">
         <h2 className="font-display text-cp-navy m-0 text-balance text-center text-[clamp(34px,4.2vw,54px)] font-extrabold leading-[1.05] tracking-[-0.02em]">
           A viewer is <em className="text-cp-blue not-italic">just the beginning.</em>
         </h2>
@@ -107,31 +87,23 @@ export function ProblemSection() {
           {CARDS.map((card) => (
             <article
               key={card.title}
-              className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[26px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.28),0_3px_10px_rgba(10,26,77,0.05)]"
+              className="border-cp-border flex flex-col rounded-[18px] border bg-white p-[20px_20px_24px] shadow-[0_1px_2px_rgba(10,26,77,0.04)] transition-all duration-200 hover:-translate-y-1 hover:border-[#D8E4FB] hover:shadow-[0_22px_44px_-22px_rgba(10,26,77,0.28),0_3px_10px_rgba(10,26,77,0.05)]"
             >
-              <div className="flex items-center gap-3.5">
-                <span className="bg-cp-blue/10 text-cp-blue inline-flex h-[50px] w-[50px] flex-shrink-0 items-center justify-center rounded-[14px]">
-                  <svg
-                    width={24}
-                    height={24}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    {card.icon}
-                  </svg>
-                </span>
-                <h3 className="font-display text-cp-navy m-0 text-balance text-[18px] font-extrabold leading-[1.22] tracking-[-0.012em]">
-                  {card.title}
-                </h3>
+              <div className="overflow-hidden rounded-[12px]">
+                <img
+                  src={card.image}
+                  alt={card.imageAlt}
+                  loading="lazy"
+                  className="block aspect-[1611/1012] w-full object-cover"
+                />
               </div>
-              <p className="text-cp-ink m-0 mt-[18px] flex-1 font-sans text-[15.5px] leading-[1.58]">
+              <h3 className="font-display text-cp-navy m-0 mx-auto mt-[20px] max-w-[180px] text-balance text-center text-[18px] font-extrabold leading-[1.22] tracking-[-0.012em]">
+                {card.title}
+              </h3>
+              <p className="text-cp-muted m-0 mt-[12px] flex-1 text-pretty text-center font-sans text-[15px] leading-[1.55]">
                 {card.body}
               </p>
-              <div className="bg-cp-blue/[0.065] mt-[22px] flex items-start gap-2.5 rounded-[12px] border border-[rgba(22,119,255,0.14)] p-[13px_14px]">
+              <div className="bg-cp-blue/[0.065] mt-[20px] flex items-start gap-2.5 rounded-[12px] border border-[rgba(22,119,255,0.14)] p-[13px_14px]">
                 <span className="text-cp-blue mt-px inline-flex flex-shrink-0">
                   <InfoIcon />
                 </span>
