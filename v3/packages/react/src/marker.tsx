@@ -9,7 +9,7 @@
 import * as React from 'react';
 import { MarkerToken } from '@embedpdf/plugin-marker';
 import type { Marker } from '@embedpdf/plugin-marker';
-import { StageToken } from '@embedpdf/stage';
+import { StageToken } from '@embedpdf/plugin-stage';
 import { shallowArray, useCapability, usePage, useSelector } from './runtime';
 
 export function useMarker() {

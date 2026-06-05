@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { createFakeEngine } from '@embedpdf/engine-fake';
-import { stagePlugin } from '@embedpdf/stage';
-import type { LayoutKind } from '@embedpdf/stage';
+import { stagePlugin } from '@embedpdf/plugin-stage';
+import type { LayoutKind } from '@embedpdf/plugin-stage';
 import { markerPlugin } from '@embedpdf/plugin-marker';
 import { persistPlugin } from '@embedpdf/plugin-persist';
 import {

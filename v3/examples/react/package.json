@@ -15,7 +15,7 @@
     "@embedpdf/plugin-marker": "workspace:*",
     "@embedpdf/plugin-persist": "workspace:*",
     "@embedpdf/react": "workspace:*",
-    "@embedpdf/stage": "workspace:*",
+    "@embedpdf/plugin-stage": "workspace:*",
     "@embedpdf/stage-core": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

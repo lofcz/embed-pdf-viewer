@@ -7,7 +7,7 @@
  */
 import * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
-import { StageToken } from '@embedpdf/stage';
+import { StageToken } from '@embedpdf/plugin-stage';
 import type { Camera, PageBox } from '@embedpdf/stage-core';
 import {
   makePageContext,

@@ -17,16 +17,18 @@ export const stagePlugin = (config: StageConfig = {}) =>
     reduce: stageReducer,
     capability: createStageCapability,
     effects: (ctx) => {
-      // Initial placement is a Stage concern, not the shell's: once the viewport has
-      // a real size, home the document. (A persist plugin can override afterwards.)
+      // Initial placement is a Stage concern, and it has exactly ONE owner. Once the
+      // viewport has a real size, resolve the registered initial-view providers
+      // (persist, deep-link, …) by priority — or fall back to home(). No reliance on
+      // effect-ordering: every other plugin only *offers* a candidate.
       const stage = ctx.get(StageToken);
-      let homed = false;
+      let placed = false;
       ctx.watch(
         () => stage.viewport().width,
         (w) => {
-          if (!homed && w > 0 && stage.pageCount() > 0) {
-            homed = true;
-            stage.home();
+          if (!placed && w > 0 && stage.pageCount() > 0) {
+            placed = true;
+            stage.placeInitial();
           }
         },
       );

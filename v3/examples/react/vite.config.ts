@@ -13,7 +13,7 @@ export default defineConfig({
     alias: {
       '@embedpdf/kernel': src('kernel'),
       '@embedpdf/stage-core': src('stage-core'),
-      '@embedpdf/stage': src('stage'),
+      '@embedpdf/plugin-stage': src('plugin-stage'),
       '@embedpdf/plugin-marker': src('plugin-marker'),
       '@embedpdf/plugin-persist': src('plugin-persist'),
       '@embedpdf/engine-fake': src('engine-fake'),

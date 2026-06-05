@@ -22,7 +22,28 @@ export function createStore(): Store {
   const reducers: Record<string, (s: unknown, a: Action) => unknown> = {};
   const changeListeners = new Set<() => void>();
   const actionListeners = new Set<(a: Action) => void>();
-  const emitChange = () => changeListeners.forEach((l) => l());
+
+  // Non-re-entrant change notification. If a listener dispatches (e.g. an effect
+  // reacting to a change), we don't fire listeners nested mid-flight — we finish the
+  // current pass and run another. This keeps listener order deterministic (a later
+  // effect always observes an earlier effect's writes) and avoids re-entrancy bugs.
+  let emitting = false;
+  let pending = false;
+  const emitChange = () => {
+    if (emitting) {
+      pending = true;
+      return;
+    }
+    emitting = true;
+    try {
+      do {
+        pending = false;
+        changeListeners.forEach((l) => l());
+      } while (pending);
+    } finally {
+      emitting = false;
+    }
+  };
   const emitAction = (a: Action) => actionListeners.forEach((l) => l(a));
 
   return {

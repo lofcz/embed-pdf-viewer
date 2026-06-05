@@ -34,7 +34,7 @@
   },
   "dependencies": {
     "@embedpdf/kernel": "workspace:*",
-    "@embedpdf/stage": "workspace:*"
+    "@embedpdf/plugin-stage": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

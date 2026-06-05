@@ -69,6 +69,10 @@ export interface StageCapability {
   setSpread(spread: SpreadMode): void;
   setFraming(framing: FramingKind): void;
   applyViewState(view: StageViewState): void;
+  /** Offer a candidate initial view; the highest-priority non-null wins at placement. */
+  provideInitialView(priority: number, provider: () => StageViewState | null): void;
+  /** Resolve the registered providers once (else home). Called when the viewport is ready. */
+  placeInitial(): void;
   home(): void;
 }
 

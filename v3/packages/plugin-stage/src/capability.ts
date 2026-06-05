@@ -65,6 +65,10 @@ export function createStageCapability(
     return vis;
   };
 
+  // Initial-view providers (persist, deep-link, an explicit prop…). One owner
+  // (placeInitial) resolves them by priority — no effect-ordering races.
+  const initialViewProviders: Array<{ priority: number; fn: () => StageViewState | null }> = [];
+
   const api: StageCapability = {
     // ── selectors ──
     camera: cam,
@@ -143,6 +147,20 @@ export function createStageCapability(
       setCam(
         S.cameraFromAnchor(view.anchor, sc, vp(), S.resolveZoom(view.zoomSpec, it, vp(), GAP)),
       );
+    },
+    provideInitialView: (priority, fn) => {
+      initialViewProviders.push({ priority, fn });
+    },
+    placeInitial: () => {
+      const sorted = [...initialViewProviders].sort((a, b) => b.priority - a.priority);
+      for (const p of sorted) {
+        const view = p.fn();
+        if (view) {
+          api.applyViewState(view);
+          return;
+        }
+      }
+      api.home();
     },
     home: () => {
       const sc = buildScene();

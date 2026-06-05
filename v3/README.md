@@ -22,7 +22,7 @@ react             generic reactive binding + <Viewer>/<Stage>/<PageView> + headl
 | ------------------------- | ------------------------------------------------------------------ |
 | `@embedpdf/kernel`        | store, `createCapabilityToken`, `definePlugin`, document lifecycle |
 | `@embedpdf/stage-core`    | Camera / Scene / Anchor math (DOM-free, serializable)              |
-| `@embedpdf/stage`         | the Stage plugin: intents (`goToPage`, `zoomTo`…) + selectors      |
+| `@embedpdf/plugin-stage`  | the Stage plugin: intents (`goToPage`, `zoomTo`…) + selectors      |
 | `@embedpdf/plugin-marker` | example feature plugin (a tiny annotation)                         |
 | `@embedpdf/engine-fake`   | stand-in engine; swap for `@embedpdf/engine`                       |
 | `@embedpdf/react`         | the React adapter — the entire framework surface                   |

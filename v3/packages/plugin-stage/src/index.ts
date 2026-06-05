@@ -1,5 +1,5 @@
 /**
- * @embedpdf/stage — the coordinate core, as a kernel plugin.
+ * @embedpdf/plugin-stage — the coordinate core, as a kernel plugin.
  *
  * In v2 these were five fighting plugins (viewport, scroll, zoom, pan, spread).
  * Here they are one Camera + Scene + framing. See the standard plugin layout:

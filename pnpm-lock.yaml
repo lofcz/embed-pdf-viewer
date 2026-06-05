@@ -2780,12 +2780,12 @@ importers:
       '@embedpdf/plugin-persist':
         specifier: workspace:*
         version: link:../../packages/plugin-persist
+      '@embedpdf/plugin-stage':
+        specifier: workspace:*
+        version: link:../../packages/plugin-stage
       '@embedpdf/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@embedpdf/stage':
-        specifier: workspace:*
-        version: link:../../packages/stage
       '@embedpdf/stage-core':
         specifier: workspace:*
         version: link:../../packages/stage-core
@@ -2843,9 +2843,22 @@ importers:
       '@embedpdf/kernel':
         specifier: workspace:*
         version: link:../kernel
-      '@embedpdf/stage':
+      '@embedpdf/plugin-stage':
         specifier: workspace:*
-        version: link:../stage
+        version: link:../plugin-stage
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
+  v3/packages/plugin-stage:
+    dependencies:
+      '@embedpdf/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@embedpdf/stage-core':
+        specifier: workspace:*
+        version: link:../stage-core
     devDependencies:
       typescript:
         specifier: ^5.0.0
@@ -2859,9 +2872,9 @@ importers:
       '@embedpdf/plugin-marker':
         specifier: workspace:*
         version: link:../plugin-marker
-      '@embedpdf/stage':
+      '@embedpdf/plugin-stage':
         specifier: workspace:*
-        version: link:../stage
+        version: link:../plugin-stage
       '@embedpdf/stage-core':
         specifier: workspace:*
         version: link:../stage-core
@@ -2872,19 +2885,6 @@ importers:
       '@types/react':
         specifier: ^18.3.0
         version: 18.3.28
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
-
-  v3/packages/stage:
-    dependencies:
-      '@embedpdf/kernel':
-        specifier: workspace:*
-        version: link:../kernel
-      '@embedpdf/stage-core':
-        specifier: workspace:*
-        version: link:../stage-core
-    devDependencies:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
