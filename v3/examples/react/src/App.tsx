@@ -18,7 +18,7 @@ import {
 } from '@embedpdf/react';
 
 // Engine + plugins are plain values. Plugins are pure; the engine is swappable.
-const engine = createFakeEngine({ pages: 12 });
+const engine = createFakeEngine();
 const plugins = [
   stagePlugin({ layout: 'vertical', framing: 'document' }),
   markerPlugin(),
@@ -101,6 +101,7 @@ export function App() {
     <Viewer
       engine={engine}
       plugins={plugins}
+      initialDocuments={[{ id: 'ebook', name: 'Ebook', pages: 12 }]}
       fallback={<div style={{ padding: 20 }}>loading…</div>}
     >
       <div

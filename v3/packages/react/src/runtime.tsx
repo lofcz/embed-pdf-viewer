@@ -1,10 +1,10 @@
 /**
  * @embedpdf/react — the generic binding.
  *
- * This file is the ENTIRE framework-specific reactivity layer: bind the kernel's
- * one change stream to React via useSyncExternalStore, expose capabilities, and
- * provide the page coordinate context. Every plugin and every layer rides on this
- * — there is no per-plugin framework code. (Vue/Svelte/Angular = this file again.)
+ * Binds the kernel's one change stream to React (useSyncExternalStore), resolves
+ * capabilities (document-scoped ones against the active or `<DocumentScope>`-given
+ * document), and provides the page coordinate context. Every plugin and layer rides
+ * on this — there is no per-plugin framework code.
  */
 import * as React from 'react';
 import {
@@ -17,9 +17,11 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { createKernel } from '@embedpdf/kernel';
-import type { AnyPlugin, CapabilityToken, Engine, Kernel } from '@embedpdf/kernel';
+import type { AnyPlugin, CapabilityToken, Engine, Kernel, OpenSource } from '@embedpdf/kernel';
 
 const KernelCtx = createContext<Kernel | null>(null);
+/** The document a subtree is bound to. null => use the active document. */
+const DocumentScopeCtx = createContext<string | null>(null);
 
 export function useKernel(): Kernel {
   const k = useContext(KernelCtx);
@@ -27,26 +29,62 @@ export function useKernel(): Kernel {
   return k;
 }
 
-/** Resolve a capability by typed token (stable across renders). */
-export function useCapability<T>(token: CapabilityToken<T>): T {
-  const k = useKernel();
-  return useMemo(() => k.capability(token), [k, token]);
-}
-
 export const shallowArray = <T,>(a: readonly T[], b: readonly T[]): boolean =>
   a === b || (a.length === b.length && a.every((x, i) => x === b[i]));
 
-/**
- * The one reactive read. Subscribes to the kernel's global stream and recomputes
- * a selector over a capability, caching by equality so unrelated dispatches don't
- * re-render (and so derived values keep a stable reference — no tearing loop).
- */
+/** Read a value derived from the kernel, cached by equality (no tearing loop). */
+export function useKernelValue<R>(
+  select: (k: Kernel) => R,
+  isEqual: (a: R, b: R) => boolean = Object.is,
+): R {
+  const kernel = useKernel();
+  const last = useRef<{ v: R } | null>(null);
+  const get = () => {
+    const next = select(kernel);
+    if (last.current && isEqual(last.current.v, next)) return last.current.v;
+    last.current = { v: next };
+    return next;
+  };
+  return useSyncExternalStore(kernel.subscribe, get, get);
+}
+
+export function useActiveDocumentId(): string | null {
+  return useKernelValue((k) => k.documents.activeId());
+}
+
+/** The document id for this subtree: the nearest <DocumentScope>, else the active doc. */
+export function useDocumentId(): string | null {
+  const scoped = useContext(DocumentScopeCtx);
+  const active = useActiveDocumentId();
+  return scoped ?? active;
+}
+
+export interface DocumentScopeProps {
+  id: string;
+  children: React.ReactNode;
+}
+/** Bind a subtree to a specific document (panes, comparison). */
+export function DocumentScope({ id, children }: DocumentScopeProps) {
+  return <DocumentScopeCtx.Provider value={id}>{children}</DocumentScopeCtx.Provider>;
+}
+
+/** Resolve a capability by token, binding document-scoped ones to this subtree's document. */
+export function useCapability<T>(token: CapabilityToken<T>): T {
+  const kernel = useKernel();
+  const scoped = useContext(DocumentScopeCtx);
+  const active = useActiveDocumentId();
+  const isDocScoped = kernel.scopeOf(token) === 'document';
+  const docId = isDocScoped ? (scoped ?? active ?? undefined) : undefined;
+  return useMemo(() => kernel.capability(token, docId), [kernel, token, docId]);
+}
+
+/** Subscribe to a selector over a (document-resolved) capability. */
 export function useSelector<C, R>(
   token: CapabilityToken<C>,
   select: (cap: C) => R,
   isEqual: (a: R, b: R) => boolean = Object.is,
 ): R {
-  const k = useKernel();
+  const kernel = useKernel();
   const cap = useCapability(token);
   const last = useRef<{ v: R } | null>(null);
   const get = () => {
@@ -55,28 +93,53 @@ export function useSelector<C, R>(
     last.current = { v: next };
     return next;
   };
-  return useSyncExternalStore(k.subscribe, get, get);
+  return useSyncExternalStore(kernel.subscribe, get, get);
+}
+
+/** The document registry (open/close/active/list), reactive. */
+export function useDocuments() {
+  const kernel = useKernel();
+  const docs = useKernelValue(
+    (k) => k.documents.list(),
+    (a, b) =>
+      a.length === b.length &&
+      a.every((d, i) => d.id === b[i].id && d.pageCount === b[i].pageCount),
+  );
+  const activeId = useActiveDocumentId();
+  return {
+    docs,
+    activeId,
+    open: kernel.documents.open,
+    close: kernel.documents.close,
+    setActive: kernel.documents.setActive,
+  };
 }
 
 export interface ViewerProps {
   engine: Engine;
   plugins: AnyPlugin[];
+  /** Documents to open on startup. */
+  initialDocuments?: OpenSource[];
   fallback?: React.ReactNode;
   children: React.ReactNode;
 }
 
-/** Builds the kernel, opens the document, then provides it to the tree. */
-export function Viewer({ engine, plugins, fallback, children }: ViewerProps) {
+/** Builds the kernel, starts it, opens the initial documents, then renders. */
+export function Viewer({ engine, plugins, initialDocuments, fallback, children }: ViewerProps) {
   const kernel = useMemo(() => createKernel({ engine, plugins }), [engine, plugins]);
   const [ready, setReady] = useState(false);
   useEffect(() => {
     let alive = true;
-    kernel.start().then(() => {
+    (async () => {
+      await kernel.start();
+      for (const src of initialDocuments ?? []) await kernel.documents.open(src);
       if (alive) setReady(true);
-    });
+    })();
     return () => {
       alive = false;
+      kernel.destroy();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kernel]);
   return (
     <KernelCtx.Provider value={kernel}>{ready ? children : (fallback ?? null)}</KernelCtx.Provider>

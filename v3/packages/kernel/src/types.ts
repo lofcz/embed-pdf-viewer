@@ -1,9 +1,10 @@
 /**
  * @embedpdf/kernel — core contracts.
  *
- * Everything here is framework-free and serializable. The kernel never imports a
- * framework or (at runtime) the DOM; rendering is a shell concern. This is the
- * layer that, in v4, gets reimplemented in Rust behind the same shapes.
+ * Framework-free and serializable. The kernel understands ONE foundational thing
+ * beyond plain state: **document scope**. Plugins declare a scope; the kernel
+ * multiplexes document-scoped plugins per documentId so each plugin is authored as
+ * if there is a single document. This is the layer reimplemented in Rust for v4.
  */
 
 export type Unsubscribe = () => void;
@@ -13,13 +14,14 @@ export interface Action {
   readonly type: string;
 }
 
-/** Dispatched by the kernel after the document opens. Plugins may react to it. */
-export const CORE_DOCUMENT_LOADED = '@@core/document-loaded';
+/** Kernel-emitted document-lifecycle actions; plugins may react via `onAction`. */
+export const CORE_DOCUMENT_ADDED = '@@core/document-added';
+export const CORE_DOCUMENT_REMOVED = '@@core/document-removed';
+export const CORE_ACTIVE_CHANGED = '@@core/active-changed';
 
 /**
  * A typed handle to a capability. The phantom `__type` carries the capability's
- * interface so `ctx.get(Token)` returns it with no string casts (the analog of a
- * Rust trait bound).
+ * interface so resolution is typed (no string casts) — the analog of a Rust trait.
  */
 export interface CapabilityToken<T> {
   readonly name: string;
@@ -32,15 +34,19 @@ export interface PageSize {
   readonly height: number;
 }
 
-/** Minimal document descriptor the kernel owns (lifecycle lives in `core`). */
-export interface PdfDocument {
+/** What the kernel knows about an open document (lightweight, synchronous, serializable). */
+export interface DocumentMeta {
   readonly id: string;
+  readonly name?: string;
   readonly pageCount: number;
   readonly pages: readonly PageSize[];
 }
 
+/** The document registry lives in core — it's what document scope is built on. */
 export interface CoreState {
-  readonly document: PdfDocument | null;
+  readonly documents: Readonly<Record<string, DocumentMeta>>;
+  readonly order: readonly string[];
+  readonly activeId: string | null;
 }
 
 export interface GlobalState {
@@ -53,81 +59,76 @@ export interface Size {
   readonly height: number;
 }
 
-/** An RGBA raster (length = width*height*4), in device pixels. Just bytes. */
+/** An RGBA raster (length = width*height*4), device pixels. Just bytes. */
 export interface RenderResult {
   readonly width: number;
   readonly height: number;
   readonly data: Uint8ClampedArray;
 }
 
-/**
- * The engine boundary (swappable: local-wasm | cloud-http). The real
- * `@embedpdf/engine` returns bitmaps via AbortablePromise; here it's synchronous.
- * `renderPage` returns RGBA pixels at `scale` (device px per PDF point) — the shell
- * paints them, so the kernel references ZERO DOM types and stays Rust-portable.
- */
-export interface Engine {
-  open(): Promise<PdfDocument>;
-  renderPage(pageIndex: number, scale: number): RenderResult;
+/** Where a document comes from. Engine-specific; `id` keeps persistence stable. */
+export interface OpenSource {
+  id?: string;
+  name?: string;
+  [k: string]: unknown;
 }
 
 /**
- * The context a plugin receives. It exposes the plugin's OWN slice (get/dispatch/
- * subscribe), the shared document, the engine, and typed access to OTHER plugins'
- * capabilities. A plugin never reaches into another plugin's internals — only its
- * capability.
- *
- * NOTE: `get`/`tryGet` resolve capabilities lazily — call them inside methods or
- * effects, never at capability-construction time.
+ * The engine boundary (swappable: local-wasm | cloud-http). Tiny here; the real
+ * `@embedpdf/engine` returns bitmaps via AbortablePromise. One Engine serves many
+ * documents — every call is keyed by `docId`, so the kernel stays DOM-free.
+ */
+export interface Engine {
+  open(source: OpenSource): Promise<DocumentMeta>;
+  renderPage(docId: string, pageIndex: number, scale: number): RenderResult;
+}
+
+export type PluginScope = 'workspace' | 'document';
+
+/**
+ * The context a plugin receives. Document-scoped plugins get a context bound to a
+ * single document (`documentId`, `document()`, and `get()` auto-binds to it), so
+ * they're written as if there is one document. Workspace plugins see all documents.
  */
 export interface PluginContext<S, A extends Action = Action> {
   readonly id: string;
   readonly engine: Engine;
+  /** The bound document (document-scoped plugins only; undefined for workspace). */
+  readonly documentId?: string;
   getState(): S;
   dispatch(action: A): void;
   subscribe(listener: () => void): Unsubscribe;
   core(): CoreState;
-  /** Resolve a required capability. Throws if absent. */
+  /** The bound document's meta (document-scoped); for workspace plugins: the active doc, or null. */
+  document(): DocumentMeta | null;
+  /** Resolve a capability. Document-scoped targets bind to this context's document (or the active one). */
   get<T>(token: CapabilityToken<T>): T;
-  /** Resolve an optional capability, or null if its plugin isn't registered. */
+  /** Resolve a document-scoped capability for a specific document. */
+  forDocument<T>(token: CapabilityToken<T>, docId: string): T;
   tryGet<T>(token: CapabilityToken<T>): T | null;
 }
 
-/**
- * The richer context an `effects` function receives: the plugin context plus the
- * three side-effect primitives. This is the ONLY place async/IO/cross-plugin
- * reactions live — the reducer stays pure.
- */
+/** Side-effect context: the only place async/IO/cross-plugin reactions live. */
 export interface EffectContext<S, A extends Action = Action> extends PluginContext<S, A> {
-  /** Run `handler` whenever the selected value changes. Auto-torn-down on destroy. */
   watch<R>(
     select: () => R,
     handler: (value: R, previous: R) => void,
     isEqual?: (a: R, b: R) => boolean,
   ): Unsubscribe;
-  /** Run `handler` after any action of `type` is dispatched anywhere. */
   onAction(type: string, handler: (action: Action) => void): Unsubscribe;
-  /** Register teardown to run on `kernel.destroy()`. */
   cleanup(fn: () => void): void;
 }
 
 /**
- * A plugin definition: a pure reducer + a capability factory + optional effects.
- * No inheritance, no host coupling — a struct of functions, which maps 1:1 to a
- * Rust module. Everything but `id` is optional, so a plugin can be:
- *   • state + capability  (e.g. stage, marker)
- *   • effects-only        (e.g. persist, telemetry — no public surface)
- *
- * @typeParam S - private slice state (pure, serializable)
- * @typeParam A - action union (pure)
- * @typeParam C - public capability (the typed contract others depend on)
+ * A plugin definition. `scope` decides multiplexing:
+ *   'workspace' (default) — one instance; can see every document.
+ *   'document'            — one instance PER open document; authored single-document.
  */
 export interface PluginDef<S = unknown, A extends Action = Action, C = unknown> {
   readonly id: string;
   readonly token?: CapabilityToken<C>;
-  /** Capabilities this plugin needs. Validated at startup; orders init/effects. */
+  readonly scope?: PluginScope;
   readonly requires?: ReadonlyArray<CapabilityToken<unknown>>;
-  /** Capabilities this plugin uses if present. Never errors if absent. */
   readonly optional?: ReadonlyArray<CapabilityToken<unknown>>;
   readonly initialState?: S | (() => S);
   readonly reduce?: (state: S, action: A) => S;
@@ -137,3 +138,27 @@ export interface PluginDef<S = unknown, A extends Action = Action, C = unknown> 
 }
 
 export type AnyPlugin = PluginDef<any, any, any>;
+
+// ── Built-in: the document registry, exposed as a capability ─────────────────
+
+export interface DocInfo {
+  id: string;
+  name?: string;
+  pageCount: number;
+}
+
+export interface DocumentsCapability {
+  open(source: OpenSource, opts?: { activate?: boolean }): Promise<string>;
+  close(id: string): Promise<void>;
+  closeAll(): Promise<void>;
+  setActive(id: string): void;
+  activeId(): string | null;
+  list(): DocInfo[];
+  get(id: string): DocInfo | null;
+  has(id: string): boolean;
+  count(): number;
+  order(): string[];
+}
+
+/** Built-in token for the document registry capability (provided by the kernel). */
+export const DocumentsToken: CapabilityToken<DocumentsCapability> = { name: 'documents' };

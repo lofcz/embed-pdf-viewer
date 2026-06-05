@@ -15,7 +15,7 @@ export function createStageCapability(
   // Scene cache: rebuilt only when document / layout / spread change.
   let sceneCache: { key: string; scene: S.Scene } | null = null;
   const buildScene = (): S.Scene => {
-    const doc = ctx.core().document;
+    const doc = ctx.document();
     const st = ctx.getState();
     const key = `${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
@@ -73,7 +73,7 @@ export function createStageCapability(
     // ── selectors ──
     camera: cam,
     viewport: vp,
-    pageCount: () => ctx.core().document?.pageCount ?? 0,
+    pageCount: () => ctx.document()?.pageCount ?? 0,
     visiblePages,
     currentPage: () => S.anchorFromCamera(cam(), buildScene(), vp()).pageIndex,
     pageRect: (i) => {

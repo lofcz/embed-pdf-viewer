@@ -22,9 +22,12 @@ export function registerPersistEffects(ctx: EffectContext<unknown>, config: Pers
   const storage = safeStorage();
   if (!storage) return;
 
+  // per-document key, so each open document persists its own view independently
+  const key = `${config.key}:${ctx.documentId ?? 'default'}`;
+
   let saved: string | null = null;
   try {
-    saved = storage.getItem(config.key);
+    saved = storage.getItem(key);
   } catch {
     saved = null;
   }
@@ -48,7 +51,7 @@ export function registerPersistEffects(ctx: EffectContext<unknown>, config: Pers
       clearTimeout(timer);
       timer = setTimeout(() => {
         try {
-          storage.setItem(config.key, json);
+          storage.setItem(key, json);
         } catch {
           /* storage full or unavailable — drop silently */
         }

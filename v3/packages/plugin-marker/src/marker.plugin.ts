@@ -9,6 +9,7 @@ export const markerPlugin = () =>
   definePlugin<MarkerState, MarkerAction, MarkerCapability>({
     id: 'marker',
     token: MarkerToken,
+    scope: 'document', // markers belong to a document
     initialState: initialMarkerState,
     reduce: markerReducer,
     capability: createMarkerCapability,

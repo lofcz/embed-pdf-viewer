@@ -11,6 +11,7 @@ import type { PersistConfig } from './types';
 export const persistPlugin = (config: PersistConfig) =>
   definePlugin({
     id: 'persist',
+    scope: 'document', // each document persists its own view-state
     requires: [StageToken],
     effects: (ctx) => registerPersistEffects(ctx, config),
   });

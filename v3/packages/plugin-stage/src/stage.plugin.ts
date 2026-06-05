@@ -13,6 +13,7 @@ export const stagePlugin = (config: StageConfig = {}) =>
   definePlugin<StageState, StageAction, StageCapability>({
     id: 'stage',
     token: StageToken,
+    scope: 'document', // one Stage (camera/layout/spread) per open document
     initialState: () => initialStageState(config),
     reduce: stageReducer,
     capability: createStageCapability,

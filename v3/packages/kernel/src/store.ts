@@ -1,32 +1,34 @@
 import type { Action, CoreState, GlobalState, Unsubscribe } from './types';
 
 /**
- * The store: one state tree ({ core, plugins }), pure per-plugin reducers, and two
- * notification channels — `subscribe` (state changed) for reactivity/`watch`, and
- * `subscribeAction` (an action was dispatched) for `onAction` effects.
+ * The store: one state tree ({ core, plugins }), keyed plugin slices, and two
+ * channels — `subscribe` (state changed, for reactivity/`watch`) and
+ * `subscribeAction` (an action was dispatched, for `onAction`). Slice keys are
+ * opaque strings; the kernel uses `pluginId` for workspace plugins and
+ * `pluginId::docId` for document-scoped ones.
+ *
+ * Change notification is non-re-entrant: if a listener dispatches, we finish the
+ * current pass and run another — keeping listener order deterministic.
  */
 export interface Store {
-  registerSlice(id: string, reducer: (s: unknown, a: Action) => unknown, initial: unknown): void;
-  getSlice(id: string): unknown;
+  registerSlice(key: string, reducer: (s: unknown, a: Action) => unknown, initial: unknown): void;
+  removeSlice(key: string): void;
+  getSlice(key: string): unknown;
   getCore(): CoreState;
   getState(): GlobalState;
-  dispatchTo(id: string, action: Action): void;
+  dispatchTo(key: string, action: Action): void;
   setCore(patch: Partial<CoreState>, action: Action): void;
   subscribe(listener: () => void): Unsubscribe;
   subscribeAction(listener: (action: Action) => void): Unsubscribe;
 }
 
 export function createStore(): Store {
-  let core: CoreState = { document: null };
+  let core: CoreState = { documents: {}, order: [], activeId: null };
   const slices: Record<string, unknown> = {};
   const reducers: Record<string, (s: unknown, a: Action) => unknown> = {};
   const changeListeners = new Set<() => void>();
   const actionListeners = new Set<(a: Action) => void>();
 
-  // Non-re-entrant change notification. If a listener dispatches (e.g. an effect
-  // reacting to a change), we don't fire listeners nested mid-flight — we finish the
-  // current pass and run another. This keeps listener order deterministic (a later
-  // effect always observes an earlier effect's writes) and avoids re-entrancy bugs.
   let emitting = false;
   let pending = false;
   const emitChange = () => {
@@ -38,28 +40,33 @@ export function createStore(): Store {
     try {
       do {
         pending = false;
-        changeListeners.forEach((l) => l());
+        changeListeners.forEach((listener) => listener());
       } while (pending);
     } finally {
       emitting = false;
     }
   };
-  const emitAction = (a: Action) => actionListeners.forEach((l) => l(a));
+  const emitAction = (action: Action) => actionListeners.forEach((listener) => listener(action));
 
   return {
-    registerSlice(id, reducer, initial) {
-      reducers[id] = reducer;
-      slices[id] = initial;
+    registerSlice(key, reducer, initial) {
+      reducers[key] = reducer;
+      slices[key] = initial;
     },
-    getSlice: (id) => slices[id],
+    removeSlice(key) {
+      delete reducers[key];
+      delete slices[key];
+      emitChange();
+    },
+    getSlice: (key) => slices[key],
     getCore: () => core,
     getState: () => ({ core, plugins: slices }),
-    dispatchTo(id, action) {
-      const r = reducers[id];
+    dispatchTo(key, action) {
+      const r = reducers[key];
       if (!r) return;
-      const next = r(slices[id], action);
-      if (next !== slices[id]) {
-        slices[id] = next;
+      const next = r(slices[key], action);
+      if (next !== slices[key]) {
+        slices[key] = next;
         emitChange();
       }
       emitAction(action);

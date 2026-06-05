@@ -8,6 +8,7 @@ const src = (p: string) =>
   fileURLToPath(new URL(`../../packages/${p}/src/index.ts`, import.meta.url));
 
 export default defineConfig({
+  server: { port: 5180, strictPort: false },
   plugins: [react()],
   resolve: {
     alias: {

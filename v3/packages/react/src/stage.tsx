@@ -12,7 +12,9 @@ import type { Camera, PageBox } from '@embedpdf/stage-core';
 import {
   makePageContext,
   PageProvider,
+  useActiveDocumentId,
   useCapability,
+  useDocumentId,
   useKernel,
   usePage,
   useSelector,
@@ -20,10 +22,12 @@ import {
 import type { PageContextValue } from './runtime';
 
 function PageSurface({
+  documentId,
   page,
   camera,
   render,
 }: {
+  documentId: string;
   page: PageBox;
   camera: Camera;
   render: (page: PageContextValue) => React.ReactNode;
@@ -36,10 +40,10 @@ function PageSurface({
   const top = (page.y - camera.y) * zoom;
   const ctx = useMemo(
     () =>
-      makePageContext('doc', page.pageIndex, zoom, { width: w, height: h }, () =>
+      makePageContext(documentId, page.pageIndex, zoom, { width: w, height: h }, () =>
         ref.current!.getBoundingClientRect(),
       ),
-    [page.pageIndex, w, h, zoom],
+    [documentId, page.pageIndex, w, h, zoom],
   );
   return (
     <div
@@ -71,6 +75,7 @@ export interface StageProps {
 export function Stage({ children, overlay, className, style }: StageProps) {
   const stage = useCapability(StageToken);
   const ref = useRef<HTMLDivElement>(null);
+  const docId = useDocumentId();
   const camera = useSelector(StageToken, (c) => c.camera()); // ref changes on camera change
   const pages = useSelector(StageToken, (c) => c.visiblePages()); // memoized -> stable ref
 
@@ -136,7 +141,13 @@ export function Stage({ children, overlay, className, style }: StageProps) {
       style={{ position: 'relative', overflow: 'hidden', touchAction: 'none', ...style }}
     >
       {pages.map((p) => (
-        <PageSurface key={p.pageIndex} page={p} camera={camera} render={children} />
+        <PageSurface
+          key={p.pageIndex}
+          documentId={docId ?? ''}
+          page={p}
+          camera={camera}
+          render={children}
+        />
       ))}
       {overlay}
     </div>
@@ -145,27 +156,32 @@ export function Stage({ children, overlay, className, style }: StageProps) {
 
 export interface PageViewProps {
   page: number;
+  /** Which document to show. Defaults to the active document. */
+  documentId?: string;
   width?: number;
   children: React.ReactNode;
   style?: React.CSSProperties;
 }
 
 /** A single page surface with NO Stage — same layers, no camera/scroll/zoom. */
-export function PageView({ page, width = 240, children, style }: PageViewProps) {
+export function PageView({ page, documentId, width = 240, children, style }: PageViewProps) {
   const kernel = useKernel();
+  const active = useActiveDocumentId();
   const ref = useRef<HTMLDivElement>(null);
-  const doc = kernel.getState().core.document!;
-  const base = doc.pages[page];
-  const scale = width / base.width;
-  const w = base.width * scale;
-  const h = base.height * scale;
+  const docId = documentId ?? active;
+  const meta = docId ? kernel.getState().core.documents[docId] : undefined;
+  const base = meta?.pages[page];
+  const scale = base ? width / base.width : 1;
+  const w = base ? base.width * scale : 0;
+  const h = base ? base.height * scale : 0;
   const ctx = useMemo(
     () =>
-      makePageContext(doc.id, page, scale, { width: w, height: h }, () =>
+      makePageContext(docId ?? '', page, scale, { width: w, height: h }, () =>
         ref.current!.getBoundingClientRect(),
       ),
-    [doc.id, page, w, h, scale],
+    [docId, page, w, h, scale],
   );
+  if (!docId || !meta) return null;
   return (
     <div
       ref={ref}
@@ -192,7 +208,7 @@ export function RenderLayer() {
     const c = ref.current!;
     const dpr = window.devicePixelRatio || 1;
     // ask the engine for RGBA pixels at the display resolution, then paint them
-    const res = kernel.engine.renderPage(page.pageIndex, page.scale * dpr);
+    const res = kernel.engine.renderPage(page.documentId, page.pageIndex, page.scale * dpr);
     c.width = res.width;
     c.height = res.height;
     const img = new ImageData(res.width, res.height);
