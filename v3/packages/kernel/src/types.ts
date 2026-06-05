@@ -13,6 +13,9 @@ export interface Action {
   readonly type: string;
 }
 
+/** Dispatched by the kernel after the document opens. Plugins may react to it. */
+export const CORE_DOCUMENT_LOADED = '@@core/document-loaded';
+
 /**
  * A typed handle to a capability. The phantom `__type` carries the capability's
  * interface so `ctx.get(Token)` returns it with no string casts (the analog of a
@@ -73,6 +76,9 @@ export interface Engine {
  * subscribe), the shared document, the engine, and typed access to OTHER plugins'
  * capabilities. A plugin never reaches into another plugin's internals — only its
  * capability.
+ *
+ * NOTE: `get`/`tryGet` resolve capabilities lazily — call them inside methods or
+ * effects, never at capability-construction time.
  */
 export interface PluginContext<S, A extends Action = Action> {
   readonly id: string;
@@ -81,24 +87,53 @@ export interface PluginContext<S, A extends Action = Action> {
   dispatch(action: A): void;
   subscribe(listener: () => void): Unsubscribe;
   core(): CoreState;
+  /** Resolve a required capability. Throws if absent. */
   get<T>(token: CapabilityToken<T>): T;
+  /** Resolve an optional capability, or null if its plugin isn't registered. */
+  tryGet<T>(token: CapabilityToken<T>): T | null;
 }
 
 /**
- * A plugin definition: a pure reducer + a capability factory. No inheritance, no
- * host coupling — a struct of functions, which maps 1:1 to a Rust module.
+ * The richer context an `effects` function receives: the plugin context plus the
+ * three side-effect primitives. This is the ONLY place async/IO/cross-plugin
+ * reactions live — the reducer stays pure.
+ */
+export interface EffectContext<S, A extends Action = Action> extends PluginContext<S, A> {
+  /** Run `handler` whenever the selected value changes. Auto-torn-down on destroy. */
+  watch<R>(
+    select: () => R,
+    handler: (value: R, previous: R) => void,
+    isEqual?: (a: R, b: R) => boolean,
+  ): Unsubscribe;
+  /** Run `handler` after any action of `type` is dispatched anywhere. */
+  onAction(type: string, handler: (action: Action) => void): Unsubscribe;
+  /** Register teardown to run on `kernel.destroy()`. */
+  cleanup(fn: () => void): void;
+}
+
+/**
+ * A plugin definition: a pure reducer + a capability factory + optional effects.
+ * No inheritance, no host coupling — a struct of functions, which maps 1:1 to a
+ * Rust module. Everything but `id` is optional, so a plugin can be:
+ *   • state + capability  (e.g. stage, marker)
+ *   • effects-only        (e.g. persist, telemetry — no public surface)
  *
- * @typeParam S - the plugin's private slice state (pure, serializable)
- * @typeParam A - its action union (pure)
- * @typeParam C - its public capability (the typed contract other code depends on)
+ * @typeParam S - private slice state (pure, serializable)
+ * @typeParam A - action union (pure)
+ * @typeParam C - public capability (the typed contract others depend on)
  */
 export interface PluginDef<S = unknown, A extends Action = Action, C = unknown> {
   readonly id: string;
-  readonly token: CapabilityToken<C>;
-  readonly initialState: S | (() => S);
+  readonly token?: CapabilityToken<C>;
+  /** Capabilities this plugin needs. Validated at startup; orders init/effects. */
+  readonly requires?: ReadonlyArray<CapabilityToken<unknown>>;
+  /** Capabilities this plugin uses if present. Never errors if absent. */
+  readonly optional?: ReadonlyArray<CapabilityToken<unknown>>;
+  readonly initialState?: S | (() => S);
   readonly reduce?: (state: S, action: A) => S;
-  readonly capability: (ctx: PluginContext<S, A>) => C;
+  readonly capability?: (ctx: PluginContext<S, A>) => C;
   readonly init?: (ctx: PluginContext<S, A>) => void | Promise<void>;
+  readonly effects?: (ctx: EffectContext<S, A>) => void;
 }
 
 export type AnyPlugin = PluginDef<any, any, any>;

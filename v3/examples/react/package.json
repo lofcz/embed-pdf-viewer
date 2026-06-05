@@ -13,6 +13,7 @@
     "@embedpdf/engine-fake": "workspace:*",
     "@embedpdf/kernel": "workspace:*",
     "@embedpdf/plugin-marker": "workspace:*",
+    "@embedpdf/plugin-persist": "workspace:*",
     "@embedpdf/react": "workspace:*",
     "@embedpdf/stage": "workspace:*",
     "@embedpdf/stage-core": "workspace:*",

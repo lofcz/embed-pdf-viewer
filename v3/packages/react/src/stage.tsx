@@ -71,19 +71,15 @@ export interface StageProps {
 export function Stage({ children, overlay, className, style }: StageProps) {
   const stage = useCapability(StageToken);
   const ref = useRef<HTMLDivElement>(null);
-  const homed = useRef(false);
   const camera = useSelector(StageToken, (c) => c.camera()); // ref changes on camera change
   const pages = useSelector(StageToken, (c) => c.visiblePages()); // memoized -> stable ref
 
   useEffect(() => {
     const el = ref.current!;
-    const setVp = () => {
-      stage.setViewport({ width: el.clientWidth, height: el.clientHeight });
-      if (!homed.current && el.clientWidth > 0 && stage.pageCount() > 0) {
-        homed.current = true;
-        stage.home();
-      }
-    };
+    // Only report the viewport size. Initial placement (home) is the Stage plugin's
+    // job — it watches the viewport and homes once it's ready (and a persist plugin
+    // can override that). The shell stays dumb.
+    const setVp = () => stage.setViewport({ width: el.clientWidth, height: el.clientHeight });
     const ro = new ResizeObserver(setVp);
     ro.observe(el);
     setVp();

@@ -9,6 +9,8 @@ export function createCapabilityToken<T>(name: string): CapabilityToken<T> {
 }
 
 /** Identity helper that pins a plugin's generics. The real win is inference. */
-export function definePlugin<S, A extends Action, C>(def: PluginDef<S, A, C>): PluginDef<S, A, C> {
+export function definePlugin<S = unknown, A extends Action = Action, C = unknown>(
+  def: PluginDef<S, A, C>,
+): PluginDef<S, A, C> {
   return def;
 }

@@ -2777,6 +2777,9 @@ importers:
       '@embedpdf/plugin-marker':
         specifier: workspace:*
         version: link:../../packages/plugin-marker
+      '@embedpdf/plugin-persist':
+        specifier: workspace:*
+        version: link:../../packages/plugin-persist
       '@embedpdf/react':
         specifier: workspace:*
         version: link:../../packages/react
@@ -2830,6 +2833,19 @@ importers:
       '@embedpdf/kernel':
         specifier: workspace:*
         version: link:../kernel
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
+  v3/packages/plugin-persist:
+    dependencies:
+      '@embedpdf/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@embedpdf/stage':
+        specifier: workspace:*
+        version: link:../stage
     devDependencies:
       typescript:
         specifier: ^5.0.0

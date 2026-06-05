@@ -3,6 +3,7 @@ import { createFakeEngine } from '@embedpdf/engine-fake';
 import { stagePlugin } from '@embedpdf/stage';
 import type { LayoutKind } from '@embedpdf/stage';
 import { markerPlugin } from '@embedpdf/plugin-marker';
+import { persistPlugin } from '@embedpdf/plugin-persist';
 import {
   Viewer,
   Stage,
@@ -18,7 +19,13 @@ import {
 
 // Engine + plugins are plain values. Plugins are pure; the engine is swappable.
 const engine = createFakeEngine({ pages: 12 });
-const plugins = [stagePlugin({ layout: 'vertical', framing: 'document' }), markerPlugin()];
+const plugins = [
+  stagePlugin({ layout: 'vertical', framing: 'document' }),
+  markerPlugin(),
+  // effects-only plugin: requires Stage, mirrors view-state to localStorage.
+  // Reload the page and you land on the same page/zoom/layout.
+  persistPlugin({ key: 'embedpdf:v3-demo' }),
+];
 
 // A user-defined layer — no SDK involvement, just reads PageContext.
 function WatermarkLayer() {
