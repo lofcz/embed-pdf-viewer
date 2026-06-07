@@ -10,6 +10,8 @@ const src = (p: string) =>
 export default defineConfig({
   server: { port: 5199, strictPort: true },
   plugins: [react()],
+  // The wasm runtime is loaded by the engine worker; let it stay un-prebundled.
+  optimizeDeps: { exclude: ['@embedpdf/pdf-runtime-wasm32'] },
   resolve: {
     alias: {
       '@embedpdf-x/kernel': src('kernel'),

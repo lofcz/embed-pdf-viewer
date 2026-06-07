@@ -10,6 +10,10 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@cloudpdf/engine": "workspace:*",
+    "@embedpdf/engine": "workspace:*",
+    "@embedpdf/engine-core": "workspace:*",
+    "@embedpdf/pdf-runtime": "workspace:*",
     "@embedpdf-x/engine-fake": "workspace:*",
     "@embedpdf-x/kernel": "workspace:*",
     "@embedpdf-x/plugin-marker": "workspace:*",

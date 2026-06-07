@@ -2768,6 +2768,9 @@ importers:
 
   v3/examples/react:
     dependencies:
+      '@cloudpdf/engine':
+        specifier: workspace:*
+        version: link:../../../ee/engine
       '@embedpdf-x/engine-fake':
         specifier: workspace:*
         version: link:../../packages/engine-fake
@@ -2795,6 +2798,15 @@ importers:
       '@embedpdf-x/stage-core':
         specifier: workspace:*
         version: link:../../packages/stage-core
+      '@embedpdf/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../../packages/engine-core
+      '@embedpdf/pdf-runtime':
+        specifier: workspace:*
+        version: link:../../../packages/pdf-runtime
       react:
         specifier: ^18.3.1
         version: 18.3.1

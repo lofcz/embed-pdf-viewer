@@ -1,6 +1,5 @@
 import * as React from 'react';
-import { useMemo, useRef } from 'react';
-import { createFakeEngine } from '@embedpdf-x/engine-fake';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { stagePlugin } from '@embedpdf-x/plugin-stage';
 import type { LayoutKind } from '@embedpdf-x/plugin-stage';
 import { markerPlugin } from '@embedpdf-x/plugin-marker';
@@ -22,10 +21,11 @@ import {
   useDocuments,
   useViews,
 } from '@embedpdf-x/react';
-import type { OpenInput } from '@embedpdf-x/kernel';
+import { bootstrap, engineMode, newDocument } from './engine';
+import type { Boot } from './engine';
 
-// Engine + plugins are plain values. Plugins are pure; the engine is swappable.
-const engine = createFakeEngine();
+// Plugins are plain, pure values — engine-agnostic. The engine is chosen in
+// ./engine and injected at the root; nothing here knows local vs cloud vs fake.
 const plugins = [
   stagePlugin({ layout: 'vertical', framing: 'document' }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
@@ -36,22 +36,6 @@ const plugins = [
   // owns its own tab strip; tabs can be dragged between panes).
   viewManagerPlugin(),
 ];
-
-const initialDocuments = [
-  { source: { kind: 'bytes' as const, id: 'ebook', bytes: new Uint8Array(0) }, name: 'Ebook' },
-  { source: { kind: 'bytes' as const, id: 'report', bytes: new Uint8Array(0) }, name: 'Report' },
-  { source: { kind: 'bytes' as const, id: 'manual', bytes: new Uint8Array(0) }, name: 'Manual' },
-];
-
-let untitledSeq = 0;
-const newDocument = (): { source: OpenInput; name: string } => {
-  untitledSeq += 1;
-  const id = `untitled-${untitledSeq}-${Math.round(performance.now())}`;
-  return {
-    source: { kind: 'bytes', id, bytes: new Uint8Array(0) },
-    name: `Untitled ${untitledSeq}`,
-  };
-};
 
 // ── drag payloads: a tab (document) or a whole pane (view) ───────────────────
 type DragPayload =
@@ -256,8 +240,7 @@ function Pane({
         <button
           onClick={() => {
             v.setFocused(view.id);
-            const doc = newDocument();
-            void open(doc.source, { name: doc.name });
+            void newDocument().then((doc) => open(doc.source, { name: doc.name }));
           }}
           title="open a new document in this pane"
           style={{
@@ -390,6 +373,22 @@ function Shell() {
         }}
       >
         <span style={{ fontWeight: 700, color: '#3858e9' }}>EmbedPDF v3</span>
+        <span
+          title="engine selected in ./engine — switch with ?engine=local|cloud|fake"
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            textTransform: 'uppercase',
+            color: '#fff',
+            background:
+              engineMode === 'local' ? '#1a7f37' : engineMode === 'cloud' ? '#8250df' : '#9a6700',
+            borderRadius: 4,
+            padding: '1px 6px',
+          }}
+        >
+          {engineMode} engine
+        </span>
         <span style={{ marginLeft: 'auto', color: '#aaa', fontSize: 11 }}>
           each pane owns its tabs · drag a tab between panes · ⠿ reorder panes · ◫ split
         </span>
@@ -399,13 +398,33 @@ function Shell() {
   );
 }
 
+// Build the engine (async — wasm worker spins up, PDFs are fetched), then mount.
 export function App() {
+  const [boot, setBoot] = useState<Boot | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    bootstrap().then(setBoot, (e) => setError(String(e)));
+  }, []);
+
+  if (error)
+    return (
+      <div style={{ padding: 24, color: '#c00', font: '13px ui-monospace, monospace' }}>
+        engine failed to start: {error}
+      </div>
+    );
+  if (!boot)
+    return (
+      <div style={{ padding: 24, color: '#888', font: '13px ui-monospace, monospace' }}>
+        booting {engineMode} engine…
+      </div>
+    );
+
   return (
     <Viewer
-      engine={engine}
+      engine={boot.engine}
       plugins={plugins}
-      initialDocuments={initialDocuments}
-      fallback={<div style={{ padding: 20 }}>loading…</div>}
+      initialDocuments={boot.documents}
+      fallback={<div style={{ padding: 20 }}>opening documents…</div>}
     >
       <Shell />
     </Viewer>
