@@ -1,9 +1,12 @@
 import * as S from '@embedpdf-x/stage-core';
 import type { PluginContext } from '@embedpdf-x/kernel';
-import { FRAMINGS, GAP } from './framing';
+import { GAP } from './settings';
 import type {
+  Scheduler,
   StageAction,
   StageCapability,
+  StageConfig,
+  StageSettings,
   StageState,
   StageViewState,
   VisiblePage,
@@ -11,12 +14,32 @@ import type {
 
 /**
  * The Stage capability — selectors (pure reads) + intents (the only writers).
- * All geometry comes from the pure `stage-core`; this layer just binds it to the
- * plugin's slice and the document. No DOM.
+ *
+ * Layering, stated honestly:
+ *   • stage-core — PURE spatial math (no DOM, no time). Ports to Rust later.
+ *   • this capability — the IMPURE platform shell. It dispatches, caches, and owns
+ *     the camera tween. It is NOT pure; the one host dependency it has (frame
+ *     timing) enters through an injected Scheduler, never a hidden global.
+ *
+ * Every transition (layout / spread / zoom / bounds / resize) keeps the user looking
+ * at the SAME page by capturing an Anchor and re-applying it.
  */
 export function createStageCapability(
   ctx: PluginContext<StageState, StageAction>,
+  config: StageConfig = {},
 ): StageCapability {
+  // ── host timing seam (the only host dependency) ──────────────────────────────
+  const host = globalThis as {
+    requestAnimationFrame?: (cb: (t: number) => void) => number;
+    cancelAnimationFrame?: (handle: number) => void;
+  };
+  const canAnimate = !!config.scheduler || typeof host.requestAnimationFrame === 'function';
+  const scheduler: Scheduler =
+    config.scheduler ??
+    (typeof host.requestAnimationFrame === 'function'
+      ? { raf: (cb) => host.requestAnimationFrame!(cb), caf: (h) => host.cancelAnimationFrame!(h) }
+      : { raf: () => 0, caf: () => {} }); // no host frames → goToPage jumps instantly
+
   // Scene cache: rebuilt only when document / layout / spread change.
   let sceneCache: { key: string; scene: S.Scene } | null = null;
   const buildScene = (): S.Scene => {
@@ -38,23 +61,67 @@ export function createStageCapability(
 
   const cam = () => ctx.getState().camera;
   const vp = () => ctx.getState().vp;
+
+  // Bounds + overscroll are explicit settings; overscroll applies only on the scroll
+  // axis (both for grid). The cross axis just centres/locks.
   const constraint = (): S.CameraConstraint => {
-    const f = FRAMINGS[ctx.getState().framing];
-    if (!f.bounded) return { bounded: false, overscroll: { x: 0, y: 0 } };
-    const a = buildScene().axis;
+    const st = ctx.getState();
+    if (!st.bounded) return { bounded: false, overscroll: { x: 0, y: 0 } };
+    const axis = buildScene().axis;
     return {
       bounded: true,
       overscroll: {
-        x: a === 'x' || a === 'grid' ? f.overscroll : 0,
-        y: a === 'y' || a === 'grid' ? f.overscroll : 0,
+        x: axis === 'x' || axis === 'grid' ? st.overscroll : 0,
+        y: axis === 'y' || axis === 'grid' ? st.overscroll : 0,
       },
     };
   };
+
+  // The ONE low-level camera write: clamp, then dispatch. Used by every intent and
+  // by the animator (which must NOT cancel itself — cancellation lives in intents).
   const setCam = (next: S.Camera) =>
     ctx.dispatch({
       type: 'CAMERA',
       camera: S.clampCamera(next, buildScene().size, vp(), constraint()),
     });
+
+  // ── camera tween (impure shell concern; uses the injected Scheduler) ─────────
+  let raf = 0;
+  const cancelAnim = () => {
+    if (raf) {
+      scheduler.caf(raf);
+      raf = 0;
+    }
+  };
+  const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+  const animateTo = (target: S.Camera, ms = 240) => {
+    if (!canAnimate) return setCam(target);
+    cancelAnim();
+    const from = cam();
+    const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    let t0 = 0;
+    const tick = (now: number) => {
+      if (t0 === 0) t0 = now;
+      const k = ease(Math.min(1, (now - t0) / ms));
+      setCam({
+        x: lerp(from.x, target.x, k),
+        y: lerp(from.y, target.y, k),
+        zoom: lerp(from.zoom, target.zoom, k),
+      });
+      raf = k < 1 ? scheduler.raf(tick) : 0;
+    };
+    raf = scheduler.raf(tick);
+  };
+
+  // ── anchor: the durable "what am I looking at". Capture before any change,
+  //    re-apply after — one mechanism for layout/spread/zoom/resize/restore. ─────
+  const currentAnchor = (): S.Anchor => S.anchorFromCamera(cam(), buildScene(), vp());
+  const applyAnchor = (anchor: S.Anchor) => {
+    const scene = buildScene();
+    const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
+    const zoom = S.resolveZoom(ctx.getState().zoom, item, vp(), GAP);
+    setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom));
+  };
 
   // pon (durable identity) for a page's display index, from the registry captured at open.
   const ponForIndex = (index: number): number =>
@@ -77,9 +144,24 @@ export function createStageCapability(
     return vis;
   };
 
+  const snapshotSettings = (): StageSettings => {
+    const s = ctx.getState();
+    return {
+      layout: s.layout,
+      spread: s.spread,
+      bounded: s.bounded,
+      overscroll: s.overscroll,
+      home: s.home,
+      margin: s.margin,
+      zoom: s.zoom,
+      scrollBehavior: s.scrollBehavior,
+    };
+  };
+
   // Initial-view providers (persist, deep-link, an explicit prop…). One owner
   // (placeInitial) resolves them by priority — no effect-ordering races.
   const initialViewProviders: Array<{ priority: number; fn: () => StageViewState | null }> = [];
+  let hasPlaced = false;
 
   const api: StageCapability = {
     // ── selectors ──
@@ -99,75 +181,113 @@ export function createStageCapability(
     toScreen: (w) => S.toScreen(cam(), w),
     toWorld: (s) => S.toWorld(cam(), s),
     layout: () => ctx.getState().layout,
-    framing: () => ctx.getState().framing,
     spread: () => ctx.getState().spread,
+    bounded: () => ctx.getState().bounded,
+    overscroll: () => ctx.getState().overscroll,
+    home: () => ctx.getState().home,
+    margin: () => ctx.getState().margin,
+    scrollBehavior: () => ctx.getState().scrollBehavior,
     zoomLevel: () => cam().zoom,
-    viewState: (): StageViewState => {
-      const st = ctx.getState();
-      return {
-        layout: st.layout,
-        spread: st.spread,
-        framing: st.framing,
-        zoomSpec: st.zoomSpec,
-        anchor: S.anchorFromCamera(cam(), buildScene(), vp()),
-      };
+    zoomMode: () => {
+      const z = ctx.getState().zoom;
+      return 'mode' in z ? z.mode : 'custom';
     },
+    settings: snapshotSettings,
+    viewState: (): StageViewState => ({
+      ...snapshotSettings(),
+      anchor: S.anchorFromCamera(cam(), buildScene(), vp()),
+    }),
 
     // ── intents ──
-    setViewport: (v) => ctx.dispatch({ type: 'VP', vp: v }),
-    setCamera: setCam,
-    panBy: (dx, dy) => setCam(S.panByScreen(cam(), dx, dy)),
-    zoomAround: (pt, factor) => {
-      setCam(S.zoomAround(cam(), pt, factor));
-      ctx.dispatch({ type: 'ZOOMSPEC', zoomSpec: { level: cam().zoom } });
+    setViewport: (v) => {
+      // First real size: placeInitial (persist/reset) owns it. Afterwards every
+      // resize keeps the same page and re-resolves fit-modes (fit-page stays fit).
+      if (!hasPlaced) {
+        ctx.dispatch({ type: 'VP', vp: v });
+        return;
+      }
+      cancelAnim();
+      const anchor = currentAnchor(); // measured against the OLD viewport
+      ctx.dispatch({ type: 'VP', vp: v }); // new viewport
+      applyAnchor(anchor);
     },
-    zoomTo: (spec) => {
-      const sc = buildScene();
-      const a = S.anchorFromCamera(cam(), sc, vp());
-      ctx.dispatch({ type: 'ZOOMSPEC', zoomSpec: spec });
-      const it = sc.items[sc.itemOfPage(a.pageIndex)];
-      setCam(S.cameraFromAnchor(a, sc, vp(), S.resolveZoom(spec, it, vp(), GAP)));
+    setCamera: (c) => {
+      cancelAnim();
+      setCam(c);
+    },
+    panBy: (dx, dy) => {
+      cancelAnim();
+      setCam(S.panByScreen(cam(), dx, dy));
+    },
+    zoomAround: (pt, factor) => {
+      cancelAnim();
+      setCam(S.zoomAround(cam(), pt, factor));
+      // record the resulting fixed level as the zoom intent — focal, so NO re-anchor.
+      ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: cam().zoom } } });
     },
     zoomIn: () => api.zoomAround({ x: vp().width / 2, y: vp().height / 2 }, 1.2),
     zoomOut: () => api.zoomAround({ x: vp().width / 2, y: vp().height / 2 }, 1 / 1.2),
-    fitWidth: () => api.zoomTo({ mode: S.ZoomMode.FitWidth }),
-    fitPage: () => api.zoomTo({ mode: S.ZoomMode.FitPage }),
-    goToPage: (i) => {
+    zoomTo: (spec) => api.update({ zoom: spec }),
+    fitWidth: () => api.update({ zoom: { mode: S.ZoomMode.FitWidth } }),
+    fitPage: () => api.update({ zoom: { mode: S.ZoomMode.FitPage } }),
+    automatic: () => api.update({ zoom: { mode: S.ZoomMode.Automatic } }),
+    goToPage: (index, opts) => {
+      cancelAnim();
       const sc = buildScene();
-      const it = sc.items[sc.itemOfPage(i)];
-      const z = S.resolveZoom(ctx.getState().zoomSpec, it, vp(), GAP);
-      setCam(S.centerOnWorld({ x: it.x + it.width / 2, y: it.y + it.height / 2 }, vp(), z));
-    },
-    setLayout: (layout) => {
-      ctx.dispatch({ type: 'LAYOUT', layout });
-      sceneCache = null;
-      api.home();
-    },
-    setSpread: (spread) => {
-      ctx.dispatch({ type: 'SPREAD', spread });
-      sceneCache = null;
-      api.home();
-    },
-    setFraming: (framing) => {
-      ctx.dispatch({ type: 'FRAMING', framing });
-      api.home();
-    },
-    applyViewState: (view) => {
-      ctx.dispatch({ type: 'SPREAD', spread: view.spread });
-      ctx.dispatch({ type: 'LAYOUT', layout: view.layout });
-      ctx.dispatch({ type: 'FRAMING', framing: view.framing });
-      ctx.dispatch({ type: 'ZOOMSPEC', zoomSpec: view.zoomSpec });
-      sceneCache = null;
-      const sc = buildScene();
-      const it = sc.items[sc.itemOfPage(view.anchor.pageIndex)];
-      setCam(
-        S.cameraFromAnchor(view.anchor, sc, vp(), S.resolveZoom(view.zoomSpec, it, vp(), GAP)),
+      const it = sc.items[sc.itemOfPage(index)];
+      const z = S.resolveZoom(ctx.getState().zoom, it, vp(), GAP);
+      const target = S.clampCamera(
+        S.centerOnWorld({ x: it.x + it.width / 2, y: it.y + it.height / 2 }, vp(), z),
+        sc.size,
+        vp(),
+        constraint(),
       );
+      if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') animateTo(target);
+      else setCam(target);
+    },
+    update: (patch) => {
+      cancelAnim();
+      const anchor = currentAnchor(); // capture against the current scene/viewport
+      ctx.dispatch({ type: 'PATCH', patch });
+      const structural = patch.layout !== undefined || patch.spread !== undefined;
+      if (structural) sceneCache = null;
+      if (structural || patch.zoom !== undefined) {
+        applyAnchor(anchor); // rebuild + keep page + re-fit (also re-clamps)
+      } else if (patch.bounded !== undefined || patch.overscroll !== undefined) {
+        setCam(cam()); // bounds changed: just re-clamp the current camera in place
+      }
+      // home / margin / scrollBehavior: no camera effect
+    },
+    setLayout: (layout) => api.update({ layout }),
+    setSpread: (spread) => api.update({ spread }),
+    setBounded: (bounded) => api.update({ bounded }),
+    setOverscroll: (overscroll) => api.update({ overscroll }),
+    setHome: (home) => api.update({ home }),
+    setMargin: (margin) => api.update({ margin }),
+    setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
+    applyViewState: (view) => {
+      cancelAnim();
+      ctx.dispatch({
+        type: 'PATCH',
+        patch: {
+          layout: view.layout,
+          spread: view.spread,
+          bounded: view.bounded,
+          overscroll: view.overscroll,
+          home: view.home,
+          margin: view.margin,
+          zoom: view.zoom,
+          scrollBehavior: view.scrollBehavior,
+        },
+      });
+      sceneCache = null;
+      applyAnchor(view.anchor);
     },
     provideInitialView: (priority, fn) => {
       initialViewProviders.push({ priority, fn });
     },
     placeInitial: () => {
+      hasPlaced = true;
       const sorted = [...initialViewProviders].sort((a, b) => b.priority - a.priority);
       for (const p of sorted) {
         const view = p.fn();
@@ -176,14 +296,14 @@ export function createStageCapability(
           return;
         }
       }
-      api.home();
+      api.resetView();
     },
-    home: () => {
+    resetView: () => {
+      cancelAnim();
       const sc = buildScene();
-      const f = FRAMINGS[ctx.getState().framing];
-      ctx.dispatch({ type: 'ZOOMSPEC', zoomSpec: f.zoom });
-      const z = S.resolveZoom(f.zoom, sc.items[0], vp(), GAP);
-      setCam(S.homeCamera(sc, vp(), z, { home: f.home, margin: f.margin }));
+      const st = ctx.getState();
+      const z = S.resolveZoom(st.zoom, sc.items[0], vp(), GAP);
+      setCam(S.homeCamera(sc, vp(), z, { home: st.home, margin: st.margin }));
     },
   };
   return api;

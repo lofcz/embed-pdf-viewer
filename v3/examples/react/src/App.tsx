@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { stagePlugin } from '@embedpdf-x/plugin-stage';
-import type { LayoutKind } from '@embedpdf-x/plugin-stage';
+import type { LayoutKind, SpreadMode, StageSettings } from '@embedpdf-x/plugin-stage';
 import { markerPlugin } from '@embedpdf-x/plugin-marker';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
@@ -18,6 +18,7 @@ import {
   useZoom,
   usePages,
   useLayout,
+  useStageSettings,
   useDocuments,
   useViews,
 } from '@embedpdf-x/react';
@@ -27,7 +28,7 @@ import type { Boot } from './engine';
 // Plugins are plain, pure values — engine-agnostic. The engine is chosen in
 // ./engine and injected at the root; nothing here knows local vs cloud vs fake.
 const plugins = [
-  stagePlugin({ layout: 'vertical', framing: 'document' }),
+  stagePlugin({ layout: 'vertical' }), // sensible defaults; everything tunable at runtime
   renderPlugin(), // document-scoped: renders pages through the engine handle
   markerPlugin(),
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
@@ -36,6 +37,27 @@ const plugins = [
   // owns its own tab strip; tabs can be dragged between panes).
   viewManagerPlugin(),
 ];
+
+// "Presets" are a CUSTOMER concern, not the plugin's: they're just objects of
+// settings the app keeps and applies with stage.update(...). Define as many as you like.
+const PRESETS: Record<string, Partial<StageSettings>> = {
+  Document: {
+    layout: 'vertical',
+    bounded: true,
+    overscroll: 'center',
+    home: 'start',
+    margin: 24,
+    zoom: { mode: 'automatic' },
+  },
+  Canvas: {
+    layout: 'grid',
+    bounded: false,
+    overscroll: 0,
+    home: 'center',
+    margin: 0,
+    zoom: { mode: 'fit-page' },
+  },
+};
 
 // ── drag payloads: a tab (document) or a whole pane (view) ───────────────────
 type DragPayload =
@@ -80,14 +102,20 @@ function WatermarkLayer() {
 }
 
 function Toolbar() {
-  const { zoom, zoomIn, zoomOut, fitWidth } = useZoom();
+  const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, automatic } = useZoom();
   const { currentPage, pageCount, goToPage } = usePages();
-  const { layout, setLayout } = useLayout();
+  const { layout, setLayout, spread, setSpread, bounded, setBounded } = useLayout();
+  const { update, reset } = useStageSettings();
+  const applyZoomMode = (m: string) => {
+    if (m === 'automatic') automatic();
+    else if (m === 'fit-page') fitPage();
+    else if (m === 'fit-width') fitWidth();
+  };
   return (
     <div
       style={{
         display: 'flex',
-        gap: 8,
+        gap: 6,
         alignItems: 'center',
         padding: '6px 10px',
         borderBottom: '1px solid #eee',
@@ -102,18 +130,52 @@ function Toolbar() {
       <button onClick={() => goToPage(currentPage + 1)}>▶</button>
       <span style={{ width: 1, height: 18, background: '#ddd' }} />
       <button onClick={zoomOut}>−</button>
-      <span>{Math.round(zoom * 100)}%</span>
+      <span style={{ minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
       <button onClick={zoomIn}>+</button>
-      <button onClick={fitWidth}>fit</button>
+      <select value={mode} onChange={(e) => applyZoomMode(e.target.value)} title="zoom mode">
+        <option value="automatic">automatic</option>
+        <option value="fit-page">fit page</option>
+        <option value="fit-width">fit width</option>
+        <option value="custom" disabled>
+          custom
+        </option>
+      </select>
+      <span style={{ width: 1, height: 18, background: '#ddd' }} />
       <select
         value={layout}
         onChange={(e) => setLayout(e.target.value as LayoutKind)}
-        style={{ marginLeft: 'auto' }}
+        title="layout"
       >
         <option value="vertical">vertical</option>
         <option value="horizontal">horizontal</option>
         <option value="grid">grid</option>
       </select>
+      <select
+        value={spread}
+        onChange={(e) => setSpread(e.target.value as SpreadMode)}
+        title="spread"
+      >
+        <option value="none">single</option>
+        <option value="odd">spread</option>
+        <option value="even">spread (cover)</option>
+      </select>
+      <label
+        style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}
+        title="clamp the camera to the content (off = free infinite pan, for plans/CAD)"
+      >
+        <input type="checkbox" checked={bounded} onChange={(e) => setBounded(e.target.checked)} />
+        bounded{bounded ? '' : ' ∞'}
+      </label>
+      {/* App-defined presets — just objects passed to update(). Not the plugin's concern. */}
+      <span style={{ marginLeft: 'auto', width: 1, height: 18, background: '#ddd' }} />
+      {Object.keys(PRESETS).map((name) => (
+        <button key={name} onClick={() => update(PRESETS[name])} title={`apply the ${name} preset`}>
+          {name}
+        </button>
+      ))}
+      <button onClick={reset} title="reset to home">
+        ⟲
+      </button>
     </div>
   );
 }

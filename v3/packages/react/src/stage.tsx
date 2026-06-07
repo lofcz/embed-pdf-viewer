@@ -210,12 +210,16 @@ export function useStage() {
 export function useZoom() {
   const s = useCapability(StageToken);
   const zoom = useSelector(StageToken, (c) => c.zoomLevel());
+  const mode = useSelector(StageToken, (c) => c.zoomMode());
   return {
     zoom,
+    /** Active zoom intent: 'automatic' | 'fit-page' | 'fit-width' | 'custom'. */
+    mode,
     zoomIn: s.zoomIn,
     zoomOut: s.zoomOut,
     fitWidth: s.fitWidth,
     fitPage: s.fitPage,
+    automatic: s.automatic,
     zoomTo: s.zoomTo,
   };
 }
@@ -228,14 +232,37 @@ export function usePages() {
 export function useLayout() {
   const s = useCapability(StageToken);
   const layout = useSelector(StageToken, (c) => c.layout());
-  const framing = useSelector(StageToken, (c) => c.framing());
   const spread = useSelector(StageToken, (c) => c.spread());
+  const bounded = useSelector(StageToken, (c) => c.bounded());
   return {
     layout,
-    framing,
     spread,
+    bounded,
     setLayout: s.setLayout,
-    setFraming: s.setFraming,
     setSpread: s.setSpread,
+    setBounded: s.setBounded,
   };
+}
+
+/**
+ * All Stage settings + the batch `update`. This is the seam for "presets are a
+ * customer concern": keep your own `Partial<StageSettings>` objects and apply them
+ * with `update(preset)` (one anchor-preserving change).
+ */
+export function useStageSettings() {
+  const s = useCapability(StageToken);
+  const settings = useSelector(
+    StageToken,
+    (c) => c.settings(),
+    (a, b) =>
+      a.layout === b.layout &&
+      a.spread === b.spread &&
+      a.bounded === b.bounded &&
+      a.overscroll === b.overscroll &&
+      a.home === b.home &&
+      a.margin === b.margin &&
+      a.scrollBehavior === b.scrollBehavior &&
+      a.zoom === b.zoom,
+  );
+  return { settings, update: s.update, reset: s.resetView };
 }

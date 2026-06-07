@@ -16,7 +16,7 @@ export const stagePlugin = (config: StageConfig = {}) =>
     scope: 'document', // one Stage (camera/layout/spread) per open document
     initialState: () => initialStageState(config),
     reduce: stageReducer,
-    capability: createStageCapability,
+    capability: (ctx) => createStageCapability(ctx, config),
     effects: (ctx) => {
       // Initial placement is a Stage concern, and it has exactly ONE owner. Once the
       // viewport has a real size, resolve the registered initial-view providers

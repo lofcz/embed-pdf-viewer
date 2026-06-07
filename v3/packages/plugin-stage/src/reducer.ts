@@ -1,33 +1,40 @@
-import { FRAMINGS } from './framing';
-import type { StageAction, StageConfig, StageState } from './types';
+import { DEFAULT_SETTINGS } from './settings';
+import type { StageAction, StageConfig, StageSettings, StageState } from './types';
 
 export const initialStageState = (config: StageConfig): StageState => {
-  const framing = config.framing ?? 'document';
+  const { scheduler: _scheduler, ...overrides } = config;
   return {
     camera: { x: 0, y: 0, zoom: 1 },
     vp: { width: 0, height: 0 },
-    layout: config.layout ?? 'vertical',
-    spread: 'none',
-    framing,
-    zoomSpec: FRAMINGS[framing].zoom,
+    ...DEFAULT_SETTINGS,
+    ...overrides, // config overrides any default; the rest fall back to DEFAULT_SETTINGS
   };
 };
 
-/** Pure. Every transition is here; nothing else mutates Stage state. */
+/** Merge a settings patch, ignoring undefined values (safe for partial restores). */
+const applyPatch = (state: StageState, patch: Partial<StageSettings>): StageState => {
+  const next: StageState = { ...state };
+  let key: keyof StageSettings;
+  for (key in patch) {
+    const value = patch[key];
+    if (value !== undefined) Object.assign(next, { [key]: value });
+  }
+  return next;
+};
+
+/**
+ * Pure. Every transition is here; nothing else mutates Stage state. Settings are a
+ * flat bag of primitives — one PATCH action sets any subset (the capability decides
+ * what camera follow-up, if any, each change needs).
+ */
 export const stageReducer = (state: StageState, a: StageAction): StageState => {
   switch (a.type) {
     case 'CAMERA':
       return { ...state, camera: a.camera };
     case 'VP':
       return { ...state, vp: a.vp };
-    case 'LAYOUT':
-      return { ...state, layout: a.layout, framing: a.layout === 'grid' ? 'canvas' : 'document' };
-    case 'SPREAD':
-      return { ...state, spread: a.spread };
-    case 'FRAMING':
-      return { ...state, framing: a.framing, zoomSpec: FRAMINGS[a.framing].zoom };
-    case 'ZOOMSPEC':
-      return { ...state, zoomSpec: a.zoomSpec };
+    case 'PATCH':
+      return applyPatch(state, a.patch);
     default:
       return state;
   }
