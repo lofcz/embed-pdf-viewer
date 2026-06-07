@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { createFakeEngine } from '@embedpdf/engine-fake';
-import { stagePlugin } from '@embedpdf/plugin-stage';
-import type { LayoutKind } from '@embedpdf/plugin-stage';
-import { markerPlugin } from '@embedpdf/plugin-marker';
-import { persistPlugin } from '@embedpdf/plugin-persist';
+import { createFakeEngine } from '@embedpdf-x/engine-fake';
+import { stagePlugin } from '@embedpdf-x/plugin-stage';
+import type { LayoutKind } from '@embedpdf-x/plugin-stage';
+import { markerPlugin } from '@embedpdf-x/plugin-marker';
+import { persistPlugin } from '@embedpdf-x/plugin-persist';
+import { renderPlugin } from '@embedpdf-x/plugin-render';
 import {
   Viewer,
   Stage,
@@ -15,12 +16,13 @@ import {
   useZoom,
   usePages,
   useLayout,
-} from '@embedpdf/react';
+} from '@embedpdf-x/react';
 
 // Engine + plugins are plain values. Plugins are pure; the engine is swappable.
 const engine = createFakeEngine();
 const plugins = [
   stagePlugin({ layout: 'vertical', framing: 'document' }),
+  renderPlugin(), // document-scoped: renders pages through the engine handle
   markerPlugin(),
   // effects-only plugin: requires Stage, mirrors view-state to localStorage.
   // Reload the page and you land on the same page/zoom/layout.
@@ -101,7 +103,7 @@ export function App() {
     <Viewer
       engine={engine}
       plugins={plugins}
-      initialDocuments={[{ id: 'ebook', name: 'Ebook', pages: 12 }]}
+      initialDocuments={[{ kind: 'bytes', id: 'ebook', bytes: new Uint8Array(0) }]}
       fallback={<div style={{ padding: 20 }}>loading…</div>}
     >
       <div

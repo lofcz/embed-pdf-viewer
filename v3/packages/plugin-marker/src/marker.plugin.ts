@@ -1,4 +1,4 @@
-import { definePlugin } from '@embedpdf/kernel';
+import { definePlugin } from '@embedpdf-x/kernel';
 import { createMarkerCapability } from './capability';
 import { initialMarkerState, markerReducer } from './reducer';
 import { MarkerToken } from './types';

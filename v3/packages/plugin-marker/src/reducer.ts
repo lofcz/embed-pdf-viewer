@@ -7,10 +7,10 @@ const EMPTY: never[] = [];
 export const markerReducer = (state: MarkerState, a: MarkerAction): MarkerState => {
   switch (a.type) {
     case 'ADD': {
-      const list = state.byPage[a.marker.page] ?? EMPTY;
+      const list = state.byPage[a.marker.pon] ?? EMPTY;
       return {
         ...state,
-        byPage: { ...state.byPage, [a.marker.page]: [...list, a.marker] },
+        byPage: { ...state.byPage, [a.marker.pon]: [...list, a.marker] },
         selected: a.marker.id,
         seq: state.seq + 1,
       };

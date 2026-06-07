@@ -8,17 +8,18 @@ const src = (p: string) =>
   fileURLToPath(new URL(`../../packages/${p}/src/index.ts`, import.meta.url));
 
 export default defineConfig({
-  server: { port: 5180, strictPort: false },
+  server: { port: 5199, strictPort: true },
   plugins: [react()],
   resolve: {
     alias: {
-      '@embedpdf/kernel': src('kernel'),
-      '@embedpdf/stage-core': src('stage-core'),
-      '@embedpdf/plugin-stage': src('plugin-stage'),
-      '@embedpdf/plugin-marker': src('plugin-marker'),
-      '@embedpdf/plugin-persist': src('plugin-persist'),
-      '@embedpdf/engine-fake': src('engine-fake'),
-      '@embedpdf/react': src('react'),
+      '@embedpdf-x/kernel': src('kernel'),
+      '@embedpdf-x/stage-core': src('stage-core'),
+      '@embedpdf-x/plugin-stage': src('plugin-stage'),
+      '@embedpdf-x/plugin-marker': src('plugin-marker'),
+      '@embedpdf-x/plugin-persist': src('plugin-persist'),
+      '@embedpdf-x/plugin-render': src('plugin-render'),
+      '@embedpdf-x/engine-fake': src('engine-fake'),
+      '@embedpdf-x/react': src('react'),
     },
   },
 });

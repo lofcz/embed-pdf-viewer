@@ -1,3 +1,4 @@
 export * from './runtime';
 export * from './stage';
+export * from './render';
 export * from './marker';

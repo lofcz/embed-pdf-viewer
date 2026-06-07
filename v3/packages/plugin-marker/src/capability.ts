@@ -1,4 +1,4 @@
-import type { PluginContext } from '@embedpdf/kernel';
+import type { PluginContext } from '@embedpdf-x/kernel';
 import type { MarkerAction, MarkerCapability, MarkerState } from './types';
 
 const EMPTY: never[] = [];
@@ -18,9 +18,9 @@ export function createMarkerCapability(
       }
       return null;
     },
-    add: (page, pt) => {
+    add: (pon, pt) => {
       const id = `m${ctx.getState().seq + 1}`;
-      ctx.dispatch({ type: 'ADD', marker: { id, page, x: pt.x, y: pt.y } });
+      ctx.dispatch({ type: 'ADD', marker: { id, pon, x: pt.x, y: pt.y } });
     },
     select: (id) => ctx.dispatch({ type: 'SELECT', id }),
     remove: (id) => ctx.dispatch({ type: 'REMOVE', id }),

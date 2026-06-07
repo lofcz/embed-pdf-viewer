@@ -1,5 +1,5 @@
 /**
- * @embedpdf/react — the generic binding.
+ * @embedpdf-x/react — the generic binding.
  *
  * Binds the kernel's one change stream to React (useSyncExternalStore), resolves
  * capabilities (document-scoped ones against the active or `<DocumentScope>`-given
@@ -16,8 +16,8 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import { createKernel } from '@embedpdf/kernel';
-import type { AnyPlugin, CapabilityToken, Engine, Kernel, OpenSource } from '@embedpdf/kernel';
+import { createKernel } from '@embedpdf-x/kernel';
+import type { AnyPlugin, CapabilityToken, Engine, Kernel, OpenInput } from '@embedpdf-x/kernel';
 
 const KernelCtx = createContext<Kernel | null>(null);
 /** The document a subtree is bound to. null => use the active document. */
@@ -119,7 +119,7 @@ export interface ViewerProps {
   engine: Engine;
   plugins: AnyPlugin[];
   /** Documents to open on startup. */
-  initialDocuments?: OpenSource[];
+  initialDocuments?: OpenInput[];
   fallback?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -153,6 +153,9 @@ export const EmbedPDF = Viewer;
  */
 export interface PageContextValue {
   documentId: string;
+  /** Durable page identity (PDF object number) — use for keys / render / annotations. */
+  pon: number;
+  /** Display index (page N) — use for ordering / human-facing page numbers. */
   pageIndex: number;
   size: { width: number; height: number };
   scale: number;
@@ -171,6 +174,7 @@ export function usePage(): PageContextValue {
 
 export function makePageContext(
   documentId: string,
+  pon: number,
   pageIndex: number,
   scale: number,
   size: { width: number; height: number },
@@ -178,6 +182,7 @@ export function makePageContext(
 ): PageContextValue {
   return {
     documentId,
+    pon,
     pageIndex,
     size,
     scale,

@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-persist",
+  "name": "@embedpdf-x/plugin-persist",
   "version": "0.0.0",
   "private": true,
   "description": "Effects-only plugin: persists & restores Stage view-state. Demonstrates `requires` + `effects`. (Real builds would inject a storage port instead of localStorage.)",
@@ -33,8 +33,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/kernel": "workspace:*",
-    "@embedpdf/plugin-stage": "workspace:*"
+    "@embedpdf-x/kernel": "workspace:*",
+    "@embedpdf-x/plugin-stage": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

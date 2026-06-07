@@ -1,8 +1,9 @@
-import { createCapabilityToken } from '@embedpdf/kernel';
+import { createCapabilityToken, type PageObjectNumber } from '@embedpdf-x/kernel';
 
 export interface Marker {
   id: string;
-  page: number;
+  /** Durable page identity (pon) — markers survive page reorder/insert/delete. */
+  pon: PageObjectNumber;
   x: number; // page coordinates (PDF units)
   y: number;
 }
@@ -19,10 +20,10 @@ export type MarkerAction =
   | { type: 'REMOVE'; id: string };
 
 export interface MarkerCapability {
-  forPage(pageIndex: number): Marker[];
+  forPage(pon: PageObjectNumber): Marker[];
   selectedId(): string | null;
   selectedMarker(): Marker | null;
-  add(pageIndex: number, pt: { x: number; y: number }): void;
+  add(pon: PageObjectNumber, pt: { x: number; y: number }): void;
   select(id: string | null): void;
   remove(id: string): void;
 }

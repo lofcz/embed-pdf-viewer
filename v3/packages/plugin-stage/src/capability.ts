@@ -1,8 +1,13 @@
-import * as S from '@embedpdf/stage-core';
-import type { PageBox } from '@embedpdf/stage-core';
-import type { PluginContext } from '@embedpdf/kernel';
+import * as S from '@embedpdf-x/stage-core';
+import type { PluginContext } from '@embedpdf-x/kernel';
 import { FRAMINGS, GAP } from './framing';
-import type { StageAction, StageCapability, StageState, StageViewState } from './types';
+import type {
+  StageAction,
+  StageCapability,
+  StageState,
+  StageViewState,
+  VisiblePage,
+} from './types';
 
 /**
  * The Stage capability — selectors (pure reads) + intents (the only writers).
@@ -51,17 +56,24 @@ export function createStageCapability(
       camera: S.clampCamera(next, buildScene().size, vp(), constraint()),
     });
 
+  // pon (durable identity) for a page's display index, from the registry captured at open.
+  const ponForIndex = (index: number): number =>
+    ctx.document()?.pages[index]?.pageObjectNumber ?? index + 1;
+
   // Memoized visiblePages -> stable reference (no useSyncExternalStore tearing loop).
   let visSig = '';
-  let vis: PageBox[] = [];
-  const visiblePages = (): PageBox[] => {
+  let vis: VisiblePage[] = [];
+  const visiblePages = (): VisiblePage[] => {
     const c = cam();
     const v = vp();
     const sc = buildScene();
     const sig = `${c.x}/${c.y}/${c.zoom}/${v.width}/${v.height}/${sc.itemCount}`;
     if (sig === visSig) return vis;
     visSig = sig;
-    vis = sc.query(S.cameraWorldRect(c, v)).flatMap((it) => it.pages);
+    vis = sc
+      .query(S.cameraWorldRect(c, v))
+      .flatMap((it) => it.pages)
+      .map((box) => ({ ...box, pon: ponForIndex(box.pageIndex) }));
     return vis;
   };
 
@@ -76,9 +88,13 @@ export function createStageCapability(
     pageCount: () => ctx.document()?.pageCount ?? 0,
     visiblePages,
     currentPage: () => S.anchorFromCamera(cam(), buildScene(), vp()).pageIndex,
-    pageRect: (i) => {
+    pageRect: (pon) => {
+      const meta = ctx.document();
+      const index = meta ? meta.pages.findIndex((p) => p.pageObjectNumber === pon) : -1;
+      if (index < 0) return null;
       const sc = buildScene();
-      return sc.items[sc.itemOfPage(i)].pages.find((p) => p.pageIndex === i) ?? null;
+      const box = sc.items[sc.itemOfPage(index)].pages.find((p) => p.pageIndex === index);
+      return box ? { ...box, pon } : null;
     },
     toScreen: (w) => S.toScreen(cam(), w),
     toWorld: (s) => S.toWorld(cam(), s),

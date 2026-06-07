@@ -2768,25 +2768,28 @@ importers:
 
   v3/examples/react:
     dependencies:
-      '@embedpdf/engine-fake':
+      '@embedpdf-x/engine-fake':
         specifier: workspace:*
         version: link:../../packages/engine-fake
-      '@embedpdf/kernel':
+      '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
-      '@embedpdf/plugin-marker':
+      '@embedpdf-x/plugin-marker':
         specifier: workspace:*
         version: link:../../packages/plugin-marker
-      '@embedpdf/plugin-persist':
+      '@embedpdf-x/plugin-persist':
         specifier: workspace:*
         version: link:../../packages/plugin-persist
-      '@embedpdf/plugin-stage':
+      '@embedpdf-x/plugin-render':
+        specifier: workspace:*
+        version: link:../../packages/plugin-render
+      '@embedpdf-x/plugin-stage':
         specifier: workspace:*
         version: link:../../packages/plugin-stage
-      '@embedpdf/react':
+      '@embedpdf-x/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@embedpdf/stage-core':
+      '@embedpdf-x/stage-core':
         specifier: workspace:*
         version: link:../../packages/stage-core
       react:
@@ -2814,15 +2817,19 @@ importers:
 
   v3/packages/engine-fake:
     dependencies:
-      '@embedpdf/kernel':
+      '@embedpdf/engine-core':
         specifier: workspace:*
-        version: link:../kernel
+        version: link:../../../packages/engine-core
     devDependencies:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
 
   v3/packages/kernel:
+    dependencies:
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../../packages/engine-core
     devDependencies:
       typescript:
         specifier: ^5.0.0
@@ -2830,7 +2837,7 @@ importers:
 
   v3/packages/plugin-marker:
     dependencies:
-      '@embedpdf/kernel':
+      '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
     devDependencies:
@@ -2840,10 +2847,10 @@ importers:
 
   v3/packages/plugin-persist:
     dependencies:
-      '@embedpdf/kernel':
+      '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
-      '@embedpdf/plugin-stage':
+      '@embedpdf-x/plugin-stage':
         specifier: workspace:*
         version: link:../plugin-stage
     devDependencies:
@@ -2851,12 +2858,22 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
-  v3/packages/plugin-stage:
+  v3/packages/plugin-render:
     dependencies:
-      '@embedpdf/kernel':
+      '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
-      '@embedpdf/stage-core':
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
+  v3/packages/plugin-stage:
+    dependencies:
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@embedpdf-x/stage-core':
         specifier: workspace:*
         version: link:../stage-core
     devDependencies:
@@ -2866,16 +2883,19 @@ importers:
 
   v3/packages/react:
     dependencies:
-      '@embedpdf/kernel':
+      '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
-      '@embedpdf/plugin-marker':
+      '@embedpdf-x/plugin-marker':
         specifier: workspace:*
         version: link:../plugin-marker
-      '@embedpdf/plugin-stage':
+      '@embedpdf-x/plugin-render':
+        specifier: workspace:*
+        version: link:../plugin-render
+      '@embedpdf-x/plugin-stage':
         specifier: workspace:*
         version: link:../plugin-stage
-      '@embedpdf/stage-core':
+      '@embedpdf-x/stage-core':
         specifier: workspace:*
         version: link:../stage-core
       react:

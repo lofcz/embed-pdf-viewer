@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/engine-fake",
+  "name": "@embedpdf-x/engine-fake",
   "version": "0.0.0",
   "private": true,
   "description": "A stand-in Engine for the v3 POC. Synthesizes page sizes and paints placeholder pages. Swap for @embedpdf/engine (wasm/cloud) — same contract.",
@@ -33,7 +33,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/kernel": "workspace:*"
+    "@embedpdf/engine-core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

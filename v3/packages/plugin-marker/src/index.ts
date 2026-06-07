@@ -1,5 +1,5 @@
 /**
- * @embedpdf/plugin-marker — a tiny "annotation" feature plugin, in the standard
+ * @embedpdf-x/plugin-marker — a tiny "annotation" feature plugin, in the standard
  * layout: types.ts · reducer.ts · capability.ts · marker.plugin.ts.
  * Pure, page-space coordinates, zero framework code.
  */

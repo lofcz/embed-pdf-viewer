@@ -1,8 +1,8 @@
 {
-  "name": "@embedpdf/plugin-stage",
+  "name": "@embedpdf-x/plugin-stage",
   "version": "0.0.0",
   "private": true,
-  "description": "The Stage plugin: one coordinate core (scroll + viewport + zoom + pan + spread) built on @embedpdf/stage-core. Pure intents & selectors; no DOM.",
+  "description": "The Stage plugin: one coordinate core (scroll + viewport + zoom + pan + spread) built on @embedpdf-x/stage-core. Pure intents & selectors; no DOM.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -33,8 +33,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/kernel": "workspace:*",
-    "@embedpdf/stage-core": "workspace:*"
+    "@embedpdf-x/kernel": "workspace:*",
+    "@embedpdf-x/stage-core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

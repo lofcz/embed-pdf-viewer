@@ -1,5 +1,5 @@
-import { definePlugin } from '@embedpdf/kernel';
-import { StageToken } from '@embedpdf/plugin-stage';
+import { definePlugin } from '@embedpdf-x/kernel';
+import { StageToken } from '@embedpdf-x/plugin-stage';
 import { registerPersistEffects } from './effects';
 import type { PersistConfig } from './types';
 

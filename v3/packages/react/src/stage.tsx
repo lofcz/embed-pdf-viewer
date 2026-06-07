@@ -7,16 +7,17 @@
  */
 import * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
-import { StageToken } from '@embedpdf/plugin-stage';
-import type { Camera, PageBox } from '@embedpdf/stage-core';
+import { StageToken } from '@embedpdf-x/plugin-stage';
+import type { VisiblePage } from '@embedpdf-x/plugin-stage';
+import type { Camera } from '@embedpdf-x/stage-core';
 import {
+  DocumentScope,
   makePageContext,
   PageProvider,
   useActiveDocumentId,
   useCapability,
   useDocumentId,
   useKernel,
-  usePage,
   useSelector,
 } from './runtime';
 import type { PageContextValue } from './runtime';
@@ -28,7 +29,7 @@ function PageSurface({
   render,
 }: {
   documentId: string;
-  page: PageBox;
+  page: VisiblePage;
   camera: Camera;
   render: (page: PageContextValue) => React.ReactNode;
 }) {
@@ -40,10 +41,10 @@ function PageSurface({
   const top = (page.y - camera.y) * zoom;
   const ctx = useMemo(
     () =>
-      makePageContext(documentId, page.pageIndex, zoom, { width: w, height: h }, () =>
+      makePageContext(documentId, page.pon, page.pageIndex, zoom, { width: w, height: h }, () =>
         ref.current!.getBoundingClientRect(),
       ),
-    [documentId, page.pageIndex, w, h, zoom],
+    [documentId, page.pon, page.pageIndex, w, h, zoom],
   );
   return (
     <div
@@ -171,61 +172,34 @@ export function PageView({ page, documentId, width = 240, children, style }: Pag
   const docId = documentId ?? active;
   const meta = docId ? kernel.getState().core.documents[docId] : undefined;
   const base = meta?.pages[page];
+  const pon = base?.pageObjectNumber ?? page + 1;
   const scale = base ? width / base.width : 1;
   const w = base ? base.width * scale : 0;
   const h = base ? base.height * scale : 0;
   const ctx = useMemo(
     () =>
-      makePageContext(docId ?? '', page, scale, { width: w, height: h }, () =>
+      makePageContext(docId ?? '', pon, page, scale, { width: w, height: h }, () =>
         ref.current!.getBoundingClientRect(),
       ),
-    [docId, page, w, h, scale],
+    [docId, pon, page, w, h, scale],
   );
   if (!docId || !meta) return null;
   return (
-    <div
-      ref={ref}
-      style={{
-        position: 'relative',
-        width: w,
-        height: h,
-        background: '#fff',
-        boxShadow: '0 6px 18px rgba(0,0,0,.18)',
-        ...style,
-      }}
-    >
-      <PageProvider value={ctx}>{children}</PageProvider>
-    </div>
-  );
-}
-
-/** The only layer that touches the engine. Re-rasterizes on size/page change. */
-export function RenderLayer() {
-  const page = usePage();
-  const kernel = useKernel();
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const c = ref.current!;
-    const dpr = window.devicePixelRatio || 1;
-    // ask the engine for RGBA pixels at the display resolution, then paint them
-    const res = kernel.engine.renderPage(page.documentId, page.pageIndex, page.scale * dpr);
-    c.width = res.width;
-    c.height = res.height;
-    const img = new ImageData(res.width, res.height);
-    img.data.set(res.data);
-    c.getContext('2d')!.putImageData(img, 0, 0);
-  }, [page.pageIndex, page.size.width, page.size.height, page.scale, kernel]);
-  return (
-    <canvas
-      ref={ref}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'none',
-      }}
-    />
+    <DocumentScope id={docId}>
+      <div
+        ref={ref}
+        style={{
+          position: 'relative',
+          width: w,
+          height: h,
+          background: '#fff',
+          boxShadow: '0 6px 18px rgba(0,0,0,.18)',
+          ...style,
+        }}
+      >
+        <PageProvider value={ctx}>{children}</PageProvider>
+      </div>
+    </DocumentScope>
   );
 }
 

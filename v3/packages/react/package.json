@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/react",
+  "name": "@embedpdf-x/react",
   "version": "0.0.0",
   "private": true,
   "description": "React adapter for EmbedPDF v3: one generic reactive binding + structural components (Viewer, Stage, PageView) + headless layers & hooks. The whole framework surface.",
@@ -33,10 +33,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/kernel": "workspace:*",
-    "@embedpdf/plugin-stage": "workspace:*",
-    "@embedpdf/stage-core": "workspace:*",
-    "@embedpdf/plugin-marker": "workspace:*"
+    "@embedpdf-x/kernel": "workspace:*",
+    "@embedpdf-x/plugin-stage": "workspace:*",
+    "@embedpdf-x/plugin-render": "workspace:*",
+    "@embedpdf-x/stage-core": "workspace:*",
+    "@embedpdf-x/plugin-marker": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18"

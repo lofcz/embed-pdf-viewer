@@ -1,5 +1,5 @@
 /**
- * Marker layer + menu — the React view of @embedpdf/plugin-marker.
+ * Marker layer + menu — the React view of @embedpdf-x/plugin-marker.
  *
  * Demonstrates the full feature pattern: the layer reads page-space data via a
  * selector and maps pointer events through PageContext.toPagePoint; the menu is a
@@ -7,9 +7,9 @@
  * render prop. Note: no menu props are threaded through the layer — they're siblings.
  */
 import * as React from 'react';
-import { MarkerToken } from '@embedpdf/plugin-marker';
-import type { Marker } from '@embedpdf/plugin-marker';
-import { StageToken } from '@embedpdf/plugin-stage';
+import { MarkerToken } from '@embedpdf-x/plugin-marker';
+import type { Marker } from '@embedpdf-x/plugin-marker';
+import { StageToken } from '@embedpdf-x/plugin-stage';
 import { shallowArray, useCapability, usePage, useSelector } from './runtime';
 
 export function useMarker() {
@@ -19,14 +19,14 @@ export function useMarker() {
 export function MarkerLayer() {
   const page = usePage();
   const marker = useCapability(MarkerToken);
-  const list = useSelector(MarkerToken, (c) => c.forPage(page.pageIndex), shallowArray);
+  const list = useSelector(MarkerToken, (c) => c.forPage(page.pon), shallowArray);
   const selected = useSelector(MarkerToken, (c) => c.selectedId());
   return (
     <div
       style={{ position: 'absolute', inset: 0 }}
       onDoubleClick={(e) => {
         const pt = page.toPagePoint(e.clientX, e.clientY);
-        marker.add(page.pageIndex, pt);
+        marker.add(page.pon, pt);
       }}
     >
       {list.map((m) => (
@@ -64,7 +64,7 @@ export function MarkerMenu({ children }: MarkerMenuProps) {
   useSelector(StageToken, (c) => c.camera()); // reposition when the camera moves
   const sel = useSelector(MarkerToken, (c) => c.selectedMarker());
   if (!sel) return null;
-  const pr = stage.pageRect(sel.page);
+  const pr = stage.pageRect(sel.pon);
   if (!pr) return null;
   const s = stage.toScreen({ x: pr.x + sel.x, y: pr.y + sel.y });
   const remove = () => marker.remove(sel.id);

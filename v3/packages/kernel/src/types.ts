@@ -1,11 +1,23 @@
 /**
- * @embedpdf/kernel — core contracts.
+ * @embedpdf-x/kernel — core contracts.
  *
- * Framework-free and serializable. The kernel understands ONE foundational thing
- * beyond plain state: **document scope**. Plugins declare a scope; the kernel
- * multiplexes document-scoped plugins per documentId so each plugin is authored as
- * if there is a single document. This is the layer reimplemented in Rust for v4.
+ * Framework-free and serializable. The engine boundary is the REAL one:
+ * `@embedpdf/engine-core`'s `Engine`/`DocumentHandle` — implemented identically by
+ * local-wasm (`@embedpdf/engine`), cloud (`@cloudpdf/engine`), and the test fake.
+ * The kernel adds *document scope*: plugins declare a scope and the kernel
+ * multiplexes document-scoped plugins per document.
  */
+import type {
+  DocumentHandle,
+  Engine,
+  OpenInput,
+  OpenOptions,
+  PageLayout,
+  PageObjectNumber,
+} from '@embedpdf/engine-core/runtime';
+
+// re-export the engine contracts so consumers import them from @embedpdf-x/kernel
+export type { DocumentHandle, Engine, OpenInput, OpenOptions, PageLayout, PageObjectNumber };
 
 export type Unsubscribe = () => void;
 
@@ -18,31 +30,29 @@ export interface Action {
 export const CORE_DOCUMENT_ADDED = '@@core/document-added';
 export const CORE_DOCUMENT_REMOVED = '@@core/document-removed';
 export const CORE_ACTIVE_CHANGED = '@@core/active-changed';
+export const CORE_ORDER_CHANGED = '@@core/order-changed';
 
-/**
- * A typed handle to a capability. The phantom `__type` carries the capability's
- * interface so resolution is typed (no string casts) — the analog of a Rust trait.
- */
+/** A typed handle to a capability — typed resolution, no string casts. */
 export interface CapabilityToken<T> {
   readonly name: string;
   /** phantom — never present at runtime */
   readonly __type?: T;
 }
 
-export interface PageSize {
-  readonly width: number;
-  readonly height: number;
-}
-
-/** What the kernel knows about an open document (lightweight, synchronous, serializable). */
+/**
+ * What the kernel knows about an open document — the page registry captured at open.
+ * `pages` is the engine's own snapshot (`PageLayout`: index, pageObjectNumber, size,
+ * rotation, label, boxes). The `pageObjectNumber` (pon) is the durable per-page
+ * identity; the array index is only display order.
+ */
 export interface DocumentMeta {
   readonly id: string;
   readonly name?: string;
   readonly pageCount: number;
-  readonly pages: readonly PageSize[];
+  readonly pages: readonly PageLayout[];
 }
 
-/** The document registry lives in core — it's what document scope is built on. */
+/** The document registry — what document scope is built on. */
 export interface CoreState {
   readonly documents: Readonly<Record<string, DocumentMeta>>;
   readonly order: readonly string[];
@@ -54,57 +64,28 @@ export interface GlobalState {
   readonly plugins: Readonly<Record<string, unknown>>;
 }
 
-export interface Size {
-  readonly width: number;
-  readonly height: number;
-}
-
-/** An RGBA raster (length = width*height*4), device pixels. Just bytes. */
-export interface RenderResult {
-  readonly width: number;
-  readonly height: number;
-  readonly data: Uint8ClampedArray;
-}
-
-/** Where a document comes from. Engine-specific; `id` keeps persistence stable. */
-export interface OpenSource {
-  id?: string;
-  name?: string;
-  [k: string]: unknown;
-}
-
-/**
- * The engine boundary (swappable: local-wasm | cloud-http). Tiny here; the real
- * `@embedpdf/engine` returns bitmaps via AbortablePromise. One Engine serves many
- * documents — every call is keyed by `docId`, so the kernel stays DOM-free.
- */
-export interface Engine {
-  open(source: OpenSource): Promise<DocumentMeta>;
-  renderPage(docId: string, pageIndex: number, scale: number): RenderResult;
-}
-
 export type PluginScope = 'workspace' | 'document';
 
 /**
  * The context a plugin receives. Document-scoped plugins get a context bound to a
- * single document (`documentId`, `document()`, and `get()` auto-binds to it), so
- * they're written as if there is one document. Workspace plugins see all documents.
+ * single document — `documentId`, `document()` (metadata), `doc` (the engine handle),
+ * and `get()` resolving document-scoped capabilities for it.
  */
 export interface PluginContext<S, A extends Action = Action> {
   readonly id: string;
   readonly engine: Engine;
   /** The bound document (document-scoped plugins only; undefined for workspace). */
   readonly documentId?: string;
+  /** The bound document's engine handle; for workspace plugins, the active doc's handle, or null. */
+  readonly doc: DocumentHandle | null;
   getState(): S;
   dispatch(action: A): void;
   subscribe(listener: () => void): Unsubscribe;
   core(): CoreState;
-  /** The bound document's meta (document-scoped); for workspace plugins: the active doc, or null. */
+  /** The bound document's metadata; for workspace plugins, the active doc's, or null. */
   document(): DocumentMeta | null;
-  /** Resolve a capability. Document-scoped targets bind to this context's document (or the active one). */
   get<T>(token: CapabilityToken<T>): T;
-  /** Resolve a document-scoped capability for a specific document. */
-  forDocument<T>(token: CapabilityToken<T>, docId: string): T;
+  forDocument<T>(token: CapabilityToken<T>, documentId: string): T;
   tryGet<T>(token: CapabilityToken<T>): T | null;
 }
 
@@ -147,8 +128,11 @@ export interface DocInfo {
   pageCount: number;
 }
 
+/** Options for opening a document: kernel concerns (activate/name) + engine OpenOptions. */
+export type OpenDocumentOptions = OpenOptions & { activate?: boolean; name?: string };
+
 export interface DocumentsCapability {
-  open(source: OpenSource, opts?: { activate?: boolean }): Promise<string>;
+  open(input: OpenInput, options?: OpenDocumentOptions): Promise<string>;
   close(id: string): Promise<void>;
   closeAll(): Promise<void>;
   setActive(id: string): void;
@@ -158,6 +142,10 @@ export interface DocumentsCapability {
   has(id: string): boolean;
   count(): number;
   order(): string[];
+  /** Move a document (tab) to a new position in the order. */
+  move(id: string, toIndex: number): void;
+  /** Swap two documents (tabs) in the order. */
+  swap(a: string, b: string): void;
 }
 
 /** Built-in token for the document registry capability (provided by the kernel). */

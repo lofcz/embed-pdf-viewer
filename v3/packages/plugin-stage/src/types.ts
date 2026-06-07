@@ -1,4 +1,5 @@
-import { createCapabilityToken } from '@embedpdf/kernel';
+import { createCapabilityToken } from '@embedpdf-x/kernel';
+import type { PageObjectNumber } from '@embedpdf-x/kernel';
 import type {
   Anchor,
   Camera,
@@ -7,10 +8,15 @@ import type {
   Size,
   SpreadMode,
   ZoomSpec,
-} from '@embedpdf/stage-core';
+} from '@embedpdf-x/stage-core';
 
 export type LayoutKind = 'vertical' | 'horizontal' | 'grid';
 export type FramingKind = 'document' | 'canvas';
+
+/** A laid-out page handed to the shell: geometry (PageBox) + durable identity (pon). */
+export interface VisiblePage extends PageBox {
+  pon: PageObjectNumber;
+}
 
 export interface StageState {
   camera: Camera;
@@ -44,9 +50,11 @@ export interface StageCapability {
   camera(): Camera;
   viewport(): Size;
   pageCount(): number;
-  visiblePages(): PageBox[];
+  visiblePages(): VisiblePage[];
+  /** Current page's *display index* (for "page N of M"). */
   currentPage(): number;
-  pageRect(pageIndex: number): PageBox | null;
+  /** The laid-out box for a page by its durable pon. */
+  pageRect(pon: PageObjectNumber): VisiblePage | null;
   toScreen(world: Point): Point;
   toWorld(screen: Point): Point;
   layout(): LayoutKind;

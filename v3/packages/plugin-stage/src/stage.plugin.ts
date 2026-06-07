@@ -1,4 +1,4 @@
-import { definePlugin } from '@embedpdf/kernel';
+import { definePlugin } from '@embedpdf-x/kernel';
 import { createStageCapability } from './capability';
 import { initialStageState, stageReducer } from './reducer';
 import { StageToken } from './types';

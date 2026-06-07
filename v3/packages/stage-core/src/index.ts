@@ -1,5 +1,5 @@
 /**
- * @embedpdf/stage-core — the pure spatial model.
+ * @embedpdf-x/stage-core — the pure spatial model.
  *
  * Scene (a layout strategy turns pages into positioned items + a spatial index),
  * Camera ({x,y,zoom}: the world point at the viewport origin + scale), and Anchor

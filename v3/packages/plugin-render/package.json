@@ -1,8 +1,8 @@
 {
-  "name": "@embedpdf-x/kernel",
+  "name": "@embedpdf-x/plugin-render",
   "version": "0.0.0",
   "private": true,
-  "description": "Pure, framework-free runtime for the EmbedPDF v3 viewer: store, typed capabilities, plugin lifecycle. No DOM, serializable, Rust/Crux-ready.",
+  "description": "Document-scoped render capability: turns the engine DocumentHandle into an abortable renderPage(pageIndex, scale) → RGBA. The home for tiling.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -33,7 +33,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/engine-core": "workspace:*"
+    "@embedpdf-x/kernel": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

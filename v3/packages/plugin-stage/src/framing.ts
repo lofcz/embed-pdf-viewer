@@ -1,4 +1,4 @@
-import { ZoomMode, type Overscroll, type ZoomSpec } from '@embedpdf/stage-core';
+import { ZoomMode, type Overscroll, type ZoomSpec } from '@embedpdf-x/stage-core';
 import type { FramingKind } from './types';
 
 /** World units between pages (and between the two halves of a spread). */

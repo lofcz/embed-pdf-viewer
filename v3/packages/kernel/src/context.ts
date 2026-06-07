@@ -2,6 +2,7 @@ import type {
   Action,
   AnyPlugin,
   CapabilityToken,
+  DocumentHandle,
   EffectContext,
   Engine,
   PluginContext,
@@ -21,6 +22,7 @@ export interface ContextServices {
   readonly store: Store;
   resolveCapability<T>(token: CapabilityToken<T>, documentId?: string): T;
   registerTeardown(teardown: () => void, documentId?: string): void;
+  documentHandle(documentId?: string): DocumentHandle | null;
 }
 
 /**
@@ -39,6 +41,7 @@ export function createPluginContext(
     id: plugin.id,
     engine,
     documentId,
+    doc: services.documentHandle(documentId),
     getState: () => store.getSlice(key),
     dispatch: (action: Action) => store.dispatchTo(key, action),
     subscribe: store.subscribe,

@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/stage-core",
+  "name": "@embedpdf-x/stage-core",
   "version": "0.0.0",
   "private": true,
   "description": "Pure spatial model for the EmbedPDF viewer: Scene (layout strategies), Camera, Anchor, framing. DOM-free, framework-free, serializable — the future Rust core.",

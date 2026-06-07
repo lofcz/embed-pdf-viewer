@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-v3-react",
+  "name": "@embedpdf-x/example-v3-react",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,13 +10,14 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@embedpdf/engine-fake": "workspace:*",
-    "@embedpdf/kernel": "workspace:*",
-    "@embedpdf/plugin-marker": "workspace:*",
-    "@embedpdf/plugin-persist": "workspace:*",
-    "@embedpdf/react": "workspace:*",
-    "@embedpdf/plugin-stage": "workspace:*",
-    "@embedpdf/stage-core": "workspace:*",
+    "@embedpdf-x/engine-fake": "workspace:*",
+    "@embedpdf-x/kernel": "workspace:*",
+    "@embedpdf-x/plugin-marker": "workspace:*",
+    "@embedpdf-x/plugin-persist": "workspace:*",
+    "@embedpdf-x/plugin-render": "workspace:*",
+    "@embedpdf-x/react": "workspace:*",
+    "@embedpdf-x/plugin-stage": "workspace:*",
+    "@embedpdf-x/stage-core": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

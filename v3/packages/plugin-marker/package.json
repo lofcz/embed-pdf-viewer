@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-marker",
+  "name": "@embedpdf-x/plugin-marker",
   "version": "0.0.0",
   "private": true,
   "description": "Example feature plugin (a minimal annotation): pure state + capability. Consumes the Stage only via intents/selectors; ships zero framework code.",
@@ -33,7 +33,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/kernel": "workspace:*"
+    "@embedpdf-x/kernel": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

@@ -1,5 +1,5 @@
-import type { EffectContext } from '@embedpdf/kernel';
-import { StageToken, type StageViewState } from '@embedpdf/plugin-stage';
+import type { EffectContext } from '@embedpdf-x/kernel';
+import { StageToken, type StageViewState } from '@embedpdf-x/plugin-stage';
 import type { PersistConfig } from './types';
 
 /** localStorage can throw on mere access (Safari private mode, sandboxed/opaque origins). */

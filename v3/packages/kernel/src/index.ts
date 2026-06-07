@@ -1,6 +1,17 @@
 export * from './types';
 export * from './kernel';
 
+// Re-export the engine contracts so plugins/adapters import them from @embedpdf-x/kernel.
+export { AbortablePromise } from '@embedpdf/engine-core/runtime';
+export type {
+  PageHandle,
+  PageRaster,
+  PageRenderOptions,
+  PageImageHandle,
+  PageImageOptions,
+  PageImageObjectUrl,
+} from '@embedpdf/engine-core/runtime';
+
 import type { Action, CapabilityToken, PluginDef } from './types';
 
 /** Create a typed capability token. `name` is for debugging only. */
