@@ -18,6 +18,7 @@ export default defineConfig({
       '@embedpdf-x/plugin-marker': src('plugin-marker'),
       '@embedpdf-x/plugin-persist': src('plugin-persist'),
       '@embedpdf-x/plugin-render': src('plugin-render'),
+      '@embedpdf-x/plugin-view-manager': src('plugin-view-manager'),
       '@embedpdf-x/engine-fake': src('engine-fake'),
       '@embedpdf-x/react': src('react'),
     },

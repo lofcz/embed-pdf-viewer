@@ -1,14 +1,17 @@
 import * as React from 'react';
+import { useMemo, useRef } from 'react';
 import { createFakeEngine } from '@embedpdf-x/engine-fake';
 import { stagePlugin } from '@embedpdf-x/plugin-stage';
 import type { LayoutKind } from '@embedpdf-x/plugin-stage';
 import { markerPlugin } from '@embedpdf-x/plugin-marker';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
+import { viewManagerPlugin } from '@embedpdf-x/plugin-view-manager';
+import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
 import {
   Viewer,
   Stage,
-  PageView,
+  DocumentScope,
   RenderLayer,
   MarkerLayer,
   MarkerMenu,
@@ -16,7 +19,10 @@ import {
   useZoom,
   usePages,
   useLayout,
+  useDocuments,
+  useViews,
 } from '@embedpdf-x/react';
+import type { OpenInput } from '@embedpdf-x/kernel';
 
 // Engine + plugins are plain values. Plugins are pure; the engine is swappable.
 const engine = createFakeEngine();
@@ -24,10 +30,43 @@ const plugins = [
   stagePlugin({ layout: 'vertical', framing: 'document' }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
   markerPlugin(),
-  // effects-only plugin: requires Stage, mirrors view-state to localStorage.
-  // Reload the page and you land on the same page/zoom/layout.
+  // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
+  // workspace plugin: partitions open documents into reorderable panes (each pane
+  // owns its own tab strip; tabs can be dragged between panes).
+  viewManagerPlugin(),
 ];
+
+const initialDocuments = [
+  { source: { kind: 'bytes' as const, id: 'ebook', bytes: new Uint8Array(0) }, name: 'Ebook' },
+  { source: { kind: 'bytes' as const, id: 'report', bytes: new Uint8Array(0) }, name: 'Report' },
+  { source: { kind: 'bytes' as const, id: 'manual', bytes: new Uint8Array(0) }, name: 'Manual' },
+];
+
+let untitledSeq = 0;
+const newDocument = (): { source: OpenInput; name: string } => {
+  untitledSeq += 1;
+  const id = `untitled-${untitledSeq}-${Math.round(performance.now())}`;
+  return {
+    source: { kind: 'bytes', id, bytes: new Uint8Array(0) },
+    name: `Untitled ${untitledSeq}`,
+  };
+};
+
+// ── drag payloads: a tab (document) or a whole pane (view) ───────────────────
+type DragPayload =
+  | { kind: 'doc'; documentId: string; fromViewId: string }
+  | { kind: 'view'; viewId: string };
+
+const writePayload = (e: React.DragEvent, payload: DragPayload) =>
+  e.dataTransfer.setData('text/plain', JSON.stringify(payload));
+const readPayload = (e: React.DragEvent): DragPayload | null => {
+  try {
+    return JSON.parse(e.dataTransfer.getData('text/plain')) as DragPayload;
+  } catch {
+    return null;
+  }
+};
 
 // A user-defined layer — no SDK involvement, just reads PageContext.
 function WatermarkLayer() {
@@ -66,34 +105,296 @@ function Toolbar() {
         display: 'flex',
         gap: 8,
         alignItems: 'center',
-        padding: '8px 12px',
-        borderBottom: '1px solid #e2e2e2',
+        padding: '6px 10px',
+        borderBottom: '1px solid #eee',
         background: '#fafafa',
+        fontSize: 12,
       }}
     >
-      <strong style={{ color: '#3858e9' }}>EmbedPDF v3</strong>
       <button onClick={() => goToPage(currentPage - 1)}>◀</button>
       <span>
-        page <b>{currentPage + 1}</b> / {pageCount}
+        p <b>{currentPage + 1}</b>/{pageCount}
       </span>
       <button onClick={() => goToPage(currentPage + 1)}>▶</button>
-      <span style={{ width: 1, height: 20, background: '#ddd' }} />
+      <span style={{ width: 1, height: 18, background: '#ddd' }} />
       <button onClick={zoomOut}>−</button>
       <span>{Math.round(zoom * 100)}%</span>
       <button onClick={zoomIn}>+</button>
-      <button onClick={fitWidth}>fit width</button>
-      <span style={{ width: 1, height: 20, background: '#ddd' }} />
-      <label>
-        layout{' '}
-        <select value={layout} onChange={(e) => setLayout(e.target.value as LayoutKind)}>
-          <option value="vertical">vertical</option>
-          <option value="horizontal">horizontal</option>
-          <option value="grid">grid / canvas</option>
-        </select>
-      </label>
-      <span style={{ marginLeft: 'auto', color: '#888' }}>
-        double-click a page to drop a marker
-      </span>
+      <button onClick={fitWidth}>fit</button>
+      <select
+        value={layout}
+        onChange={(e) => setLayout(e.target.value as LayoutKind)}
+        style={{ marginLeft: 'auto' }}
+      >
+        <option value="vertical">vertical</option>
+        <option value="horizontal">horizontal</option>
+        <option value="grid">grid</option>
+      </select>
+    </div>
+  );
+}
+
+// One pane = one view. It owns its own tab strip (view.documentIds) and a Stage
+// bound to its active document. Tabs drag within and BETWEEN panes; the grip
+// (⠿) drags the whole pane to reorder.
+function Pane({
+  view,
+  names,
+  canRemove,
+}: {
+  view: ViewInfo;
+  names: Record<string, string>;
+  canRemove: boolean;
+}) {
+  const { open, close } = useDocuments();
+  const v = useViews();
+  const focused = view.id === v.focusedViewId;
+
+  const dropDoc = (e: React.DragEvent, index: number) => {
+    const payload = readPayload(e);
+    if (!payload || payload.kind !== 'doc') return;
+    e.stopPropagation();
+    if (payload.fromViewId === view.id) v.moveDocumentWithin(view.id, payload.documentId, index);
+    else v.moveDocumentBetween(payload.fromViewId, view.id, payload.documentId, index);
+  };
+  const dropPane = (e: React.DragEvent) => {
+    const payload = readPayload(e);
+    if (!payload || payload.kind !== 'view' || payload.viewId === view.id) return;
+    v.moveView(
+      payload.viewId,
+      v.views.findIndex((x) => x.id === view.id),
+    );
+  };
+
+  return (
+    <div
+      onMouseDown={() => v.setFocused(view.id)}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={dropPane}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#fff',
+        borderRadius: 8,
+        overflow: 'hidden',
+        border: focused ? '2px solid #3858e9' : '2px solid #d8d8d8',
+      }}
+    >
+      {/* tab strip */}
+      <div
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => dropDoc(e, view.documentIds.length)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 3,
+          padding: '4px 6px',
+          background: '#f3f3f3',
+          borderBottom: '1px solid #e2e2e2',
+        }}
+      >
+        <span
+          draggable
+          onDragStart={(e) => writePayload(e, { kind: 'view', viewId: view.id })}
+          title="drag to reorder pane"
+          style={{ cursor: 'grab', color: '#bbb', padding: '0 2px' }}
+        >
+          ⠿
+        </span>
+        {view.documentIds.map((docId, i) => {
+          const active = docId === view.activeDocumentId;
+          return (
+            <div
+              key={docId}
+              draggable
+              onDragStart={(e) => {
+                e.stopPropagation();
+                writePayload(e, { kind: 'doc', documentId: docId, fromViewId: view.id });
+              }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => dropDoc(e, i)}
+              onClick={() => {
+                v.setFocused(view.id);
+                v.setActiveDocument(view.id, docId);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '3px 6px 3px 9px',
+                borderRadius: 5,
+                cursor: 'pointer',
+                userSelect: 'none',
+                fontSize: 12,
+                background: active ? '#fff' : 'transparent',
+                border: active ? '1px solid #ccc' : '1px solid transparent',
+                boxShadow: active ? '0 1px 2px rgba(0,0,0,.08)' : 'none',
+              }}
+            >
+              <span>{names[docId] ?? docId}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void close(docId);
+                }}
+                style={{
+                  border: 0,
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  color: '#999',
+                  padding: 0,
+                  lineHeight: 1,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          );
+        })}
+        <button
+          onClick={() => {
+            v.setFocused(view.id);
+            const doc = newDocument();
+            void open(doc.source, { name: doc.name });
+          }}
+          title="open a new document in this pane"
+          style={{
+            border: '1px dashed #bbb',
+            background: 'transparent',
+            borderRadius: 5,
+            padding: '2px 7px',
+            cursor: 'pointer',
+            color: '#666',
+          }}
+        >
+          +
+        </button>
+        {canRemove && (
+          <button
+            onClick={() => v.removeView(view.id)}
+            title="close this pane (documents stay open)"
+            style={{
+              marginLeft: 'auto',
+              border: 0,
+              background: 'transparent',
+              cursor: 'pointer',
+              color: '#c00',
+              fontSize: 12,
+            }}
+          >
+            ✕ pane
+          </button>
+        )}
+      </div>
+
+      {/* body — bound to this pane's active document */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        {view.activeDocumentId ? (
+          <DocumentScope id={view.activeDocumentId}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <Toolbar />
+              <Stage
+                style={{ flex: 1, background: '#0d1117' }}
+                overlay={
+                  <MarkerMenu>
+                    {({ remove }) => (
+                      <button
+                        onClick={remove}
+                        style={{
+                          background: '#ff3b30',
+                          color: '#fff',
+                          border: 0,
+                          borderRadius: 6,
+                          padding: '4px 10px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        🗑 delete
+                      </button>
+                    )}
+                  </MarkerMenu>
+                }
+              >
+                {() => (
+                  <>
+                    <RenderLayer />
+                    <WatermarkLayer />
+                    <MarkerLayer />
+                  </>
+                )}
+              </Stage>
+            </div>
+          </DocumentScope>
+        ) : (
+          <div
+            style={{ flex: 1, display: 'grid', placeItems: 'center', color: '#aaa', fontSize: 12 }}
+          >
+            empty pane — drag a tab here or press <b style={{ margin: '0 4px' }}>+</b>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Workspace() {
+  const { docs } = useDocuments();
+  const { views, createView } = useViews();
+  const names = useMemo(() => Object.fromEntries(docs.map((d) => [d.id, d.name ?? d.id])), [docs]);
+  return (
+    <div
+      style={{ display: 'flex', flex: 1, minHeight: 0, gap: 6, padding: 6, background: '#e9e9e9' }}
+    >
+      {views.map((view) => (
+        <Pane key={view.id} view={view} names={names} canRemove={views.length > 1} />
+      ))}
+      <button
+        onClick={() => createView()}
+        title="split: add another pane"
+        style={{
+          alignSelf: 'center',
+          padding: '8px 10px',
+          border: '1px dashed #bbb',
+          borderRadius: 8,
+          background: '#fff',
+          cursor: 'pointer',
+          color: '#666',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        ◫ split
+      </button>
+    </div>
+  );
+}
+
+function Shell() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        font: '13px ui-monospace, Menlo, monospace',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '6px 12px',
+          borderBottom: '1px solid #eee',
+        }}
+      >
+        <span style={{ fontWeight: 700, color: '#3858e9' }}>EmbedPDF v3</span>
+        <span style={{ marginLeft: 'auto', color: '#aaa', fontSize: 11 }}>
+          each pane owns its tabs · drag a tab between panes · ⠿ reorder panes · ◫ split
+        </span>
+      </div>
+      <Workspace />
     </div>
   );
 }
@@ -103,64 +404,10 @@ export function App() {
     <Viewer
       engine={engine}
       plugins={plugins}
-      initialDocuments={[{ kind: 'bytes', id: 'ebook', bytes: new Uint8Array(0) }]}
+      initialDocuments={initialDocuments}
       fallback={<div style={{ padding: 20 }}>loading…</div>}
     >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100vh',
-          font: '13px ui-monospace, Menlo, monospace',
-        }}
-      >
-        <Toolbar />
-        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          {/* The viewer: YOU compose the layers per page. The Stage only positions. */}
-          <Stage
-            style={{ flex: 1, background: '#0d1117' }}
-            overlay={
-              <MarkerMenu>
-                {({ remove }) => (
-                  <button
-                    onClick={remove}
-                    style={{
-                      background: '#ff3b30',
-                      color: '#fff',
-                      border: 0,
-                      borderRadius: 6,
-                      padding: '4px 10px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    🗑 delete marker
-                  </button>
-                )}
-              </MarkerMenu>
-            }
-          >
-            {() => (
-              <>
-                <RenderLayer />
-                <WatermarkLayer />
-                <MarkerLayer />
-              </>
-            )}
-          </Stage>
-
-          {/* Standalone: the SAME layers on one page, with no Stage at all. */}
-          <aside
-            style={{ width: 300, borderLeft: '1px solid #e2e2e2', padding: 16, overflow: 'auto' }}
-          >
-            <h3 style={{ marginTop: 0 }}>Standalone &lt;PageView/&gt;</h3>
-            <p style={{ color: '#666' }}>No Stage — no scroll/zoom/camera. A blog-post embed.</p>
-            <PageView page={2} width={250}>
-              <RenderLayer />
-              <WatermarkLayer />
-            </PageView>
-          </aside>
-        </div>
-      </div>
+      <Shell />
     </Viewer>
   );
 }

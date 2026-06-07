@@ -15,6 +15,7 @@
     "@embedpdf-x/plugin-marker": "workspace:*",
     "@embedpdf-x/plugin-persist": "workspace:*",
     "@embedpdf-x/plugin-render": "workspace:*",
+    "@embedpdf-x/plugin-view-manager": "workspace:*",
     "@embedpdf-x/react": "workspace:*",
     "@embedpdf-x/plugin-stage": "workspace:*",
     "@embedpdf-x/stage-core": "workspace:*",

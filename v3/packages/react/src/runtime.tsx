@@ -112,14 +112,21 @@ export function useDocuments() {
     open: kernel.documents.open,
     close: kernel.documents.close,
     setActive: kernel.documents.setActive,
+    move: kernel.documents.move,
+    swap: kernel.documents.swap,
   };
+}
+
+export interface InitialDocument {
+  source: OpenInput;
+  name?: string;
 }
 
 export interface ViewerProps {
   engine: Engine;
   plugins: AnyPlugin[];
-  /** Documents to open on startup. */
-  initialDocuments?: OpenInput[];
+  /** Documents to open on startup (with optional tab names). */
+  initialDocuments?: InitialDocument[];
   fallback?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -132,7 +139,9 @@ export function Viewer({ engine, plugins, initialDocuments, fallback, children }
     let alive = true;
     (async () => {
       await kernel.start();
-      for (const src of initialDocuments ?? []) await kernel.documents.open(src);
+      for (const doc of initialDocuments ?? []) {
+        await kernel.documents.open(doc.source, { name: doc.name });
+      }
       if (alive) setReady(true);
     })();
     return () => {

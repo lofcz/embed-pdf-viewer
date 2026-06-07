@@ -2786,6 +2786,9 @@ importers:
       '@embedpdf-x/plugin-stage':
         specifier: workspace:*
         version: link:../../packages/plugin-stage
+      '@embedpdf-x/plugin-view-manager':
+        specifier: workspace:*
+        version: link:../../packages/plugin-view-manager
       '@embedpdf-x/react':
         specifier: workspace:*
         version: link:../../packages/react
@@ -2881,6 +2884,16 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
+  v3/packages/plugin-view-manager:
+    dependencies:
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
   v3/packages/react:
     dependencies:
       '@embedpdf-x/kernel':
@@ -2895,6 +2908,9 @@ importers:
       '@embedpdf-x/plugin-stage':
         specifier: workspace:*
         version: link:../plugin-stage
+      '@embedpdf-x/plugin-view-manager':
+        specifier: workspace:*
+        version: link:../plugin-view-manager
       '@embedpdf-x/stage-core':
         specifier: workspace:*
         version: link:../stage-core
