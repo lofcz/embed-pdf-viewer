@@ -180,9 +180,11 @@ export function LinkModal({ documentId, isOpen, onClose, onExited, source }: Lin
 
   const canSubmit = activeTab === 'page' || url.trim().length > 0;
 
-  const handleFormSubmit = (e: Event) => {
-    e.preventDefault();
-    handleSubmit();
+  const handleInputKeyDown = (e: h.JSX.TargetedKeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && canSubmit) {
+      e.preventDefault();
+      handleSubmit();
+    }
   };
 
   return (
@@ -193,7 +195,7 @@ export function LinkModal({ documentId, isOpen, onClose, onExited, source }: Lin
       onExited={onExited}
       className="md:w-[28rem]"
     >
-      <form onSubmit={handleFormSubmit} className="space-y-6">
+      <div className="space-y-6">
         {/* Tab buttons */}
         <div className="border-border-subtle flex border-b">
           <TabButton active={activeTab === 'url'} onClick={() => setActiveTab('url')}>
@@ -215,6 +217,7 @@ export function LinkModal({ documentId, isOpen, onClose, onExited, source }: Lin
                 type="url"
                 value={url}
                 onInput={(e) => setUrl((e.target as HTMLInputElement).value)}
+                onKeyDown={handleInputKeyDown}
                 placeholder="https://example.com"
                 className="border-border-default bg-bg-input text-fg-primary focus:border-accent focus:ring-accent w-full rounded-md border px-3 py-2 text-base focus:outline-none focus:ring-1"
                 autoFocus
@@ -234,6 +237,7 @@ export function LinkModal({ documentId, isOpen, onClose, onExited, source }: Lin
                   const val = parseInt((e.target as HTMLInputElement).value, 10);
                   if (!isNaN(val)) setPageNumber(Math.max(1, Math.min(totalPages, val)));
                 }}
+                onKeyDown={handleInputKeyDown}
                 className="border-border-default bg-bg-input text-fg-primary focus:border-accent focus:ring-accent w-full rounded-md border px-3 py-2 text-base focus:outline-none focus:ring-1"
                 autoFocus
               />
@@ -255,14 +259,15 @@ export function LinkModal({ documentId, isOpen, onClose, onExited, source }: Lin
             {translate('common.cancel') || 'Cancel'}
           </Button>
           <Button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={!canSubmit}
             className="bg-accent text-fg-on-accent hover:!bg-accent-hover rounded-md border border-transparent px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           >
             {translate('link.link') || 'Link'}
           </Button>
         </div>
-      </form>
+      </div>
     </Dialog>
   );
 }
