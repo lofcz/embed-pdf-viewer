@@ -80,6 +80,28 @@ The UI automatically adapts to these effective permissions. For example:
 - If `copyContents` is denied, text selection is disabled on the canvas.
 - If `modifyAnnotations` is denied, annotation tools are disabled.
 
+## Hiding the read-only notice
+
+When a document is encrypted **and** has restricted permissions, the viewer shows a small dismissible overlay informing the user that the document is protected (with a "View permissions" link). This is helpful in a full editor, but for a viewer-only integration you may want to remove it entirely.
+
+The overlay is part of the UI category system, so you can hide it with `disabledCategories`:
+
+```vue
+<PDFViewer
+  :config="{
+    src: '/document.pdf',
+    // Remove only the read-only notice overlay...
+    disabledCategories: ['security-unlock-overlay'],
+    // ...or remove all security UI with the parent category:
+    // disabledCategories: ['security'],
+  }"
+/>
+```
+
+<Callout>
+  This only hides the notice from the UI. It does not change or bypass the document's permissions. See [Customizing the UI](./customizing-ui#disabling-features) for the full list of categories.
+</Callout>
+
 ## Interactive Example
 
 Switch between the tabs to see how different permission configurations affect the viewer. Observe how the **Print** button and **Text Selection** behave in each mode.

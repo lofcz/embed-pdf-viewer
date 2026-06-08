@@ -1,5 +1,5 @@
 import { h } from 'preact';
-import { OverlaySchema, OverlayAnchor } from '@embedpdf/plugin-ui';
+import { OverlaySchema, OverlayAnchor, UI_ATTRIBUTES } from '@embedpdf/plugin-ui';
 import { useItemRenderer } from '@embedpdf/plugin-ui/preact';
 
 export interface OverlayRendererProps {
@@ -59,11 +59,17 @@ export function SchemaOverlay({ schema, documentId, className }: OverlayRenderer
   const anchorClasses = getAnchorClasses(position.anchor);
   const offsetStyles = getOffsetStyles(position.offset);
 
+  const categoryAttr = schema.categories?.length
+    ? { [UI_ATTRIBUTES.CATEGORIES]: schema.categories.join(' ') }
+    : {};
+
   return (
     <div
       className={`z-3 absolute ${anchorClasses} ${className || ''}`}
       style={offsetStyles}
       data-overlay-id={schema.id}
+      {...{ [UI_ATTRIBUTES.ITEM]: schema.id }}
+      {...categoryAttr}
     >
       {renderCustomComponent(content.componentId, documentId)}
     </div>

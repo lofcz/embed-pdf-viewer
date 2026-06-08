@@ -226,6 +226,18 @@ function analyzeSchema(schema: UISchema, locale?: string): SchemaAnalysis {
     );
   }
 
+  // Analyze overlays
+  for (const [overlayId, overlay] of Object.entries(schema.overlays || {})) {
+    collectCategoriesAndDependency(
+      overlayId,
+      overlay.categories,
+      overlay.visibilityDependsOn,
+      categories,
+      itemCategories,
+      dependencies,
+    );
+  }
+
   return { categories, itemCategories, dependencies, menuBreakpoints, responsiveItems };
 }
 
