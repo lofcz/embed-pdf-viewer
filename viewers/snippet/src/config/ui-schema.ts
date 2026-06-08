@@ -297,7 +297,7 @@ export const viewerUISchema: UISchema = {
               id: 'shapes-mode',
               commandId: 'mode:shapes',
               variant: 'text',
-              categories: ['mode', 'mode-shapes', 'annotation'],
+              categories: ['mode', 'mode-shapes', 'annotation', 'annotation-shape'],
             },
             {
               id: 'insert-mode',
@@ -995,7 +995,7 @@ export const viewerUISchema: UISchema = {
           type: 'command',
           id: 'mode:shapes',
           commandId: 'mode:shapes',
-          categories: ['mode', 'mode-shapes', 'annotation'],
+          categories: ['mode', 'mode-shapes', 'annotation', 'annotation-shape'],
         },
         {
           type: 'command',
