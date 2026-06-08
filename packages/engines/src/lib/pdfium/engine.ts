@@ -192,8 +192,9 @@ export interface PdfiumEngineOptions {
    * Font fallback configuration for handling missing fonts in PDFs.
    * When enabled, PDFium will request fallback fonts from configured URLs
    * when it encounters text that requires fonts not embedded in the PDF.
+   * Set to `null` to disable the fallback entirely (no external font requests).
    */
-  fontFallback?: FontFallbackConfig;
+  fontFallback?: FontFallbackConfig | null;
 }
 
 /**

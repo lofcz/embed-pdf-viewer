@@ -59,9 +59,10 @@ export interface RemoteExecutorOptions {
    */
   logger?: Logger;
   /**
-   * Font fallback configuration for handling missing fonts
+   * Font fallback configuration for handling missing fonts.
+   * Set to `null` to disable the fallback entirely (no external font requests).
    */
-  fontFallback?: FontFallbackConfig;
+  fontFallback?: FontFallbackConfig | null;
 }
 
 const LOG_SOURCE = 'RemoteExecutor';

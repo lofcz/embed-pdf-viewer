@@ -10,8 +10,9 @@ export interface UsePdfiumEngineProps {
   logger?: Logger;
   /**
    * Font fallback configuration for handling missing fonts in PDFs.
+   * Set to `null` to disable the fallback entirely (no external font requests).
    */
-  fontFallback?: FontFallbackConfig;
+  fontFallback?: FontFallbackConfig | null;
 }
 
 export function usePdfiumEngine(config?: UsePdfiumEngineProps) {
