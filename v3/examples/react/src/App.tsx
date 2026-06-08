@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { stagePlugin } from '@embedpdf-x/plugin-stage';
-import type { LayoutKind, SpreadMode, StageSettings } from '@embedpdf-x/plugin-stage';
+import type { LayoutKind, SpreadMode, SizingMode, StageSettings } from '@embedpdf-x/plugin-stage';
 import { markerPlugin } from '@embedpdf-x/plugin-marker';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
@@ -104,7 +104,8 @@ function WatermarkLayer() {
 function Toolbar() {
   const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, automatic } = useZoom();
   const { currentPage, pageCount, goToPage } = usePages();
-  const { layout, setLayout, spread, setSpread, bounded, setBounded } = useLayout();
+  const { layout, setLayout, spread, setSpread, sizing, setSizing, bounded, setBounded } =
+    useLayout();
   const { update, reset } = useStageSettings();
   const applyZoomMode = (m: string) => {
     if (m === 'automatic') automatic();
@@ -158,6 +159,14 @@ function Toolbar() {
         <option value="none">single</option>
         <option value="odd">spread</option>
         <option value="even">spread (cover)</option>
+      </select>
+      <select
+        value={sizing}
+        onChange={(e) => setSizing(e.target.value as SizingMode)}
+        title="page sizing: true sizes, or equalize the cross axis so pages sit flush"
+      >
+        <option value="intrinsic">true size</option>
+        <option value="uniform">uniform</option>
       </select>
       <label
         style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}

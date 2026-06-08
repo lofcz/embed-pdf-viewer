@@ -21,5 +21,11 @@ export type {
   Scheduler,
   VisiblePage,
 } from './types';
-// Re-export the view-vocabulary types the shell needs (spread modes, zoom modes, overscroll).
-export type { SpreadMode, ZoomModeValue, Overscroll, ZoomSpec } from '@embedpdf-x/stage-core';
+// Re-export the view-vocabulary types the shell needs (spread modes, sizing, zoom, …).
+export type {
+  SpreadMode,
+  SizingMode,
+  ZoomModeValue,
+  Overscroll,
+  ZoomSpec,
+} from '@embedpdf-x/stage-core';

@@ -39,12 +39,20 @@ function PageSurface({
   const h = page.height * zoom;
   const left = (page.x - camera.x) * zoom;
   const top = (page.y - camera.y) * zoom;
+  // Render/coordinate scale is device-px per PDF point = the page's content scale
+  // (world ÷ intrinsic, from the sizing policy) times the camera zoom.
+  const renderScale = page.contentScale * zoom;
   const ctx = useMemo(
     () =>
-      makePageContext(documentId, page.pon, page.pageIndex, zoom, { width: w, height: h }, () =>
-        ref.current!.getBoundingClientRect(),
+      makePageContext(
+        documentId,
+        page.pon,
+        page.pageIndex,
+        renderScale,
+        { width: w, height: h },
+        () => ref.current!.getBoundingClientRect(),
       ),
-    [documentId, page.pon, page.pageIndex, w, h, zoom],
+    [documentId, page.pon, page.pageIndex, w, h, renderScale],
   );
   return (
     <div
@@ -233,13 +241,16 @@ export function useLayout() {
   const s = useCapability(StageToken);
   const layout = useSelector(StageToken, (c) => c.layout());
   const spread = useSelector(StageToken, (c) => c.spread());
+  const sizing = useSelector(StageToken, (c) => c.sizing());
   const bounded = useSelector(StageToken, (c) => c.bounded());
   return {
     layout,
     spread,
+    sizing,
     bounded,
     setLayout: s.setLayout,
     setSpread: s.setSpread,
+    setSizing: s.setSizing,
     setBounded: s.setBounded,
   };
 }

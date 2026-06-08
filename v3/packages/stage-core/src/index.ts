@@ -38,6 +38,12 @@ export interface PageBox {
   y: number;
   width: number;
   height: number;
+  /**
+   * World size ÷ intrinsic size for this page (1 for `intrinsic` sizing). The shell
+   * multiplies it by the camera zoom to get device-px-per-PDF-point, so render
+   * resolution and point↔screen mapping stay correct under `uniform` sizing.
+   */
+  contentScale: number;
 }
 export interface SceneItem {
   index: number;
@@ -54,6 +60,12 @@ export interface Scene {
   items: SceneItem[];
   itemCount: number;
   axis: Axis;
+  /**
+   * The largest item width & height in the document. Fit-modes resolve against this
+   * (not the current page) so the zoom is STABLE across the whole document and no
+   * page ever overflows — matching a conventional PDF viewer's "fit width".
+   */
+  maxItemSize: Size;
   query(rect: Rect): SceneItem[];
   nearestItem(pt: Point): SceneItem;
   itemOfPage(pageIndex: number): number;
@@ -70,6 +82,14 @@ export interface Anchor {
   fy: number;
 }
 export type SpreadMode = 'none' | 'odd' | 'even';
+/**
+ * Page sizing policy (per-item world scale, set in the layout):
+ *   'intrinsic' — true PDF sizes; relative proportions preserved.
+ *   'uniform'   — every item scaled to the same CROSS-axis size (vertical → equal
+ *                 widths, horizontal → equal heights, grid → equal widths), so pages
+ *                 sit flush with no left/right gaps. Camera/zoom are untouched.
+ */
+export type SizingMode = 'intrinsic' | 'uniform';
 
 export const ZOOM_MIN = 0.05;
 export const ZOOM_MAX = 64;
@@ -134,16 +154,22 @@ export const clampCamera = (c: Camera, scene: Size, vp: Size, k: CameraConstrain
   };
 };
 
-/** Initial / reset placement — separate from bounds. */
-export function homeCamera(
+/**
+ * Camera that places one item in the viewport.
+ *   'start'  — item's leading edge at the start of the scroll axis (top for vertical,
+ *              left for horizontal) with a screen-px margin; the cross axis is centred.
+ *              This is "scroll to the top of the page", the conventional viewer feel.
+ *   'center' — item centred in the viewport (canvas feel).
+ */
+export function itemCamera(
+  item: SceneItem,
   scene: Scene,
   vp: Size,
   zoom: number,
-  opts: { home: 'start' | 'center'; margin?: number },
+  opts: { align: 'start' | 'center'; margin?: number },
 ): Camera {
-  const item = scene.items[0];
   const cam = centerOnWorld({ x: item.x + item.width / 2, y: item.y + item.height / 2 }, vp, zoom);
-  if (opts.home === 'start') {
+  if (opts.align === 'start') {
     const m = (opts.margin ?? 0) / zoom;
     if (scene.axis === 'x') cam.x = item.x - m;
     else cam.y = item.y - m;
@@ -151,11 +177,22 @@ export function homeCamera(
   return cam;
 }
 
-// ── Zoom intent — resolved against the CURRENT page, so it's layout-independent ─
-export function resolveZoom(spec: ZoomSpec, item: SceneItem, vp: Size, gap = 0): number {
+/** Initial / reset placement — the first item, per the home alignment. */
+export function homeCamera(
+  scene: Scene,
+  vp: Size,
+  zoom: number,
+  opts: { home: 'start' | 'center'; margin?: number },
+): Camera {
+  return itemCamera(scene.items[0], scene, vp, zoom, { align: opts.home, margin: opts.margin });
+}
+
+// ── Zoom intent — resolved against a fit-box (the document's max item size), so the
+//    zoom is stable across pages/layouts and no page overflows. ──────────────────
+export function resolveZoom(spec: ZoomSpec, box: Size, vp: Size, gap = 0): number {
   if ('level' in spec) return clamp(spec.level, ZOOM_MIN, ZOOM_MAX);
-  const fitW = Math.max(1, vp.width - 2 * gap) / item.width;
-  const fitH = Math.max(1, vp.height - 2 * gap) / item.height;
+  const fitW = Math.max(1, vp.width - 2 * gap) / box.width;
+  const fitH = Math.max(1, vp.height - 2 * gap) / box.height;
   switch (spec.mode) {
     case ZoomMode.FitWidth:
       return clamp(fitW, ZOOM_MIN, ZOOM_MAX);
@@ -163,6 +200,8 @@ export function resolveZoom(spec: ZoomSpec, item: SceneItem, vp: Size, gap = 0):
       return clamp(Math.min(fitW, fitH), ZOOM_MIN, ZOOM_MAX);
     case ZoomMode.Automatic:
     default:
+      // fit width, but never upscale past 100% (Adobe's "Automatic"). Height-
+      // independent: a portrait page fills the width and you scroll within it.
       return clamp(Math.min(fitW, 1), ZOOM_MIN, ZOOM_MAX);
   }
 }
@@ -242,21 +281,34 @@ function packItem(
   }
   return { local, width: Math.max(0, lx - gap), height: h };
 }
-function placePages(item: SceneItem, local: LocalBox[]): PageBox[] {
+function placePages(item: SceneItem, local: LocalBox[], contentScale: number): PageBox[] {
   return local.map((b) => ({
     pageIndex: b.pageIndex,
     x: item.x + b.lx,
     y: item.y + (item.height - b.h) / 2,
     width: b.w,
     height: b.h,
+    contentScale,
   }));
 }
+
+/** Per-item world scale: 1 for intrinsic, else the factor that makes the item's
+ *  cross dimension equal to `refCross` (uniform sizing). */
+const itemScale = (crossIntrinsic: number, refCross: number, sizing: SizingMode): number =>
+  sizing === 'uniform' && crossIntrinsic > 0 ? refCross / crossIntrinsic : 1;
+
+/** Scale a packed item's local page boxes + bounds by `s`. */
+const scaleLocal = (local: LocalBox[], s: number): LocalBox[] =>
+  s === 1
+    ? local
+    : local.map((b) => ({ pageIndex: b.pageIndex, lx: b.lx * s, w: b.w * s, h: b.h * s }));
 
 // ── Layout strategies ─────────────────────────────────────────────────────────
 export interface LinearOptions {
   gap?: number;
   axis?: 'x' | 'y';
   align?: 'center' | 'start';
+  sizing?: SizingMode;
 }
 export function linearLayout(
   pages: readonly PageGeom[],
@@ -266,32 +318,48 @@ export function linearLayout(
   const gap = opts.gap ?? 16;
   const vertical = (opts.axis ?? 'y') === 'y';
   const align = opts.align ?? 'center';
+  const sizing = opts.sizing ?? 'intrinsic';
 
+  // Pass 1: pack every item at intrinsic size; the cross axis (width when vertical)
+  // gives the reference for `uniform` sizing.
+  const packs = grouping.map((group) => packItem(pages, group, gap));
+  const crossOf = (p: { width: number; height: number }) => (vertical ? p.width : p.height);
+  const refCross = packs.reduce((m, p) => Math.max(m, crossOf(p)), 0);
+
+  // Pass 2: scale each item by its sizing factor, lay it along the main axis.
   const items: SceneItem[] = new Array(grouping.length);
   const locals: LocalBox[][] = new Array(grouping.length);
+  const scales: number[] = new Array(grouping.length);
   let main = 0;
   let crossMax = 0;
+  let maxW = 0;
+  let maxH = 0;
 
   for (let i = 0; i < grouping.length; i++) {
-    const packed = packItem(pages, grouping[i], gap);
-    locals[i] = packed.local;
+    const s = itemScale(crossOf(packs[i]), refCross, sizing);
+    const width = packs[i].width * s;
+    const height = packs[i].height * s;
+    scales[i] = s;
+    locals[i] = scaleLocal(packs[i].local, s);
     const it: SceneItem = {
       index: i,
       x: 0,
       y: 0,
-      width: packed.width,
-      height: packed.height,
+      width,
+      height,
       pageIndexes: grouping[i],
       pages: [],
     };
     if (vertical) {
       it.y = main;
-      main += packed.height + gap;
+      main += height + gap;
     } else {
       it.x = main;
-      main += packed.width + gap;
+      main += width + gap;
     }
-    crossMax = Math.max(crossMax, vertical ? packed.width : packed.height);
+    crossMax = Math.max(crossMax, vertical ? width : height);
+    maxW = Math.max(maxW, width);
+    maxH = Math.max(maxH, height);
     items[i] = it;
   }
 
@@ -304,7 +372,7 @@ export function linearLayout(
     const it = items[i];
     if (vertical) it.x = align === 'center' ? (size.width - it.width) / 2 : 0;
     else it.y = align === 'center' ? (size.height - it.height) / 2 : 0;
-    it.pages = placePages(it, locals[i]);
+    it.pages = placePages(it, locals[i], scales[i]);
   }
 
   const starts = items.map((it) => (vertical ? it.y : it.x));
@@ -316,6 +384,7 @@ export function linearLayout(
     items,
     itemCount: items.length,
     axis: vertical ? 'y' : 'x',
+    maxItemSize: { width: maxW, height: maxH },
     query(r) {
       const a0 = vertical ? r.y : r.x;
       const a1 = vertical ? r.y + r.height : r.x + r.width;
@@ -336,6 +405,7 @@ export function linearLayout(
 export interface GridOptions {
   gap?: number;
   columns?: number;
+  sizing?: SizingMode;
 }
 export function gridLayout(
   pages: readonly PageGeom[],
@@ -345,17 +415,25 @@ export function gridLayout(
   const gap = opts.gap ?? 48;
   const n = grouping.length;
   const columns = opts.columns ?? Math.max(1, Math.ceil(Math.sqrt(n)));
+  const sizing = opts.sizing ?? 'intrinsic';
 
+  // Pass 1: pack at intrinsic size; the widest item is the `uniform` reference.
+  const packs = grouping.map((group) => packItem(pages, group, gap));
+  const refW = packs.reduce((m, p) => Math.max(m, p.width), 0);
+
+  // Pass 2: scale each item (uniform → equal width, so columns line up).
   const locals: LocalBox[][] = new Array(n);
   const sizes: Array<{ width: number; height: number }> = new Array(n);
+  const scales: number[] = new Array(n);
   let cellW = 1;
   let cellH = 1;
   for (let i = 0; i < n; i++) {
-    const packed = packItem(pages, grouping[i], gap);
-    locals[i] = packed.local;
-    sizes[i] = { width: packed.width, height: packed.height };
-    cellW = Math.max(cellW, packed.width);
-    cellH = Math.max(cellH, packed.height);
+    const s = itemScale(packs[i].width, refW, sizing);
+    scales[i] = s;
+    locals[i] = scaleLocal(packs[i].local, s);
+    sizes[i] = { width: packs[i].width * s, height: packs[i].height * s };
+    cellW = Math.max(cellW, sizes[i].width);
+    cellH = Math.max(cellH, sizes[i].height);
   }
 
   const stepX = cellW + gap;
@@ -373,7 +451,7 @@ export function gridLayout(
       pageIndexes: grouping[i],
       pages: [],
     };
-    it.pages = placePages(it, locals[i]);
+    it.pages = placePages(it, locals[i], scales[i]);
     items[i] = it;
   }
 
@@ -386,6 +464,7 @@ export function gridLayout(
     items,
     itemCount: n,
     axis: 'grid',
+    maxItemSize: { width: cellW, height: cellH },
     query(r) {
       const c0 = Math.max(0, Math.floor(r.x / stepX));
       const c1 = Math.min(columns - 1, Math.floor((r.x + r.width) / stepX));

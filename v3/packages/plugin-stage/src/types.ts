@@ -7,6 +7,7 @@ import type {
   PageBox,
   Point,
   Size,
+  SizingMode,
   SpreadMode,
   ZoomModeValue,
   ZoomSpec,
@@ -26,6 +27,8 @@ export type ScrollBehaviorKind = 'smooth' | 'instant';
 export interface StageSettings {
   layout: LayoutKind;
   spread: SpreadMode;
+  /** Page sizing: true PDF sizes, or equalize the cross axis so pages sit flush. */
+  sizing: SizingMode;
   /** Clamp the camera to the content? Off = free infinite pan (plans / CAD). */
   bounded: boolean;
   /** How far past the edge the viewport centre may travel (px, or 'center'). */
@@ -88,6 +91,7 @@ export interface StageCapability {
   toWorld(screen: Point): Point;
   layout(): LayoutKind;
   spread(): SpreadMode;
+  sizing(): SizingMode;
   bounded(): boolean;
   overscroll(): Overscroll;
   home(): HomeKind;
@@ -118,6 +122,7 @@ export interface StageCapability {
   update(patch: Partial<StageSettings>): void;
   setLayout(layout: LayoutKind): void;
   setSpread(spread: SpreadMode): void;
+  setSizing(sizing: SizingMode): void;
   setBounded(bounded: boolean): void;
   setOverscroll(overscroll: Overscroll): void;
   setHome(home: HomeKind): void;

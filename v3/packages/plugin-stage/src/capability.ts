@@ -45,16 +45,16 @@ export function createStageCapability(
   const buildScene = (): S.Scene => {
     const doc = ctx.document();
     const st = ctx.getState();
-    const key = `${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}`;
+    const key = `${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const pages = doc ? doc.pages : [];
     const grouping = S.groupPages(pages.length, st.spread);
     const scene =
       st.layout === 'grid'
-        ? S.gridLayout(pages, grouping, { gap: 56 })
+        ? S.gridLayout(pages, grouping, { gap: 56, sizing: st.sizing })
         : st.layout === 'horizontal'
-          ? S.linearLayout(pages, grouping, { axis: 'x', gap: GAP })
-          : S.linearLayout(pages, grouping, { axis: 'y', gap: GAP });
+          ? S.linearLayout(pages, grouping, { axis: 'x', gap: GAP, sizing: st.sizing })
+          : S.linearLayout(pages, grouping, { axis: 'y', gap: GAP, sizing: st.sizing });
     sceneCache = { key, scene };
     return scene;
   };
@@ -99,9 +99,13 @@ export function createStageCapability(
     cancelAnim();
     const from = cam();
     const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+    let started = false;
     let t0 = 0;
     const tick = (now: number) => {
-      if (t0 === 0) t0 = now;
+      if (!started) {
+        started = true;
+        t0 = now; // anchor to the first real timestamp (works even when now === 0)
+      }
       const k = ease(Math.min(1, (now - t0) / ms));
       setCam({
         x: lerp(from.x, target.x, k),
@@ -118,8 +122,7 @@ export function createStageCapability(
   const currentAnchor = (): S.Anchor => S.anchorFromCamera(cam(), buildScene(), vp());
   const applyAnchor = (anchor: S.Anchor) => {
     const scene = buildScene();
-    const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
-    const zoom = S.resolveZoom(ctx.getState().zoom, item, vp(), GAP);
+    const zoom = S.resolveZoom(ctx.getState().zoom, scene.maxItemSize, vp(), GAP);
     setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom));
   };
 
@@ -149,6 +152,7 @@ export function createStageCapability(
     return {
       layout: s.layout,
       spread: s.spread,
+      sizing: s.sizing,
       bounded: s.bounded,
       overscroll: s.overscroll,
       home: s.home,
@@ -182,6 +186,7 @@ export function createStageCapability(
     toWorld: (s) => S.toWorld(cam(), s),
     layout: () => ctx.getState().layout,
     spread: () => ctx.getState().spread,
+    sizing: () => ctx.getState().sizing,
     bounded: () => ctx.getState().bounded,
     overscroll: () => ctx.getState().overscroll,
     home: () => ctx.getState().home,
@@ -234,22 +239,26 @@ export function createStageCapability(
     goToPage: (index, opts) => {
       cancelAnim();
       const sc = buildScene();
+      const st = ctx.getState();
       const it = sc.items[sc.itemOfPage(index)];
-      const z = S.resolveZoom(ctx.getState().zoom, it, vp(), GAP);
+      const z = S.resolveZoom(st.zoom, sc.maxItemSize, vp(), GAP);
+      // Align to the page's START (top for vertical, left for horizontal) — the
+      // conventional "scroll to the top of the page", per the `home` setting.
       const target = S.clampCamera(
-        S.centerOnWorld({ x: it.x + it.width / 2, y: it.y + it.height / 2 }, vp(), z),
+        S.itemCamera(it, sc, vp(), z, { align: st.home, margin: st.margin }),
         sc.size,
         vp(),
         constraint(),
       );
-      if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') animateTo(target);
+      if ((opts?.behavior ?? st.scrollBehavior) === 'smooth') animateTo(target);
       else setCam(target);
     },
     update: (patch) => {
       cancelAnim();
       const anchor = currentAnchor(); // capture against the current scene/viewport
       ctx.dispatch({ type: 'PATCH', patch });
-      const structural = patch.layout !== undefined || patch.spread !== undefined;
+      const structural =
+        patch.layout !== undefined || patch.spread !== undefined || patch.sizing !== undefined;
       if (structural) sceneCache = null;
       if (structural || patch.zoom !== undefined) {
         applyAnchor(anchor); // rebuild + keep page + re-fit (also re-clamps)
@@ -260,6 +269,7 @@ export function createStageCapability(
     },
     setLayout: (layout) => api.update({ layout }),
     setSpread: (spread) => api.update({ spread }),
+    setSizing: (sizing) => api.update({ sizing }),
     setBounded: (bounded) => api.update({ bounded }),
     setOverscroll: (overscroll) => api.update({ overscroll }),
     setHome: (home) => api.update({ home }),
@@ -272,6 +282,7 @@ export function createStageCapability(
         patch: {
           layout: view.layout,
           spread: view.spread,
+          sizing: view.sizing,
           bounded: view.bounded,
           overscroll: view.overscroll,
           home: view.home,
@@ -302,7 +313,7 @@ export function createStageCapability(
       cancelAnim();
       const sc = buildScene();
       const st = ctx.getState();
-      const z = S.resolveZoom(st.zoom, sc.items[0], vp(), GAP);
+      const z = S.resolveZoom(st.zoom, sc.maxItemSize, vp(), GAP);
       setCam(S.homeCamera(sc, vp(), z, { home: st.home, margin: st.margin }));
     },
   };

@@ -14,6 +14,7 @@ export const GAP = 16;
 export const DEFAULT_SETTINGS: StageSettings = {
   layout: 'vertical',
   spread: 'none',
+  sizing: 'intrinsic',
   bounded: true,
   overscroll: 'center',
   home: 'start',
