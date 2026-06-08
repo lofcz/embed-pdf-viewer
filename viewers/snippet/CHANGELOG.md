@@ -1,5 +1,17 @@
 # @embedpdf/snippet
 
+## 2.14.4
+
+### Patch Changes
+
+- [#662](https://github.com/embedpdf/embed-pdf-viewer/pull/662) by [@bobsingor](https://github.com/bobsingor) – Fix `fontFallback: null` not disabling the default jsDelivr CDN font fallback. The snippet previously stripped `null` with a truthy filter before it reached the worker, so the worker fell back to the CDN config. The value is now forwarded correctly (preserving `null` while still omitting an unset option), and the `fontFallback` type is widened to `FontFallbackConfig | null` across the engine hooks/options so the documented airgapped opt-out is type-correct end to end.
+
+- [#663](https://github.com/embedpdf/embed-pdf-viewer/pull/663) by [@bobsingor](https://github.com/bobsingor) – Allow hiding the UnlockOwnerOverlay (the read-only notice shown on encrypted, permission-restricted PDFs) via `disabledCategories`. The overlay renderer now emits the `data-epdf-cat` attribute, and the `unlock-owner-overlay` overlay carries the new `security` / `security-unlock-overlay` categories, so viewer-only integrations can remove it with `disabledCategories: ['security-unlock-overlay']` (or the parent `security`).
+
+- [#661](https://github.com/embedpdf/embed-pdf-viewer/pull/661) by [@bobsingor](https://github.com/bobsingor) – Fix UI actions that relied on native HTML form submission failing inside sandboxed iframes without the `allow-forms` permission. The comment input, zoom percentage input, and link modal now trigger their handlers via explicit button clicks and Enter keydown instead of form submission, so they work in sandboxed contexts while behaving identically everywhere else.
+
+- [#660](https://github.com/embedpdf/embed-pdf-viewer/pull/660) by [@bobsingor](https://github.com/bobsingor) – Fix the "Shapes" mode tab and its overflow-menu entry staying visible when `annotation-shape` is added to `disabledCategories`. The shapes mode entries now carry the `annotation-shape` category (matching the convention used by the insert/form/redact modes), so disabling that category hides the tab and disables the `mode:shapes` command alongside the already-hidden shape tools.
+
 ## 2.14.3
 
 ### Patch Changes
