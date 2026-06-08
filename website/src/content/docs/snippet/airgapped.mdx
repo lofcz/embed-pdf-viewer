@@ -12,13 +12,14 @@ By default, the EmbedPDF Snippet is optimized for a zero-config developer experi
 
 This guide walks through every CDN default in the snippet and shows how to redirect or disable each one.
 
-## The Three Defaults to Know
+## The Defaults to Know
 
 | Asset | Default source | Triggered by |
 | :--- | :--- | :--- |
 | `pdfium.wasm` | `cdn.jsdelivr.net/npm/@embedpdf/pdfium` | Viewer init |
 | PDFium font fallback (fonts for missing glyphs) | `cdn.jsdelivr.net/npm/@embedpdf/fonts-*` | Rendering text the PDF's embedded fonts can't cover |
 | Snippet UI + signature webfonts | `fonts.googleapis.com` / `fonts.gstatic.com` | Viewer init (UI font) and opening the Create Signature modal (signature fonts) |
+| Default stamp library | `cdn.jsdelivr.net/npm/@embedpdf/default-stamps` | Stamp plugin init (Rubber Stamp panel) |
 
 Each of them is independently configurable via `EmbedPDF.init`.
 
@@ -177,6 +178,38 @@ When a signature stylesheet is loaded, the snippet also calls `document.fonts.lo
 
 The four defaults (Caveat, Dancing Script, Great Vibes, Pacifico) are all licensed under the SIL Open Font License, so you can freely redistribute them alongside a self-hosted build.
 
+## 4. Disable or self-host the stamp library
+
+The Rubber Stamp panel ships with a default stamp library that the stamp plugin loads at init from a locale-aware manifest on jsDelivr (`cdn.jsdelivr.net/npm/@embedpdf/default-stamps/{locale}/manifest.json`). The plugin fetches that manifest and the PDF it references, so it makes external requests on startup. Configure it through the top-level `stamp` key.
+
+### Option A — Disable the default stamps
+
+Pass an empty `manifests` array. No external request is made. The Rubber Stamp panel stays functional for user-created stamps via the local default library.
+
+```js
+EmbedPDF.init({
+  // ...
+  stamp: { manifests: [] },
+});
+```
+
+### Option B — Self-host the stamp manifest
+
+Serve the manifest (and the PDF it references) from your own origin and point `manifests` at it. The manifest's `pdf` path is resolved relative to the manifest URL unless it is absolute.
+
+```js
+EmbedPDF.init({
+  // ...
+  stamp: {
+    manifests: [{ url: '/stamps/manifest.json' }],
+  },
+});
+```
+
+<Callout type="info">
+  The empty in-memory "Custom Stamps" library is created locally and never hits the network. If you don't want the Rubber Stamp feature at all, you can also pass `stamp: { manifests: [], defaultLibrary: false }`, and hide the toolbar button entirely by disabling the `insert-rubber-stamp` category (see [Customizing the UI](./customizing-ui#disabling-features)).
+</Callout>
+
 ## Complete airgapped example
 
 Putting it all together:
@@ -205,6 +238,9 @@ EmbedPDF.init({
     ui: null,
     signature: null,
   },
+
+  // 4. No default stamp library fetched from the CDN.
+  stamp: { manifests: [] },
 });
 ```
 
