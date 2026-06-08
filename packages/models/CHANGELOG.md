@@ -1,5 +1,11 @@
 # @embedpdf/models
 
+## 2.14.4
+
+### Patch Changes
+
+- [#658](https://github.com/embedpdf/embed-pdf-viewer/pull/658) by [@bobsingor](https://github.com/bobsingor) – Add the `PdfPageBoxes` interface and an optional `boxes` field on `PdfPageObject`, exposing each page's Media/Crop (always present) and optional Bleed/Trim/Art boxes in unrotated PDF user space.
+
 ## 2.14.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @embedpdf/plugin-ui
 
+## 2.14.4
+
+### Patch Changes
+
+- [#663](https://github.com/embedpdf/embed-pdf-viewer/pull/663) by [@bobsingor](https://github.com/bobsingor) – Overlays now participate in the category visibility system. The schema analyzer collects overlay `categories` (and `visibilityDependsOn`), so category visibility CSS is generated for them and they can be hidden via `disabledCategories` like any other UI item.
+
 ## 2.14.3
 
 ## 2.14.2

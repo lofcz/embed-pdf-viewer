@@ -1,5 +1,11 @@
 # @embedpdf/pdfium
 
+## 2.14.4
+
+### Patch Changes
+
+- [#658](https://github.com/embedpdf/embed-pdf-viewer/pull/658) by [@bobsingor](https://github.com/bobsingor) – Add `EPDF_GetPageBoxByIndex` API (with the `EPDF_PAGE_BOX_TYPE` enum) to read a page's Media/Crop/Bleed/Trim/Art box without loading or parsing the page. MediaBox is resolved through page-tree inheritance (falling back to the default page size), CropBox falls back to MediaBox, and Bleed/Trim/Art return false when absent.
+
 ## 2.14.3
 
 ### Patch Changes

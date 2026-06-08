@@ -1,5 +1,13 @@
 # @embedpdf/engines
 
+## 2.14.4
+
+### Patch Changes
+
+- [#658](https://github.com/embedpdf/embed-pdf-viewer/pull/658) by [@bobsingor](https://github.com/bobsingor) – Fix incorrect annotation positions for PDFs with a non-zero MediaBox/CropBox origin (e.g. CAD/technical drawing exports). The engine now reads each page's box origin at open time and applies it in both the PDF-to-CSS and CSS-to-PDF coordinate conversions, so annotations render and round-trip at the position shown by native PDF viewers.
+
+- [#662](https://github.com/embedpdf/embed-pdf-viewer/pull/662) by [@bobsingor](https://github.com/bobsingor) – Fix `fontFallback: null` not disabling the default jsDelivr CDN font fallback. The snippet previously stripped `null` with a truthy filter before it reached the worker, so the worker fell back to the CDN config. The value is now forwarded correctly (preserving `null` while still omitting an unset option), and the `fontFallback` type is widened to `FontFallbackConfig | null` across the engine hooks/options so the documented airgapped opt-out is type-correct end to end.
+
 ## 2.14.3
 
 ### Patch Changes
