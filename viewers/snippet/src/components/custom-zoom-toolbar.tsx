@@ -37,11 +37,8 @@ export function CustomZoomToolbar({ documentId }: CustomZoomToolbarProps) {
     setInputValue(zoomPercentage.toString());
   }, [zoomPercentage]);
 
-  const handleZoomChange = (e: Event) => {
-    e.preventDefault();
-    const form = e.target as HTMLFormElement;
-    const formData = new FormData(form);
-    const value = parseFloat((formData.get('zoom') as string) || inputValue);
+  const commitZoom = () => {
+    const value = parseFloat(inputValue);
 
     if (!isNaN(value) && value > 0) {
       provides.requestZoom(value / 100);
@@ -66,10 +63,7 @@ export function CustomZoomToolbar({ documentId }: CustomZoomToolbarProps) {
     <div className="relative">
       <div className="bg-interactive-hover flex items-center rounded">
         {/* Editable Zoom Percentage Input */}
-        <form
-          onSubmit={handleZoomChange}
-          className="flex min-w-0 flex-nowrap items-center overflow-hidden whitespace-nowrap"
-        >
+        <div className="flex min-w-0 flex-nowrap items-center overflow-hidden whitespace-nowrap">
           <input
             name="zoom"
             type="text"
@@ -81,9 +75,15 @@ export function CustomZoomToolbar({ documentId }: CustomZoomToolbarProps) {
             value={inputValue}
             onInput={handleInputChange}
             onBlur={handleBlur}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitZoom();
+              }
+            }}
           />
           <span className="shrink-0 text-sm">%</span>
-        </form>
+        </div>
         <CommandButton
           commandId="zoom:toggle-menu"
           documentId={documentId}

@@ -16,8 +16,7 @@ export const AnnotationInput = ({
 }: AnnotationInputProps) => {
   const [text, setText] = useState('');
 
-  const handleSubmit = (e?: h.JSX.TargetedEvent<HTMLFormElement, Event>) => {
-    e?.preventDefault();
+  const handleSubmit = () => {
     if (text.trim()) {
       onSubmit(text);
       setText('');
@@ -25,10 +24,9 @@ export const AnnotationInput = ({
   };
 
   return (
-    <form
+    <div
       className="border-border-subtle mt-4 flex items-end space-x-2 border-t pt-4"
       onClick={(e) => e.stopPropagation()}
-      onSubmit={handleSubmit}
     >
       <input
         ref={inputRef}
@@ -36,12 +34,19 @@ export const AnnotationInput = ({
         placeholder={placeholder}
         value={text}
         onInput={(e) => setText(e.currentTarget.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            handleSubmit();
+          }
+        }}
         className={`bg-bg-input text-fg-primary placeholder-fg-muted w-full rounded-lg border px-3 py-1 text-base transition-colors focus:border-transparent focus:outline-none focus:ring-2 ${
           isFocused ? 'border-accent focus:ring-accent' : 'border-border-default focus:ring-accent'
         }`}
       />
       <button
-        type="submit"
+        type="button"
+        onClick={() => handleSubmit()}
         disabled={!text.trim()}
         className="bg-accent text-fg-on-accent hover:bg-accent-hover disabled:bg-interactive-disabled rounded-lg p-2 transition-colors disabled:cursor-not-allowed"
       >
@@ -54,6 +59,6 @@ export const AnnotationInput = ({
           />
         </svg>
       </button>
-    </form>
+    </div>
   );
 };
