@@ -233,8 +233,11 @@ export interface PDFViewerConfig {
   wasmUrl?: string;
   /** Enable debug logging. Default: false */
   log?: boolean;
-  /** Font fallback configuration. Defaults to CDN fonts from jsDelivr. */
-  fontFallback?: FontFallbackConfig;
+  /**
+   * Font fallback configuration. Defaults to CDN fonts from jsDelivr.
+   * Set to `null` to disable the fallback entirely (no external font requests).
+   */
+  fontFallback?: FontFallbackConfig | null;
 
   // === Global Permissions ===
   /**
@@ -570,7 +573,7 @@ const logger = new AllLogger([new ConsoleLogger(), new PerfLogger()]);
 export function PDFViewer({ config, onRegistryReady }: PDFViewerProps) {
   const { engine, isLoading } = usePdfiumEngine({
     ...(config.wasmUrl && { wasmUrl: config.wasmUrl }),
-    ...(config.fontFallback && { fontFallback: config.fontFallback }),
+    ...(config.fontFallback !== undefined && { fontFallback: config.fontFallback }),
     worker: config.worker,
     logger: config.log ? logger : undefined,
   });
