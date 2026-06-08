@@ -1,5 +1,41 @@
-import { Size, Rect, Position, Rotation } from './geometry';
+import { Size, Rect, Position, Rotation, Box } from './geometry';
 import { Task, TaskError } from './task';
+
+/**
+ * The five PDF page boundary boxes, in unrotated PDF user space.
+ *
+ * `media` and `crop` are always present (`crop` defaults to `media` when the
+ * PDF omits it, since the viewer always needs an effective crop). `bleed`,
+ * `trim`, and `art` are present only when the PDF actually declares them.
+ *
+ * @public
+ */
+export interface PdfPageBoxes {
+  /**
+   * MediaBox, resolved through page-tree inheritance.
+   */
+  media: Box;
+
+  /**
+   * CropBox, falling back to {@link PdfPageBoxes.media} when absent.
+   */
+  crop: Box;
+
+  /**
+   * BleedBox, only present when the PDF declares it.
+   */
+  bleed?: Box;
+
+  /**
+   * TrimBox, only present when the PDF declares it.
+   */
+  trim?: Box;
+
+  /**
+   * ArtBox, only present when the PDF declares it.
+   */
+  art?: Box;
+}
 
 /**
  * Representation of pdf page
@@ -29,6 +65,14 @@ export interface PdfPageObject {
    * dictionary (e.g. XFA pages, which have no `CPDF_Page`).
    */
   objectNumber: number;
+
+  /**
+   * The page boundary boxes in unrotated PDF user space. Used to position
+   * content correctly for PDFs whose MediaBox/CropBox origin is not `(0, 0)`
+   * (e.g. CAD/technical drawing exports). May be absent for documents created
+   * in-memory (e.g. via `createDocument`).
+   */
+  boxes?: PdfPageBoxes;
 }
 
 /**

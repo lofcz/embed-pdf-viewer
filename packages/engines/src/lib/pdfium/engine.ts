@@ -17,6 +17,8 @@ import {
   PdfBookmarkObject,
   PdfDocumentObject,
   PdfPageObject,
+  PdfPageBoxes,
+  Box,
   PdfActionType,
   Rotation,
   PDF_FORM_FIELD_FLAG,
@@ -359,6 +361,8 @@ export class PdfiumNative implements IPdfiumExecutor {
 
     const pages: PdfPageObject[] = [];
     const sizePtr = this.memoryManager.malloc(8);
+    // FS_RECTF is { float left, top, right, bottom } = 16 bytes.
+    const boxPtr = this.memoryManager.malloc(16);
     for (let index = 0; index < pageCount; index++) {
       // Use normalized size function when normalizeRotation is enabled
       const result = normalizeRotation
@@ -373,6 +377,7 @@ export class PdfiumNative implements IPdfiumExecutor {
           `${normalizeRotation ? 'EPDF_GetPageSizeByIndexNormalized' : 'FPDF_GetPageSizeByIndexF'} failed with ${lastError}`,
         );
         this.memoryManager.free(sizePtr);
+        this.memoryManager.free(boxPtr);
         this.pdfiumModule.FPDF_CloseDocument(docPtr);
         this.memoryManager.free(filePtr);
         this.logger.perf(LOG_SOURCE, LOG_CATEGORY, `OpenDocumentBuffer`, 'End', file.id);
@@ -384,6 +389,7 @@ export class PdfiumNative implements IPdfiumExecutor {
 
       const rotation = this.pdfiumModule.EPDF_GetPageRotationByIndex(docPtr, index) as Rotation;
       const objectNumber = this.pdfiumModule.EPDFDoc_GetPageObjectNumberByIndex(docPtr, index);
+      const boxes = this.readPageBoxes(docPtr, index, boxPtr);
 
       const page = {
         index,
@@ -393,11 +399,13 @@ export class PdfiumNative implements IPdfiumExecutor {
         },
         rotation,
         objectNumber,
+        boxes,
       };
 
       pages.push(page);
     }
     this.memoryManager.free(sizePtr);
+    this.memoryManager.free(boxPtr);
 
     // Query security state
     const isEncrypted = this.pdfiumModule.EPDF_IsEncrypted(docPtr);
@@ -10433,6 +10441,75 @@ export class PdfiumNative implements IPdfiumExecutor {
   }
 
   /**
+   * Read the page boundary boxes (Media/Crop/Bleed/Trim/Art) for a page without
+   * loading it. Reuses a caller-owned 16-byte FS_RECTF scratch buffer.
+   * @param docPtr - pointer to the pdf document
+   * @param index - page index
+   * @param boxPtr - pointer to a 16-byte FS_RECTF scratch buffer
+   * @returns the page boxes, or undefined when Media/Crop cannot be resolved
+   *
+   * @private
+   */
+  private readPageBoxes(
+    docPtr: number,
+    index: number,
+    boxPtr: number,
+  ): PdfPageBoxes | undefined {
+    const readBox = (boxType: number): Box | undefined => {
+      const ok = this.pdfiumModule.EPDF_GetPageBoxByIndex(docPtr, index, boxType, boxPtr);
+      if (!ok) {
+        return undefined;
+      }
+      // FS_RECTF layout: { float left, top, right, bottom }.
+      return {
+        left: this.pdfiumModule.pdfium.getValue(boxPtr, 'float'),
+        top: this.pdfiumModule.pdfium.getValue(boxPtr + 4, 'float'),
+        right: this.pdfiumModule.pdfium.getValue(boxPtr + 8, 'float'),
+        bottom: this.pdfiumModule.pdfium.getValue(boxPtr + 12, 'float'),
+      };
+    };
+
+    const media = readBox(0); // EPDF_PAGE_BOX_MEDIA
+    const crop = readBox(1); // EPDF_PAGE_BOX_CROP (falls back to media)
+    if (!media || !crop) {
+      return undefined;
+    }
+
+    const boxes: PdfPageBoxes = { media, crop };
+    const bleed = readBox(2); // EPDF_PAGE_BOX_BLEED
+    if (bleed) {
+      boxes.bleed = bleed;
+    }
+    const trim = readBox(3); // EPDF_PAGE_BOX_TRIM
+    if (trim) {
+      boxes.trim = trim;
+    }
+    const art = readBox(4); // EPDF_PAGE_BOX_ART
+    if (art) {
+      boxes.art = art;
+    }
+    return boxes;
+  }
+
+  /**
+   * The effective page origin in PDF user space: the lower-left corner of the
+   * crop box (which PDFium also uses for the page size). Used to offset
+   * coordinates for PDFs whose MediaBox/CropBox origin is not `(0, 0)`.
+   * Returns `(0, 0)` when the page has no box information.
+   * @param page - pdf page info
+   * @returns the page origin
+   *
+   * @private
+   */
+  private getPageOrigin(page: PdfPageObject): Position {
+    const crop = page.boxes?.crop;
+    if (!crop) {
+      return { x: 0, y: 0 };
+    }
+    return { x: crop.left, y: crop.bottom };
+  }
+
+  /**
    * Convert coordinate of point from device coordinate to page coordinate
    * @param doc - pdf document object
    * @param page  - pdf page infor
@@ -10452,24 +10529,28 @@ export class PdfiumNative implements IPdfiumExecutor {
     // so we must also use 0° for coordinate transformations
     const r = doc.normalizedRotation ? 0 : page.rotation & 3;
 
+    // Recover the point relative to the page box origin, then shift back into
+    // PDF user space so non-zero MediaBox/CropBox origins round-trip correctly.
+    const origin = this.getPageOrigin(page);
+
+    let point: Position;
     if (r === 0) {
       // 0°
-      return { x: position.x, y: DH - position.y };
-    }
-    if (r === 1) {
+      point = { x: position.x, y: DH - position.y };
+    } else if (r === 1) {
       // 90° CW
       // x_d = sx*y, y_d = sy*x  =>  x = y_d/sy, y = x_d/sx
-      return { x: position.y, y: position.x };
-    }
-    if (r === 2) {
+      point = { x: position.y, y: position.x };
+    } else if (r === 2) {
       // 180°
-      return { x: DW - position.x, y: position.y };
-    }
-    {
+      point = { x: DW - position.x, y: position.y };
+    } else {
       // 270° CW
       // x_d = DW - sx*y, y_d = DH - sy*x
-      return { x: DH - position.y, y: DW - position.x };
+      point = { x: DH - position.y, y: DW - position.x };
     }
+
+    return { x: point.x + origin.x, y: point.y + origin.y };
   }
 
   /**
@@ -10492,21 +10573,27 @@ export class PdfiumNative implements IPdfiumExecutor {
     // so we must also use 0° for coordinate transformations
     const r = doc.normalizedRotation ? 0 : page.rotation & 3;
 
+    // Shift the PDF user-space point so it is relative to the page box origin
+    // before applying rotation, supporting non-zero MediaBox/CropBox origins.
+    const origin = this.getPageOrigin(page);
+    const px = position.x - origin.x;
+    const py = position.y - origin.y;
+
     if (r === 0) {
       // 0°
-      return { x: position.x, y: DH - position.y };
+      return { x: px, y: DH - py };
     }
     if (r === 1) {
       // 90° CW
-      return { x: position.y, y: position.x };
+      return { x: py, y: px };
     }
     if (r === 2) {
       // 180°
-      return { x: DW - position.x, y: position.y };
+      return { x: DW - px, y: py };
     }
     {
       // 270° CW
-      return { x: DW - position.y, y: DH - position.x };
+      return { x: DW - py, y: DH - px };
     }
   }
 

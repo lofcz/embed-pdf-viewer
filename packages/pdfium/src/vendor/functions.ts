@@ -3,6 +3,7 @@ export const functions = {
   EPDF_GetMetaKeyCount: [["number","boolean"] as const, 'number'] as const,
   EPDF_GetMetaKeyName: [["number","number","boolean","number","number"] as const, 'number'] as const,
   EPDF_GetMetaTrapped: [["number"] as const, 'number'] as const,
+  EPDF_GetPageBoxByIndex: [["number","number","number","number"] as const, 'boolean'] as const,
   EPDF_GetPageRotationByIndex: [["number","number"] as const, 'number'] as const,
   EPDF_GetPageSizeByIndexNormalized: [["number","number","number"] as const, 'boolean'] as const,
   EPDF_HasMetaText: [["number","string"] as const, 'boolean'] as const,
