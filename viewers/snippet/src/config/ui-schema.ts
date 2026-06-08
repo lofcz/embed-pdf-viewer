@@ -1306,7 +1306,7 @@ export const viewerUISchema: UISchema = {
           type: 'command',
           id: 'document:protect',
           commandId: 'document:protect',
-          categories: ['document', 'document-protect'],
+          categories: ['document', 'document-protect', 'security'],
         },
         {
           type: 'command',
@@ -1750,6 +1750,7 @@ export const viewerUISchema: UISchema = {
         type: 'component',
         componentId: 'unlock-owner-overlay',
       },
+      categories: ['security', 'security-unlock-overlay'],
       defaultEnabled: true,
     },
   },

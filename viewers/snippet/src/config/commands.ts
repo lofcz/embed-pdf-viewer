@@ -487,7 +487,7 @@ export const commands: Record<string, Command<State>> = {
     id: 'document:protect',
     labelKey: 'document.protect',
     icon: 'lock',
-    categories: ['document', 'document-protect'],
+    categories: ['document', 'document-protect', 'security'],
     action: ({ registry, documentId }) => {
       const ui = registry.getPlugin<UIPlugin>('ui')?.provides();
       if (!ui) return;
