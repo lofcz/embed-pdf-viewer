@@ -852,7 +852,7 @@ export const commands: Record<string, Command<State>> = {
   'mode:shapes': {
     id: 'mode:shapes',
     labelKey: 'mode.shapes',
-    categories: ['mode', 'mode-shapes', 'annotation'],
+    categories: ['mode', 'mode-shapes', 'annotation', 'annotation-shape'],
     action: ({ registry, documentId }) => {
       const ui = registry.getPlugin<UIPlugin>('ui')?.provides();
       if (!ui) return;
