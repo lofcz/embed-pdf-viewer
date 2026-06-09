@@ -95,22 +95,43 @@ describe('anchor round-trip', () => {
 });
 
 describe('clampCamera', () => {
+  const k0 = { bounded: true, overscroll: { x: 0, y: 0 } } as const;
+
   it('clamps the camera within the content when bounded', () => {
-    const clamped = S.clampCamera({ x: 0, y: 99999, zoom: 1 }, { width: 1000, height: 5000 }, vp, {
-      bounded: true,
-      overscroll: { x: 0, y: 0 },
-    });
+    const clamped = S.clampCamera(
+      { x: 0, y: 99999, zoom: 1 },
+      { x: 0, y: 0, width: 1000, height: 5000 },
+      vp,
+      k0,
+    );
     expect(clamped.y).toBeLessThanOrEqual(5000 - vp.height + 0.001);
+    expect(clamped.y).toBeGreaterThanOrEqual(0);
   });
 
   it('passes through untouched when unbounded', () => {
     const c = { x: 0, y: 99999, zoom: 1 };
     expect(
-      S.clampCamera(c, { width: 10, height: 10 }, vp, {
+      S.clampCamera(c, { x: 0, y: 0, width: 10, height: 10 }, vp, {
         bounded: false,
         overscroll: { x: 0, y: 0 },
       }),
     ).toEqual(c);
+  });
+
+  it('confines to a NON-zero-origin rect (a single paged item)', () => {
+    // an item sitting at world y=4000, height 800, viewport 700 tall (item taller than vp)
+    const bounds = { x: 0, y: 4000, width: 1000, height: 800 };
+    const top = S.clampCamera({ x: 0, y: -99999, zoom: 1 }, bounds, vp, k0);
+    expect(top.y).toBeCloseTo(4000, 6); // can't scroll above the item's top
+    const bottom = S.clampCamera({ x: 0, y: 99999, zoom: 1 }, bounds, vp, k0);
+    expect(bottom.y).toBeCloseTo(4000 + 800 - vp.height, 6); // nor below its bottom
+  });
+
+  it('centers a small item within its rect (fit-case respects origin)', () => {
+    // item smaller than the viewport ⇒ centered around bounds.y, not 0
+    const bounds = { x: 0, y: 4000, width: 300, height: 300 };
+    const c = S.clampCamera({ x: 0, y: 0, zoom: 1 }, bounds, vp, k0);
+    expect(c.y).toBeCloseTo(4000 + (300 - vp.height) / 2, 6); // centered within the item's rect
   });
 });
 

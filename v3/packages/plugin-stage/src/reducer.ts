@@ -6,6 +6,7 @@ export const initialStageState = (config: StageConfig): StageState => {
   return {
     camera: { x: 0, y: 0, zoom: 1 },
     vp: { width: 0, height: 0 },
+    cursor: 0,
     ...DEFAULT_SETTINGS,
     ...overrides, // config overrides any default; the rest fall back to DEFAULT_SETTINGS
   };
@@ -33,6 +34,8 @@ export const stageReducer = (state: StageState, a: StageAction): StageState => {
       return { ...state, camera: a.camera };
     case 'VP':
       return { ...state, vp: a.vp };
+    case 'CURSOR':
+      return { ...state, cursor: a.cursor };
     case 'PATCH':
       return applyPatch(state, a.patch);
     default:

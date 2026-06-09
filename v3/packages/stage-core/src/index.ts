@@ -139,18 +139,29 @@ export const centerOnWorld = (worldPt: Point, vp: Size, zoom: number): Camera =>
   y: worldPt.y - vp.height / 2 / zoom,
 });
 
-/** Bounds — the one place travel limits live (see CameraConstraint). */
-export const clampCamera = (c: Camera, scene: Size, vp: Size, k: CameraConstraint): Camera => {
+/**
+ * Bounds — the one place travel limits live (see CameraConstraint). Clamps the
+ * camera into an arbitrary world `Rect`: the whole document in continuous flow, or a
+ * single item's rect in paged flow. The fit-case centers *within* the rect (around
+ * `bounds.x / bounds.y`), not around the world origin.
+ */
+export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstraint): Camera => {
   if (!k.bounded) return c;
-  const axis = (pos: number, content: number, view: number, os: Overscroll): number => {
-    if (content * c.zoom <= view) return (content - view / c.zoom) / 2; // fits: centre & lock
+  const axis = (
+    pos: number,
+    origin: number,
+    content: number,
+    view: number,
+    os: Overscroll,
+  ): number => {
+    if (content * c.zoom <= view) return origin + (content - view / c.zoom) / 2; // fits: centre within bounds & lock
     const o = os === 'center' ? view / 2 : os;
-    return clamp(pos, -o / c.zoom, content - (view - o) / c.zoom);
+    return clamp(pos, origin - o / c.zoom, origin + content - (view - o) / c.zoom);
   };
   return {
     zoom: c.zoom,
-    x: axis(c.x, scene.width, vp.width, k.overscroll.x),
-    y: axis(c.y, scene.height, vp.height, k.overscroll.y),
+    x: axis(c.x, bounds.x, bounds.width, vp.width, k.overscroll.x),
+    y: axis(c.y, bounds.y, bounds.height, vp.height, k.overscroll.y),
   };
 };
 

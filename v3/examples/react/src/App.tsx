@@ -1,7 +1,13 @@
 import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { stagePlugin } from '@embedpdf-x/plugin-stage';
-import type { LayoutKind, SpreadMode, SizingMode, StageSettings } from '@embedpdf-x/plugin-stage';
+import type {
+  FlowMode,
+  LayoutKind,
+  SpreadMode,
+  SizingMode,
+  StageSettings,
+} from '@embedpdf-x/plugin-stage';
 import { markerPlugin } from '@embedpdf-x/plugin-marker';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
@@ -103,9 +109,19 @@ function WatermarkLayer() {
 
 function Toolbar() {
   const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, automatic } = useZoom();
-  const { currentPage, pageCount, goToPage } = usePages();
-  const { layout, setLayout, spread, setSpread, sizing, setSizing, bounded, setBounded } =
-    useLayout();
+  const { currentPage, pageCount, next, prev } = usePages();
+  const {
+    flow,
+    setFlow,
+    layout,
+    setLayout,
+    spread,
+    setSpread,
+    sizing,
+    setSizing,
+    bounded,
+    setBounded,
+  } = useLayout();
   const { update, reset } = useStageSettings();
   const applyZoomMode = (m: string) => {
     if (m === 'automatic') automatic();
@@ -124,12 +140,20 @@ function Toolbar() {
         fontSize: 12,
       }}
     >
-      <button onClick={() => goToPage(currentPage - 1)}>◀</button>
+      <button onClick={() => prev()} title="previous page/spread">
+        ◀
+      </button>
       <span>
         p <b>{currentPage + 1}</b>/{pageCount}
       </span>
-      <button onClick={() => goToPage(currentPage + 1)}>▶</button>
+      <button onClick={() => next()} title="next page/spread">
+        ▶
+      </button>
       <span style={{ width: 1, height: 18, background: '#ddd' }} />
+      <select value={flow} onChange={(e) => setFlow(e.target.value as FlowMode)} title="flow">
+        <option value="continuous">scroll</option>
+        <option value="paged">paged</option>
+      </select>
       <button onClick={zoomOut}>−</button>
       <span style={{ minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
       <button onClick={zoomIn}>+</button>

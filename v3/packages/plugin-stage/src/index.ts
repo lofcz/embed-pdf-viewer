@@ -9,6 +9,7 @@ export { stagePlugin } from './stage.plugin';
 export { StageToken } from './types';
 export { DEFAULT_SETTINGS } from './settings';
 export type {
+  FlowMode,
   LayoutKind,
   HomeKind,
   ScrollBehaviorKind,

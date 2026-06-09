@@ -17,6 +17,13 @@ export type LayoutKind = 'vertical' | 'horizontal' | 'grid';
 export type HomeKind = 'start' | 'center';
 /** Navigation (goToPage) either tweens the camera or jumps instantly. */
 export type ScrollBehaviorKind = 'smooth' | 'instant';
+/**
+ * Presentation flow:
+ *   'continuous' — the whole document is scrollable; the camera roams the full scene.
+ *   'paged'      — one item (page or spread) at a time; the camera is clamped to it
+ *                  and next/prev step between items. Same scene, smaller clamp rect.
+ */
+export type FlowMode = 'continuous' | 'paged';
 
 /**
  * The Stage's orthogonal, independently-settable primitives. Every field can be set
@@ -25,6 +32,8 @@ export type ScrollBehaviorKind = 'smooth' | 'instant';
  * machinery lives here.
  */
 export interface StageSettings {
+  /** Continuous scroll, or one item at a time. */
+  flow: FlowMode;
   layout: LayoutKind;
   spread: SpreadMode;
   /** Page sizing: true PDF sizes, or equalize the cross axis so pages sit flush. */
@@ -51,15 +60,24 @@ export interface VisiblePage extends PageBox {
 export interface StageState extends StageSettings {
   camera: Camera;
   vp: Size;
+  /**
+   * Paged cursor: the page the pager is "on". Transient like `camera` (NOT a
+   * setting). In paged flow the scene is a one-item slice at this page; navigation
+   * is the only thing that moves it — panning never does. Ignored in continuous.
+   * Stored as a page index so it survives spread/layout regrouping.
+   */
+  cursor: number;
 }
 
 export type StageAction =
   | { type: 'CAMERA'; camera: Camera }
   | { type: 'VP'; vp: Size }
+  | { type: 'CURSOR'; cursor: number }
   | { type: 'PATCH'; patch: Partial<StageSettings> };
 
 /** Durable, serializable view state — the unit of session persistence. */
 export interface StageViewState extends StageSettings {
+  cursor: number;
   anchor: Anchor;
 }
 
@@ -83,12 +101,17 @@ export interface StageCapability {
   viewport(): Size;
   pageCount(): number;
   visiblePages(): VisiblePage[];
-  /** Current page's *display index* (for "page N of M"). */
+  /** Current page's *display index* (for "page N of M") — the focal page. */
   currentPage(): number;
+  /** The display indices of the current item's pages (1 page, or a spread's pages). */
+  currentItemPages(): number[];
+  /** The full page list with PDF labels — for page thumbnails / worksheet tabs. */
+  pages(): Array<{ index: number; pon: PageObjectNumber; label: string | null }>;
   /** The laid-out box for a page by its durable pon. */
   pageRect(pon: PageObjectNumber): VisiblePage | null;
   toScreen(world: Point): Point;
   toWorld(screen: Point): Point;
+  flow(): FlowMode;
   layout(): LayoutKind;
   spread(): SpreadMode;
   sizing(): SizingMode;
@@ -117,9 +140,14 @@ export interface StageCapability {
   /** Fit width but never upscale past 100% (Adobe's "Automatic"). */
   automatic(): void;
   goToPage(pageIndex: number, opts?: { behavior?: ScrollBehaviorKind }): void;
+  /** Step to the next item (page or spread). Scrolls in continuous, snaps in paged. */
+  next(opts?: { behavior?: ScrollBehaviorKind }): void;
+  /** Step to the previous item. */
+  prev(opts?: { behavior?: ScrollBehaviorKind }): void;
   /** Set any subset of settings at once — ONE anchor-preserving update. The way to
    *  apply a customer preset: `update(myPreset)`. */
   update(patch: Partial<StageSettings>): void;
+  setFlow(flow: FlowMode): void;
   setLayout(layout: LayoutKind): void;
   setSpread(spread: SpreadMode): void;
   setSizing(sizing: SizingMode): void;

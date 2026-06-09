@@ -235,24 +235,44 @@ export function usePages() {
   const s = useCapability(StageToken);
   const currentPage = useSelector(StageToken, (c) => c.currentPage());
   const pageCount = useSelector(StageToken, (c) => c.pageCount());
-  return { currentPage, pageCount, goToPage: s.goToPage };
+  return { currentPage, pageCount, goToPage: s.goToPage, next: s.next, prev: s.prev };
 }
 export function useLayout() {
   const s = useCapability(StageToken);
+  const flow = useSelector(StageToken, (c) => c.flow());
   const layout = useSelector(StageToken, (c) => c.layout());
   const spread = useSelector(StageToken, (c) => c.spread());
   const sizing = useSelector(StageToken, (c) => c.sizing());
   const bounded = useSelector(StageToken, (c) => c.bounded());
   return {
+    flow,
     layout,
     spread,
     sizing,
     bounded,
+    setFlow: s.setFlow,
     setLayout: s.setLayout,
     setSpread: s.setSpread,
     setSizing: s.setSizing,
     setBounded: s.setBounded,
   };
+}
+
+/** The document's page list (with PDF labels) + the current item's pages — the
+ *  data for page thumbnails / worksheet-style page tabs. */
+export function usePageList() {
+  const pages = useSelector(
+    StageToken,
+    (c) => c.pages(),
+    (a, b) =>
+      a.length === b.length && a.every((p, i) => p.pon === b[i].pon && p.label === b[i].label),
+  );
+  const current = useSelector(
+    StageToken,
+    (c) => c.currentItemPages(),
+    (a, b) => a.length === b.length && a.every((x, i) => x === b[i]),
+  );
+  return { pages, currentItemPages: current };
 }
 
 /**

@@ -154,6 +154,103 @@ describe('sizing: uniform + fit-width = flush per-page fit', () => {
   });
 });
 
+describe('flow: paged (same scene, smaller clamp rect — no index state)', () => {
+  it('renders only the current item; next/prev step by item', () => {
+    const { stage } = harness(PORTRAIT, { flow: 'paged' });
+    expect(stage.flow()).toBe('paged');
+    expect(stage.visiblePages().map((p) => p.pageIndex)).toEqual([0]);
+    expect(stage.currentPage()).toBe(0);
+    stage.next({ behavior: 'instant' });
+    expect(stage.currentPage()).toBe(1);
+    expect(stage.visiblePages().map((p) => p.pageIndex)).toEqual([1]);
+    stage.next({ behavior: 'instant' });
+    stage.prev({ behavior: 'instant' });
+    expect(stage.currentPage()).toBe(1);
+  });
+
+  it('a pan cannot escape the current item', () => {
+    const { stage } = harness(PORTRAIT, { flow: 'paged' });
+    stage.next({ behavior: 'instant' }); // page 1
+    stage.panBy(0, -100000); // try to scroll far past the page bottom
+    expect(stage.currentPage()).toBe(1); // clamped to page 1's rect
+    expect(stage.visiblePages().map((p) => p.pageIndex)).toEqual([1]);
+  });
+
+  it('fit-width fits the CURRENT page width, not the document max', () => {
+    const { stage } = harness(
+      [
+        { width: 600, height: 800 },
+        { width: 2000, height: 800 },
+      ],
+      { flow: 'paged' },
+    );
+    stage.goToPage(0, { behavior: 'instant' });
+    stage.fitWidth();
+    expect(stage.zoomLevel()).toBeCloseTo((1000 - 2 * GAP) / 600, 4); // current page (600)
+    stage.goToPage(1, { behavior: 'instant' });
+    stage.fitWidth();
+    expect(stage.zoomLevel()).toBeCloseTo((1000 - 2 * GAP) / 2000, 4); // current page (2000)
+  });
+
+  it('spread paged shows a spread (two pages) as the current item', () => {
+    const { stage } = harness(PORTRAIT, { flow: 'paged', spread: 'odd' });
+    expect(stage.currentItemPages()).toEqual([0, 1]);
+    expect(
+      stage
+        .visiblePages()
+        .map((p) => p.pageIndex)
+        .sort(),
+    ).toEqual([0, 1]);
+    stage.next({ behavior: 'instant' });
+    expect(stage.currentItemPages()).toEqual([2, 3]);
+  });
+
+  it('toggling flow keeps the current page (no index, page-durable handoff)', () => {
+    const { stage } = harness(PORTRAIT); // continuous
+    stage.goToPage(3, { behavior: 'instant' });
+    expect(stage.currentPage()).toBe(3);
+    stage.setFlow('paged');
+    expect(stage.flow()).toBe('paged');
+    expect(stage.currentPage()).toBe(3);
+    expect(stage.visiblePages().map((p) => p.pageIndex)).toEqual([3]);
+    stage.setFlow('continuous');
+    expect(stage.currentPage()).toBe(3);
+  });
+
+  it('pages() exposes the page list with PDF labels', () => {
+    const { stage } = harness(PORTRAIT);
+    const pages = stage.pages();
+    expect(pages.length).toBe(5);
+    expect(pages[0]).toMatchObject({ index: 0, pon: 1 });
+  });
+
+  // The Option 2 property: paged is a one-item slice, so the page is structural and
+  // CANNOT be replaced by panning — even when unbounded (construction / infinite canvas).
+  it('paged + unbounded: panning far NEVER changes the page (construction)', () => {
+    const { stage } = harness(PORTRAIT, { flow: 'paged', bounded: false });
+    stage.goToPage(2, { behavior: 'instant' });
+    expect(stage.currentPage()).toBe(2);
+    expect(stage.visiblePages().map((p) => p.pageIndex)).toEqual([2]);
+    // pan a huge distance every direction — unbounded, the camera roams freely
+    stage.panBy(0, -50000);
+    stage.panBy(0, -50000);
+    stage.panBy(-40000, 0);
+    expect(stage.currentPage()).toBe(2); // still page 2
+    expect(stage.visiblePages().map((p) => p.pageIndex)).toEqual([2]); // never replaced
+  });
+
+  it('paged cursor round-trips through viewState (restore lands on the same page)', () => {
+    const { stage } = harness(PORTRAIT, { flow: 'paged' });
+    stage.goToPage(3, { behavior: 'instant' });
+    const vs = stage.viewState();
+    expect(vs.cursor).toBe(3);
+    const { stage: restored } = harness(PORTRAIT, { flow: 'paged' });
+    restored.applyViewState(vs);
+    expect(restored.currentPage()).toBe(3);
+    expect(restored.visiblePages().map((p) => p.pageIndex)).toEqual([3]);
+  });
+});
+
 describe('smooth scroll via the injected scheduler', () => {
   it('tweens to the target across frames (deterministic, no real time)', () => {
     const frames: Array<(t: number) => void> = [];

@@ -12,6 +12,7 @@ export const GAP = 16;
  * `update()`, so that taxonomy stays a customer concern.
  */
 export const DEFAULT_SETTINGS: StageSettings = {
+  flow: 'continuous',
   layout: 'vertical',
   spread: 'none',
   sizing: 'intrinsic',
