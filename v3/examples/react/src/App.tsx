@@ -2,6 +2,7 @@ import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { stagePlugin } from '@embedpdf-x/plugin-stage';
 import type {
+  Direction,
   FlowMode,
   LayoutKind,
   SpreadMode,
@@ -53,7 +54,7 @@ const PRESETS: Record<string, Partial<StageSettings>> = {
     bounded: true,
     padding: 24,
     gap: 16,
-    align: { x: 'start', y: 'start' }, // LTR reading: arrive top-left
+    align: { x: 'start', y: 'start' }, // arrive at the reading start (direction-aware)
     zoom: { mode: 'automatic' },
   },
   // Construction: every sheet in view on an infinite canvas, then zoom in to work.
@@ -70,10 +71,11 @@ const PRESETS: Record<string, Partial<StageSettings>> = {
 
 // Arrival alignment, expressed as the combos a UI actually offers. The plugin keeps
 // the orthogonal per-axis primitive; naming the useful pairs is the app's concern.
+// Values are LOGICAL (CSS-style): 'reading start' = top-left in LTR, top-RIGHT in RTL.
 const ALIGNMENTS: Record<string, StageSettings['align']> = {
-  'top-left': { x: 'start', y: 'start' }, // LTR reading
-  'top-right': { x: 'end', y: 'start' }, // RTL reading
-  center: { x: 'center', y: 'center' }, // drawings
+  'reading start': { x: 'start', y: 'start' }, // where the text begins (direction-aware)
+  'reading end': { x: 'end', y: 'start' }, // the far edge of the line
+  center: { x: 'center', y: 'center' }, // drawings (Drawboard feel)
 };
 
 // ── drag payloads: a tab (document) or a whole pane (view) ───────────────────
@@ -189,6 +191,14 @@ function Toolbar() {
         <option value="grid">grid</option>
       </select>
       <select
+        value={settings.direction}
+        onChange={(e) => update({ direction: e.target.value as Direction })}
+        title="reading direction: RTL flips horizontal order, spread binding, grid fill, and logical alignment"
+      >
+        <option value="ltr">ltr</option>
+        <option value="rtl">rtl</option>
+      </select>
+      <select
         value={spread}
         onChange={(e) => setSpread(e.target.value as SpreadMode)}
         title="spread"
@@ -246,10 +256,10 @@ function Toolbar() {
         value={
           Object.keys(ALIGNMENTS).find(
             (k) => ALIGNMENTS[k].x === settings.align.x && ALIGNMENTS[k].y === settings.align.y,
-          ) ?? 'top-left'
+          ) ?? 'reading start'
         }
         onChange={(e) => update({ align: ALIGNMENTS[e.target.value] })}
-        title="arrival alignment when the page overflows: top-left (LTR), top-right (RTL), center (drawings)"
+        title="arrival alignment when the page overflows — logical: 'reading start' follows the direction (top-left in LTR, top-right in RTL); center for drawings"
       >
         {Object.keys(ALIGNMENTS).map((k) => (
           <option key={k} value={k}>

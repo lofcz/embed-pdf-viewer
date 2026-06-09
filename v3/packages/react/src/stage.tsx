@@ -294,6 +294,7 @@ export function useStageSettings() {
       a.bounded === b.bounded &&
       a.padding === b.padding &&
       a.gap === b.gap &&
+      a.direction === b.direction &&
       a.align.x === b.align.x &&
       a.align.y === b.align.y &&
       a.scrollBehavior === b.scrollBehavior &&

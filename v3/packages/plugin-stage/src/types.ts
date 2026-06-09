@@ -3,6 +3,7 @@ import type { PageObjectNumber } from '@embedpdf-x/kernel';
 import type {
   Alignment,
   Anchor,
+  Direction,
   Camera,
   PageBox,
   Point,
@@ -47,6 +48,12 @@ export interface StageSettings {
   padding: number;
   /** Space (world units) BETWEEN items — and between the halves of a spread. */
   gap: number;
+  /**
+   * Reading direction. RTL: horizontal items advance leftward, spreads bind on the
+   * right, grid rows fill right→left, and align.x 'start' means the RIGHT edge
+   * (logical, CSS-style). Navigation is index-based and never changes.
+   */
+  direction: Direction;
   /**
    * Arrival alignment per axis: where attention lands when the target OVERFLOWS
    * (fits → always centered, derived). start/start = LTR reading (top-left),
@@ -144,6 +151,7 @@ export interface StageCapability {
   padding(): number;
   gap(): number;
   align(): Alignment;
+  direction(): Direction;
   scrollBehavior(): ScrollBehaviorKind;
   zoomLevel(): number;
   /** The active zoom intent: a fit-mode, or 'custom' for a fixed level. */
@@ -185,6 +193,7 @@ export interface StageCapability {
   setPadding(padding: number): void;
   setGap(gap: number): void;
   setAlign(align: Alignment): void;
+  setDirection(direction: Direction): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;
   applyViewState(view: StageViewState): void;
   /** Offer a candidate initial view; the highest-priority non-null wins at placement. */

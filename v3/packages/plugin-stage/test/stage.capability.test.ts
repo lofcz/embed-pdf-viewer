@@ -513,6 +513,62 @@ describe('gap: one value between items, every layout', () => {
   });
 });
 
+describe('direction: rtl — layout flips, navigation does not', () => {
+  it('horizontal rtl: page 1 starts at the right; next moves the camera LEFT; cursor walks 0→1→2', () => {
+    const { stage } = harness(PORTRAIT, {
+      layout: 'horizontal',
+      direction: 'rtl',
+      zoom: { level: 1.13 },
+    });
+    expect(stage.currentPage()).toBe(0);
+    // page 1 is the RIGHTMOST item in the scene
+    const first = stage.pageRect(1)!;
+    const last = stage.pageRect(5)!;
+    expect(first.x).toBeGreaterThan(last.x);
+    const x0 = stage.camera().x;
+    stage.next({ behavior: 'instant' });
+    expect(stage.currentPage()).toBe(1); // index-based navigation: unchanged
+    expect(stage.camera().x).toBeLessThan(x0); // …but the camera moved LEFT
+    stage.next({ behavior: 'instant' });
+    expect(stage.currentPage()).toBe(2);
+  });
+
+  it('vertical rtl + spread: page 1 binds on the right (all flows)', () => {
+    const { stage } = harness(PORTRAIT, { spread: 'odd', direction: 'rtl' });
+    expect(stage.pageRect(1)!.x).toBeGreaterThan(stage.pageRect(2)!.x);
+    // paged too: the slice inherits the swap
+    stage.setFlow('paged');
+    expect(stage.pageRect(1)!.x).toBeGreaterThan(stage.pageRect(2)!.x);
+  });
+
+  it('logical align: the default start/start lands top-RIGHT in rtl (no auto needed)', () => {
+    const { stage } = harness(PORTRAIT, { direction: 'rtl', zoom: { level: 2 } });
+    stage.goToPage(2, { behavior: 'instant' });
+    const box = stage.pageRect(3)!;
+    expect(stage.toScreen({ x: box.x + box.width, y: box.y }).x).toBeCloseTo(1000 - PAD, 0);
+    expect(stage.toScreen({ x: box.x, y: box.y }).y).toBeCloseTo(PAD, 0);
+  });
+
+  it('switching direction keeps the current page (structural, anchor-preserving)', () => {
+    const { stage } = harness(PORTRAIT, { layout: 'horizontal' });
+    stage.goToPage(3, { behavior: 'instant' });
+    stage.setDirection('rtl');
+    expect(stage.direction()).toBe('rtl');
+    expect(stage.currentPage()).toBe(3);
+  });
+
+  it('grid rtl: first page top-right, scene query renders the right pages', () => {
+    const { stage } = harness(PORTRAIT, { layout: 'grid', direction: 'rtl' });
+    stage.fitAll();
+    const all = stage.visiblePages();
+    expect(all.length).toBe(5);
+    const p1 = all.find((p) => p.pageIndex === 0)!;
+    // page 1 occupies the rightmost cell of the top row
+    expect(Math.max(...all.map((p) => p.x))).toBeCloseTo(p1.x, 6);
+    expect(Math.min(...all.map((p) => p.y))).toBeCloseTo(p1.y, 6);
+  });
+});
+
 describe('viewpoint: per-page view memory (construction worksheets)', () => {
   it('goToPage with a saved viewpoint restores the exact camera', () => {
     const { stage } = harness(PORTRAIT, { flow: 'paged' });

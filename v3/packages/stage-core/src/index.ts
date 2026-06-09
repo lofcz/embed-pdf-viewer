@@ -87,6 +87,13 @@ export interface Anchor {
 }
 export type SpreadMode = 'none' | 'odd' | 'even';
 /**
+ * Reading direction — a LAYOUT property, not a navigation one. Navigation steps by
+ * index (reading order); direction only decides where reading-order puts pages in
+ * space: horizontal items advance leftward, spreads bind on the right, grid rows
+ * fill right→left. The camera, cursor, fit and clamp never learn about it.
+ */
+export type Direction = 'ltr' | 'rtl';
+/**
  * Page sizing policy (per-item world scale, set in the layout):
  *   'intrinsic' — true PDF sizes; relative proportions preserved.
  *   'uniform'   — every item scaled to the same CROSS-axis size (vertical → equal
@@ -166,7 +173,13 @@ export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstrai
   };
 };
 
-/** Per-axis arrival alignment: where attention lands on an OVERFLOWING axis. */
+/**
+ * Per-axis arrival alignment: where attention lands on an OVERFLOWING axis.
+ * On the x-axis the values are LOGICAL (CSS-style): 'start' = where reading begins
+ * (left in LTR, RIGHT in RTL), 'end' = where it ends. On the y-axis they are
+ * physical (start = top). So the default { x:'start', y:'start' } is automatically
+ * correct in both directions — no 'auto' value needed.
+ */
 export type Align = 'start' | 'center' | 'end';
 export interface Alignment {
   x: Align;
@@ -176,11 +189,11 @@ export interface Alignment {
 /**
  * THE placement algorithm — used for every arrival (goToPage, next/prev, reset).
  * The clamp defines the camera's legal travel range within the subject; alignment
- * just picks a point in it: start = min, center = midpoint, end = max. On an axis
- * where the subject FITS, min = mid = max (the locked center), so alignment
- * automatically becomes irrelevant — "centered when it fits" stays derived, and
- * alignment only resolves the freedom that overflow creates (top-left for LTR
- * reading, top-right for RTL, center for drawings).
+ * just picks a point in it: start = min, center = midpoint, end = max — with x
+ * resolved logically against the reading direction. On an axis where the subject
+ * FITS, min = mid = max (the locked center), so alignment automatically becomes
+ * irrelevant — "centered when it fits" stays derived, and alignment only resolves
+ * the freedom that overflow creates.
  */
 export function placeCamera(
   subject: Rect,
@@ -188,13 +201,19 @@ export function placeCamera(
   zoom: number,
   padding = 0,
   align: Alignment = { x: 'start', y: 'start' },
+  direction: Direction = 'ltr',
 ): Camera {
   const k: CameraConstraint = { bounded: true, padding };
   const lo = clampCamera({ x: -Infinity, y: -Infinity, zoom }, subject, vp, k);
   const hi = clampCamera({ x: Infinity, y: Infinity, zoom }, subject, vp, k);
   const pick = (a: Align, min: number, max: number): number =>
     a === 'start' ? min : a === 'end' ? max : (min + max) / 2;
-  return { zoom, x: pick(align.x, lo.x, hi.x), y: pick(align.y, lo.y, hi.y) };
+  // logical x: in RTL, reading starts at the right edge of the travel range
+  const x =
+    direction === 'rtl'
+      ? pick(align.x === 'start' ? 'end' : align.x === 'end' ? 'start' : 'center', lo.x, hi.x)
+      : pick(align.x, lo.x, hi.x);
+  return { zoom, x, y: pick(align.y, lo.y, hi.y) };
 }
 
 // ── Zoom intent — resolved against a fit-box chosen by the caller: the document's
@@ -280,6 +299,7 @@ function packItem(
   pages: readonly PageGeom[],
   group: number[],
   gap: number,
+  direction: Direction = 'ltr',
 ): { local: LocalBox[]; width: number; height: number } {
   let lx = 0;
   let h = 0;
@@ -290,7 +310,12 @@ function packItem(
     lx += pg.width + gap;
     if (pg.height > h) h = pg.height;
   }
-  return { local, width: Math.max(0, lx - gap), height: h };
+  const width = Math.max(0, lx - gap);
+  if (direction === 'rtl') {
+    // reading-first page takes the RIGHTMOST slot (the spread binds on the right)
+    for (const b of local) b.lx = width - b.lx - b.w;
+  }
+  return { local, width, height: h };
 }
 function placePages(item: SceneItem, local: LocalBox[], contentScale: number): PageBox[] {
   return local.map((b) => ({
@@ -320,6 +345,7 @@ export interface LinearOptions {
   axis?: 'x' | 'y';
   align?: 'center' | 'start';
   sizing?: SizingMode;
+  direction?: Direction;
 }
 export function linearLayout(
   pages: readonly PageGeom[],
@@ -330,10 +356,14 @@ export function linearLayout(
   const vertical = (opts.axis ?? 'y') === 'y';
   const align = opts.align ?? 'center';
   const sizing = opts.sizing ?? 'intrinsic';
+  const direction = opts.direction ?? 'ltr';
+  // RTL mirrors the main axis only when it's horizontal; vertical scroll is
+  // direction-agnostic (RTL books still scroll down) — only spreads swap.
+  const mirrored = !vertical && direction === 'rtl';
 
   // Pass 1: pack every item at intrinsic size; the cross axis (width when vertical)
   // gives the reference for `uniform` sizing.
-  const packs = grouping.map((group) => packItem(pages, group, gap));
+  const packs = grouping.map((group) => packItem(pages, group, gap, direction));
   const crossOf = (p: { width: number; height: number }) => (vertical ? p.width : p.height);
   const refCross = packs.reduce((m, p) => Math.max(m, crossOf(p)), 0);
 
@@ -381,13 +411,23 @@ export function linearLayout(
 
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
+    if (mirrored) it.x = size.width - it.x - it.width; // reading order advances leftward
     if (vertical) it.x = align === 'center' ? (size.width - it.width) / 2 : 0;
     else it.y = align === 'center' ? (size.height - it.height) / 2 : 0;
     it.pages = placePages(it, locals[i], scales[i]);
   }
 
-  const starts = items.map((it) => (vertical ? it.y : it.x));
-  const ends = items.map((it) => (vertical ? it.y + it.height : it.x + it.width));
+  // Spatial index in POSITION order (ascending coordinates for binary search).
+  // In a mirrored layout position order is reverse index order — `posIdx` maps back.
+  const posIdx = (k: number): number => (mirrored ? items.length - 1 - k : k);
+  const starts = items.map((_, k) => {
+    const it = items[posIdx(k)];
+    return vertical ? it.y : it.x;
+  });
+  const ends = items.map((_, k) => {
+    const it = items[posIdx(k)];
+    return vertical ? it.y + it.height : it.x + it.width;
+  });
   const firstPage = items.map((it) => it.pageIndexes[0]);
 
   return {
@@ -401,11 +441,13 @@ export function linearLayout(
       const a1 = vertical ? r.y + r.height : r.x + r.width;
       const lo = Math.max(0, lowerBound(ends, a0) - OVERSCAN);
       const hi = Math.min(items.length, upperBound(starts, a1) + OVERSCAN);
-      return items.slice(lo, hi);
+      const out: SceneItem[] = [];
+      for (let k = lo; k < hi; k++) out.push(items[posIdx(k)]);
+      return out;
     },
     nearestItem(pt) {
-      const i = clamp(upperBound(starts, vertical ? pt.y : pt.x) - 1, 0, items.length - 1);
-      return items[i];
+      const k = clamp(upperBound(starts, vertical ? pt.y : pt.x) - 1, 0, items.length - 1);
+      return items[posIdx(k)];
     },
     itemOfPage(pi) {
       return clamp(upperBound(firstPage, pi) - 1, 0, items.length - 1);
@@ -417,6 +459,7 @@ export interface GridOptions {
   gap?: number;
   columns?: number;
   sizing?: SizingMode;
+  direction?: Direction;
 }
 export function gridLayout(
   pages: readonly PageGeom[],
@@ -427,9 +470,12 @@ export function gridLayout(
   const n = grouping.length;
   const columns = opts.columns ?? Math.max(1, Math.ceil(Math.sqrt(n)));
   const sizing = opts.sizing ?? 'intrinsic';
+  const direction = opts.direction ?? 'ltr';
+  // RTL fills each row right→left (like RTL text wrap); rows stay top→bottom.
+  const colAt = (col: number): number => (direction === 'rtl' ? columns - 1 - col : col);
 
   // Pass 1: pack at intrinsic size; the widest item is the `uniform` reference.
-  const packs = grouping.map((group) => packItem(pages, group, gap));
+  const packs = grouping.map((group) => packItem(pages, group, gap, direction));
   const refW = packs.reduce((m, p) => Math.max(m, p.width), 0);
 
   // Pass 2: scale each item (uniform → equal width, so columns line up).
@@ -451,7 +497,7 @@ export function gridLayout(
   const stepY = cellH + gap;
   const items: SceneItem[] = new Array(n);
   for (let i = 0; i < n; i++) {
-    const col = i % columns;
+    const col = colAt(i % columns);
     const row = Math.floor(i / columns);
     const it: SceneItem = {
       index: i,
@@ -484,7 +530,8 @@ export function gridLayout(
       const out: SceneItem[] = [];
       for (let row = r0; row <= r1; row++)
         for (let col = c0; col <= c1; col++) {
-          const idx = row * columns + col;
+          // colAt is its own inverse: spatial column → reading-order column
+          const idx = row * columns + colAt(col);
           if (idx < n) out.push(items[idx]);
         }
       return out;
@@ -492,7 +539,7 @@ export function gridLayout(
     nearestItem(pt) {
       const col = clamp(Math.floor(pt.x / stepX), 0, columns - 1);
       const row = clamp(Math.floor(pt.y / stepY), 0, rows - 1);
-      return items[clamp(row * columns + col, 0, n - 1)];
+      return items[clamp(row * columns + colAt(col), 0, n - 1)];
     },
     itemOfPage(pi) {
       return clamp(upperBound(firstPage, pi) - 1, 0, n - 1);

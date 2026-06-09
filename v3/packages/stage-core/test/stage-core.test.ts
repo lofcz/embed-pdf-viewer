@@ -261,6 +261,61 @@ describe('sizing: uniform (cross-axis equalize)', () => {
   });
 });
 
+describe('direction: rtl (a layout property, not a navigation one)', () => {
+  const four = Array.from({ length: 4 }, () => ({ width: 600, height: 800 }));
+
+  it('horizontal rtl: page 1 sits at the RIGHT, items advance leftward', () => {
+    const scene = S.linearLayout(four, S.groupPages(4, 'none'), {
+      axis: 'x',
+      gap: GAP,
+      direction: 'rtl',
+    });
+    // item 0 is the rightmost, item 3 the leftmost
+    expect(scene.items[0].x).toBeCloseTo(scene.size.width - 600, 6);
+    expect(scene.items[3].x).toBeCloseTo(0, 6);
+    // the spatial index still works on the mirrored geometry
+    const found = scene.query({ x: 0, y: 0, width: 10, height: 800 });
+    expect(found.some((it) => it.index === 3)).toBe(true);
+    expect(scene.nearestItem({ x: scene.size.width - 5, y: 400 }).index).toBe(0);
+  });
+
+  it('vertical rtl: scroll axis unchanged, but SPREADS bind on the right', () => {
+    const scene = S.linearLayout(four, S.groupPages(4, 'odd'), {
+      axis: 'y',
+      gap: GAP,
+      direction: 'rtl',
+    });
+    expect(scene.items[0].y).toBe(0); // still top-down
+    const [p0, p1] = scene.items[0].pages;
+    // reading-first page (0) takes the RIGHT slot of the spread
+    expect(p0.pageIndex).toBe(0);
+    expect(p0.x).toBeGreaterThan(p1.x);
+  });
+
+  it('grid rtl: rows fill right→left, top→bottom; index lookups still O(1)', () => {
+    const scene = S.gridLayout(four, S.groupPages(4, 'none'), {
+      gap: 48,
+      columns: 2,
+      direction: 'rtl',
+    });
+    // row 0: item 0 right, item 1 left; row 1 below
+    expect(scene.items[0].x).toBeGreaterThan(scene.items[1].x);
+    expect(scene.items[2].y).toBeGreaterThan(scene.items[0].y);
+    expect(scene.items[2].x).toBeGreaterThan(scene.items[3].x);
+    // nearestItem maps spatial columns back to reading order
+    expect(scene.nearestItem({ x: scene.size.width - 5, y: 5 }).index).toBe(0);
+    expect(scene.nearestItem({ x: 5, y: 5 }).index).toBe(1);
+  });
+
+  it('placeCamera: align.x is LOGICAL — start lands at the RIGHT edge in rtl', () => {
+    const subject = { x: 0, y: 0, width: 1200, height: 1600 }; // overflows at zoom 1
+    const cam = S.placeCamera(subject, vp, 1, 24, { x: 'start', y: 'start' }, 'rtl');
+    // reading start = right edge: subject's right sits a padding in from viewport right
+    expect((subject.width - cam.x) * cam.zoom).toBeCloseTo(vp.width - 24, 6);
+    expect((0 - cam.y) * cam.zoom).toBeCloseTo(24, 6); // top unchanged
+  });
+});
+
 describe('groupPages', () => {
   it('groups by spread mode', () => {
     expect(S.groupPages(4, 'none')).toEqual([[0], [1], [2], [3]]);

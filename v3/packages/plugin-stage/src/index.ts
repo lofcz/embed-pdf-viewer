@@ -27,6 +27,7 @@ export type {
 export type {
   Align,
   Alignment,
+  Direction,
   SpreadMode,
   SizingMode,
   ZoomModeValue,

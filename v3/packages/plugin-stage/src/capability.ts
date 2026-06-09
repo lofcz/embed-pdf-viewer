@@ -88,10 +88,20 @@ export function createStageCapability(
     const st = ctx.getState();
     const pages = ctx.document()?.pages ?? [];
     return st.layout === 'grid'
-      ? S.gridLayout(pages, groups, { gap: st.gap, sizing: st.sizing })
+      ? S.gridLayout(pages, groups, { gap: st.gap, sizing: st.sizing, direction: st.direction })
       : st.layout === 'horizontal'
-        ? S.linearLayout(pages, groups, { axis: 'x', gap: st.gap, sizing: st.sizing })
-        : S.linearLayout(pages, groups, { axis: 'y', gap: st.gap, sizing: st.sizing });
+        ? S.linearLayout(pages, groups, {
+            axis: 'x',
+            gap: st.gap,
+            sizing: st.sizing,
+            direction: st.direction,
+          })
+        : S.linearLayout(pages, groups, {
+            axis: 'y',
+            gap: st.gap,
+            sizing: st.sizing,
+            direction: st.direction,
+          });
   };
 
   // Scene cache. Continuous = the whole document. Paged = a ONE-ITEM SLICE at the
@@ -104,13 +114,13 @@ export function createStageCapability(
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${idx}`;
+      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${st.direction}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
       return scene;
     }
-    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}`;
+    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}|${st.direction}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const scene = layoutFor(g);
     sceneCache = { key, scene };
@@ -282,7 +292,14 @@ export function createStageCapability(
         ? itemRect(item)
         : pageRectOf(item, target);
 
-    const camera = S.placeCamera(subject, vp(), zoom, pad(), ctx.getState().align);
+    const camera = S.placeCamera(
+      subject,
+      vp(),
+      zoom,
+      pad(),
+      ctx.getState().align,
+      ctx.getState().direction,
+    );
     const bounds = boundsFor(item);
     if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') animateTo(camera, bounds);
     else setCam(camera, bounds);
@@ -334,6 +351,7 @@ export function createStageCapability(
       bounded: s.bounded,
       padding: s.padding,
       gap: s.gap,
+      direction: s.direction,
       align: s.align,
       zoom: s.zoom,
       scrollBehavior: s.scrollBehavior,
@@ -381,6 +399,7 @@ export function createStageCapability(
     padding: () => ctx.getState().padding,
     gap: () => ctx.getState().gap,
     align: () => ctx.getState().align,
+    direction: () => ctx.getState().direction,
     scrollBehavior: () => ctx.getState().scrollBehavior,
     zoomLevel: () => cam().zoom,
     zoomMode: () => {
@@ -443,7 +462,8 @@ export function createStageCapability(
         patch.layout !== undefined ||
         patch.spread !== undefined ||
         patch.sizing !== undefined ||
-        patch.gap !== undefined;
+        patch.gap !== undefined ||
+        patch.direction !== undefined;
       if (structural) sceneCache = null;
       if (patch.flow !== undefined) {
         // flow toggled: re-place onto the cursor's page under the new flow's scene
@@ -464,6 +484,7 @@ export function createStageCapability(
     setPadding: (padding) => api.update({ padding }),
     setGap: (gap) => api.update({ gap }),
     setAlign: (align) => api.update({ align }),
+    setDirection: (direction) => api.update({ direction }),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
     applyViewState: (view) => {
       cancelAnim();
@@ -477,6 +498,7 @@ export function createStageCapability(
           bounded: view.bounded,
           padding: view.padding,
           gap: view.gap,
+          direction: view.direction,
           align: view.align,
           zoom: view.zoom,
           scrollBehavior: view.scrollBehavior,
