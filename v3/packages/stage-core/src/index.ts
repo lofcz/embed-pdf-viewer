@@ -166,15 +166,35 @@ export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstrai
   };
 };
 
+/** Per-axis arrival alignment: where attention lands on an OVERFLOWING axis. */
+export type Align = 'start' | 'center' | 'end';
+export interface Alignment {
+  x: Align;
+  y: Align;
+}
+
 /**
  * THE placement algorithm — used for every arrival (goToPage, next/prev, reset).
- * Aim the camera at the start of the subject (its top-left, a `padding` out), then
- * clamp INTO the subject. The clamp's fit-case turns that into "centered when it
- * fits, start-aligned when it overflows" — per axis, derived, no branches.
+ * The clamp defines the camera's legal travel range within the subject; alignment
+ * just picks a point in it: start = min, center = midpoint, end = max. On an axis
+ * where the subject FITS, min = mid = max (the locked center), so alignment
+ * automatically becomes irrelevant — "centered when it fits" stays derived, and
+ * alignment only resolves the freedom that overflow creates (top-left for LTR
+ * reading, top-right for RTL, center for drawings).
  */
-export function placeCamera(subject: Rect, vp: Size, zoom: number, padding = 0): Camera {
-  const aim: Camera = { x: subject.x - padding / zoom, y: subject.y - padding / zoom, zoom };
-  return clampCamera(aim, subject, vp, { bounded: true, padding });
+export function placeCamera(
+  subject: Rect,
+  vp: Size,
+  zoom: number,
+  padding = 0,
+  align: Alignment = { x: 'start', y: 'start' },
+): Camera {
+  const k: CameraConstraint = { bounded: true, padding };
+  const lo = clampCamera({ x: -Infinity, y: -Infinity, zoom }, subject, vp, k);
+  const hi = clampCamera({ x: Infinity, y: Infinity, zoom }, subject, vp, k);
+  const pick = (a: Align, min: number, max: number): number =>
+    a === 'start' ? min : a === 'end' ? max : (min + max) / 2;
+  return { zoom, x: pick(align.x, lo.x, hi.x), y: pick(align.y, lo.y, hi.y) };
 }
 
 // ── Zoom intent — resolved against a fit-box chosen by the caller: the document's

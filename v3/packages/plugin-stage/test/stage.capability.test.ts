@@ -455,6 +455,64 @@ describe('cursor is INTENT: a clamped camera never revokes navigation', () => {
   });
 });
 
+describe('align: arrival alignment on overflowing axes', () => {
+  it("RTL ({x:'end'}): zoomed-in navigation lands top-RIGHT", () => {
+    const { stage } = harness(PORTRAIT, { align: { x: 'end', y: 'start' }, zoom: { level: 2 } });
+    stage.goToPage(2, { behavior: 'instant' });
+    const box = stage.pageRect(3)!;
+    // page right edge sits a padding in from the viewport right edge; top a padding down
+    expect(stage.toScreen({ x: box.x + box.width, y: box.y }).x).toBeCloseTo(1000 - PAD, 0);
+    expect(stage.toScreen({ x: box.x, y: box.y }).y).toBeCloseTo(PAD, 0);
+  });
+
+  it('Drawboard ({center,center}): zoomed-in navigation centers the page', () => {
+    const { stage } = harness(PORTRAIT, {
+      align: { x: 'center', y: 'center' },
+      zoom: { level: 2 },
+      bounded: false, // construction feel — and proves placement needs no real clamp
+    });
+    stage.goToPage(2, { behavior: 'instant' });
+    const box = stage.pageRect(3)!;
+    const center = stage.toScreen({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    expect(center.x).toBeCloseTo(500, 0);
+    expect(center.y).toBeCloseTo(350, 0);
+  });
+
+  it('align is runtime-changeable and only affects the NEXT arrival', () => {
+    const { stage } = harness(PORTRAIT, { zoom: { level: 2 } });
+    stage.goToPage(1, { behavior: 'instant' });
+    const before = stage.camera();
+    stage.setAlign({ x: 'end', y: 'start' });
+    expect(stage.camera()).toEqual(before); // no camera jump on the setting change
+    stage.goToPage(2, { behavior: 'instant' });
+    const box = stage.pageRect(3)!;
+    expect(stage.toScreen({ x: box.x + box.width, y: box.y }).x).toBeCloseTo(1000 - PAD, 0);
+  });
+});
+
+describe('gap: one value between items, every layout', () => {
+  it('vertical layout: page 2 starts page-height + gap below page 1', () => {
+    const { stage } = harness(PORTRAIT, { gap: 40 });
+    expect(stage.pageRect(1)!.y).toBe(0);
+    expect(stage.pageRect(2)!.y).toBeCloseTo(800 + 40, 6);
+  });
+
+  it('grid layout uses the SAME gap (no hidden 56)', () => {
+    const { stage } = harness(PORTRAIT, { layout: 'grid', gap: 40 });
+    const a = stage.pageRect(1)!;
+    const b = stage.pageRect(2)!; // next column, same row
+    expect(b.x - (a.x + a.width)).toBeCloseTo(40, 6);
+  });
+
+  it('gap is structural: changing it reflows but keeps the current page', () => {
+    const { stage } = harness(PORTRAIT);
+    stage.goToPage(3, { behavior: 'instant' });
+    stage.setGap(64);
+    expect(stage.currentPage()).toBe(3);
+    expect(stage.pageRect(2)!.y).toBeCloseTo(800 + 64, 6); // scene rebuilt with the new gap
+  });
+});
+
 describe('viewpoint: per-page view memory (construction worksheets)', () => {
   it('goToPage with a saved viewpoint restores the exact camera', () => {
     const { stage } = harness(PORTRAIT, { flow: 'paged' });

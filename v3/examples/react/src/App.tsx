@@ -52,6 +52,8 @@ const PRESETS: Record<string, Partial<StageSettings>> = {
     layout: 'vertical',
     bounded: true,
     padding: 24,
+    gap: 16,
+    align: { x: 'start', y: 'start' }, // LTR reading: arrive top-left
     zoom: { mode: 'automatic' },
   },
   // Construction: every sheet in view on an infinite canvas, then zoom in to work.
@@ -60,8 +62,18 @@ const PRESETS: Record<string, Partial<StageSettings>> = {
     layout: 'grid',
     bounded: false,
     padding: 24,
+    gap: 56, // sheets spread out on a table
+    align: { x: 'center', y: 'center' }, // drawings: arrive centered (Drawboard feel)
     zoom: { mode: 'fit-all' },
   },
+};
+
+// Arrival alignment, expressed as the combos a UI actually offers. The plugin keeps
+// the orthogonal per-axis primitive; naming the useful pairs is the app's concern.
+const ALIGNMENTS: Record<string, StageSettings['align']> = {
+  'top-left': { x: 'start', y: 'start' }, // LTR reading
+  'top-right': { x: 'end', y: 'start' }, // RTL reading
+  center: { x: 'center', y: 'center' }, // drawings
 };
 
 // ── drag payloads: a tab (document) or a whole pane (view) ───────────────────
@@ -215,6 +227,36 @@ function Toolbar() {
           style={{ width: 48 }}
         />
       </label>
+      <label
+        style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}
+        title="space between pages (world units) — one value for every layout"
+      >
+        gap
+        <input
+          type="number"
+          min={0}
+          max={200}
+          step={4}
+          value={settings.gap}
+          onChange={(e) => update({ gap: Math.max(0, Number(e.target.value) || 0) })}
+          style={{ width: 48 }}
+        />
+      </label>
+      <select
+        value={
+          Object.keys(ALIGNMENTS).find(
+            (k) => ALIGNMENTS[k].x === settings.align.x && ALIGNMENTS[k].y === settings.align.y,
+          ) ?? 'top-left'
+        }
+        onChange={(e) => update({ align: ALIGNMENTS[e.target.value] })}
+        title="arrival alignment when the page overflows: top-left (LTR), top-right (RTL), center (drawings)"
+      >
+        {Object.keys(ALIGNMENTS).map((k) => (
+          <option key={k} value={k}>
+            {k}
+          </option>
+        ))}
+      </select>
       {/* App-defined presets — just objects passed to update(). Not the plugin's concern. */}
       <span style={{ marginLeft: 'auto', width: 1, height: 18, background: '#ddd' }} />
       {Object.keys(PRESETS).map((name) => (

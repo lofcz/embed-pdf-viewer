@@ -293,6 +293,9 @@ export function useStageSettings() {
       a.sizing === b.sizing &&
       a.bounded === b.bounded &&
       a.padding === b.padding &&
+      a.gap === b.gap &&
+      a.align.x === b.align.x &&
+      a.align.y === b.align.y &&
       a.scrollBehavior === b.scrollBehavior &&
       a.zoom === b.zoom,
   );

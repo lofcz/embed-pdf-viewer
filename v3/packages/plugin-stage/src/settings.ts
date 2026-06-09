@@ -1,9 +1,6 @@
 import { ZoomMode } from '@embedpdf-x/stage-core';
 import type { StageSettings } from './types';
 
-/** World units between pages (and between the two halves of a spread). */
-export const GAP = 16;
-
 /**
  * Out-of-the-box defaults — a sensible document-reading feel. They are JUST
  * defaults: every field is overridable in `stagePlugin(config)` and at runtime via
@@ -18,6 +15,8 @@ export const DEFAULT_SETTINGS: StageSettings = {
   sizing: 'intrinsic',
   bounded: true,
   padding: 24,
+  gap: 16,
+  align: { x: 'start', y: 'start' },
   zoom: { mode: ZoomMode.Automatic },
   scrollBehavior: 'smooth',
 };

@@ -68,6 +68,32 @@ describe('placeCamera — THE placement algorithm', () => {
     expect((scene.items[1].x + 300 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
     expect((scene.items[1].y + 400 - cam.y) * cam.zoom).toBeCloseTo(vp.height / 2, 6);
   });
+
+  it("alignment picks a point in the clamp range: 'end' = top-right (RTL)", () => {
+    // zoom 2: page 1200x1600 overflows both axes
+    const r = rect(1);
+    const cam = S.placeCamera(r, vp, 2, 24, { x: 'end', y: 'start' });
+    // right edge of the page sits a padding in from the viewport's right edge
+    expect((r.x + r.width - cam.x) * cam.zoom).toBeCloseTo(vp.width - 24, 6);
+    // top edge a padding down (reading starts at the top)
+    expect((r.y - cam.y) * cam.zoom).toBeCloseTo(24, 6);
+  });
+
+  it("alignment 'center' centers an overflowing page (Drawboard feel)", () => {
+    const r = rect(1);
+    const cam = S.placeCamera(r, vp, 2, 24, { x: 'center', y: 'center' });
+    expect((r.x + r.width / 2 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
+    expect((r.y + r.height / 2 - cam.y) * cam.zoom).toBeCloseTo(vp.height / 2, 6);
+  });
+
+  it('alignment is irrelevant when the axis FITS (min = mid = max)', () => {
+    const r = rect(1);
+    const a = S.placeCamera(r, vp, 0.5, 24, { x: 'start', y: 'start' });
+    const b = S.placeCamera(r, vp, 0.5, 24, { x: 'end', y: 'end' });
+    const c = S.placeCamera(r, vp, 0.5, 24, { x: 'center', y: 'center' });
+    expect(a).toEqual(b);
+    expect(b).toEqual(c);
+  });
 });
 
 describe('zoomAround', () => {

@@ -1,6 +1,7 @@
 import { createCapabilityToken } from '@embedpdf-x/kernel';
 import type { PageObjectNumber } from '@embedpdf-x/kernel';
 import type {
+  Alignment,
   Anchor,
   Camera,
   PageBox,
@@ -44,6 +45,14 @@ export interface StageSettings {
    * camera reveal exactly this much beyond each content edge.
    */
   padding: number;
+  /** Space (world units) BETWEEN items — and between the halves of a spread. */
+  gap: number;
+  /**
+   * Arrival alignment per axis: where attention lands when the target OVERFLOWS
+   * (fits → always centered, derived). start/start = LTR reading (top-left),
+   * end/start = RTL reading (top-right), center/center = drawings (Drawboard feel).
+   */
+  align: Alignment;
   /** Zoom intent: a fit-mode (automatic/fit-page/fit-width/fit-all) or a fixed level. */
   zoom: ZoomSpec;
   /** Default behaviour for goToPage/next/prev. */
@@ -133,6 +142,8 @@ export interface StageCapability {
   sizing(): SizingMode;
   bounded(): boolean;
   padding(): number;
+  gap(): number;
+  align(): Alignment;
   scrollBehavior(): ScrollBehaviorKind;
   zoomLevel(): number;
   /** The active zoom intent: a fit-mode, or 'custom' for a fixed level. */
@@ -172,6 +183,8 @@ export interface StageCapability {
   setSizing(sizing: SizingMode): void;
   setBounded(bounded: boolean): void;
   setPadding(padding: number): void;
+  setGap(gap: number): void;
+  setAlign(align: Alignment): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;
   applyViewState(view: StageViewState): void;
   /** Offer a candidate initial view; the highest-priority non-null wins at placement. */

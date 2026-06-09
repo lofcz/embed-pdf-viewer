@@ -24,4 +24,11 @@ export type {
   VisiblePage,
 } from './types';
 // Re-export the view-vocabulary types the shell needs (spread modes, sizing, zoom, …).
-export type { SpreadMode, SizingMode, ZoomModeValue, ZoomSpec } from '@embedpdf-x/stage-core';
+export type {
+  Align,
+  Alignment,
+  SpreadMode,
+  SizingMode,
+  ZoomModeValue,
+  ZoomSpec,
+} from '@embedpdf-x/stage-core';

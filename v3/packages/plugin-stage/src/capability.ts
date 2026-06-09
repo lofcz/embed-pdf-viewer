@@ -1,6 +1,5 @@
 import * as S from '@embedpdf-x/stage-core';
 import type { PluginContext } from '@embedpdf-x/kernel';
-import { GAP } from './settings';
 import type {
   GoToOptions,
   Scheduler,
@@ -89,10 +88,10 @@ export function createStageCapability(
     const st = ctx.getState();
     const pages = ctx.document()?.pages ?? [];
     return st.layout === 'grid'
-      ? S.gridLayout(pages, groups, { gap: 56, sizing: st.sizing })
+      ? S.gridLayout(pages, groups, { gap: st.gap, sizing: st.sizing })
       : st.layout === 'horizontal'
-        ? S.linearLayout(pages, groups, { axis: 'x', gap: GAP, sizing: st.sizing })
-        : S.linearLayout(pages, groups, { axis: 'y', gap: GAP, sizing: st.sizing });
+        ? S.linearLayout(pages, groups, { axis: 'x', gap: st.gap, sizing: st.sizing })
+        : S.linearLayout(pages, groups, { axis: 'y', gap: st.gap, sizing: st.sizing });
   };
 
   // Scene cache. Continuous = the whole document. Paged = a ONE-ITEM SLICE at the
@@ -105,13 +104,13 @@ export function createStageCapability(
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${idx}`;
+      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
       return scene;
     }
-    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}`;
+    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const scene = layoutFor(g);
     sceneCache = { key, scene };
@@ -283,7 +282,7 @@ export function createStageCapability(
         ? itemRect(item)
         : pageRectOf(item, target);
 
-    const camera = S.placeCamera(subject, vp(), zoom, pad());
+    const camera = S.placeCamera(subject, vp(), zoom, pad(), ctx.getState().align);
     const bounds = boundsFor(item);
     if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') animateTo(camera, bounds);
     else setCam(camera, bounds);
@@ -334,6 +333,8 @@ export function createStageCapability(
       sizing: s.sizing,
       bounded: s.bounded,
       padding: s.padding,
+      gap: s.gap,
+      align: s.align,
       zoom: s.zoom,
       scrollBehavior: s.scrollBehavior,
     };
@@ -378,6 +379,8 @@ export function createStageCapability(
     sizing: () => ctx.getState().sizing,
     bounded: () => ctx.getState().bounded,
     padding: () => ctx.getState().padding,
+    gap: () => ctx.getState().gap,
+    align: () => ctx.getState().align,
     scrollBehavior: () => ctx.getState().scrollBehavior,
     zoomLevel: () => cam().zoom,
     zoomMode: () => {
@@ -437,7 +440,10 @@ export function createStageCapability(
       const anchor = currentAnchor(); // capture (page-durable) against the current scene
       ctx.dispatch({ type: 'PATCH', patch });
       const structural =
-        patch.layout !== undefined || patch.spread !== undefined || patch.sizing !== undefined;
+        patch.layout !== undefined ||
+        patch.spread !== undefined ||
+        patch.sizing !== undefined ||
+        patch.gap !== undefined;
       if (structural) sceneCache = null;
       if (patch.flow !== undefined) {
         // flow toggled: re-place onto the cursor's page under the new flow's scene
@@ -456,6 +462,8 @@ export function createStageCapability(
     setSizing: (sizing) => api.update({ sizing }),
     setBounded: (bounded) => api.update({ bounded }),
     setPadding: (padding) => api.update({ padding }),
+    setGap: (gap) => api.update({ gap }),
+    setAlign: (align) => api.update({ align }),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
     applyViewState: (view) => {
       cancelAnim();
@@ -468,6 +476,8 @@ export function createStageCapability(
           sizing: view.sizing,
           bounded: view.bounded,
           padding: view.padding,
+          gap: view.gap,
+          align: view.align,
           zoom: view.zoom,
           scrollBehavior: view.scrollBehavior,
         },
