@@ -70,10 +70,14 @@ export interface Scene {
   nearestItem(pt: Point): SceneItem;
   itemOfPage(pageIndex: number): number;
 }
-export type Overscroll = number | 'center';
 export interface CameraConstraint {
   bounded: boolean;
-  overscroll: { x: Overscroll; y: Overscroll };
+  /**
+   * Breathing room (screen px) around the content — the ONE spacing concept.
+   * Fit-modes inset by it, placement leaves it as gutter, and the clamp lets the
+   * camera reveal exactly this much beyond each content edge.
+   */
+  padding: number;
 }
 export type ZoomSpec = { mode: ZoomModeValue } | { level: number };
 export interface Anchor {
@@ -97,6 +101,8 @@ export const ZoomMode = {
   Automatic: 'automatic',
   FitPage: 'fit-page',
   FitWidth: 'fit-width',
+  /** Fit the WHOLE scene (every page) in view — the construction overview. */
+  FitAll: 'fit-all',
 } as const;
 export type ZoomModeValue = (typeof ZoomMode)[keyof typeof ZoomMode];
 
@@ -140,74 +146,48 @@ export const centerOnWorld = (worldPt: Point, vp: Size, zoom: number): Camera =>
 });
 
 /**
- * Bounds — the one place travel limits live (see CameraConstraint). Clamps the
- * camera into an arbitrary world `Rect`: the whole document in continuous flow, or a
- * single item's rect in paged flow. The fit-case centers *within* the rect (around
- * `bounds.x / bounds.y`), not around the world origin.
+ * Bounds — the one place travel limits live. Clamps the camera into an arbitrary
+ * world `Rect` (the whole document in continuous flow, one item in paged flow),
+ * with a `padding` gutter the camera may reveal beyond each content edge.
+ * Per axis: if the padded content fits the viewport it is CENTERED & locked;
+ * otherwise the camera travels freely between the padded edges.
  */
 export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstraint): Camera => {
   if (!k.bounded) return c;
-  const axis = (
-    pos: number,
-    origin: number,
-    content: number,
-    view: number,
-    os: Overscroll,
-  ): number => {
-    if (content * c.zoom <= view) return origin + (content - view / c.zoom) / 2; // fits: centre within bounds & lock
-    const o = os === 'center' ? view / 2 : os;
-    return clamp(pos, origin - o / c.zoom, origin + content - (view - o) / c.zoom);
+  const p = k.padding;
+  const axis = (pos: number, origin: number, content: number, view: number): number => {
+    if (content * c.zoom <= view - 2 * p) return origin + (content - view / c.zoom) / 2; // fits: centre & lock
+    return clamp(pos, origin - p / c.zoom, origin + content - (view - p) / c.zoom);
   };
   return {
     zoom: c.zoom,
-    x: axis(c.x, bounds.x, bounds.width, vp.width, k.overscroll.x),
-    y: axis(c.y, bounds.y, bounds.height, vp.height, k.overscroll.y),
+    x: axis(c.x, bounds.x, bounds.width, vp.width),
+    y: axis(c.y, bounds.y, bounds.height, vp.height),
   };
 };
 
 /**
- * Camera that places one item in the viewport.
- *   'start'  — item's leading edge at the start of the scroll axis (top for vertical,
- *              left for horizontal) with a screen-px margin; the cross axis is centred.
- *              This is "scroll to the top of the page", the conventional viewer feel.
- *   'center' — item centred in the viewport (canvas feel).
+ * THE placement algorithm — used for every arrival (goToPage, next/prev, reset).
+ * Aim the camera at the start of the subject (its top-left, a `padding` out), then
+ * clamp INTO the subject. The clamp's fit-case turns that into "centered when it
+ * fits, start-aligned when it overflows" — per axis, derived, no branches.
  */
-export function itemCamera(
-  item: SceneItem,
-  scene: Scene,
-  vp: Size,
-  zoom: number,
-  opts: { align: 'start' | 'center'; margin?: number },
-): Camera {
-  const cam = centerOnWorld({ x: item.x + item.width / 2, y: item.y + item.height / 2 }, vp, zoom);
-  if (opts.align === 'start') {
-    const m = (opts.margin ?? 0) / zoom;
-    if (scene.axis === 'x') cam.x = item.x - m;
-    else cam.y = item.y - m;
-  }
-  return cam;
+export function placeCamera(subject: Rect, vp: Size, zoom: number, padding = 0): Camera {
+  const aim: Camera = { x: subject.x - padding / zoom, y: subject.y - padding / zoom, zoom };
+  return clampCamera(aim, subject, vp, { bounded: true, padding });
 }
 
-/** Initial / reset placement — the first item, per the home alignment. */
-export function homeCamera(
-  scene: Scene,
-  vp: Size,
-  zoom: number,
-  opts: { home: 'start' | 'center'; margin?: number },
-): Camera {
-  return itemCamera(scene.items[0], scene, vp, zoom, { align: opts.home, margin: opts.margin });
-}
-
-// ── Zoom intent — resolved against a fit-box (the document's max item size), so the
-//    zoom is stable across pages/layouts and no page overflows. ──────────────────
-export function resolveZoom(spec: ZoomSpec, box: Size, vp: Size, gap = 0): number {
+// ── Zoom intent — resolved against a fit-box chosen by the caller: the document's
+//    max item (continuous), the current item (paged), or the whole scene (fit-all). ─
+export function resolveZoom(spec: ZoomSpec, box: Size, vp: Size, padding = 0): number {
   if ('level' in spec) return clamp(spec.level, ZOOM_MIN, ZOOM_MAX);
-  const fitW = Math.max(1, vp.width - 2 * gap) / box.width;
-  const fitH = Math.max(1, vp.height - 2 * gap) / box.height;
+  const fitW = Math.max(1, vp.width - 2 * padding) / box.width;
+  const fitH = Math.max(1, vp.height - 2 * padding) / box.height;
   switch (spec.mode) {
     case ZoomMode.FitWidth:
       return clamp(fitW, ZOOM_MIN, ZOOM_MAX);
     case ZoomMode.FitPage:
+    case ZoomMode.FitAll: // same fit math; the caller passes the whole-scene box
       return clamp(Math.min(fitW, fitH), ZOOM_MIN, ZOOM_MAX);
     case ZoomMode.Automatic:
     default:

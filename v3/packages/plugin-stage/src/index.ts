@@ -11,8 +11,8 @@ export { DEFAULT_SETTINGS } from './settings';
 export type {
   FlowMode,
   LayoutKind,
-  HomeKind,
   ScrollBehaviorKind,
+  GoToOptions,
   StageSettings,
   StageState,
   StageAction,
@@ -20,13 +20,8 @@ export type {
   StageCapability,
   StageConfig,
   Scheduler,
+  Viewpoint,
   VisiblePage,
 } from './types';
 // Re-export the view-vocabulary types the shell needs (spread modes, sizing, zoom, …).
-export type {
-  SpreadMode,
-  SizingMode,
-  ZoomModeValue,
-  Overscroll,
-  ZoomSpec,
-} from '@embedpdf-x/stage-core';
+export type { SpreadMode, SizingMode, ZoomModeValue, ZoomSpec } from '@embedpdf-x/stage-core';

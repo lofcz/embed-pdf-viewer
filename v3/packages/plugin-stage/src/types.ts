@@ -3,7 +3,6 @@ import type { PageObjectNumber } from '@embedpdf-x/kernel';
 import type {
   Anchor,
   Camera,
-  Overscroll,
   PageBox,
   Point,
   Size,
@@ -14,14 +13,13 @@ import type {
 } from '@embedpdf-x/stage-core';
 
 export type LayoutKind = 'vertical' | 'horizontal' | 'grid';
-export type HomeKind = 'start' | 'center';
 /** Navigation (goToPage) either tweens the camera or jumps instantly. */
 export type ScrollBehaviorKind = 'smooth' | 'instant';
 /**
  * Presentation flow:
  *   'continuous' — the whole document is scrollable; the camera roams the full scene.
- *   'paged'      — one item (page or spread) at a time; the camera is clamped to it
- *                  and next/prev step between items. Same scene, smaller clamp rect.
+ *   'paged'      — one item (page or spread) at a time: the scene is a one-item
+ *                  slice at the cursor, and next/prev step between items.
  */
 export type FlowMode = 'continuous' | 'paged';
 
@@ -40,15 +38,15 @@ export interface StageSettings {
   sizing: SizingMode;
   /** Clamp the camera to the content? Off = free infinite pan (plans / CAD). */
   bounded: boolean;
-  /** How far past the edge the viewport centre may travel (px, or 'center'). */
-  overscroll: Overscroll;
-  /** Initial/reset placement: page at the start of the axis, or centred. */
-  home: HomeKind;
-  /** Start-margin (px) used by home placement. */
-  margin: number;
-  /** Zoom intent: a fit-mode or a fixed level. */
+  /**
+   * Breathing room (screen px) around the content — the one spacing concept.
+   * Fit-modes inset by it, arrivals leave it as a gutter, and the clamp lets the
+   * camera reveal exactly this much beyond each content edge.
+   */
+  padding: number;
+  /** Zoom intent: a fit-mode (automatic/fit-page/fit-width/fit-all) or a fixed level. */
   zoom: ZoomSpec;
-  /** Default behaviour for goToPage. */
+  /** Default behaviour for goToPage/next/prev. */
   scrollBehavior: ScrollBehaviorKind;
 }
 
@@ -61,9 +59,9 @@ export interface StageState extends StageSettings {
   camera: Camera;
   vp: Size;
   /**
-   * Paged cursor: the page the pager is "on". Transient like `camera` (NOT a
-   * setting). In paged flow the scene is a one-item slice at this page; navigation
-   * is the only thing that moves it — panning never does. Ignored in continuous.
+   * The current page — transient like `camera` (NOT a setting), valid in BOTH flows.
+   * Navigation sets it; in continuous flow scrolling syncs it from the camera; in
+   * paged flow panning never moves it (the scene is a one-item slice at this page).
    * Stored as a page index so it survives spread/layout regrouping.
    */
   cursor: number;
@@ -74,6 +72,17 @@ export type StageAction =
   | { type: 'VP'; vp: Size }
   | { type: 'CURSOR'; cursor: number }
   | { type: 'PATCH'; patch: Partial<StageSettings> };
+
+/**
+ * A page-relative view memento: "what I'm looking at and how zoomed". The durable
+ * currency for per-page view memory (construction worksheets) — capture with
+ * `viewpoint()`, restore with `goToPage(i, { viewpoint })`. Survives resizes
+ * because the anchor is page-relative and fit-modes re-resolve.
+ */
+export interface Viewpoint {
+  anchor: Anchor;
+  zoom: ZoomSpec;
+}
 
 /** Durable, serializable view state — the unit of session persistence. */
 export interface StageViewState extends StageSettings {
@@ -94,6 +103,13 @@ export interface Scheduler {
   caf(handle: number): void;
 }
 
+/** Options for navigation intents. */
+export interface GoToOptions {
+  behavior?: ScrollBehaviorKind;
+  /** Restore this exact viewpoint instead of fresh placement (per-page memory). */
+  viewpoint?: Viewpoint;
+}
+
 /** The Stage's public contract: selectors (reads) + intents (the only writers). */
 export interface StageCapability {
   // ── selectors ──
@@ -101,7 +117,7 @@ export interface StageCapability {
   viewport(): Size;
   pageCount(): number;
   visiblePages(): VisiblePage[];
-  /** Current page's *display index* (for "page N of M") — the focal page. */
+  /** The current page (the cursor) — valid in both flows. */
   currentPage(): number;
   /** The display indices of the current item's pages (1 page, or a spread's pages). */
   currentItemPages(): number[];
@@ -116,13 +132,13 @@ export interface StageCapability {
   spread(): SpreadMode;
   sizing(): SizingMode;
   bounded(): boolean;
-  overscroll(): Overscroll;
-  home(): HomeKind;
-  margin(): number;
+  padding(): number;
   scrollBehavior(): ScrollBehaviorKind;
   zoomLevel(): number;
   /** The active zoom intent: a fit-mode, or 'custom' for a fixed level. */
   zoomMode(): ZoomModeValue | 'custom';
+  /** What I'm looking at + zoom intent — capture for per-page view memory. */
+  viewpoint(): Viewpoint;
   /** A snapshot of all settings (handy for building/saving a customer preset). */
   settings(): StageSettings;
   viewState(): StageViewState;
@@ -137,13 +153,16 @@ export interface StageCapability {
   zoomTo(spec: ZoomSpec): void;
   fitWidth(): void;
   fitPage(): void;
+  /** Fit the whole scene (every page) in view — the construction overview. */
+  fitAll(): void;
   /** Fit width but never upscale past 100% (Adobe's "Automatic"). */
   automatic(): void;
-  goToPage(pageIndex: number, opts?: { behavior?: ScrollBehaviorKind }): void;
-  /** Step to the next item (page or spread). Scrolls in continuous, snaps in paged. */
-  next(opts?: { behavior?: ScrollBehaviorKind }): void;
-  /** Step to the previous item. */
-  prev(opts?: { behavior?: ScrollBehaviorKind }): void;
+  /** Go to a page. Fresh arrival places by the unit rule; pass `viewpoint` to restore. */
+  goToPage(pageIndex: number, opts?: GoToOptions): void;
+  /** Step forward by the navigation unit (the item if it fits the viewport, else the page). */
+  next(opts?: GoToOptions): void;
+  /** Step backward by the navigation unit. */
+  prev(opts?: GoToOptions): void;
   /** Set any subset of settings at once — ONE anchor-preserving update. The way to
    *  apply a customer preset: `update(myPreset)`. */
   update(patch: Partial<StageSettings>): void;
@@ -152,16 +171,14 @@ export interface StageCapability {
   setSpread(spread: SpreadMode): void;
   setSizing(sizing: SizingMode): void;
   setBounded(bounded: boolean): void;
-  setOverscroll(overscroll: Overscroll): void;
-  setHome(home: HomeKind): void;
-  setMargin(margin: number): void;
+  setPadding(padding: number): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;
   applyViewState(view: StageViewState): void;
   /** Offer a candidate initial view; the highest-priority non-null wins at placement. */
   provideInitialView(priority: number, provider: () => StageViewState | null): void;
   /** Resolve the registered providers once (else reset). Called when the viewport is ready. */
   placeInitial(): void;
-  /** Re-place the first page at home (the current `home`/`margin`/`zoom`). */
+  /** Back to the start: page 0, placed by the unit rule at the current zoom intent. */
   resetView(): void;
 }
 

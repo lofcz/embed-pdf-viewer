@@ -2,14 +2,15 @@ import * as S from '@embedpdf-x/stage-core';
 import type { PluginContext } from '@embedpdf-x/kernel';
 import { GAP } from './settings';
 import type {
+  GoToOptions,
   Scheduler,
-  ScrollBehaviorKind,
   StageAction,
   StageCapability,
   StageConfig,
   StageSettings,
   StageState,
   StageViewState,
+  Viewpoint,
   VisiblePage,
 } from './types';
 
@@ -22,8 +23,16 @@ import type {
  *     the camera tween. It is NOT pure; the one host dependency it has (frame
  *     timing) enters through an injected Scheduler, never a hidden global.
  *
- * Every transition (layout / spread / zoom / bounds / resize) keeps the user looking
- * at the SAME page by capturing an Anchor and re-applying it.
+ * The model rests on one geometric question — "does it fit the viewport?":
+ *   • centering: an arrival is centered when its subject fits, start-aligned when
+ *     it overflows (the clamp's fit-case — see stage-core placeCamera).
+ *   • step size: next/prev step by ITEM (spread) when the item fits, by PAGE when
+ *     zoomed in past it.
+ *   • subject:   you arrive AT the unit that fits (item, page — or the whole scene
+ *     under fit-all).
+ *
+ * The `cursor` is THE current page in both flows: navigation sets it; continuous
+ * scrolling syncs it from the camera; paged panning never moves it.
  */
 export function createStageCapability(
   ctx: PluginContext<StageState, StageAction>,
@@ -39,15 +48,20 @@ export function createStageCapability(
     config.scheduler ??
     (typeof host.requestAnimationFrame === 'function'
       ? { raf: (cb) => host.requestAnimationFrame!(cb), caf: (h) => host.cancelAnimationFrame!(h) }
-      : { raf: () => 0, caf: () => {} }); // no host frames → goToPage jumps instantly
+      : { raf: () => 0, caf: () => {} }); // no host frames → navigation jumps instantly
 
   const cam = () => ctx.getState().camera;
   const vp = () => ctx.getState().vp;
+  const pad = () => ctx.getState().padding;
   const paged = () => ctx.getState().flow === 'paged';
+  const isFitAll = () => {
+    const z = ctx.getState().zoom;
+    return 'mode' in z && z.mode === S.ZoomMode.FitAll;
+  };
 
   // ── the document's item model (spread grouping) — independent of the rendered
-  //    scene, so paged navigation can reason about ALL items while the SCENE holds
-  //    only one. Cursor is a page; itemIndexOfPage maps it (survives regrouping). ──
+  //    scene, so navigation can reason about ALL items while a paged SCENE holds
+  //    only one. The cursor is a page; itemIndexOfPage maps it (survives regrouping).
   let groupingCache: { key: string; grouping: number[][]; firstPages: number[] } | null = null;
   const grouping = (): { grouping: number[][]; firstPages: number[] } => {
     const doc = ctx.document();
@@ -91,7 +105,7 @@ export function createStageCapability(
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${st.layout}|${st.sizing}|${idx}`;
+      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
@@ -104,26 +118,7 @@ export function createStageCapability(
     return scene;
   };
 
-  // Bounds + overscroll are explicit settings; overscroll applies only on the scroll
-  // axis (both for grid). Paged forces overscroll 0 so a single page's edge is crisp.
-  const constraint = (): S.CameraConstraint => {
-    const st = ctx.getState();
-    if (!st.bounded) return { bounded: false, overscroll: { x: 0, y: 0 } };
-    if (st.flow === 'paged') return { bounded: true, overscroll: { x: 0, y: 0 } };
-    const axis = buildScene().axis;
-    return {
-      bounded: true,
-      overscroll: {
-        x: axis === 'x' || axis === 'grid' ? st.overscroll : 0,
-        y: axis === 'y' || axis === 'grid' ? st.overscroll : 0,
-      },
-    };
-  };
-
-  // ── continuous ↔ paged parameterizations ────────────────────────────────────
-  // Paged shrinks the clamp rect and fit-box to the current item. In paged the scene
-  // IS one item, so `currentItem` is just `items[0]` (which page it is comes from the
-  // cursor, set only by navigation). In continuous it's derived from the camera.
+  // ── geometry helpers ──────────────────────────────────────────────────────────
   const sceneRect = (): S.Rect => {
     const { width, height } = buildScene().size;
     return { x: 0, y: 0, width, height };
@@ -134,36 +129,64 @@ export function createStageCapability(
     width: it.width,
     height: it.height,
   });
-  const currentItem = (): S.SceneItem => {
-    const sc = buildScene();
-    return paged()
-      ? sc.items[0]
-      : sc.nearestItem(S.toWorld(cam(), { x: vp().width / 2, y: vp().height / 2 }));
+  const pageRectOf = (it: S.SceneItem, pageIndex: number): S.Rect => {
+    const box = it.pages.find((p) => p.pageIndex === pageIndex) ?? it.pages[0];
+    return { x: box.x, y: box.y, width: box.width, height: box.height };
   };
-  /** Index of the current item in the FULL document (paged ← cursor; continuous ← camera). */
-  const currentFullItemIndex = (): number => {
-    if (paged()) return itemIndexOfPage(ctx.getState().cursor);
+  /** The item shown for the cursor: the slice's only item (paged) / the full-scene item. */
+  const cursorItem = (): S.SceneItem => {
     const sc = buildScene();
-    return sc.itemCount
-      ? sc.nearestItem(S.toWorld(cam(), { x: vp().width / 2, y: vp().height / 2 })).index
-      : 0;
+    return paged() ? sc.items[0] : sc.items[itemIndexOfPage(ctx.getState().cursor)];
   };
-  /** Clamp rect for a camera write that TARGETS this item (scene-wide in continuous). */
-  const boundsFor = (it: S.SceneItem): S.Rect => (paged() ? itemRect(it) : sceneRect());
-  /** Fit-box for resolving zoom when targeting this item (doc-max in continuous). */
-  const fitFor = (it: S.SceneItem): S.Size =>
-    paged() ? { width: it.width, height: it.height } : buildScene().maxItemSize;
-  /** Clamp rect for a "stay" write (pan/zoom): the item the camera is currently on. */
-  const stayBounds = (): S.Rect => (paged() ? itemRect(currentItem()) : sceneRect());
 
-  // The ONE low-level camera write: clamp to `bounds`, then dispatch. Every write
-  // NAMES its target item's rect — "stay" ops default to the current item, repositions
-  // pass their explicit target — so clamp/fit are always derived, never stale.
-  const setCam = (next: S.Camera, bounds: S.Rect = stayBounds()) =>
-    ctx.dispatch({
-      type: 'CAMERA',
-      camera: S.clampCamera(next, bounds, vp(), constraint()),
-    });
+  // THE predicate. "Does this rect fit the padded viewport at this zoom?" decides
+  // centering (via the clamp), the navigation step size, and the arrival subject.
+  const fits = (rect: S.Rect, zoom: number): boolean => {
+    const v = vp();
+    const p = pad();
+    const eps = 0.5;
+    return (
+      rect.width * zoom <= v.width - 2 * p + eps && rect.height * zoom <= v.height - 2 * p + eps
+    );
+  };
+  /** Is the rect entirely on screen right now? (reveal-if-needed) */
+  const fullyVisible = (rect: S.Rect): boolean => {
+    const c = cam();
+    const v = vp();
+    const eps = 0.5;
+    const tl = S.toScreen(c, { x: rect.x, y: rect.y });
+    const br = S.toScreen(c, { x: rect.x + rect.width, y: rect.y + rect.height });
+    return tl.x >= -eps && tl.y >= -eps && br.x <= v.width + eps && br.y <= v.height + eps;
+  };
+
+  /** Fit-box for resolving the zoom intent: whole scene (fit-all), the current item
+   *  (paged — per-page fit), or the document max (continuous — doc-stable zoom). */
+  const fitBox = (item: S.SceneItem): S.Size => {
+    if (isFitAll()) return buildScene().size;
+    return paged() ? { width: item.width, height: item.height } : buildScene().maxItemSize;
+  };
+  /** Clamp rect for a camera write targeting this item (scene-wide in continuous). */
+  const boundsFor = (it: S.SceneItem): S.Rect => (paged() ? itemRect(it) : sceneRect());
+  /** Clamp rect for a "stay" write (pan/zoom): the slice item (paged) / the scene. */
+  const stayBounds = (): S.Rect => (paged() ? itemRect(buildScene().items[0]) : sceneRect());
+
+  const constraint = (): S.CameraConstraint => ({
+    bounded: ctx.getState().bounded,
+    padding: pad(),
+  });
+
+  // The ONE low-level camera write: clamp to `bounds`, dispatch, and (continuous
+  // only) sync the cursor from the camera so the page indicator follows scrolling.
+  const setCam = (next: S.Camera, bounds: S.Rect = stayBounds()) => {
+    ctx.dispatch({ type: 'CAMERA', camera: S.clampCamera(next, bounds, vp(), constraint()) });
+    if (!paged()) {
+      const sc = buildScene();
+      if (sc.itemCount) {
+        const page = S.anchorFromCamera(cam(), sc, vp()).pageIndex;
+        if (page !== ctx.getState().cursor) ctx.dispatch({ type: 'CURSOR', cursor: page });
+      }
+    }
+  };
 
   // ── camera tween (impure shell concern; uses the injected Scheduler) ─────────
   let raf = 0;
@@ -202,42 +225,86 @@ export function createStageCapability(
     raf = scheduler.raf(tick);
   };
 
-  // ── anchor: the durable "what am I looking at". Capture before any change,
-  //    re-apply after — one mechanism for layout/spread/zoom/resize/restore.
-  //    fit-box and clamp rect come from the ANCHOR's item (correct whether we're
-  //    staying on the current page or restoring a saved, different one). ──────────
-  const currentAnchor = (): S.Anchor => S.anchorFromCamera(cam(), buildScene(), vp());
+  // ── anchor: the durable "what am I looking at". Capture before a structural
+  //    change, re-apply after — one mechanism for layout/spread/zoom/resize/restore.
+  const currentAnchor = (): S.Anchor => {
+    const sc = buildScene();
+    return sc.itemCount
+      ? S.anchorFromCamera(cam(), sc, vp())
+      : { pageIndex: ctx.getState().cursor, fx: 0.5, fy: 0 };
+  };
   const applyAnchor = (anchor: S.Anchor) => {
     const scene = buildScene();
+    if (!scene.itemCount) return;
     const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
-    const zoom = S.resolveZoom(ctx.getState().zoom, fitFor(item), vp(), GAP);
+    const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
     setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom), boundsFor(item));
   };
 
-  // Navigate to a FULL-document item index — the unifying primitive. Paged moves the
-  // cursor (rebuilding the one-item slice) then places it; continuous scrolls to it in
-  // the full scene. Both align to the page start at the resolved zoom.
-  const goToItem = (fullItemIndex: number, opts?: { behavior?: ScrollBehaviorKind }) => {
+  // ── navigation: ONE arrival procedure for goToPage / next / prev / reset ─────
+  // 1. move the cursor to the target page (paged: rebuilds the one-item slice),
+  // 2. choose the SUBJECT by the fits-predicate (scene under fit-all; the item if
+  //    it fits; else the page),
+  // 3. reveal-if-needed: if the subject is already fully visible in an unchanged
+  //    scene, the cursor move IS the navigation (indicator only),
+  // 4. else placeCamera(subject): centered when it fits, start-aligned when not.
+  const goToTarget = (pageIndex: number, opts?: GoToOptions, forcePlace = false) => {
     cancelAnim();
-    const idx = Math.max(0, Math.min(fullItemIndex, itemCountFull() - 1));
-    if (paged()) {
-      const newCursor = grouping().grouping[idx]?.[0] ?? 0;
-      if (newCursor !== ctx.getState().cursor) ctx.dispatch({ type: 'CURSOR', cursor: newCursor });
+    const doc = ctx.document();
+    if (!doc || doc.pageCount === 0) return;
+    const target = Math.max(0, Math.min(pageIndex, doc.pageCount - 1));
+    const previousCursor = ctx.getState().cursor;
+    if (target !== previousCursor) ctx.dispatch({ type: 'CURSOR', cursor: target });
+
+    // Restore path (per-page view memory): exact viewpoint instead of fresh placement.
+    if (opts?.viewpoint) {
+      ctx.dispatch({ type: 'PATCH', patch: { zoom: opts.viewpoint.zoom } });
+      applyAnchor(opts.viewpoint.anchor);
+      return;
     }
-    const sc = buildScene(); // paged: the slice for the new cursor; continuous: full scene
-    const item = paged() ? sc.items[0] : sc.items[idx];
-    if (!item) return;
-    const st = ctx.getState();
-    const zoom = S.resolveZoom(st.zoom, fitFor(item), vp(), GAP);
+
+    const sc = buildScene(); // paged: the (possibly new) slice; continuous: full scene
+    if (!sc.itemCount) return;
+    const item = paged() ? sc.items[0] : sc.items[itemIndexOfPage(target)];
+    const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
+    const subject = isFitAll()
+      ? sceneRect()
+      : fits(itemRect(item), zoom)
+        ? itemRect(item)
+        : pageRectOf(item, target);
+
+    // reveal-if-needed — only meaningful when the scene didn't change under us.
+    const sceneUnchanged = !paged() || itemIndexOfPage(previousCursor) === itemIndexOfPage(target);
+    if (
+      !forcePlace &&
+      sceneUnchanged &&
+      Math.abs(zoom - cam().zoom) < 1e-9 &&
+      fullyVisible(subject)
+    ) {
+      return; // the cursor move is the whole navigation
+    }
+
+    const camera = S.placeCamera(subject, vp(), zoom, pad());
     const bounds = boundsFor(item);
-    const target = S.clampCamera(
-      S.itemCamera(item, sc, vp(), zoom, { align: st.home, margin: st.margin }),
-      bounds,
-      vp(),
-      constraint(),
-    );
-    if ((opts?.behavior ?? st.scrollBehavior) === 'smooth') animateTo(target, bounds);
-    else setCam(target, bounds);
+    if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth' && !forcePlace) {
+      animateTo(camera, bounds);
+    } else {
+      setCam(camera, bounds);
+    }
+  };
+
+  /** Step by the navigation unit: the ITEM when it fits the viewport, else the PAGE. */
+  const step = (direction: 1 | -1, opts?: GoToOptions) => {
+    const st = ctx.getState();
+    const item = cursorItem();
+    if (!item) return;
+    const { grouping: g } = grouping();
+    if (isFitAll() || fits(itemRect(item), cam().zoom)) {
+      const idx = Math.max(0, Math.min(itemIndexOfPage(st.cursor) + direction, g.length - 1));
+      goToTarget(g[idx][0], opts);
+    } else {
+      goToTarget(st.cursor + direction, opts);
+    }
   };
 
   // pon (durable identity) for a page's display index, from the registry captured at open.
@@ -245,16 +312,13 @@ export function createStageCapability(
     ctx.document()?.pages[index]?.pageObjectNumber ?? index + 1;
 
   // Memoized visiblePages -> stable reference (no useSyncExternalStore tearing loop).
-  // Paged renders ONLY the current item; continuous renders the camera's query window.
-  // The signature keys on the scene-cache key (layout/spread/sizing/pages), flow,
-  // camera and viewport — so layout/spread changes can't serve stale pages.
+  // Paged renders ONLY the slice's item; continuous renders the camera's query window.
   let visSig = '';
   let vis: VisiblePage[] = [];
   const visiblePages = (): VisiblePage[] => {
     const c = cam();
     const v = vp();
     const sc = buildScene();
-    // paged: the slice's single item (or none if no pages); continuous: the query window.
     const items = paged() ? sc.items.slice(0, 1) : sc.query(S.cameraWorldRect(c, v));
     const sig = `${sceneCache!.key}|${ctx.getState().flow}|${c.x},${c.y},${c.zoom}|${v.width}x${v.height}`;
     if (sig === visSig) return vis;
@@ -273,9 +337,7 @@ export function createStageCapability(
       spread: s.spread,
       sizing: s.sizing,
       bounded: s.bounded,
-      overscroll: s.overscroll,
-      home: s.home,
-      margin: s.margin,
+      padding: s.padding,
       zoom: s.zoom,
       scrollBehavior: s.scrollBehavior,
     };
@@ -292,11 +354,11 @@ export function createStageCapability(
     viewport: vp,
     pageCount: () => ctx.document()?.pageCount ?? 0,
     visiblePages,
-    currentPage: () => {
-      const sc = buildScene();
-      return sc.itemCount ? S.anchorFromCamera(cam(), sc, vp()).pageIndex : 0;
+    currentPage: () => ctx.getState().cursor,
+    currentItemPages: () => {
+      const item = cursorItem();
+      return item ? [...item.pageIndexes] : [];
     },
-    currentItemPages: () => (buildScene().itemCount ? [...currentItem().pageIndexes] : []),
     pages: () =>
       (ctx.document()?.pages ?? []).map((p) => ({
         index: p.index,
@@ -308,6 +370,7 @@ export function createStageCapability(
       const index = meta ? meta.pages.findIndex((p) => p.pageObjectNumber === pon) : -1;
       if (index < 0) return null;
       const sc = buildScene();
+      if (!sc.itemCount) return null;
       const box = sc.items[sc.itemOfPage(index)].pages.find((p) => p.pageIndex === index);
       return box ? { ...box, pon } : null;
     },
@@ -318,26 +381,25 @@ export function createStageCapability(
     spread: () => ctx.getState().spread,
     sizing: () => ctx.getState().sizing,
     bounded: () => ctx.getState().bounded,
-    overscroll: () => ctx.getState().overscroll,
-    home: () => ctx.getState().home,
-    margin: () => ctx.getState().margin,
+    padding: () => ctx.getState().padding,
     scrollBehavior: () => ctx.getState().scrollBehavior,
     zoomLevel: () => cam().zoom,
     zoomMode: () => {
       const z = ctx.getState().zoom;
       return 'mode' in z ? z.mode : 'custom';
     },
+    viewpoint: (): Viewpoint => ({ anchor: currentAnchor(), zoom: ctx.getState().zoom }),
     settings: snapshotSettings,
     viewState: (): StageViewState => ({
       ...snapshotSettings(),
       cursor: ctx.getState().cursor,
-      anchor: S.anchorFromCamera(cam(), buildScene(), vp()),
+      anchor: currentAnchor(),
     }),
 
     // ── intents ──
     setViewport: (v) => {
       // First real size: placeInitial (persist/reset) owns it. Afterwards every
-      // resize keeps the same page and re-resolves fit-modes (fit-page stays fit).
+      // resize keeps the same page and re-resolves fit-modes (fit stays fit).
       if (!hasPlaced) {
         ctx.dispatch({ type: 'VP', vp: v });
         return;
@@ -366,10 +428,11 @@ export function createStageCapability(
     zoomTo: (spec) => api.update({ zoom: spec }),
     fitWidth: () => api.update({ zoom: { mode: S.ZoomMode.FitWidth } }),
     fitPage: () => api.update({ zoom: { mode: S.ZoomMode.FitPage } }),
+    fitAll: () => api.update({ zoom: { mode: S.ZoomMode.FitAll } }),
     automatic: () => api.update({ zoom: { mode: S.ZoomMode.Automatic } }),
-    goToPage: (index, opts) => goToItem(itemIndexOfPage(index), opts),
-    next: (opts) => goToItem(currentFullItemIndex() + 1, opts),
-    prev: (opts) => goToItem(currentFullItemIndex() - 1, opts),
+    goToPage: (pageIndex, opts) => goToTarget(pageIndex, opts),
+    next: (opts) => step(1, opts),
+    prev: (opts) => step(-1, opts),
     update: (patch) => {
       cancelAnim();
       const anchor = currentAnchor(); // capture (page-durable) against the current scene
@@ -378,25 +441,22 @@ export function createStageCapability(
         patch.layout !== undefined || patch.spread !== undefined || patch.sizing !== undefined;
       if (structural) sceneCache = null;
       if (patch.flow !== undefined) {
-        // flow toggled: re-place onto the SAME page under the new flow's scene. By page
-        // (not item index) so it survives a simultaneous spread/layout change, and it
-        // seeds the paged cursor.
-        goToItem(itemIndexOfPage(anchor.pageIndex), { behavior: 'instant' });
+        // flow toggled: re-place onto the cursor's page under the new flow's scene
+        // (the camera's coordinates are meaningless across the flow boundary).
+        goToTarget(ctx.getState().cursor, { behavior: 'instant' }, true);
       } else if (structural || patch.zoom !== undefined) {
         applyAnchor(anchor); // rebuild + keep page + re-fit (also re-clamps)
-      } else if (patch.bounded !== undefined || patch.overscroll !== undefined) {
+      } else if (patch.bounded !== undefined || patch.padding !== undefined) {
         setCam(cam()); // bounds changed: just re-clamp the current camera in place
       }
-      // home / margin / scrollBehavior: no camera effect
+      // scrollBehavior: no camera effect
     },
     setFlow: (flow) => api.update({ flow }),
     setLayout: (layout) => api.update({ layout }),
     setSpread: (spread) => api.update({ spread }),
     setSizing: (sizing) => api.update({ sizing }),
     setBounded: (bounded) => api.update({ bounded }),
-    setOverscroll: (overscroll) => api.update({ overscroll }),
-    setHome: (home) => api.update({ home }),
-    setMargin: (margin) => api.update({ margin }),
+    setPadding: (padding) => api.update({ padding }),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
     applyViewState: (view) => {
       cancelAnim();
@@ -408,9 +468,7 @@ export function createStageCapability(
           spread: view.spread,
           sizing: view.sizing,
           bounded: view.bounded,
-          overscroll: view.overscroll,
-          home: view.home,
-          margin: view.margin,
+          padding: view.padding,
           zoom: view.zoom,
           scrollBehavior: view.scrollBehavior,
         },
@@ -434,9 +492,8 @@ export function createStageCapability(
       }
       api.resetView();
     },
-    // Home = the first item. Uniform: continuous scrolls to page 0 top; paged sets
-    // the cursor to page 0 and places it.
-    resetView: () => goToItem(0, { behavior: 'instant' }),
+    // Home = page 0, placed by the unit rule (centers what fits, starts what overflows).
+    resetView: () => goToTarget(0, { behavior: 'instant' }, true),
   };
   return api;
 }

@@ -221,12 +221,13 @@ export function useZoom() {
   const mode = useSelector(StageToken, (c) => c.zoomMode());
   return {
     zoom,
-    /** Active zoom intent: 'automatic' | 'fit-page' | 'fit-width' | 'custom'. */
+    /** Active zoom intent: 'automatic' | 'fit-page' | 'fit-width' | 'fit-all' | 'custom'. */
     mode,
     zoomIn: s.zoomIn,
     zoomOut: s.zoomOut,
     fitWidth: s.fitWidth,
     fitPage: s.fitPage,
+    fitAll: s.fitAll,
     automatic: s.automatic,
     zoomTo: s.zoomTo,
   };
@@ -286,12 +287,12 @@ export function useStageSettings() {
     StageToken,
     (c) => c.settings(),
     (a, b) =>
+      a.flow === b.flow &&
       a.layout === b.layout &&
       a.spread === b.spread &&
+      a.sizing === b.sizing &&
       a.bounded === b.bounded &&
-      a.overscroll === b.overscroll &&
-      a.home === b.home &&
-      a.margin === b.margin &&
+      a.padding === b.padding &&
       a.scrollBehavior === b.scrollBehavior &&
       a.zoom === b.zoom,
   );

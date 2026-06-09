@@ -17,9 +17,7 @@ export const DEFAULT_SETTINGS: StageSettings = {
   spread: 'none',
   sizing: 'intrinsic',
   bounded: true,
-  overscroll: 'center',
-  home: 'start',
-  margin: 24,
+  padding: 24,
   zoom: { mode: ZoomMode.Automatic },
   scrollBehavior: 'smooth',
 };

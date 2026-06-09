@@ -48,20 +48,19 @@ const plugins = [
 // settings the app keeps and applies with stage.update(...). Define as many as you like.
 const PRESETS: Record<string, Partial<StageSettings>> = {
   Document: {
+    flow: 'continuous',
     layout: 'vertical',
     bounded: true,
-    overscroll: 'center',
-    home: 'start',
-    margin: 24,
+    padding: 24,
     zoom: { mode: 'automatic' },
   },
+  // Construction: every sheet in view on an infinite canvas, then zoom in to work.
   Canvas: {
+    flow: 'continuous',
     layout: 'grid',
     bounded: false,
-    overscroll: 0,
-    home: 'center',
-    margin: 0,
-    zoom: { mode: 'fit-page' },
+    padding: 24,
+    zoom: { mode: 'fit-all' },
   },
 };
 
@@ -108,7 +107,7 @@ function WatermarkLayer() {
 }
 
 function Toolbar() {
-  const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, automatic } = useZoom();
+  const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, fitAll, automatic } = useZoom();
   const { currentPage, pageCount, next, prev } = usePages();
   const {
     flow,
@@ -122,11 +121,12 @@ function Toolbar() {
     bounded,
     setBounded,
   } = useLayout();
-  const { update, reset } = useStageSettings();
+  const { settings, update, reset } = useStageSettings();
   const applyZoomMode = (m: string) => {
     if (m === 'automatic') automatic();
     else if (m === 'fit-page') fitPage();
     else if (m === 'fit-width') fitWidth();
+    else if (m === 'fit-all') fitAll();
   };
   return (
     <div
@@ -161,6 +161,7 @@ function Toolbar() {
         <option value="automatic">automatic</option>
         <option value="fit-page">fit page</option>
         <option value="fit-width">fit width</option>
+        <option value="fit-all">fit all</option>
         <option value="custom" disabled>
           custom
         </option>
@@ -198,6 +199,21 @@ function Toolbar() {
       >
         <input type="checkbox" checked={bounded} onChange={(e) => setBounded(e.target.checked)} />
         bounded{bounded ? '' : ' ∞'}
+      </label>
+      <label
+        style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}
+        title="breathing room (px) around the content — fit inset, arrival gutter, clamp slack"
+      >
+        pad
+        <input
+          type="number"
+          min={0}
+          max={200}
+          step={4}
+          value={settings.padding}
+          onChange={(e) => update({ padding: Math.max(0, Number(e.target.value) || 0) })}
+          style={{ width: 48 }}
+        />
       </label>
       {/* App-defined presets — just objects passed to update(). Not the plugin's concern. */}
       <span style={{ marginLeft: 'auto', width: 1, height: 18, background: '#ddd' }} />

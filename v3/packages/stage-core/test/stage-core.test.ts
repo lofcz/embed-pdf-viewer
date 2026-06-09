@@ -39,7 +39,7 @@ describe('resolveZoom', () => {
   });
 });
 
-describe('itemCamera', () => {
+describe('placeCamera — THE placement algorithm', () => {
   const scene = S.linearLayout(
     [
       { width: 600, height: 800 },
@@ -49,18 +49,24 @@ describe('itemCamera', () => {
     S.groupPages(3, 'none'),
     { axis: 'y', gap: GAP },
   );
+  const rect = (i: number) => {
+    const it = scene.items[i];
+    return { x: it.x, y: it.y, width: it.width, height: it.height };
+  };
 
-  it("'start' puts the page top a margin below the viewport top (scroll-to-top)", () => {
-    const item = scene.items[1];
-    const cam = S.itemCamera(item, scene, vp, 1, { align: 'start', margin: 24 });
-    // the page's top edge, in screen space, equals the margin
-    expect((item.y - cam.y) * cam.zoom).toBeCloseTo(24, 6);
+  it('overflowing subject → start-aligned (top-left, a padding out)', () => {
+    // zoom 1: page 600x800 vs viewport 1000x700 → overflows vertically only
+    const cam = S.placeCamera(rect(1), vp, 1, 24);
+    expect((scene.items[1].y - cam.y) * cam.zoom).toBeCloseTo(24, 6); // top edge a padding down
+    // horizontal fits → centered
+    expect((scene.items[1].x + 300 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
   });
 
-  it("'center' centres the page in the viewport", () => {
-    const item = scene.items[1];
-    const cam = S.itemCamera(item, scene, vp, 1, { align: 'center' });
-    expect((item.y + item.height / 2 - cam.y) * cam.zoom).toBeCloseTo(vp.height / 2, 6);
+  it('fitting subject → centered (per axis, derived from the clamp fit-case)', () => {
+    // zoom 0.5: page 300x400 vs 1000x700 → fits both axes → centered both axes
+    const cam = S.placeCamera(rect(1), vp, 0.5, 24);
+    expect((scene.items[1].x + 300 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
+    expect((scene.items[1].y + 400 - cam.y) * cam.zoom).toBeCloseTo(vp.height / 2, 6);
   });
 });
 
@@ -95,7 +101,7 @@ describe('anchor round-trip', () => {
 });
 
 describe('clampCamera', () => {
-  const k0 = { bounded: true, overscroll: { x: 0, y: 0 } } as const;
+  const k0 = { bounded: true, padding: 0 } as const;
 
   it('clamps the camera within the content when bounded', () => {
     const clamped = S.clampCamera(
@@ -113,7 +119,7 @@ describe('clampCamera', () => {
     expect(
       S.clampCamera(c, { x: 0, y: 0, width: 10, height: 10 }, vp, {
         bounded: false,
-        overscroll: { x: 0, y: 0 },
+        padding: 0,
       }),
     ).toEqual(c);
   });
@@ -132,6 +138,31 @@ describe('clampCamera', () => {
     const bounds = { x: 0, y: 4000, width: 300, height: 300 };
     const c = S.clampCamera({ x: 0, y: 0, zoom: 1 }, bounds, vp, k0);
     expect(c.y).toBeCloseTo(4000 + (300 - vp.height) / 2, 6); // centered within the item's rect
+  });
+
+  it('padding = a constant breathing gutter the camera may reveal', () => {
+    const p = 24;
+    const k = { bounded: true, padding: p } as const;
+    const bounds = { x: 0, y: 0, width: 1000, height: 5000 };
+    // may scroll up to `padding` beyond each content edge…
+    const top = S.clampCamera({ x: 0, y: -99999, zoom: 1 }, bounds, vp, k);
+    expect(top.y).toBeCloseTo(-p, 6);
+    const bottom = S.clampCamera({ x: 0, y: 99999, zoom: 1 }, bounds, vp, k);
+    expect(bottom.y).toBeCloseTo(5000 - vp.height + p, 6);
+    // …and at exactly fit-width zoom, the lock leaves exactly `padding` per side.
+    const zFit = (vp.width - 2 * p) / 1000;
+    const fit = S.clampCamera({ x: -99999, y: 0, zoom: zFit }, bounds, vp, k);
+    expect(fit.x * zFit).toBeCloseTo(-p, 4); // padding of gutter on the left
+  });
+});
+
+describe('resolveZoom: fit-all', () => {
+  it('fits the whole scene box (same math as fit-page, whole-scene box)', () => {
+    const sceneBox = { width: 3000, height: 2400 };
+    expect(S.resolveZoom({ mode: S.ZoomMode.FitAll }, sceneBox, vp, GAP)).toBeCloseTo(
+      Math.min((1000 - 2 * GAP) / 3000, (700 - 2 * GAP) / 2400),
+      6,
+    );
   });
 });
 
