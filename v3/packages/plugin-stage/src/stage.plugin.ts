@@ -17,21 +17,8 @@ export const stagePlugin = (config: StageConfig = {}) =>
     initialState: () => initialStageState(config),
     reduce: stageReducer,
     capability: (ctx) => createStageCapability(ctx, config),
-    effects: (ctx) => {
-      // Initial placement is a Stage concern, and it has exactly ONE owner. Once the
-      // viewport has a real size, resolve the registered initial-view providers
-      // (persist, deep-link, …) by priority — or fall back to home(). No reliance on
-      // effect-ordering: every other plugin only *offers* a candidate.
-      const stage = ctx.get(StageToken);
-      let placed = false;
-      ctx.watch(
-        () => stage.viewport().width,
-        (w) => {
-          if (!placed && w > 0 && stage.pageCount() > 0) {
-            placed = true;
-            stage.placeInitial();
-          }
-        },
-      );
-    },
+    // No effects: initial placement is LEVEL-triggered inside the capability's
+    // setViewport (place when the stage first learns a real size), so it cannot
+    // race effect registration. Other plugins only *offer* initial views via
+    // provideInitialView; placeInitial resolves them by priority.
   });

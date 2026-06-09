@@ -416,12 +416,19 @@ export function createStageCapability(
 
     // ── intents ──
     setViewport: (v) => {
-      // First real size: placeInitial (persist/reset) owns it. Afterwards every
-      // resize keeps the same page and re-resolves fit-modes (fit stays fit).
+      // Initial placement is LEVEL-triggered, owned here: the moment the stage
+      // first learns a real size (both axes) and the document has pages, resolve
+      // the initial view (persist/deep-link providers, else reset). Every report
+      // re-checks the condition — no watch, no effect-registration race, no edge
+      // to miss when the viewport was already sized before anyone listened.
       if (!hasPlaced) {
         ctx.dispatch({ type: 'VP', vp: v });
+        if (v.width > 0 && v.height > 0 && (ctx.document()?.pageCount ?? 0) > 0) {
+          api.placeInitial();
+        }
         return;
       }
+      // Afterwards every resize keeps the same page and re-resolves fit-modes.
       cancelAnim();
       const anchor = currentAnchor(); // measured against the OLD viewport
       ctx.dispatch({ type: 'VP', vp: v }); // new viewport

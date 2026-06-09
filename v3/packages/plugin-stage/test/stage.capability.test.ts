@@ -9,7 +9,11 @@ import type { StageAction, StageConfig, StageState } from '../src/types';
  * stage-core, with a fake document and an injectable scheduler. No DOM, no async —
  * the whole Stage is deterministically testable because the core is pure.
  */
-function harness(sizes: Array<{ width: number; height: number }>, config: StageConfig = {}) {
+function harness(
+  sizes: Array<{ width: number; height: number }>,
+  config: StageConfig = {},
+  opts: { skipViewport?: boolean } = {},
+) {
   const pages = sizes.map((s, i) => ({
     index: i,
     pageObjectNumber: i + 1,
@@ -35,14 +39,56 @@ function harness(sizes: Array<{ width: number; height: number }>, config: StageC
   } as unknown as PluginContext<StageState, StageAction>;
 
   const stage = createStageCapability(ctx, config);
-  // Mirror the real lifecycle: report the viewport, then place the initial view.
-  stage.setViewport({ width: 1000, height: 700 });
-  stage.placeInitial();
+  // Mirror the real lifecycle: the shell reports the viewport — initial placement
+  // is level-triggered inside setViewport (no manual placeInitial; that's the fix
+  // for the "page stuck at top-left until the first scroll" race).
+  if (!opts.skipViewport) stage.setViewport({ width: 1000, height: 700 });
   return { stage };
 }
 
 const PORTRAIT = Array.from({ length: 5 }, () => ({ width: 600, height: 800 }));
 const PAD = 24; // default StageSettings.padding — the fit inset + arrival gutter
+
+describe('initial placement is level-triggered (the new-pane / HMR race)', () => {
+  it('places the moment the viewport is reported — no effect/watch involved', () => {
+    // The bug: placement hung off an edge-triggered width watch registered during
+    // openDocument; if the viewport was already sized first, the edge never came and
+    // the camera stayed at {0,0,1} (page flush top-left, no padding) until a scroll.
+    const { stage } = harness(PORTRAIT); // harness never calls placeInitial
+    const cam = stage.camera();
+    expect(cam).not.toEqual({ x: 0, y: 0, zoom: 1 }); // NOT the untouched camera
+    // page 1 is properly placed: horizontally centered, top a padding down
+    const box = stage.pageRect(1)!;
+    const center = stage.toScreen({ x: box.x + box.width / 2, y: box.y });
+    expect(center.x).toBeCloseTo(500, 0);
+    expect(center.y).toBeCloseTo(PAD, 0);
+  });
+
+  it('a half-laid-out viewport (height 0) does not place; the real one does', () => {
+    const { stage } = harness(PORTRAIT, undefined, { skipViewport: true });
+    stage.setViewport({ width: 1000, height: 0 }); // mid-layout flex collapse
+    expect(stage.camera()).toEqual({ x: 0, y: 0, zoom: 1 }); // not placed yet
+    stage.setViewport({ width: 1000, height: 700 }); // the real report
+    expect(stage.camera()).not.toEqual({ x: 0, y: 0, zoom: 1 }); // placed now
+    expect(stage.toScreen({ x: stage.pageRect(1)!.x, y: stage.pageRect(1)!.y }).y).toBeCloseTo(
+      PAD,
+      0,
+    );
+  });
+
+  it('initial-view providers (persist) still win over the default placement', () => {
+    const { stage } = harness(PORTRAIT, undefined, { skipViewport: true });
+    // a persist-like provider registers BEFORE the first viewport report (as in
+    // openDocument: effects run synchronously; the report is a later macrotask)
+    stage.provideInitialView(50, () => ({
+      ...stage.settings(),
+      cursor: 3,
+      anchor: { pageIndex: 3, fx: 0.5, fy: 0.5 },
+    }));
+    stage.setViewport({ width: 1000, height: 700 });
+    expect(stage.currentPage()).toBe(3); // restored, not reset to page 0
+  });
+});
 
 describe('goToPage', () => {
   it('scrolls to the TOP of the page, not its centre (vertical, home=start)', () => {
