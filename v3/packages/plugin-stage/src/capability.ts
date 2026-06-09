@@ -149,16 +149,6 @@ export function createStageCapability(
       rect.width * zoom <= v.width - 2 * p + eps && rect.height * zoom <= v.height - 2 * p + eps
     );
   };
-  /** Is the rect entirely on screen right now? (reveal-if-needed) */
-  const fullyVisible = (rect: S.Rect): boolean => {
-    const c = cam();
-    const v = vp();
-    const eps = 0.5;
-    const tl = S.toScreen(c, { x: rect.x, y: rect.y });
-    const br = S.toScreen(c, { x: rect.x + rect.width, y: rect.y + rect.height });
-    return tl.x >= -eps && tl.y >= -eps && br.x <= v.width + eps && br.y <= v.height + eps;
-  };
-
   /** Fit-box for resolving the zoom intent: whole scene (fit-all), the current item
    *  (paged — per-page fit), or the document max (continuous — doc-stable zoom). */
   const fitBox = (item: S.SceneItem): S.Size => {
@@ -175,17 +165,25 @@ export function createStageCapability(
     padding: pad(),
   });
 
-  // The ONE low-level camera write: clamp to `bounds`, dispatch, and (continuous
-  // only) sync the cursor from the camera so the page indicator follows scrolling.
+  // The ONE low-level camera write: clamp to `bounds`, dispatch. MECHANISM only —
+  // it never touches the cursor (see syncCursorFromCamera for the policy).
   const setCam = (next: S.Camera, bounds: S.Rect = stayBounds()) => {
     ctx.dispatch({ type: 'CAMERA', camera: S.clampCamera(next, bounds, vp(), constraint()) });
-    if (!paged()) {
-      const sc = buildScene();
-      if (sc.itemCount) {
-        const page = S.anchorFromCamera(cam(), sc, vp()).pageIndex;
-        if (page !== ctx.getState().cursor) ctx.dispatch({ type: 'CURSOR', cursor: page });
-      }
-    }
+  };
+
+  /**
+   * Cursor reconciliation, one direction per interaction:
+   *   navigation  → cursor is INTENT, set explicitly; the camera honors it as far
+   *                 as the clamp allows — and a clamped camera never revokes it.
+   *   manipulation → (pan / drag / pinch) the camera moves freely; the cursor is
+   *                 DERIVED from it. Only those verbs call this. Paged never syncs.
+   */
+  const syncCursorFromCamera = () => {
+    if (paged()) return;
+    const sc = buildScene();
+    if (!sc.itemCount) return;
+    const page = S.anchorFromCamera(cam(), sc, vp()).pageIndex;
+    if (page !== ctx.getState().cursor) ctx.dispatch({ type: 'CURSOR', cursor: page });
   };
 
   // ── camera tween (impure shell concern; uses the injected Scheduler) ─────────
@@ -240,21 +238,33 @@ export function createStageCapability(
     const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
     setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom), boundsFor(item));
   };
+  /**
+   * Re-apply the view after a structural/zoom/viewport change. Normally anchor-
+   * preserving (keep looking at the same spot). Under fit-all the subject is the
+   * WHOLE scene, so "keep my anchor" is meaningless — re-place instead (this is
+   * what centers the scene even when unbounded).
+   */
+  const reapply = (anchor: S.Anchor) => {
+    if (isFitAll()) goToTarget(ctx.getState().cursor, { behavior: 'instant' });
+    else applyAnchor(anchor);
+  };
 
   // ── navigation: ONE arrival procedure for goToPage / next / prev / reset ─────
+  // Navigation is CANONICAL: goToPage(N) always ends in the same camera state,
+  // regardless of where you came from or what happens to be visible (no
+  // visibility-dependent behavior — that's a discontinuity at the fit threshold).
   // 1. move the cursor to the target page (paged: rebuilds the one-item slice),
   // 2. choose the SUBJECT by the fits-predicate (scene under fit-all; the item if
   //    it fits; else the page),
-  // 3. reveal-if-needed: if the subject is already fully visible in an unchanged
-  //    scene, the cursor move IS the navigation (indicator only),
-  // 4. else placeCamera(subject): centered when it fits, start-aligned when not.
-  const goToTarget = (pageIndex: number, opts?: GoToOptions, forcePlace = false) => {
+  // 3. placeCamera(subject): centered when it fits, start-aligned when it overflows.
+  // The legitimate "nothing moves" cases are STRUCTURAL, not conditional: under
+  // fit-all the canonical placement is the centered scene, which doesn't change.
+  const goToTarget = (pageIndex: number, opts?: GoToOptions) => {
     cancelAnim();
     const doc = ctx.document();
     if (!doc || doc.pageCount === 0) return;
     const target = Math.max(0, Math.min(pageIndex, doc.pageCount - 1));
-    const previousCursor = ctx.getState().cursor;
-    if (target !== previousCursor) ctx.dispatch({ type: 'CURSOR', cursor: target });
+    if (target !== ctx.getState().cursor) ctx.dispatch({ type: 'CURSOR', cursor: target });
 
     // Restore path (per-page view memory): exact viewpoint instead of fresh placement.
     if (opts?.viewpoint) {
@@ -273,24 +283,10 @@ export function createStageCapability(
         ? itemRect(item)
         : pageRectOf(item, target);
 
-    // reveal-if-needed — only meaningful when the scene didn't change under us.
-    const sceneUnchanged = !paged() || itemIndexOfPage(previousCursor) === itemIndexOfPage(target);
-    if (
-      !forcePlace &&
-      sceneUnchanged &&
-      Math.abs(zoom - cam().zoom) < 1e-9 &&
-      fullyVisible(subject)
-    ) {
-      return; // the cursor move is the whole navigation
-    }
-
     const camera = S.placeCamera(subject, vp(), zoom, pad());
     const bounds = boundsFor(item);
-    if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth' && !forcePlace) {
-      animateTo(camera, bounds);
-    } else {
-      setCam(camera, bounds);
-    }
+    if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') animateTo(camera, bounds);
+    else setCam(camera, bounds);
   };
 
   /** Step by the navigation unit: the ITEM when it fits the viewport, else the PAGE. */
@@ -407,21 +403,24 @@ export function createStageCapability(
       cancelAnim();
       const anchor = currentAnchor(); // measured against the OLD viewport
       ctx.dispatch({ type: 'VP', vp: v }); // new viewport
-      applyAnchor(anchor);
+      reapply(anchor);
     },
     setCamera: (c) => {
       cancelAnim();
       setCam(c);
+      syncCursorFromCamera();
     },
     panBy: (dx, dy) => {
       cancelAnim();
       setCam(S.panByScreen(cam(), dx, dy));
+      syncCursorFromCamera();
     },
     zoomAround: (pt, factor) => {
       cancelAnim();
       setCam(S.zoomAround(cam(), pt, factor));
       // record the resulting fixed level as the zoom intent — focal, so NO re-anchor.
       ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: cam().zoom } } });
+      syncCursorFromCamera();
     },
     zoomIn: () => api.zoomAround({ x: vp().width / 2, y: vp().height / 2 }, 1.2),
     zoomOut: () => api.zoomAround({ x: vp().width / 2, y: vp().height / 2 }, 1 / 1.2),
@@ -443,9 +442,9 @@ export function createStageCapability(
       if (patch.flow !== undefined) {
         // flow toggled: re-place onto the cursor's page under the new flow's scene
         // (the camera's coordinates are meaningless across the flow boundary).
-        goToTarget(ctx.getState().cursor, { behavior: 'instant' }, true);
+        goToTarget(ctx.getState().cursor, { behavior: 'instant' });
       } else if (structural || patch.zoom !== undefined) {
-        applyAnchor(anchor); // rebuild + keep page + re-fit (also re-clamps)
+        reapply(anchor); // rebuild + keep page + re-fit (fit-all: re-place the scene)
       } else if (patch.bounded !== undefined || patch.padding !== undefined) {
         setCam(cam()); // bounds changed: just re-clamp the current camera in place
       }
@@ -493,7 +492,7 @@ export function createStageCapability(
       api.resetView();
     },
     // Home = page 0, placed by the unit rule (centers what fits, starts what overflows).
-    resetView: () => goToTarget(0, { behavior: 'instant' }, true),
+    resetView: () => goToTarget(0, { behavior: 'instant' }),
   };
   return api;
 }
