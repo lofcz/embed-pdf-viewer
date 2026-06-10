@@ -265,12 +265,30 @@ export function createStageCapability(
       ? S.anchorFromCamera(cam(), sc, vp())
       : { pageIndex: ctx.getState().cursor, fx: 0.5, fy: 0 };
   };
+
+  /**
+   * Run a placement whose RESOLVED zoom may change the scene (wrapped mode: zoom is
+   * a layout input). Re-run it until the scene it placed against is the scene that
+   * results — every non-wrapped mode is stable after the first pass by construction,
+   * and wrapped fit-modes converge on the second (the fit-box is wrap-independent).
+   * Capped at 3 passes for the one genuinely circular case (fit-all + wrapped).
+   */
+  const stabilized = (place: () => void) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const scene = buildScene();
+      place();
+      if (buildScene() === scene) return;
+    }
+  };
+
   const applyAnchor = (anchor: S.Anchor) => {
-    const scene = buildScene();
-    if (!scene.itemCount) return;
-    const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
-    const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
-    setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom), boundsFor(item));
+    stabilized(() => {
+      const scene = buildScene();
+      if (!scene.itemCount) return;
+      const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
+      const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
+      setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom), boundsFor(item));
+    });
   };
   /**
    * Re-apply the view after a structural/zoom/viewport change. Normally anchor-
@@ -307,27 +325,40 @@ export function createStageCapability(
       return;
     }
 
-    const sc = buildScene(); // paged: the (possibly new) slice; continuous: full scene
-    if (!sc.itemCount) return;
-    const item = paged() ? sc.items[0] : sc.items[itemIndexOfPage(target)];
-    const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
-    const subject = isFitAll()
-      ? sceneRect()
-      : fits(itemRect(item), zoom)
-        ? itemRect(item)
-        : pageRectOf(item, target);
+    // Placement against the CURRENT scene; null when there is nothing to place.
+    const placement = (): { camera: S.Camera; bounds: S.Rect } | null => {
+      const sc = buildScene(); // paged: the (possibly new) slice; continuous: full scene
+      if (!sc.itemCount) return null;
+      const item = paged() ? sc.items[0] : sc.items[itemIndexOfPage(target)];
+      const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
+      const subject = isFitAll()
+        ? sceneRect()
+        : fits(itemRect(item), zoom)
+          ? itemRect(item)
+          : pageRectOf(item, target);
+      return {
+        camera: S.placeCamera(
+          subject,
+          vp(),
+          zoom,
+          pad(),
+          ctx.getState().align,
+          ctx.getState().direction,
+        ),
+        bounds: boundsFor(item),
+      };
+    };
 
-    const camera = S.placeCamera(
-      subject,
-      vp(),
-      zoom,
-      pad(),
-      ctx.getState().align,
-      ctx.getState().direction,
-    );
-    const bounds = boundsFor(item);
-    if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') animateTo(camera, bounds);
-    else setCam(camera, bounds);
+    if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') {
+      const p = placement();
+      if (p) animateTo(p.camera, p.bounds);
+    } else {
+      // instant placement converges with the scene (wrapped: zoom is a layout input)
+      stabilized(() => {
+        const p = placement();
+        if (p) setCam(p.camera, p.bounds);
+      });
+    }
   };
 
   /** Step by the navigation unit: the ITEM when it fits the viewport, else the PAGE. */

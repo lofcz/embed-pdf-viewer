@@ -674,9 +674,32 @@ describe('wrapped + discrete zoom: the scene re-wraps and the camera follows', (
     expect(stage.camera()).toEqual(settled);
   });
 
-  it('the focal page-point stays under the cursor across the re-wrap', () => {
+  it('zoom MODE changes (fit-width/automatic) settle the wrap in one pass (the bug)', () => {
+    const { stage } = harness(PORTRAIT, WRAPPED); // level 0.35 → 4 columns
+    stage.goToPage(2, { behavior: 'instant' });
+    stage.fitWidth(); // resolves to ~1.59 → re-wraps to a single column
+    expect(stage.currentPage()).toBe(2); // the reapply never touches the cursor
+    expect(stage.pageRect(2)!.y).toBeGreaterThan(stage.pageRect(1)!.y); // 1 column now
+    // the camera must already satisfy the NEW scene's clamp — a no-op pan (which
+    // clamps) must not move it. Before the fix this is where it jumped on scroll.
+    const settled = stage.camera();
+    stage.panBy(0, 0);
+    expect(stage.camera()).toEqual(settled);
+  });
+
+  it('fit-all + wrapped converges too (the circular case, via reapply)', () => {
     const { stage } = harness(PORTRAIT, WRAPPED);
-    // pick a screen point inside page 2 (idx 1) and remember its page-relative spot
+    stage.fitAll(); // zoom depends on scene size, scene size depends on zoom
+    const settled = stage.camera();
+    stage.panBy(0, 0);
+    expect(stage.camera()).toEqual(settled); // legal against the scene it shows
+  });
+
+  it('the focal page-point stays under the cursor across the re-wrap (unbounded)', () => {
+    // unbounded (the canvas/construction case): no clamp interference, so the
+    // re-pin property is exact on both axes. Under bounds, the clamp wins wherever
+    // the camera has no freedom — covered by the no-op-pan test above.
+    const { stage } = harness(PORTRAIT, { ...WRAPPED, bounded: false });
     const before = stage.pageRect(2)!;
     const screenPt = stage.toScreen({
       x: before.x + before.width * 0.25,
@@ -684,13 +707,13 @@ describe('wrapped + discrete zoom: the scene re-wraps and the camera follows', (
     });
     stage.zoomAround(screenPt, 1.2); // crosses the 4→3 column boundary
     const after = stage.pageRect(2)!; // page 2 has MOVED in the new wrap…
-    const world = stage.toWorld(screenPt); // …but the same page-point is back under the cursor
-    expect((world.x - after.x) / after.width).toBeCloseTo(0.25, 2);
-    expect((world.y - after.y) / after.height).toBeCloseTo(0.4, 2);
+    const world = stage.toWorld(screenPt); // …but its page-point is back under the cursor
+    expect((world.x - after.x) / after.width).toBeCloseTo(0.25, 3);
+    expect((world.y - after.y) / after.height).toBeCloseTo(0.4, 3);
   });
 
   it('non-wrapped zoomAround is byte-identical (the scene reference never changes)', () => {
-    const { stage } = harness(PORTRAIT); // vertical, no wrap
+    const { stage } = harness(PORTRAIT, { bounded: false }); // unbounded: pure focal, no clamp
     const screenPt = { x: 300, y: 200 };
     const worldBefore = stage.toWorld(screenPt);
     stage.zoomAround(screenPt, 1.7);
