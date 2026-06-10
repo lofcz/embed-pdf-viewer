@@ -8,7 +8,12 @@
 import * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { StageToken } from '@embedpdf-x/plugin-stage';
-import type { VisiblePage } from '@embedpdf-x/plugin-stage';
+import type { StageCapability, VisiblePage } from '@embedpdf-x/plugin-stage';
+import type { CapabilityToken } from '@embedpdf-x/kernel';
+
+/** Which stage lens to bind to. Defaults to the main StageToken — pass a custom
+ *  token to drive an additional lens (e.g. a wrapped thumbnail sidebar). */
+export type StageTokenProp = CapabilityToken<StageCapability>;
 import type { Camera } from '@embedpdf-x/stage-core';
 import {
   DocumentScope,
@@ -77,16 +82,18 @@ export interface StageProps {
   children: (page: PageContextValue) => React.ReactNode;
   /** Viewport-space UI (menus, controls) rendered above the pages. */
   overlay?: React.ReactNode;
+  /** The stage lens to drive (default: the main StageToken). */
+  token?: StageTokenProp;
   className?: string;
   style?: React.CSSProperties;
 }
 
-export function Stage({ children, overlay, className, style }: StageProps) {
-  const stage = useCapability(StageToken);
+export function Stage({ children, overlay, token = StageToken, className, style }: StageProps) {
+  const stage = useCapability(token);
   const ref = useRef<HTMLDivElement>(null);
   const docId = useDocumentId();
-  const camera = useSelector(StageToken, (c) => c.camera()); // ref changes on camera change
-  const pages = useSelector(StageToken, (c) => c.visiblePages()); // memoized -> stable ref
+  const camera = useSelector(token, (c) => c.camera()); // ref changes on camera change
+  const pages = useSelector(token, (c) => c.visiblePages()); // memoized -> stable ref
 
   useEffect(() => {
     const el = ref.current!;
@@ -212,13 +219,13 @@ export function PageView({ page, documentId, width = 240, children, style }: Pag
 }
 
 // ── Facade hooks — thin sugar over the capability + generic binding ───────────
-export function useStage() {
-  return useCapability(StageToken);
+export function useStage(token: StageTokenProp = StageToken) {
+  return useCapability(token);
 }
-export function useZoom() {
-  const s = useCapability(StageToken);
-  const zoom = useSelector(StageToken, (c) => c.zoomLevel());
-  const mode = useSelector(StageToken, (c) => c.zoomMode());
+export function useZoom(token: StageTokenProp = StageToken) {
+  const s = useCapability(token);
+  const zoom = useSelector(token, (c) => c.zoomLevel());
+  const mode = useSelector(token, (c) => c.zoomMode());
   return {
     zoom,
     /** Active zoom intent: 'automatic' | 'fit-page' | 'fit-width' | 'fit-all' | 'custom'. */
@@ -232,19 +239,19 @@ export function useZoom() {
     zoomTo: s.zoomTo,
   };
 }
-export function usePages() {
-  const s = useCapability(StageToken);
-  const currentPage = useSelector(StageToken, (c) => c.currentPage());
-  const pageCount = useSelector(StageToken, (c) => c.pageCount());
+export function usePages(token: StageTokenProp = StageToken) {
+  const s = useCapability(token);
+  const currentPage = useSelector(token, (c) => c.currentPage());
+  const pageCount = useSelector(token, (c) => c.pageCount());
   return { currentPage, pageCount, goToPage: s.goToPage, next: s.next, prev: s.prev };
 }
-export function useLayout() {
-  const s = useCapability(StageToken);
-  const flow = useSelector(StageToken, (c) => c.flow());
-  const layout = useSelector(StageToken, (c) => c.layout());
-  const spread = useSelector(StageToken, (c) => c.spread());
-  const sizing = useSelector(StageToken, (c) => c.sizing());
-  const bounded = useSelector(StageToken, (c) => c.bounded());
+export function useLayout(token: StageTokenProp = StageToken) {
+  const s = useCapability(token);
+  const flow = useSelector(token, (c) => c.flow());
+  const layout = useSelector(token, (c) => c.layout());
+  const spread = useSelector(token, (c) => c.spread());
+  const sizing = useSelector(token, (c) => c.sizing());
+  const bounded = useSelector(token, (c) => c.bounded());
   return {
     flow,
     layout,
@@ -261,15 +268,15 @@ export function useLayout() {
 
 /** The document's page list (with PDF labels) + the current item's pages — the
  *  data for page thumbnails / worksheet-style page tabs. */
-export function usePageList() {
+export function usePageList(token: StageTokenProp = StageToken) {
   const pages = useSelector(
-    StageToken,
+    token,
     (c) => c.pages(),
     (a, b) =>
       a.length === b.length && a.every((p, i) => p.pon === b[i].pon && p.label === b[i].label),
   );
   const current = useSelector(
-    StageToken,
+    token,
     (c) => c.currentItemPages(),
     (a, b) => a.length === b.length && a.every((x, i) => x === b[i]),
   );
@@ -281,10 +288,10 @@ export function usePageList() {
  * customer concern": keep your own `Partial<StageSettings>` objects and apply them
  * with `update(preset)` (one anchor-preserving change).
  */
-export function useStageSettings() {
-  const s = useCapability(StageToken);
+export function useStageSettings(token: StageTokenProp = StageToken) {
+  const s = useCapability(token);
   const settings = useSelector(
-    StageToken,
+    token,
     (c) => c.settings(),
     (a, b) =>
       a.flow === b.flow &&

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PluginContext } from '@embedpdf-x/kernel';
 import { createStageCapability } from '../src/capability';
 import { initialStageState, stageReducer } from '../src/reducer';
+import { stagePlugin } from '../src/stage.plugin';
 import type { StageAction, StageConfig, StageState } from '../src/types';
 
 /**
@@ -612,6 +613,81 @@ describe('direction: rtl — layout flips, navigation does not', () => {
     // page 1 occupies the rightmost cell of the top row
     expect(Math.max(...all.map((p) => p.x))).toBeCloseTo(p1.x, 6);
     expect(Math.min(...all.map((p) => p.y))).toBeCloseTo(p1.y, 6);
+  });
+});
+
+describe("columns: 'auto' — the wrapped grid (thumbnail sidebar)", () => {
+  // fixed zoom 0.2, padding 10, gap 12 → cell 612 world; line = (vpW - 20) / 0.2
+  const THUMBS = {
+    layout: 'grid' as const,
+    columns: 'auto' as const,
+    zoom: { level: 0.2 },
+    padding: 10,
+    gap: 12,
+  };
+
+  it('narrow viewport → one column; wider → re-wraps to more', () => {
+    const { stage } = harness(PORTRAIT, THUMBS, { skipViewport: true });
+    stage.setViewport({ width: 160, height: 700 }); // line = 700 world → 1 column
+    expect(stage.pageRect(2)!.x).toBeCloseTo(stage.pageRect(1)!.x, 6); // stacked
+    expect(stage.pageRect(2)!.y).toBeGreaterThan(stage.pageRect(1)!.y);
+
+    stage.setViewport({ width: 270, height: 700 }); // line = 1250 → 2 columns
+    expect(stage.pageRect(2)!.y).toBeCloseTo(stage.pageRect(1)!.y, 6); // side by side
+    expect(stage.pageRect(3)!.y).toBeGreaterThan(stage.pageRect(1)!.y); // row 2
+
+    stage.setViewport({ width: 400, height: 700 }); // line = 1900 → 3 columns
+    expect(stage.pageRect(3)!.y).toBeCloseTo(stage.pageRect(1)!.y, 6);
+  });
+
+  it('re-wrapping keeps the current page (anchor-preserving resize)', () => {
+    const { stage } = harness(PORTRAIT, THUMBS, { skipViewport: true });
+    stage.setViewport({ width: 160, height: 400 });
+    stage.goToPage(4, { behavior: 'instant' });
+    stage.setViewport({ width: 400, height: 400 }); // 1 → 3 columns
+    expect(stage.currentPage()).toBe(4);
+  });
+});
+
+describe('the stage is a LENS: multiple instances per document', () => {
+  it('stagePlugin({id, token}) registers an independent instance', () => {
+    const ThumbsToken = { name: 'stage-thumbs-test' };
+    const main = stagePlugin();
+    const thumbs = stagePlugin({
+      id: 'stage-thumbs',
+      token: ThumbsToken as never,
+      layout: 'grid',
+      columns: 'auto',
+      zoom: { level: 0.2 },
+    });
+    expect(main.id).toBe('stage');
+    expect(thumbs.id).toBe('stage-thumbs');
+    expect(thumbs.token).toBe(ThumbsToken);
+    // each lens gets its own initial settings…
+    const mainState = (main.initialState as () => StageState)();
+    const thumbState = (thumbs.initialState as () => StageState)();
+    expect(mainState.layout).toBe('vertical');
+    expect(thumbState.layout).toBe('grid');
+    expect(thumbState.columns).toBe('auto');
+    // …and id/token do NOT leak into the settings state
+    expect('id' in thumbState).toBe(false);
+    expect('token' in thumbState).toBe(false);
+  });
+
+  it('two lenses over the same document hold independent cameras', () => {
+    // two capabilities with separate slices over the SAME document metadata —
+    // exactly what the kernel does for two registered stage plugins.
+    const { stage: main } = harness(PORTRAIT);
+    const { stage: thumbs } = harness(PORTRAIT, {
+      layout: 'grid',
+      columns: 'auto',
+      zoom: { level: 0.2 },
+    });
+    main.goToPage(4, { behavior: 'instant' });
+    expect(main.currentPage()).toBe(4);
+    expect(thumbs.currentPage()).toBe(0); // the sidebar lens did not move
+    expect(thumbs.zoomLevel()).toBeCloseTo(0.2, 6);
+    expect(main.zoomLevel()).not.toBeCloseTo(0.2, 6);
   });
 });
 

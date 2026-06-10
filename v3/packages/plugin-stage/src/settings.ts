@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: StageSettings = {
   layout: 'vertical',
   spread: 'none',
   sizing: 'intrinsic',
+  columns: 'square',
   bounded: true,
   padding: 24,
   gap: 16,

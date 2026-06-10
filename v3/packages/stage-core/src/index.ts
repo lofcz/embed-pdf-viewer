@@ -458,6 +458,12 @@ export function linearLayout(
 export interface GridOptions {
   gap?: number;
   columns?: number;
+  /**
+   * WRAPPED mode: instead of declaring `columns`, give the available line width
+   * (world units) and the grid derives how many cells fit — the responsive
+   * thumbnail-sidebar behavior. Takes precedence over `columns`.
+   */
+  lineWidth?: number;
   sizing?: SizingMode;
   direction?: Direction;
 }
@@ -468,11 +474,8 @@ export function gridLayout(
 ): Scene {
   const gap = opts.gap ?? 48;
   const n = grouping.length;
-  const columns = opts.columns ?? Math.max(1, Math.ceil(Math.sqrt(n)));
   const sizing = opts.sizing ?? 'intrinsic';
   const direction = opts.direction ?? 'ltr';
-  // RTL fills each row right→left (like RTL text wrap); rows stay top→bottom.
-  const colAt = (col: number): number => (direction === 'rtl' ? columns - 1 - col : col);
 
   // Pass 1: pack at intrinsic size; the widest item is the `uniform` reference.
   const packs = grouping.map((group) => packItem(pages, group, gap, direction));
@@ -493,6 +496,18 @@ export function gridLayout(
     cellH = Math.max(cellH, sizes[i].height);
   }
 
+  // Column count — declared, or DERIVED from the available line width (wrapped):
+  // how many cells fit the line. Computed here because it needs cellW. Clamped to
+  // the item count so a short document doesn't occupy (or mirror across) a wider
+  // line than it fills.
+  const wanted =
+    opts.lineWidth !== undefined
+      ? Math.floor((opts.lineWidth + gap) / (cellW + gap))
+      : (opts.columns ?? Math.ceil(Math.sqrt(n)));
+  const columns = Math.max(1, Math.min(wanted, Math.max(1, n)));
+  // RTL fills each row right→left (like RTL text wrap); rows stay top→bottom.
+  const colAt = (col: number): number => (direction === 'rtl' ? columns - 1 - col : col);
+
   const stepX = cellW + gap;
   const stepY = cellH + gap;
   const items: SceneItem[] = new Array(n);
@@ -512,7 +527,7 @@ export function gridLayout(
     items[i] = it;
   }
 
-  const rows = Math.ceil(n / columns);
+  const rows = Math.max(1, Math.ceil(n / columns));
   const size: Size = { width: columns * stepX - gap, height: rows * stepY - gap };
   const firstPage = items.map((it) => it.pageIndexes[0]);
 

@@ -1,12 +1,15 @@
 import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createCapabilityToken } from '@embedpdf-x/kernel';
 import { stagePlugin } from '@embedpdf-x/plugin-stage';
 import type {
   Direction,
   FlowMode,
+  GridColumns,
   LayoutKind,
   SpreadMode,
   SizingMode,
+  StageCapability,
   StageSettings,
 } from '@embedpdf-x/plugin-stage';
 import { markerPlugin } from '@embedpdf-x/plugin-marker';
@@ -32,10 +35,25 @@ import {
 import { bootstrap, engineMode, newDocument } from './engine';
 import type { Boot } from './engine';
 
+// The Stage is a LENS: a document can be viewed through several at once. The
+// sidebar is a second lens — wrapped grid, fixed thumbnail zoom — with its own
+// camera per document, fully independent of the main view.
+const ThumbsStageToken = createCapabilityToken<StageCapability>('stage-thumbs');
+
 // Plugins are plain, pure values — engine-agnostic. The engine is chosen in
 // ./engine and injected at the root; nothing here knows local vs cloud vs fake.
 const plugins = [
-  stagePlugin({ layout: 'vertical' }), // sensible defaults; everything tunable at runtime
+  stagePlugin({ layout: 'vertical' }), // the main lens; everything tunable at runtime
+  stagePlugin({
+    id: 'stage-thumbs',
+    token: ThumbsStageToken,
+    layout: 'grid',
+    columns: 'auto', // WRAPPED: re-wraps as the sidebar resizes
+    zoom: { level: 0.16 },
+    padding: 10,
+    gap: 12,
+    scrollBehavior: 'instant',
+  }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
   markerPlugin(),
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
@@ -191,6 +209,21 @@ function Toolbar() {
         <option value="grid">grid</option>
       </select>
       <select
+        value={String(settings.columns)}
+        onChange={(e) => {
+          const v = e.target.value;
+          update({ columns: (v === 'square' || v === 'auto' ? v : Number(v)) as GridColumns });
+        }}
+        title="grid columns: square (≈√n), auto (WRAPPED — re-wraps with viewport width and zoom), or a fixed count"
+      >
+        <option value="square">▦ square</option>
+        <option value="auto">▦ wrapped</option>
+        <option value="1">▦ 1 col</option>
+        <option value="2">▦ 2 cols</option>
+        <option value="3">▦ 3 cols</option>
+        <option value="4">▦ 4 cols</option>
+      </select>
+      <select
         value={settings.direction}
         onChange={(e) => update({ direction: e.target.value as Direction })}
         title="reading direction: RTL flips horizontal order, spread binding, grid fill, and logical alignment"
@@ -277,6 +310,58 @@ function Toolbar() {
       <button onClick={reset} title="reset to home">
         ⟲
       </button>
+    </div>
+  );
+}
+
+// The thumbnail sidebar: the SAME document through a second stage lens (wrapped
+// grid, fixed small zoom). Drag its right edge — the grid re-wraps 1 → 2 → 3
+// columns by width. Click a thumb to navigate the MAIN lens.
+function ThumbnailSidebar() {
+  const { currentPage, goToPage } = usePages(); // the MAIN lens
+  return (
+    <div
+      style={{
+        width: 168,
+        minWidth: 84,
+        maxWidth: 560,
+        resize: 'horizontal',
+        overflow: 'hidden',
+        position: 'relative',
+        borderRight: '1px solid #e2e2e2',
+        background: '#f4f4f4',
+      }}
+      title="drag the bottom-right corner to resize — the grid re-wraps"
+    >
+      <Stage token={ThumbsStageToken} style={{ position: 'absolute', inset: 0 }}>
+        {(page) => (
+          <>
+            <RenderLayer />
+            <div
+              onClick={() => goToPage(page.pageIndex)}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                cursor: 'pointer',
+                boxSizing: 'border-box',
+                border: page.pageIndex === currentPage ? '3px solid #3858e9' : '1px solid #d0d0d0',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 2,
+                right: 4,
+                fontSize: 10,
+                color: '#888',
+                pointerEvents: 'none',
+              }}
+            >
+              {page.pageIndex + 1}
+            </div>
+          </>
+        )}
+      </Stage>
     </div>
   );
 }
@@ -439,6 +524,7 @@ function Pane({
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
         {view.activeDocumentId ? (
           <DocumentScope id={view.activeDocumentId}>
+            <ThumbnailSidebar />
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               <Toolbar />
               <Stage

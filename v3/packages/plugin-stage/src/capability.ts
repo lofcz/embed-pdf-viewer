@@ -84,24 +84,49 @@ export function createStageCapability(
     return Math.max(0, lo - 1);
   };
 
+  // Wrapped grid: the line width (world units) the columns must fit. Derived from
+  // the viewport at the effective zoom — a fixed zoom intent gives an exact, stable
+  // value (the thumbnail case); fit-modes fall back to the camera's current zoom
+  // (one reflow settles it). This is the ONLY way a scene depends on the viewport.
+  const wrapLineWidth = (): number => {
+    const st = ctx.getState();
+    const zoom = 'level' in st.zoom ? st.zoom.level : Math.max(ctx.getState().camera.zoom, 0.0001);
+    return Math.max(1, (vp().width - 2 * st.padding) / zoom);
+  };
+
   const layoutFor = (groups: number[][]): S.Scene => {
     const st = ctx.getState();
     const pages = ctx.document()?.pages ?? [];
-    return st.layout === 'grid'
-      ? S.gridLayout(pages, groups, { gap: st.gap, sizing: st.sizing, direction: st.direction })
-      : st.layout === 'horizontal'
-        ? S.linearLayout(pages, groups, {
-            axis: 'x',
-            gap: st.gap,
-            sizing: st.sizing,
-            direction: st.direction,
-          })
-        : S.linearLayout(pages, groups, {
-            axis: 'y',
-            gap: st.gap,
-            sizing: st.sizing,
-            direction: st.direction,
-          });
+    if (st.layout === 'grid') {
+      return S.gridLayout(pages, groups, {
+        gap: st.gap,
+        sizing: st.sizing,
+        direction: st.direction,
+        columns: typeof st.columns === 'number' ? st.columns : undefined,
+        lineWidth: st.columns === 'auto' ? wrapLineWidth() : undefined,
+      });
+    }
+    return st.layout === 'horizontal'
+      ? S.linearLayout(pages, groups, {
+          axis: 'x',
+          gap: st.gap,
+          sizing: st.sizing,
+          direction: st.direction,
+        })
+      : S.linearLayout(pages, groups, {
+          axis: 'y',
+          gap: st.gap,
+          sizing: st.sizing,
+          direction: st.direction,
+        });
+  };
+
+  // Scene-cache key fragment for the column policy ('auto' quantizes the line width
+  // so sub-pixel resizes don't churn the cache).
+  const columnsKey = (): string => {
+    const st = ctx.getState();
+    if (st.layout !== 'grid') return '-';
+    return st.columns === 'auto' ? `auto:${Math.round(wrapLineWidth())}` : String(st.columns);
   };
 
   // Scene cache. Continuous = the whole document. Paged = a ONE-ITEM SLICE at the
@@ -114,13 +139,13 @@ export function createStageCapability(
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${st.direction}|${idx}`;
+      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${st.direction}|${columnsKey()}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
       return scene;
     }
-    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}|${st.direction}`;
+    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}|${st.direction}|${columnsKey()}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const scene = layoutFor(g);
     sceneCache = { key, scene };
@@ -348,6 +373,7 @@ export function createStageCapability(
       layout: s.layout,
       spread: s.spread,
       sizing: s.sizing,
+      columns: s.columns,
       bounded: s.bounded,
       padding: s.padding,
       gap: s.gap,
@@ -395,6 +421,7 @@ export function createStageCapability(
     layout: () => ctx.getState().layout,
     spread: () => ctx.getState().spread,
     sizing: () => ctx.getState().sizing,
+    columns: () => ctx.getState().columns,
     bounded: () => ctx.getState().bounded,
     padding: () => ctx.getState().padding,
     gap: () => ctx.getState().gap,
@@ -470,7 +497,8 @@ export function createStageCapability(
         patch.spread !== undefined ||
         patch.sizing !== undefined ||
         patch.gap !== undefined ||
-        patch.direction !== undefined;
+        patch.direction !== undefined ||
+        patch.columns !== undefined;
       if (structural) sceneCache = null;
       if (patch.flow !== undefined) {
         // flow toggled: re-place onto the cursor's page under the new flow's scene
@@ -487,6 +515,7 @@ export function createStageCapability(
     setLayout: (layout) => api.update({ layout }),
     setSpread: (spread) => api.update({ spread }),
     setSizing: (sizing) => api.update({ sizing }),
+    setColumns: (columns) => api.update({ columns }),
     setBounded: (bounded) => api.update({ bounded }),
     setPadding: (padding) => api.update({ padding }),
     setGap: (gap) => api.update({ gap }),
@@ -502,6 +531,7 @@ export function createStageCapability(
           layout: view.layout,
           spread: view.spread,
           sizing: view.sizing,
+          columns: view.columns,
           bounded: view.bounded,
           padding: view.padding,
           gap: view.gap,

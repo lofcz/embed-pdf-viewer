@@ -316,6 +316,37 @@ describe('direction: rtl (a layout property, not a navigation one)', () => {
   });
 });
 
+describe('gridLayout lineWidth (wrapped)', () => {
+  const pages = Array.from({ length: 7 }, () => ({ width: 600, height: 800 }));
+  const g = () => S.groupPages(7, 'none');
+  // cell = 600 wide, gap 48 → a column costs 648 of (lineWidth + 48)
+
+  it('derives the column count from the line width', () => {
+    expect(S.gridLayout(pages, g(), { gap: 48, lineWidth: 1300 }).items[1].y).toBe(0); // 2 cols: item 1 in row 0
+    const two = S.gridLayout(pages, g(), { gap: 48, lineWidth: 1300 });
+    expect(two.items[2].y).toBeGreaterThan(0); // …and item 2 wrapped to row 1
+    const three = S.gridLayout(pages, g(), { gap: 48, lineWidth: 2000 });
+    expect(three.items[2].y).toBe(0); // 3 columns now
+    expect(three.items[3].y).toBeGreaterThan(0);
+  });
+
+  it('never fewer than 1 column, never more than the item count', () => {
+    const narrow = S.gridLayout(pages, g(), { gap: 48, lineWidth: 100 });
+    expect(narrow.items.every((it, i) => i === 0 || it.y > narrow.items[i - 1].y)).toBe(true); // 1 col
+    const wide = S.gridLayout(pages.slice(0, 3), S.groupPages(3, 'none'), {
+      gap: 48,
+      lineWidth: 99999,
+    });
+    expect(wide.size.width).toBeCloseTo(3 * 648 - 48, 6); // clamped to 3 occupied columns
+  });
+
+  it('wrapped + RTL fills each derived row right→left', () => {
+    const scene = S.gridLayout(pages, g(), { gap: 48, lineWidth: 1300, direction: 'rtl' });
+    expect(scene.items[0].x).toBeGreaterThan(scene.items[1].x); // row 0: 0 right of 1
+    expect(scene.items[2].y).toBeGreaterThan(scene.items[0].y); // row 1 below
+  });
+});
+
 describe('groupPages', () => {
   it('groups by spread mode', () => {
     expect(S.groupPages(4, 'none')).toEqual([[0], [1], [2], [3]]);

@@ -24,6 +24,14 @@ export type ScrollBehaviorKind = 'smooth' | 'instant';
  *                  slice at the cursor, and next/prev step between items.
  */
 export type FlowMode = 'continuous' | 'paged';
+/**
+ * Grid column policy:
+ *   'square' — ≈√n columns (the classic canvas arrangement)
+ *   'auto'   — WRAPPED: as many columns as fit the viewport line at the current
+ *              zoom (the responsive thumbnail-sidebar behavior; re-wraps on resize)
+ *   number   — a fixed column count
+ */
+export type GridColumns = 'square' | 'auto' | number;
 
 /**
  * The Stage's orthogonal, independently-settable primitives. Every field can be set
@@ -38,6 +46,8 @@ export interface StageSettings {
   spread: SpreadMode;
   /** Page sizing: true PDF sizes, or equalize the cross axis so pages sit flush. */
   sizing: SizingMode;
+  /** Grid column policy (grid layout only): 'square', 'auto' (wrapped), or a count. */
+  columns: GridColumns;
   /** Clamp the camera to the content? Off = free infinite pan (plans / CAD). */
   bounded: boolean;
   /**
@@ -147,6 +157,7 @@ export interface StageCapability {
   layout(): LayoutKind;
   spread(): SpreadMode;
   sizing(): SizingMode;
+  columns(): GridColumns;
   bounded(): boolean;
   padding(): number;
   gap(): number;
@@ -189,6 +200,7 @@ export interface StageCapability {
   setLayout(layout: LayoutKind): void;
   setSpread(spread: SpreadMode): void;
   setSizing(sizing: SizingMode): void;
+  setColumns(columns: GridColumns): void;
   setBounded(bounded: boolean): void;
   setPadding(padding: number): void;
   setGap(gap: number): void;

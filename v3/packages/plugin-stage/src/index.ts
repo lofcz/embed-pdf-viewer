@@ -6,10 +6,12 @@
  *   types.ts · settings.ts · reducer.ts · capability.ts · stage.plugin.ts
  */
 export { stagePlugin } from './stage.plugin';
+export type { StagePluginOptions } from './stage.plugin';
 export { StageToken } from './types';
 export { DEFAULT_SETTINGS } from './settings';
 export type {
   FlowMode,
+  GridColumns,
   LayoutKind,
   ScrollBehaviorKind,
   GoToOptions,
