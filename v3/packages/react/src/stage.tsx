@@ -243,7 +243,14 @@ export function usePages(token: StageTokenProp = StageToken) {
   const s = useCapability(token);
   const currentPage = useSelector(token, (c) => c.currentPage());
   const pageCount = useSelector(token, (c) => c.pageCount());
-  return { currentPage, pageCount, goToPage: s.goToPage, next: s.next, prev: s.prev };
+  return {
+    currentPage,
+    pageCount,
+    goToPage: s.goToPage,
+    next: s.next,
+    prev: s.prev,
+    reveal: s.reveal,
+  };
 }
 export function useLayout(token: StageTokenProp = StageToken) {
   const s = useCapability(token);

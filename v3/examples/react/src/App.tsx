@@ -322,6 +322,11 @@ function ThumbnailSidebar() {
   const { currentPage, goToPage } = usePages(); // the MAIN lens
   const thumbs = useStageSettings(ThumbsStageToken); // the SIDEBAR lens
   const thumbPx = 'pageWidth' in thumbs.settings.zoom ? thumbs.settings.zoom.pageWidth : 110;
+  // FOLLOW the main view (Adobe behavior): when its current page changes, make that
+  // thumb visible — minimal movement, zero when it's already on screen. Policy in
+  // app code; the `reveal` verb is the mechanism.
+  const { reveal } = usePages(ThumbsStageToken);
+  useEffect(() => reveal(currentPage), [currentPage, reveal]);
   return (
     <div
       style={{

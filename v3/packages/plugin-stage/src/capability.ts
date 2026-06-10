@@ -528,6 +528,29 @@ export function createStageCapability(
     fitAll: () => api.update({ zoom: { mode: S.ZoomMode.FitAll } }),
     automatic: () => api.update({ zoom: { mode: S.ZoomMode.Automatic } }),
     goToPage: (pageIndex, opts) => goToTarget(pageIndex, opts),
+    reveal: (pageIndex, opts) => {
+      // NOT navigation: minimal visibility, cursor untouched (see revealCamera).
+      const doc = ctx.document();
+      if (!doc || doc.pageCount === 0) return;
+      const target = Math.max(0, Math.min(pageIndex, doc.pageCount - 1));
+      if (paged()) {
+        // the page isn't in the one-item slice — revealing it IS navigating to it
+        goToTarget(target, opts);
+        return;
+      }
+      const sc = buildScene();
+      if (!sc.itemCount) return;
+      const box = pageRectOf(sc.items[itemIndexOfPage(target)], target);
+      const camera = S.revealCamera(cam(), box, vp(), pad());
+      const current = cam();
+      if (camera.x === current.x && camera.y === current.y) return; // already visible
+      cancelAnim();
+      if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') {
+        animateTo(camera, sceneRect());
+      } else {
+        setCam(camera, sceneRect());
+      }
+    },
     next: (opts) => step(1, opts),
     prev: (opts) => step(-1, opts),
     update: (patch) => {

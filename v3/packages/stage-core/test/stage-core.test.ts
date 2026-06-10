@@ -115,6 +115,32 @@ describe('placeCamera — THE placement algorithm', () => {
   });
 });
 
+describe('revealCamera — scrollIntoView as camera math', () => {
+  const rect = { x: 100, y: 2000, width: 300, height: 400 };
+
+  it('already fully visible → the camera is unchanged (no-op by construction)', () => {
+    const cam = { x: 0, y: 1900, zoom: 1 }; // window [1900..2600] contains [2000..2400]
+    expect(S.revealCamera(cam, rect, vp, 24)).toEqual(cam);
+  });
+
+  it('target below → MINIMAL scroll: far edge lands a padding inside', () => {
+    const cam = { x: 0, y: 0, zoom: 1 }; // rect is far below the window
+    const out = S.revealCamera(cam, rect, vp, 24);
+    expect(out.y).toBeCloseTo(2000 + 400 - (700 - 24), 6); // bottom edge + padding
+    expect(out.x).toBe(0); // x already fine → untouched (per-axis independence)
+  });
+
+  it('target above → minimal scroll the other way: near edge + padding', () => {
+    const cam = { x: 0, y: 5000, zoom: 1 };
+    expect(S.revealCamera(cam, rect, vp, 24).y).toBeCloseTo(2000 - 24, 6);
+  });
+
+  it('oversized target → aligns its start (like scrollIntoView)', () => {
+    const big = { x: 0, y: 2000, width: 300, height: 5000 };
+    expect(S.revealCamera({ x: 0, y: 0, zoom: 1 }, big, vp, 24).y).toBeCloseTo(2000 - 24, 6);
+  });
+});
+
 describe('zoomAround', () => {
   it('keeps the world point under the cursor fixed (no drift)', () => {
     const c = { x: 100, y: 50, zoom: 1 };

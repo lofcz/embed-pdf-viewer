@@ -231,6 +231,30 @@ export function placeCamera(
   return { zoom, x, y: pick(align.y, lo.y, hi.y) };
 }
 
+/**
+ * The MINIMAL camera move that makes `rect` fully visible (with a `padding` gutter)
+ * — DOM scrollIntoView({ block: 'nearest' }) as camera math. Per axis, the cameras
+ * that show the rect form an interval; the answer is the current camera CLAMPED
+ * into it: already inside → unchanged (the no-op case, by construction, not by
+ * condition). An oversized rect (interval inverted) aligns to its start.
+ *
+ * This is deliberately NOT placement: `placeCamera` answers "I am navigating here"
+ * (canonical); `revealCamera` answers "make sure this is seeable" (minimal).
+ */
+export function revealCamera(cam: Camera, rect: Rect, vp: Size, padding = 0): Camera {
+  const axis = (pos: number, start: number, size: number, view: number): number => {
+    const lo = start + size - (view - padding) / cam.zoom; // far edge just inside
+    const hi = start - padding / cam.zoom; // near edge just inside
+    if (lo > hi) return hi; // rect larger than the viewport: align its start
+    return clamp(pos, lo, hi);
+  };
+  return {
+    zoom: cam.zoom,
+    x: axis(cam.x, rect.x, rect.width, vp.width),
+    y: axis(cam.y, rect.y, rect.height, vp.height),
+  };
+}
+
 // ── Zoom intent — resolved against a fit-box chosen by the caller: the document's
 //    max item (continuous), the current item (paged), or the whole scene (fit-all). ─
 export function resolveZoom(spec: ZoomSpec, box: Size, vp: Size, padding = 0): number {

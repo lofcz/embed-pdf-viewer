@@ -189,6 +189,14 @@ export interface StageCapability {
   automatic(): void;
   /** Go to a page. Fresh arrival places by the unit rule; pass `viewpoint` to restore. */
   goToPage(pageIndex: number, opts?: GoToOptions): void;
+  /**
+   * Make a page VISIBLE with minimal movement — zero if it already is. Not
+   * navigation: the cursor is untouched and nothing is re-placed (scrollIntoView
+   * semantics; the verb behind follower UIs like thumbnail sidebars, search hits,
+   * outline clicks). In paged flow the page isn't in the scene, so reveal
+   * delegates to navigation.
+   */
+  reveal(pageIndex: number, opts?: { behavior?: ScrollBehaviorKind }): void;
   /** Step forward by the navigation unit (the item if it fits the viewport, else the page). */
   next(opts?: GoToOptions): void;
   /** Step backward by the navigation unit. */

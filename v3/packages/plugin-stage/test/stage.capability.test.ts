@@ -820,6 +820,47 @@ describe('zoom { pageWidth }: pixel-target thumbnails for ANY document', () => {
   });
 });
 
+describe('reveal: make-visible without navigating (the sidebar follower verb)', () => {
+  // thumbnail-style lens: small fixed thumbs, instant scrolling
+  const THUMBS = {
+    layout: 'grid' as const,
+    columns: 1,
+    zoom: { level: 0.2 },
+    padding: 10,
+    gap: 12,
+  };
+
+  it('off-screen page → minimal scroll; visible page → camera untouched', () => {
+    const { stage } = harness(PORTRAIT, THUMBS); // 5 thumbs stacked, ~164px each
+    const start = stage.camera();
+    stage.reveal(4, { behavior: 'instant' }); // far below the 700px window
+    const revealed = stage.camera();
+    expect(revealed).not.toEqual(start);
+    // minimal: page 5's BOTTOM edge sits a padding above the viewport bottom
+    const box = stage.pageRect(5)!;
+    expect(stage.toScreen({ x: box.x, y: box.y + box.height }).y).toBeCloseTo(700 - 10, 0);
+    // revealing it again — or a neighbour that's now visible — moves nothing
+    stage.reveal(4, { behavior: 'instant' });
+    expect(stage.camera()).toEqual(revealed);
+    stage.reveal(3, { behavior: 'instant' });
+    expect(stage.camera()).toEqual(revealed);
+  });
+
+  it('reveal is NOT navigation: the cursor never moves', () => {
+    const { stage } = harness(PORTRAIT, THUMBS);
+    expect(stage.currentPage()).toBe(0);
+    stage.reveal(4, { behavior: 'instant' });
+    expect(stage.currentPage()).toBe(0); // intent untouched — only the camera moved
+  });
+
+  it('paged flow: revealing an off-scene page delegates to navigation', () => {
+    const { stage } = harness(PORTRAIT, { flow: 'paged' });
+    stage.reveal(3, { behavior: 'instant' });
+    expect(stage.currentPage()).toBe(3); // the page can only be seen by going there
+    expect(stage.visiblePages().map((p) => p.pageIndex)).toEqual([3]);
+  });
+});
+
 describe('viewpoint: per-page view memory (construction worksheets)', () => {
   it('goToPage with a saved viewpoint restores the exact camera', () => {
     const { stage } = harness(PORTRAIT, { flow: 'paged' });
