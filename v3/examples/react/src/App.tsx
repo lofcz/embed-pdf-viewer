@@ -49,9 +49,10 @@ const plugins = [
     token: ThumbsStageToken,
     layout: 'grid',
     columns: 'auto', // WRAPPED: re-wraps as the sidebar resizes
-    zoom: { level: 0.16 },
+    sizing: 'uniform', // equalize pages so the pixel target hits every thumb
+    zoom: { pageWidth: 110 }, // thumbs are 110 SCREEN px wide — for ANY document
     padding: 10,
-    gap: 12,
+    gap: 60,
     scrollBehavior: 'instant',
   }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
@@ -319,6 +320,8 @@ function Toolbar() {
 // columns by width. Click a thumb to navigate the MAIN lens.
 function ThumbnailSidebar() {
   const { currentPage, goToPage } = usePages(); // the MAIN lens
+  const thumbs = useStageSettings(ThumbsStageToken); // the SIDEBAR lens
+  const thumbPx = 'pageWidth' in thumbs.settings.zoom ? thumbs.settings.zoom.pageWidth : 110;
   return (
     <div
       style={{
@@ -328,12 +331,40 @@ function ThumbnailSidebar() {
         resize: 'horizontal',
         overflow: 'hidden',
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
         borderRight: '1px solid #e2e2e2',
         background: '#f4f4f4',
       }}
       title="drag the bottom-right corner to resize — the grid re-wraps"
     >
-      <Stage token={ThumbsStageToken} style={{ position: 'absolute', inset: 0 }}>
+      <label
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          padding: '3px 6px',
+          fontSize: 11,
+          color: '#666',
+          borderBottom: '1px solid #e2e2e2',
+        }}
+        title="thumbnail width in SCREEN px — document-independent (zoom: { pageWidth })"
+      >
+        thumb
+        <input
+          type="number"
+          min={40}
+          max={400}
+          step={10}
+          value={thumbPx}
+          onChange={(e) =>
+            thumbs.update({ zoom: { pageWidth: Math.max(40, Number(e.target.value) || 110) } })
+          }
+          style={{ width: 48 }}
+        />
+        px
+      </label>
+      <Stage token={ThumbsStageToken} style={{ flex: 1, position: 'relative' }}>
         {(page) => (
           <>
             <RenderLayer />

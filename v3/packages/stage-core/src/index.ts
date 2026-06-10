@@ -79,7 +79,22 @@ export interface CameraConstraint {
    */
   padding: number;
 }
-export type ZoomSpec = { mode: ZoomModeValue } | { level: number };
+/**
+ * The zoom intent — an equation about the fit-box, each resolved by `resolveZoom`:
+ *   { mode }       — viewport-relative: fit-width / fit-page / automatic / fit-all
+ *   { level }      — document-relative: a fixed scale factor
+ *   { pageWidth }  — absolute: the page unit renders N **screen px** wide. The only
+ *                    intent stable across BOTH viewport and document differences —
+ *                    e.g. thumbnails at 200px for any document. Targets the page
+ *                    UNIT (a spread counts as one, exactly as in fit-page/fit-width);
+ *                    combine with sizing 'uniform' to make every page exactly N px.
+ *   { pageHeight } — absolute, vertical twin (horizontal filmstrip thumbnails).
+ */
+export type ZoomSpec =
+  | { mode: ZoomModeValue }
+  | { level: number }
+  | { pageWidth: number }
+  | { pageHeight: number };
 export interface Anchor {
   pageIndex: number;
   fx: number;
@@ -220,6 +235,9 @@ export function placeCamera(
 //    max item (continuous), the current item (paged), or the whole scene (fit-all). ─
 export function resolveZoom(spec: ZoomSpec, box: Size, vp: Size, padding = 0): number {
   if ('level' in spec) return clamp(spec.level, ZOOM_MIN, ZOOM_MAX);
+  // absolute pixel targets: box dimension = N screen px (document-independent)
+  if ('pageWidth' in spec) return clamp(spec.pageWidth / box.width, ZOOM_MIN, ZOOM_MAX);
+  if ('pageHeight' in spec) return clamp(spec.pageHeight / box.height, ZOOM_MIN, ZOOM_MAX);
   const fitW = Math.max(1, vp.width - 2 * padding) / box.width;
   const fitH = Math.max(1, vp.height - 2 * padding) / box.height;
   switch (spec.mode) {
@@ -522,8 +540,26 @@ export function gridLayout(
   // RTL fills each row right→left (like RTL text wrap); rows stay top→bottom.
   const colAt = (col: number): number => (direction === 'rtl' ? columns - 1 - col : col);
 
+  // Rows are as tall as THEIR tallest item — a wrapped grid is text-wrap for pages,
+  // and a wrapped line is as tall as its own tallest glyph, not the document's
+  // tallest. (A single global cell height left short pages floating in huge voids
+  // with mixed page sizes.) Columns keep a uniform width: that's what makes a
+  // column grid a grid — and `sizing: 'uniform'` removes the horizontal voids.
   const stepX = cellW + gap;
-  const stepY = cellH + gap;
+  const rows = Math.max(1, Math.ceil(n / columns));
+  const rowHeight: number[] = new Array(rows).fill(1);
+  for (let i = 0; i < n; i++) {
+    const row = Math.floor(i / columns);
+    rowHeight[row] = Math.max(rowHeight[row], sizes[i].height);
+  }
+  const rowTop: number[] = new Array(rows);
+  let yCursor = 0;
+  for (let r = 0; r < rows; r++) {
+    rowTop[r] = yCursor;
+    yCursor += rowHeight[r] + gap;
+  }
+  const rowEnd = rowTop.map((top, r) => top + rowHeight[r]);
+
   const items: SceneItem[] = new Array(n);
   for (let i = 0; i < n; i++) {
     const col = colAt(i % columns);
@@ -531,7 +567,7 @@ export function gridLayout(
     const it: SceneItem = {
       index: i,
       x: col * stepX + (cellW - sizes[i].width) / 2,
-      y: row * stepY + (cellH - sizes[i].height) / 2,
+      y: rowTop[row] + (rowHeight[row] - sizes[i].height) / 2,
       width: sizes[i].width,
       height: sizes[i].height,
       pageIndexes: grouping[i],
@@ -541,8 +577,7 @@ export function gridLayout(
     items[i] = it;
   }
 
-  const rows = Math.max(1, Math.ceil(n / columns));
-  const size: Size = { width: columns * stepX - gap, height: rows * stepY - gap };
+  const size: Size = { width: columns * stepX - gap, height: Math.max(1, yCursor - gap) };
   const firstPage = items.map((it) => it.pageIndexes[0]);
 
   return {
@@ -554,8 +589,9 @@ export function gridLayout(
     query(r) {
       const c0 = Math.max(0, Math.floor(r.x / stepX));
       const c1 = Math.min(columns - 1, Math.floor((r.x + r.width) / stepX));
-      const r0 = Math.max(0, Math.floor(r.y / stepY));
-      const r1 = Math.min(rows - 1, Math.floor((r.y + r.height) / stepY));
+      // rows by binary search over the prefix-summed row extents (O(log rows))
+      const r0 = Math.max(0, lowerBound(rowEnd, r.y));
+      const r1 = Math.min(rows - 1, upperBound(rowTop, r.y + r.height) - 1);
       const out: SceneItem[] = [];
       for (let row = r0; row <= r1; row++)
         for (let col = c0; col <= c1; col++) {
@@ -567,7 +603,7 @@ export function gridLayout(
     },
     nearestItem(pt) {
       const col = clamp(Math.floor(pt.x / stepX), 0, columns - 1);
-      const row = clamp(Math.floor(pt.y / stepY), 0, rows - 1);
+      const row = clamp(upperBound(rowTop, pt.y) - 1, 0, rows - 1);
       return items[clamp(row * columns + colAt(col), 0, n - 1)];
     },
     itemOfPage(pi) {

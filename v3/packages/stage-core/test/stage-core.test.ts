@@ -37,6 +37,25 @@ describe('resolveZoom', () => {
     expect(S.resolveZoom({ level: 999 }, { width: 1, height: 1 }, vp)).toBe(S.ZOOM_MAX);
     expect(S.resolveZoom({ level: 0 }, { width: 1, height: 1 }, vp)).toBe(S.ZOOM_MIN);
   });
+
+  it('pageWidth/pageHeight: absolute pixel targets, document-independent', () => {
+    // a 612pt letter and a 2880pt construction sheet both render 200px wide
+    expect(612 * S.resolveZoom({ pageWidth: 200 }, { width: 612, height: 792 }, vp)).toBeCloseTo(
+      200,
+      6,
+    );
+    expect(2880 * S.resolveZoom({ pageWidth: 200 }, { width: 2880, height: 2000 }, vp)).toBeCloseTo(
+      200,
+      6,
+    );
+    // vertical twin (filmstrip): box height = N px
+    expect(792 * S.resolveZoom({ pageHeight: 150 }, { width: 612, height: 792 }, vp)).toBeCloseTo(
+      150,
+      6,
+    );
+    // clamped like every other intent
+    expect(S.resolveZoom({ pageWidth: 1 }, { width: 1e9, height: 1 }, vp)).toBe(S.ZOOM_MIN);
+  });
 });
 
 describe('placeCamera — THE placement algorithm', () => {
@@ -313,6 +332,29 @@ describe('direction: rtl (a layout property, not a navigation one)', () => {
     // reading start = right edge: subject's right sits a padding in from viewport right
     expect((subject.width - cam.x) * cam.zoom).toBeCloseTo(vp.width - 24, 6);
     expect((0 - cam.y) * cam.zoom).toBeCloseTo(24, 6); // top unchanged
+  });
+});
+
+describe('gridLayout per-row heights (mixed page sizes)', () => {
+  it('a row is as tall as ITS tallest item, not the global max (no giant voids)', () => {
+    const pages = [
+      { width: 600, height: 800 }, // row 0
+      { width: 600, height: 400 }, // row 0 (short — centers within ROW height)
+      { width: 600, height: 1200 }, // row 1 (the global max)
+      { width: 600, height: 600 }, // row 1
+    ];
+    const scene = S.gridLayout(pages, S.groupPages(4, 'none'), { gap: 12, columns: 2 });
+    // row 0 is 800 tall (NOT 1200): row 1 starts right below it + gap
+    expect(scene.items[2].y).toBeCloseTo(800 + 12, 6);
+    // the short page centers within its OWN row's height
+    expect(scene.items[1].y).toBeCloseTo((800 - 400) / 2, 6);
+    expect(scene.items[3].y).toBeCloseTo(800 + 12 + (1200 - 600) / 2, 6);
+    // scene height = sum of row heights + gap, not rows × global max
+    expect(scene.size.height).toBeCloseTo(800 + 12 + 1200, 6);
+    // the spatial index respects the variable rows
+    expect(scene.nearestItem({ x: 300, y: 850 }).index).toBe(2);
+    const hits = scene.query({ x: 0, y: 0, width: 1212, height: 700 });
+    expect(hits.map((it) => it.index).sort()).toEqual([0, 1]);
   });
 });
 

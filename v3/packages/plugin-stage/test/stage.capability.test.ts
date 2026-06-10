@@ -765,6 +765,61 @@ describe('the stage is a LENS: multiple instances per document', () => {
   });
 });
 
+describe('zoom { pageWidth }: pixel-target thumbnails for ANY document', () => {
+  const MIXED = [
+    { width: 600, height: 800 },
+    { width: 1000, height: 700 }, // the widest
+    { width: 500, height: 900 },
+  ];
+
+  it('uniform + pageWidth: EVERY page renders exactly N screen px wide', () => {
+    const { stage } = harness(MIXED, { sizing: 'uniform', zoom: { pageWidth: 200 } });
+    const zoom = stage.zoomLevel();
+    expect(stage.pageRect(1)!.width * zoom).toBeCloseTo(200, 4);
+    expect(stage.pageRect(2)!.width * zoom).toBeCloseTo(200, 4);
+    expect(stage.pageRect(3)!.width * zoom).toBeCloseTo(200, 4);
+  });
+
+  it('the same config gives the same pixels for a totally different document', () => {
+    const HUGE = [
+      { width: 2880, height: 2000 }, // construction sheets
+      { width: 2880, height: 2000 },
+    ];
+    const { stage } = harness(HUGE, { sizing: 'uniform', zoom: { pageWidth: 200 } });
+    expect(stage.pageRect(1)!.width * stage.zoomLevel()).toBeCloseTo(200, 4);
+  });
+
+  it('intrinsic + pageWidth: the WIDEST page is N px, narrower ones proportional', () => {
+    const { stage } = harness(MIXED, { zoom: { pageWidth: 200 } }); // sizing intrinsic
+    const zoom = stage.zoomLevel();
+    expect(stage.pageRect(2)!.width * zoom).toBeCloseTo(200, 4); // widest = 200
+    expect(stage.pageRect(1)!.width * zoom).toBeCloseTo(120, 4); // 600/1000 of it
+    expect(stage.pageRect(3)!.width * zoom).toBeCloseTo(100, 4);
+  });
+
+  it('paged + pageWidth: the CURRENT page is N px (per-page exact)', () => {
+    const { stage } = harness(MIXED, { flow: 'paged', zoom: { pageWidth: 200 } });
+    expect(stage.pageRect(1)!.width * stage.zoomLevel()).toBeCloseTo(200, 4);
+    stage.goToPage(1, { behavior: 'instant' }); // the 1000-wide page
+    expect(stage.pageRect(2)!.width * stage.zoomLevel()).toBeCloseTo(200, 4);
+  });
+
+  it('wrapped + pageWidth converges (the thumbnail-sidebar config)', () => {
+    const { stage } = harness(MIXED, {
+      layout: 'grid',
+      columns: 'auto',
+      sizing: 'uniform',
+      zoom: { pageWidth: 200 },
+      padding: 10,
+      gap: 12,
+    });
+    expect(stage.pageRect(1)!.width * stage.zoomLevel()).toBeCloseTo(200, 4);
+    const settled = stage.camera();
+    stage.panBy(0, 0); // a no-op pan clamps — the camera must already be legal
+    expect(stage.camera()).toEqual(settled);
+  });
+});
+
 describe('viewpoint: per-page view memory (construction worksheets)', () => {
   it('goToPage with a saved viewpoint restores the exact camera', () => {
     const { stage } = harness(PORTRAIT, { flow: 'paged' });
