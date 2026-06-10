@@ -473,9 +473,20 @@ export function createStageCapability(
     },
     zoomAround: (pt, factor) => {
       cancelAnim();
+      const before = buildScene();
+      // page-relative focal point: the durable identity of "what's under the cursor"
+      const focal = before.itemCount ? S.anchorAtPoint(before, S.toWorld(cam(), pt)) : null;
       setCam(S.zoomAround(cam(), pt, factor));
-      // record the resulting fixed level as the zoom intent — focal, so NO re-anchor.
+      // record the resulting fixed level as the zoom intent — focal, so no re-anchor…
       ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: cam().zoom } } });
+      // …UNLESS zoom is a LAYOUT INPUT (wrapped grid) and the scene just re-wrapped
+      // underneath the camera. The old world point is stale then — re-pin the SAME
+      // page-point under the cursor and clamp against the new geometry. In every
+      // non-wrapped mode the scene reference is unchanged and this never runs.
+      const after = buildScene();
+      if (after !== before && focal && after.itemCount) {
+        setCam(S.cameraForAnchorAtScreen(focal, after, pt, cam().zoom));
+      }
       syncCursorFromCamera();
     },
     zoomIn: () => api.zoomAround({ x: vp().width / 2, y: vp().height / 2 }, 1.2),

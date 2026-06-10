@@ -236,14 +236,17 @@ export function resolveZoom(spec: ZoomSpec, box: Size, vp: Size, padding = 0): n
   }
 }
 
-// ── Anchor ───────────────────────────────────────────────────────────────────
-export function anchorFromCamera(cam: Camera, scene: Scene, vp: Size): Anchor {
-  const c = toWorld(cam, { x: vp.width / 2, y: vp.height / 2 });
-  const item = scene.nearestItem(c);
+// ── Anchor — a PAGE-RELATIVE point, the durable "what am I looking at". The world
+//    point under a screen position is meaningless across a re-layout (pages move);
+//    the page-point survives. Generalized to ANY point; the classic viewport-center
+//    anchor is the special case. ────────────────────────────────────────────────
+/** The anchor at an arbitrary world point: its nearest page + the point, page-relative. */
+export function anchorAtPoint(scene: Scene, worldPt: Point): Anchor {
+  const item = scene.nearestItem(worldPt);
   let page = item.pages[0];
   let best = Infinity;
   for (const p of item.pages) {
-    const d = Math.abs(p.x + p.width / 2 - c.x);
+    const d = Math.abs(p.x + p.width / 2 - worldPt.x);
     if (d < best) {
       best = d;
       page = p;
@@ -251,19 +254,30 @@ export function anchorFromCamera(cam: Camera, scene: Scene, vp: Size): Anchor {
   }
   return {
     pageIndex: page.pageIndex,
-    fx: (c.x - page.x) / page.width,
-    fy: (c.y - page.y) / page.height,
+    fx: (worldPt.x - page.x) / page.width,
+    fy: (worldPt.y - page.y) / page.height,
   };
 }
-export function cameraFromAnchor(anchor: Anchor, scene: Scene, vp: Size, zoom: number): Camera {
+
+/** The camera that puts the anchor's world point at a given SCREEN point. */
+export function cameraForAnchorAtScreen(
+  anchor: Anchor,
+  scene: Scene,
+  screenPt: Point,
+  zoom: number,
+): Camera {
   const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
   let page = item.pages[0];
   for (const p of item.pages) if (p.pageIndex === anchor.pageIndex) page = p;
-  return centerOnWorld(
-    { x: page.x + anchor.fx * page.width, y: page.y + anchor.fy * page.height },
-    vp,
-    zoom,
-  );
+  const world = { x: page.x + anchor.fx * page.width, y: page.y + anchor.fy * page.height };
+  return { zoom, x: world.x - screenPt.x / zoom, y: world.y - screenPt.y / zoom };
+}
+
+export function anchorFromCamera(cam: Camera, scene: Scene, vp: Size): Anchor {
+  return anchorAtPoint(scene, toWorld(cam, { x: vp.width / 2, y: vp.height / 2 }));
+}
+export function cameraFromAnchor(anchor: Anchor, scene: Scene, vp: Size, zoom: number): Camera {
+  return cameraForAnchorAtScreen(anchor, scene, { x: vp.width / 2, y: vp.height / 2 }, zoom);
 }
 
 // ── Spatial-index helpers ──────────────────────────────────────────────────────

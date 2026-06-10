@@ -649,6 +649,57 @@ describe("columns: 'auto' — the wrapped grid (thumbnail sidebar)", () => {
   });
 });
 
+describe('wrapped + discrete zoom: the scene re-wraps and the camera follows', () => {
+  // vp 1000, padding 24 → line = 952/zoom; cell = 600 + gap 16 = 616 world.
+  // zoom 0.35 → line 2720 → 4 columns; ×1.2 → 0.42 → line 2266 → 3 columns.
+  const WRAPPED = {
+    layout: 'grid' as const,
+    columns: 'auto' as const,
+    zoom: { level: 0.35 },
+    padding: 24,
+    gap: 16,
+  };
+
+  it('zoomIn across a column boundary leaves the camera ALREADY clamped (the bug)', () => {
+    const { stage } = harness(PORTRAIT, WRAPPED);
+    // 4 columns: page 4 (idx 3) sits in row 0
+    expect(stage.pageRect(4)!.y).toBeCloseTo(stage.pageRect(1)!.y, 6);
+    stage.zoomIn();
+    // re-wrapped to 3 columns: page 4 moved to row 1
+    expect(stage.pageRect(4)!.y).toBeGreaterThan(stage.pageRect(1)!.y);
+    // the camera must satisfy the NEW scene's clamp immediately — a no-op pan
+    // (which clamps) must not move it. Before the fix, this is where it jumped.
+    const settled = stage.camera();
+    stage.panBy(0, 0);
+    expect(stage.camera()).toEqual(settled);
+  });
+
+  it('the focal page-point stays under the cursor across the re-wrap', () => {
+    const { stage } = harness(PORTRAIT, WRAPPED);
+    // pick a screen point inside page 2 (idx 1) and remember its page-relative spot
+    const before = stage.pageRect(2)!;
+    const screenPt = stage.toScreen({
+      x: before.x + before.width * 0.25,
+      y: before.y + before.height * 0.4,
+    });
+    stage.zoomAround(screenPt, 1.2); // crosses the 4→3 column boundary
+    const after = stage.pageRect(2)!; // page 2 has MOVED in the new wrap…
+    const world = stage.toWorld(screenPt); // …but the same page-point is back under the cursor
+    expect((world.x - after.x) / after.width).toBeCloseTo(0.25, 2);
+    expect((world.y - after.y) / after.height).toBeCloseTo(0.4, 2);
+  });
+
+  it('non-wrapped zoomAround is byte-identical (the scene reference never changes)', () => {
+    const { stage } = harness(PORTRAIT); // vertical, no wrap
+    const screenPt = { x: 300, y: 200 };
+    const worldBefore = stage.toWorld(screenPt);
+    stage.zoomAround(screenPt, 1.7);
+    const worldAfter = stage.toWorld(screenPt);
+    expect(worldAfter.x).toBeCloseTo(worldBefore.x, 4); // pure focal zoom, no drift
+    expect(worldAfter.y).toBeCloseTo(worldBefore.y, 4);
+  });
+});
+
 describe('the stage is a LENS: multiple instances per document', () => {
   it('stagePlugin({id, token}) registers an independent instance', () => {
     const ThumbsToken = { name: 'stage-thumbs-test' };
