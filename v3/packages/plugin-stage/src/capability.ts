@@ -84,24 +84,43 @@ export function createStageCapability(
     return Math.max(0, lo - 1);
   };
 
-  // Wrapped grid: the line width (world units) the columns must fit. Derived from
-  // the viewport at the effective zoom — a fixed zoom intent gives an exact, stable
-  // value (the thumbnail case); fit-modes fall back to the camera's current zoom
-  // (one reflow settles it). This is the ONLY way a scene depends on the viewport.
-  const wrapLineWidth = (): number => {
-    const st = ctx.getState();
-    const zoom = 'level' in st.zoom ? st.zoom.level : Math.max(ctx.getState().camera.zoom, 0.0001);
-    return Math.max(1, (vp().width - 2 * st.padding) / zoom);
+  // The effective zoom for converting SCREEN px settings into world units — a
+  // fixed zoom intent gives an exact, stable value (the thumbnail case); other
+  // intents fall back to the camera's current zoom (`stabilized` converges it).
+  // Screen-px settings (wrapped lineWidth, pageMargin) are the ONLY way a scene
+  // depends on the viewport/zoom.
+  const effectiveZoom = (): number => {
+    const z = ctx.getState().zoom;
+    return 'level' in z ? z.level : Math.max(ctx.getState().camera.zoom, 0.0001);
+  };
+
+  // Wrapped grid: the line width (world units) the columns must fit.
+  const wrapLineWidth = (): number => Math.max(1, (vp().width - 2 * pad()) / effectiveZoom());
+
+  // pageMargin (screen px) → world units at the effective zoom.
+  const worldPageMargin = (): S.PageMargin => {
+    const m = ctx.getState().pageMargin;
+    if (!m.top && !m.right && !m.bottom && !m.left) return m;
+    const ez = effectiveZoom();
+    return { top: m.top / ez, right: m.right / ez, bottom: m.bottom / ez, left: m.left / ez };
+  };
+  const marginKey = (): string => {
+    const m = ctx.getState().pageMargin;
+    if (!m.top && !m.right && !m.bottom && !m.left) return '-';
+    const w = worldPageMargin();
+    return `${Math.round(w.top)},${Math.round(w.right)},${Math.round(w.bottom)},${Math.round(w.left)}`;
   };
 
   const layoutFor = (groups: number[][]): S.Scene => {
     const st = ctx.getState();
     const pages = ctx.document()?.pages ?? [];
+    const pageMargin = worldPageMargin();
     if (st.layout === 'grid') {
       return S.gridLayout(pages, groups, {
         gap: st.gap,
         sizing: st.sizing,
         direction: st.direction,
+        pageMargin,
         columns: typeof st.columns === 'number' ? st.columns : undefined,
         lineWidth: st.columns === 'auto' ? wrapLineWidth() : undefined,
       });
@@ -112,12 +131,14 @@ export function createStageCapability(
           gap: st.gap,
           sizing: st.sizing,
           direction: st.direction,
+          pageMargin,
         })
       : S.linearLayout(pages, groups, {
           axis: 'y',
           gap: st.gap,
           sizing: st.sizing,
           direction: st.direction,
+          pageMargin,
         });
   };
 
@@ -139,13 +160,13 @@ export function createStageCapability(
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${st.direction}|${columnsKey()}|${idx}`;
+      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${st.direction}|${columnsKey()}|${marginKey()}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
       return scene;
     }
-    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}|${st.direction}|${columnsKey()}`;
+    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}|${st.direction}|${columnsKey()}|${marginKey()}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const scene = layoutFor(g);
     sceneCache = { key, scene };
@@ -408,6 +429,7 @@ export function createStageCapability(
       bounded: s.bounded,
       padding: s.padding,
       gap: s.gap,
+      pageMargin: s.pageMargin,
       direction: s.direction,
       align: s.align,
       zoom: s.zoom,
@@ -446,6 +468,10 @@ export function createStageCapability(
       const box = sc.items[sc.itemOfPage(index)].pages.find((p) => p.pageIndex === index);
       return box ? { ...box, pon } : null;
     },
+    pageToWorld: (pon, pt) => {
+      const pr = api.pageRect(pon);
+      return pr ? { x: pr.x + pt.x * pr.contentScale, y: pr.y + pt.y * pr.contentScale } : null;
+    },
     toScreen: (w) => S.toScreen(cam(), w),
     toWorld: (s) => S.toWorld(cam(), s),
     flow: () => ctx.getState().flow,
@@ -456,6 +482,7 @@ export function createStageCapability(
     bounded: () => ctx.getState().bounded,
     padding: () => ctx.getState().padding,
     gap: () => ctx.getState().gap,
+    pageMargin: () => ctx.getState().pageMargin,
     align: () => ctx.getState().align,
     direction: () => ctx.getState().direction,
     scrollBehavior: () => ctx.getState().scrollBehavior,
@@ -540,7 +567,16 @@ export function createStageCapability(
       }
       const sc = buildScene();
       if (!sc.itemCount) return;
-      const box = pageRectOf(sc.items[itemIndexOfPage(target)], target);
+      const page = pageRectOf(sc.items[itemIndexOfPage(target)], target);
+      // Reveal the OUTER box: pageMargin chrome (labels, buttons) belongs to the
+      // page, so "make the page visible" includes its reserved bands.
+      const m = worldPageMargin();
+      const box = {
+        x: page.x - m.left,
+        y: page.y - m.top,
+        width: page.width + m.left + m.right,
+        height: page.height + m.top + m.bottom,
+      };
       const camera = S.revealCamera(cam(), box, vp(), pad());
       const current = cam();
       if (camera.x === current.x && camera.y === current.y) return; // already visible
@@ -563,7 +599,8 @@ export function createStageCapability(
         patch.sizing !== undefined ||
         patch.gap !== undefined ||
         patch.direction !== undefined ||
-        patch.columns !== undefined;
+        patch.columns !== undefined ||
+        patch.pageMargin !== undefined;
       if (structural) sceneCache = null;
       if (patch.flow !== undefined) {
         // flow toggled: re-place onto the cursor's page under the new flow's scene
@@ -584,6 +621,7 @@ export function createStageCapability(
     setBounded: (bounded) => api.update({ bounded }),
     setPadding: (padding) => api.update({ padding }),
     setGap: (gap) => api.update({ gap }),
+    setPageMargin: (pageMargin) => api.update({ pageMargin }),
     setAlign: (align) => api.update({ align }),
     setDirection: (direction) => api.update({ direction }),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
@@ -600,6 +638,7 @@ export function createStageCapability(
           bounded: view.bounded,
           padding: view.padding,
           gap: view.gap,
+          pageMargin: view.pageMargin,
           direction: view.direction,
           align: view.align,
           zoom: view.zoom,

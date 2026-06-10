@@ -6,6 +6,7 @@ import type {
   Direction,
   Camera,
   PageBox,
+  PageMargin,
   Point,
   Size,
   SizingMode,
@@ -58,6 +59,16 @@ export interface StageSettings {
   padding: number;
   /** Space (world units) BETWEEN items — and between the halves of a spread. */
   gap: number;
+  /**
+   * Reserved chrome space around EACH PAGE, in SCREEN px (labels below, button
+   * rows above, side rails — rendered by the app in the band, e.g. `top: 100%`).
+   * Per page, not per item: in a spread every page keeps its own flanks.
+   *
+   * Naming rule for this settings bag: every setting describes the STAGE itself
+   * (the container) — `padding`, `gap`, `layout`, … The rare setting owned by the
+   * page carries the `page` prefix (`pageMargin`; `pageWidth` in zoom).
+   */
+  pageMargin: PageMargin;
   /**
    * Reading direction. RTL: horizontal items advance leftward, spreads bind on the
    * right, grid rows fill right→left, and align.x 'start' means the RIGHT edge
@@ -151,6 +162,12 @@ export interface StageCapability {
   pages(): Array<{ index: number; pon: PageObjectNumber; label: string | null }>;
   /** The laid-out box for a page by its durable pon. */
   pageRect(pon: PageObjectNumber): VisiblePage | null;
+  /**
+   * Page space (intrinsic PDF points) → world space. Applies the page's placed
+   * origin and contentScale — the transform sizing policies introduce. Compose
+   * with toScreen for viewport-space overlays anchored to page content.
+   */
+  pageToWorld(pon: PageObjectNumber, pt: Point): Point | null;
   toScreen(world: Point): Point;
   toWorld(screen: Point): Point;
   flow(): FlowMode;
@@ -161,6 +178,7 @@ export interface StageCapability {
   bounded(): boolean;
   padding(): number;
   gap(): number;
+  pageMargin(): PageMargin;
   align(): Alignment;
   direction(): Direction;
   scrollBehavior(): ScrollBehaviorKind;
@@ -212,6 +230,7 @@ export interface StageCapability {
   setBounded(bounded: boolean): void;
   setPadding(padding: number): void;
   setGap(gap: number): void;
+  setPageMargin(pageMargin: PageMargin): void;
   setAlign(align: Alignment): void;
   setDirection(direction: Direction): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;

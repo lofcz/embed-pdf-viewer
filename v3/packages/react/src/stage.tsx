@@ -308,6 +308,10 @@ export function useStageSettings(token: StageTokenProp = StageToken) {
       a.bounded === b.bounded &&
       a.padding === b.padding &&
       a.gap === b.gap &&
+      a.pageMargin.top === b.pageMargin.top &&
+      a.pageMargin.right === b.pageMargin.right &&
+      a.pageMargin.bottom === b.pageMargin.bottom &&
+      a.pageMargin.left === b.pageMargin.left &&
       a.direction === b.direction &&
       a.align.x === b.align.x &&
       a.align.y === b.align.y &&

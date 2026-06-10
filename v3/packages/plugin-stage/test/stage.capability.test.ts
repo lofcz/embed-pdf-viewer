@@ -201,6 +201,48 @@ describe('sizing: uniform + fit-width = flush per-page fit', () => {
   });
 });
 
+describe('pageToWorld: page space → world space (the sizing-policy transform)', () => {
+  const MIXED = [
+    { width: 600, height: 800 },
+    { width: 1000, height: 700 },
+    { width: 500, height: 900 },
+  ];
+
+  it('uniform sizing maps page points through contentScale, not 1:1', () => {
+    const { stage } = harness(MIXED, { sizing: 'uniform' });
+    // uniform's reference is the widest page (pon 2, scale 1) — pon 1 gets
+    // rescaled to match it, which is exactly the case that broke the menu
+    const pr = stage.pageRect(1)!;
+    expect(pr.contentScale).toBeCloseTo(1000 / 600, 4);
+    // the page's intrinsic far corner must land on its world box corner
+    const corner = stage.pageToWorld(1, { x: 600, y: 800 })!;
+    expect(corner.x).toBeCloseTo(pr.x + pr.width, 4);
+    expect(corner.y).toBeCloseTo(pr.y + pr.height, 4);
+    // hand-rolled pr.x + pt.x (the old menu math) would miss by (scale−1)·600
+    expect(pr.x + 600).not.toBeCloseTo(corner.x, 0);
+  });
+
+  it('the menu sits on the dot: toScreen∘pageToWorld ≡ the page-surface math', () => {
+    const { stage } = harness(MIXED, { sizing: 'uniform' });
+    const markerPt = { x: 250, y: 333 }; // page-space, like a stored marker
+    const pr = stage.pageRect(1)!;
+    const cam = stage.camera();
+    // what the page surface does: surface origin + pt·(contentScale·zoom)
+    const dot = {
+      x: (pr.x - cam.x) * cam.zoom + markerPt.x * pr.contentScale * cam.zoom,
+      y: (pr.y - cam.y) * cam.zoom + markerPt.y * pr.contentScale * cam.zoom,
+    };
+    const menu = stage.toScreen(stage.pageToWorld(1, markerPt)!);
+    expect(menu.x).toBeCloseTo(dot.x, 4);
+    expect(menu.y).toBeCloseTo(dot.y, 4);
+  });
+
+  it('returns null for an unknown pon', () => {
+    const { stage } = harness(MIXED);
+    expect(stage.pageToWorld(99, { x: 0, y: 0 })).toBeNull();
+  });
+});
+
 describe('flow: paged (same scene, smaller clamp rect — no index state)', () => {
   it('renders only the current item; next/prev step by item', () => {
     const { stage } = harness(PORTRAIT, { flow: 'paged' });
@@ -817,6 +859,69 @@ describe('zoom { pageWidth }: pixel-target thumbnails for ANY document', () => {
     const settled = stage.camera();
     stage.panBy(0, 0); // a no-op pan clamps — the camera must already be legal
     expect(stage.camera()).toEqual(settled);
+  });
+});
+
+describe('pageMargin (screen px): reserved chrome bands at the lens zoom', () => {
+  it('px-exact bands at a fixed zoom level', () => {
+    const { stage } = harness(PORTRAIT, {
+      zoom: { level: 0.5 },
+      pageMargin: { top: 10, right: 0, bottom: 30, left: 0 },
+    });
+    const p1 = stage.pageRect(1)!;
+    const p2 = stage.pageRect(2)!;
+    // world distance between pages = bottom/zoom + gap + top/zoom
+    expect(p2.y - (p1.y + p1.height)).toBeCloseTo(30 / 0.5 + 16 + 10 / 0.5, 4);
+    // on screen that is exactly 30px + scaled gap + 10px — the bands are px-true
+    expect((p2.y - (p1.y + p1.height)) * stage.zoomLevel()).toBeCloseTo(30 + 16 * 0.5 + 10, 4);
+  });
+
+  it('fit-page treats the OUTER box as the unit (chrome stays in view)', () => {
+    const bare = harness(PORTRAIT, { zoom: { mode: 'fit-page' } }).stage.zoomLevel();
+    const chromed = harness(PORTRAIT, {
+      zoom: { mode: 'fit-page' },
+      pageMargin: { top: 0, right: 0, bottom: 40, left: 0 },
+    }).stage.zoomLevel();
+    expect(chromed).toBeLessThan(bare); // zooms out to keep the band visible
+  });
+
+  it('wrapped + pageMargin converges (the thumbnail-sidebar config)', () => {
+    const { stage } = harness(
+      PORTRAIT,
+      {
+        layout: 'grid',
+        columns: 'auto',
+        sizing: 'uniform',
+        zoom: { pageWidth: 110 },
+        padding: 10,
+        gap: 12,
+        pageMargin: { top: 0, right: 0, bottom: 16, left: 0 },
+      },
+      { skipViewport: true },
+    );
+    stage.setViewport({ width: 140, height: 700 }); // narrow sidebar → 1 column
+    const settled = stage.camera();
+    stage.panBy(0, 0); // a no-op pan clamps — the camera must already be legal
+    expect(stage.camera()).toEqual(settled);
+    // single column: page 2 is BELOW page 1, separated by the 16 SCREEN px label
+    // band plus the world gap
+    const zoom = stage.zoomLevel();
+    expect(110 / zoom).toBeCloseTo(600, 0); // pageWidth target hit (110px wide thumbs)
+    const p1 = stage.pageRect(1)!;
+    const below = stage.pageRect(2)!.y - (p1.y + p1.height);
+    expect(below * zoom).toBeCloseTo(16 + 12 * zoom, 1); // band(px) + gap(world→px)
+  });
+
+  it('reveal includes the chrome band (the label scrolls into view too)', () => {
+    const { stage } = harness(PORTRAIT, {
+      zoom: { level: 0.5 },
+      pageMargin: { top: 0, right: 0, bottom: 30, left: 0 },
+    });
+    stage.reveal(3, { behavior: 'instant' });
+    const rect = stage.pageRect(4)!; // pon 4 = page index 3
+    const outerBottom = rect.y + rect.height + 30 / 0.5; // page + its band
+    // coming from above, reveal pins the OUTER bottom at the padded view edge
+    expect(outerBottom).toBeCloseTo(stage.camera().y + (700 - PAD) / 0.5, 4);
   });
 });
 

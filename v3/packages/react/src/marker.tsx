@@ -3,8 +3,9 @@
  *
  * Demonstrates the full feature pattern: the layer reads page-space data via a
  * selector and maps pointer events through PageContext.toPagePoint; the menu is a
- * viewport-space overlay anchored via stage.toScreen and fully customizable via a
- * render prop. Note: no menu props are threaded through the layer — they're siblings.
+ * viewport-space overlay anchored by composing stage.pageToWorld with stage.toScreen,
+ * fully customizable via a render prop. Note: no menu props are threaded through
+ * the layer — they're siblings.
  */
 import * as React from 'react';
 import { MarkerToken } from '@embedpdf-x/plugin-marker';
@@ -64,9 +65,11 @@ export function MarkerMenu({ children }: MarkerMenuProps) {
   useSelector(StageToken, (c) => c.camera()); // reposition when the camera moves
   const sel = useSelector(MarkerToken, (c) => c.selectedMarker());
   if (!sel) return null;
-  const pr = stage.pageRect(sel.pon);
-  if (!pr) return null;
-  const s = stage.toScreen({ x: pr.x + sel.x, y: pr.y + sel.y });
+  // markers live in page space; pageToWorld applies the sizing policy's
+  // contentScale, toScreen applies the camera — never compose these by hand
+  const w = stage.pageToWorld(sel.pon, sel);
+  if (!w) return null;
+  const s = stage.toScreen(w);
   const remove = () => marker.remove(sel.id);
   return (
     <div

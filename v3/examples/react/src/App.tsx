@@ -52,7 +52,8 @@ const plugins = [
     sizing: 'uniform', // equalize pages so the pixel target hits every thumb
     zoom: { pageWidth: 110 }, // thumbs are 110 SCREEN px wide — for ANY document
     padding: 10,
-    gap: 60,
+    gap: 12,
+    pageMargin: { top: 0, right: 0, bottom: 16, left: 0 }, // reserved label band (screen px)
     scrollBehavior: 'instant',
   }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
@@ -383,13 +384,19 @@ function ThumbnailSidebar() {
                 border: page.pageIndex === currentPage ? '3px solid #3858e9' : '1px solid #d0d0d0',
               }}
             />
+            {/* page label in the RESERVED band below the page (pageMargin.bottom) */}
             <div
               style={{
                 position: 'absolute',
-                bottom: 2,
-                right: 4,
+                top: '100%',
+                left: 0,
+                right: 0,
+                height: 16,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 fontSize: 10,
-                color: '#888',
+                color: '#666',
                 pointerEvents: 'none',
               }}
             >

@@ -361,6 +361,68 @@ describe('direction: rtl (a layout property, not a navigation one)', () => {
   });
 });
 
+describe('pageMargin: reserved chrome space around each PAGE', () => {
+  const P = { width: 600, height: 800 };
+  const m = { top: 10, right: 8, bottom: 20, left: 6 };
+
+  it('linear vertical: pages sit inside their slots; bands reserved between pages', () => {
+    const scene = S.linearLayout([P, P], S.groupPages(2, 'none'), {
+      axis: 'y',
+      gap: 16,
+      pageMargin: m,
+    });
+    const p0 = scene.items[0].pages[0];
+    const p1 = scene.items[1].pages[0];
+    expect(p0.x - scene.items[0].x).toBeCloseTo(6, 6); // left band inside the item
+    expect(p0.y - scene.items[0].y).toBeCloseTo(10, 6); // top band
+    // page-bottom → next page-top = bottom + gap + top (the chrome never collides)
+    expect(p1.y - (p0.y + p0.height)).toBeCloseTo(20 + 16 + 10, 6);
+    expect(scene.items[0].height).toBeCloseTo(800 + 30, 6); // outer box
+  });
+
+  it('SPREADS: each page keeps its OWN flanks — left/right chrome works (the fix)', () => {
+    const scene = S.linearLayout([P, P], S.groupPages(2, 'odd'), {
+      axis: 'y',
+      gap: 16,
+      pageMargin: m,
+    });
+    const [a, b] = scene.items[0].pages;
+    // between the spread halves: a's right band + gap + b's left band
+    expect(b.x - (a.x + a.width)).toBeCloseTo(8 + 16 + 6, 6);
+    expect(a.x - scene.items[0].x).toBeCloseTo(6, 6); // outer flank too
+  });
+
+  it('RTL spread: slots mirror but margins stay PHYSICAL (left room stays mL)', () => {
+    const scene = S.linearLayout([P, P], S.groupPages(2, 'odd'), {
+      axis: 'y',
+      gap: 16,
+      pageMargin: m,
+      direction: 'rtl',
+    });
+    const item = scene.items[0];
+    const left = item.pages.find((p) => p.pageIndex === 1)!; // reading-second sits left
+    const right = item.pages.find((p) => p.pageIndex === 0)!;
+    expect(left.x - item.x).toBeCloseTo(6, 6); // mL preserved at the item edge
+    expect(right.x - (left.x + left.width)).toBeCloseTo(8 + 16 + 6, 6);
+  });
+
+  it('uniform sizing scales the PAGES, never the margins', () => {
+    const scene = S.linearLayout(
+      [
+        { width: 600, height: 800 },
+        { width: 1200, height: 800 },
+      ],
+      S.groupPages(2, 'none'),
+      { axis: 'y', gap: 16, sizing: 'uniform', pageMargin: m },
+    );
+    // page 1 scaled up to 1200 wide; both outer widths equal 1200 + 14
+    expect(scene.items[0].pages[0].width).toBeCloseTo(1200, 6);
+    expect(scene.items[0].width).toBeCloseTo(1200 + 14, 6);
+    expect(scene.items[1].width).toBeCloseTo(1200 + 14, 6);
+    expect(scene.items[0].pages[0].x - scene.items[0].x).toBeCloseTo(6, 6); // margin constant
+  });
+});
+
 describe('gridLayout per-row heights (mixed page sizes)', () => {
   it('a row is as tall as ITS tallest item, not the global max (no giant voids)', () => {
     const pages = [

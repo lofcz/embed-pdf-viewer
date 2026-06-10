@@ -345,39 +345,87 @@ function upperBound(arr: number[], t: number): number {
 }
 const OVERSCAN = 2;
 
+/**
+ * Reserved chrome space around each PAGE (world units in this pure layer; the
+ * plugin derives them from screen px). Margins belong to PAGES, not items — in a
+ * spread every page keeps its own flanks, so left/right chrome works everywhere.
+ */
+export interface PageMargin {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+const NO_MARGIN: PageMargin = { top: 0, right: 0, bottom: 0, left: 0 };
+
 interface LocalBox {
   pageIndex: number;
   lx: number;
+  ly: number;
   w: number;
   h: number;
 }
-function packItem(
+
+/** Intrinsic item dimensions (pages only, no margins) — the `uniform` reference. */
+function measureItem(
   pages: readonly PageGeom[],
   group: number[],
   gap: number,
-  direction: Direction = 'ltr',
-): { local: LocalBox[]; width: number; height: number } {
-  let lx = 0;
+): { width: number; height: number } {
+  let w = 0;
   let h = 0;
-  const local: LocalBox[] = [];
   for (let j = 0; j < group.length; j++) {
     const pg = pages[group[j]];
-    local.push({ pageIndex: group[j], lx, w: pg.width, h: pg.height });
-    lx += pg.width + gap;
+    w += pg.width + (j > 0 ? gap : 0);
     if (pg.height > h) h = pg.height;
   }
-  const width = Math.max(0, lx - gap);
-  if (direction === 'rtl') {
-    // reading-first page takes the RIGHTMOST slot (the spread binds on the right)
-    for (const b of local) b.lx = width - b.lx - b.w;
-  }
-  return { local, width, height: h };
+  return { width: w, height: h };
 }
+
+/**
+ * Pack one item from SCALED pages plus constant per-page margins. The page boxes
+ * (and the spread's inner gap) scale with the sizing factor; the margins do NOT —
+ * they are screen-px-derived chrome bands and stay constant in world space.
+ */
+function packScaledItem(
+  pages: readonly PageGeom[],
+  group: number[],
+  scale: number,
+  gap: number,
+  margin: PageMargin,
+  direction: Direction,
+): { local: LocalBox[]; width: number; height: number } {
+  let maxH = 0;
+  for (let j = 0; j < group.length; j++) maxH = Math.max(maxH, pages[group[j]].height * scale);
+  const local: LocalBox[] = [];
+  let lx = 0;
+  for (let j = 0; j < group.length; j++) {
+    const w = pages[group[j]].width * scale;
+    const h = pages[group[j]].height * scale;
+    local.push({
+      pageIndex: group[j],
+      lx: lx + margin.left,
+      ly: margin.top + (maxH - h) / 2, // page centers within the inner band
+      w,
+      h,
+    });
+    lx += margin.left + w + margin.right + gap * scale;
+  }
+  const width = Math.max(0, lx - gap * scale);
+  const height = margin.top + maxH + margin.bottom;
+  if (direction === 'rtl') {
+    // reading-first page takes the RIGHTMOST slot (the spread binds on the right);
+    // slots mirror, but each page keeps its PHYSICAL margins (left room stays left)
+    for (const b of local) b.lx = width - b.lx - b.w + (margin.left - margin.right);
+  }
+  return { local, width, height };
+}
+
 function placePages(item: SceneItem, local: LocalBox[], contentScale: number): PageBox[] {
   return local.map((b) => ({
     pageIndex: b.pageIndex,
     x: item.x + b.lx,
-    y: item.y + (item.height - b.h) / 2,
+    y: item.y + b.ly,
     width: b.w,
     height: b.h,
     contentScale,
@@ -389,12 +437,6 @@ function placePages(item: SceneItem, local: LocalBox[], contentScale: number): P
 const itemScale = (crossIntrinsic: number, refCross: number, sizing: SizingMode): number =>
   sizing === 'uniform' && crossIntrinsic > 0 ? refCross / crossIntrinsic : 1;
 
-/** Scale a packed item's local page boxes + bounds by `s`. */
-const scaleLocal = (local: LocalBox[], s: number): LocalBox[] =>
-  s === 1
-    ? local
-    : local.map((b) => ({ pageIndex: b.pageIndex, lx: b.lx * s, w: b.w * s, h: b.h * s }));
-
 // ── Layout strategies ─────────────────────────────────────────────────────────
 export interface LinearOptions {
   gap?: number;
@@ -402,6 +444,8 @@ export interface LinearOptions {
   align?: 'center' | 'start';
   sizing?: SizingMode;
   direction?: Direction;
+  /** Reserved chrome space around each PAGE (world units; constant, never scaled). */
+  pageMargin?: PageMargin;
 }
 export function linearLayout(
   pages: readonly PageGeom[],
@@ -417,13 +461,16 @@ export function linearLayout(
   // direction-agnostic (RTL books still scroll down) — only spreads swap.
   const mirrored = !vertical && direction === 'rtl';
 
-  // Pass 1: pack every item at intrinsic size; the cross axis (width when vertical)
-  // gives the reference for `uniform` sizing.
-  const packs = grouping.map((group) => packItem(pages, group, gap, direction));
-  const crossOf = (p: { width: number; height: number }) => (vertical ? p.width : p.height);
-  const refCross = packs.reduce((m, p) => Math.max(m, crossOf(p)), 0);
+  const margin = opts.pageMargin ?? NO_MARGIN;
 
-  // Pass 2: scale each item by its sizing factor, lay it along the main axis.
+  // Pass 1: measure every item at intrinsic PAGE size (no margins) — the cross axis
+  // (width when vertical) gives the reference for `uniform` sizing, so uniform
+  // equalizes the pages themselves; constant margins then keep outer edges flush.
+  const measures = grouping.map((group) => measureItem(pages, group, gap));
+  const crossOf = (p: { width: number; height: number }) => (vertical ? p.width : p.height);
+  const refCross = measures.reduce((m, p) => Math.max(m, crossOf(p)), 0);
+
+  // Pass 2: pack each item from scaled pages + constant margins, lay along the axis.
   const items: SceneItem[] = new Array(grouping.length);
   const locals: LocalBox[][] = new Array(grouping.length);
   const scales: number[] = new Array(grouping.length);
@@ -433,11 +480,11 @@ export function linearLayout(
   let maxH = 0;
 
   for (let i = 0; i < grouping.length; i++) {
-    const s = itemScale(crossOf(packs[i]), refCross, sizing);
-    const width = packs[i].width * s;
-    const height = packs[i].height * s;
+    const s = itemScale(crossOf(measures[i]), refCross, sizing);
+    const packed = packScaledItem(pages, grouping[i], s, gap, margin, direction);
+    const { width, height } = packed;
     scales[i] = s;
-    locals[i] = scaleLocal(packs[i].local, s);
+    locals[i] = packed.local;
     const it: SceneItem = {
       index: i,
       x: 0,
@@ -522,6 +569,8 @@ export interface GridOptions {
   lineWidth?: number;
   sizing?: SizingMode;
   direction?: Direction;
+  /** Reserved chrome space around each PAGE (world units; constant, never scaled). */
+  pageMargin?: PageMargin;
 }
 export function gridLayout(
   pages: readonly PageGeom[],
@@ -533,21 +582,25 @@ export function gridLayout(
   const sizing = opts.sizing ?? 'intrinsic';
   const direction = opts.direction ?? 'ltr';
 
-  // Pass 1: pack at intrinsic size; the widest item is the `uniform` reference.
-  const packs = grouping.map((group) => packItem(pages, group, gap, direction));
-  const refW = packs.reduce((m, p) => Math.max(m, p.width), 0);
+  const margin = opts.pageMargin ?? NO_MARGIN;
 
-  // Pass 2: scale each item (uniform → equal width, so columns line up).
+  // Pass 1: measure at intrinsic PAGE size; the widest item is the `uniform` reference.
+  const measures = grouping.map((group) => measureItem(pages, group, gap));
+  const refW = measures.reduce((m, p) => Math.max(m, p.width), 0);
+
+  // Pass 2: pack each item from scaled pages + constant margins (uniform → equal
+  // page widths; equal margins keep the OUTER boxes equal too, so columns line up).
   const locals: LocalBox[][] = new Array(n);
   const sizes: Array<{ width: number; height: number }> = new Array(n);
   const scales: number[] = new Array(n);
   let cellW = 1;
   let cellH = 1;
   for (let i = 0; i < n; i++) {
-    const s = itemScale(packs[i].width, refW, sizing);
+    const s = itemScale(measures[i].width, refW, sizing);
+    const packed = packScaledItem(pages, grouping[i], s, gap, margin, direction);
     scales[i] = s;
-    locals[i] = scaleLocal(packs[i].local, s);
-    sizes[i] = { width: packs[i].width * s, height: packs[i].height * s };
+    locals[i] = packed.local;
+    sizes[i] = { width: packed.width, height: packed.height };
     cellW = Math.max(cellW, sizes[i].width);
     cellH = Math.max(cellH, sizes[i].height);
   }
