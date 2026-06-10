@@ -11,6 +11,7 @@ export { StageToken } from './types';
 export { DEFAULT_SETTINGS } from './settings';
 export type {
   FlowMode,
+  Gap,
   GridColumns,
   LayoutKind,
   ScrollBehaviorKind,

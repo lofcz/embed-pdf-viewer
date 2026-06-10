@@ -307,7 +307,9 @@ export function useStageSettings(token: StageTokenProp = StageToken) {
       a.sizing === b.sizing &&
       a.bounded === b.bounded &&
       a.padding === b.padding &&
-      a.gap === b.gap &&
+      (typeof a.gap === 'number' || typeof b.gap === 'number'
+        ? a.gap === b.gap
+        : a.gap.px === b.gap.px) &&
       a.pageMargin.top === b.pageMargin.top &&
       a.pageMargin.right === b.pageMargin.right &&
       a.pageMargin.bottom === b.pageMargin.bottom &&

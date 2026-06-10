@@ -862,6 +862,47 @@ describe('zoom { pageWidth }: pixel-target thumbnails for ANY document', () => {
   });
 });
 
+describe('gap: the value carries the unit — world (canvas) vs { px } (UI-stable)', () => {
+  const screenGap = (stage: ReturnType<typeof harness>['stage']) => {
+    const p1 = stage.pageRect(1)!;
+    return (stage.pageRect(2)!.y - (p1.y + p1.height)) * stage.zoomLevel();
+  };
+
+  it('a world gap scales with zoom — the whole canvas zooms as one rigid object', () => {
+    const { stage } = harness(PORTRAIT, { zoom: { level: 0.5 }, gap: 16 });
+    expect(screenGap(stage)).toBeCloseTo(8, 4); // 16 world × 0.5
+    stage.zoomTo({ level: 2 });
+    expect(screenGap(stage)).toBeCloseTo(32, 4); // 16 world × 2 (the Drawboard feel)
+  });
+
+  it('a { px } gap is zoom-stable', () => {
+    const { stage } = harness(PORTRAIT, { zoom: { level: 0.5 }, gap: { px: 16 } });
+    expect(screenGap(stage)).toBeCloseTo(16, 4);
+    stage.zoomTo({ level: 2 });
+    expect(screenGap(stage)).toBeCloseTo(16, 4);
+  });
+
+  it('{ px } + pageWidth: the SAME spacing in EVERY document (the sidebar fix)', () => {
+    // two documents with wildly different intrinsic sizes → different lens zooms
+    const ebook = harness(PORTRAIT, { zoom: { pageWidth: 110 }, gap: { px: 12 } }).stage;
+    const sheets = harness(
+      Array.from({ length: 3 }, () => ({ width: 2880, height: 2000 })),
+      { zoom: { pageWidth: 110 }, gap: { px: 12 } },
+    ).stage;
+    expect(ebook.zoomLevel()).not.toBeCloseTo(sheets.zoomLevel(), 4); // proves the zooms differ
+    expect(screenGap(ebook)).toBeCloseTo(12, 3);
+    expect(screenGap(sheets)).toBeCloseTo(12, 3);
+  });
+
+  it('{ px } under a fit mode converges (no-op pan invariant)', () => {
+    const { stage } = harness(PORTRAIT, { zoom: { mode: 'fit-width' }, gap: { px: 12 } });
+    const settled = stage.camera();
+    stage.panBy(0, 0);
+    expect(stage.camera()).toEqual(settled);
+    expect(screenGap(stage)).toBeCloseTo(12, 3);
+  });
+});
+
 describe('pageMargin (screen px): reserved chrome bands at the lens zoom', () => {
   it('px-exact bands at a fixed zoom level', () => {
     const { stage } = harness(PORTRAIT, {

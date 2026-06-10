@@ -52,7 +52,7 @@ const plugins = [
     sizing: 'uniform', // equalize pages so the pixel target hits every thumb
     zoom: { pageWidth: 110 }, // thumbs are 110 SCREEN px wide — for ANY document
     padding: 10,
-    gap: 12,
+    gap: { px: 12 }, // UI-stable spacing: 12px between thumbs in EVERY document
     pageMargin: { top: 0, right: 0, bottom: 16, left: 0 }, // reserved label band (screen px)
     scrollBehavior: 'instant',
   }),
@@ -274,7 +274,7 @@ function Toolbar() {
       </label>
       <label
         style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}
-        title="space between pages (world units) — one value for every layout"
+        title="space between pages (world units; scales with zoom) — one value for every layout"
       >
         gap
         <input
@@ -282,7 +282,7 @@ function Toolbar() {
           min={0}
           max={200}
           step={4}
-          value={settings.gap}
+          value={typeof settings.gap === 'number' ? settings.gap : settings.gap.px}
           onChange={(e) => update({ gap: Math.max(0, Number(e.target.value) || 0) })}
           style={{ width: 48 }}
         />

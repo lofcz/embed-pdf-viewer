@@ -111,13 +111,26 @@ export function createStageCapability(
     return `${Math.round(w.top)},${Math.round(w.right)},${Math.round(w.bottom)},${Math.round(w.left)}`;
   };
 
+  // gap → world units. A plain number IS world (the scene stays zoom-invariant —
+  // the rigid-canvas default); { px } converts at the effective zoom, exactly
+  // like pageMargin (UI-stable spacing for browser-style lenses).
+  const worldGap = (): number => {
+    const g = ctx.getState().gap;
+    return typeof g === 'number' ? g : g.px ? g.px / effectiveZoom() : 0;
+  };
+  const gapKey = (): string => {
+    const g = ctx.getState().gap;
+    return typeof g === 'number' ? String(g) : `px:${Math.round(worldGap())}`;
+  };
+
   const layoutFor = (groups: number[][]): S.Scene => {
     const st = ctx.getState();
     const pages = ctx.document()?.pages ?? [];
     const pageMargin = worldPageMargin();
+    const gap = worldGap();
     if (st.layout === 'grid') {
       return S.gridLayout(pages, groups, {
-        gap: st.gap,
+        gap,
         sizing: st.sizing,
         direction: st.direction,
         pageMargin,
@@ -128,14 +141,14 @@ export function createStageCapability(
     return st.layout === 'horizontal'
       ? S.linearLayout(pages, groups, {
           axis: 'x',
-          gap: st.gap,
+          gap,
           sizing: st.sizing,
           direction: st.direction,
           pageMargin,
         })
       : S.linearLayout(pages, groups, {
           axis: 'y',
-          gap: st.gap,
+          gap,
           sizing: st.sizing,
           direction: st.direction,
           pageMargin,
@@ -160,13 +173,13 @@ export function createStageCapability(
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${st.gap}|${st.direction}|${columnsKey()}|${marginKey()}|${idx}`;
+      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${gapKey()}|${st.direction}|${columnsKey()}|${marginKey()}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
       return scene;
     }
-    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${st.gap}|${st.direction}|${columnsKey()}|${marginKey()}`;
+    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${gapKey()}|${st.direction}|${columnsKey()}|${marginKey()}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const scene = layoutFor(g);
     sceneCache = { key, scene };

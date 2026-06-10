@@ -35,6 +35,15 @@ export type FlowMode = 'continuous' | 'paged';
 export type GridColumns = 'square' | 'auto' | number;
 
 /**
+ * Space between items — the value's shape carries the unit (like ZoomSpec):
+ *   number     — WORLD units: the gap is part of the canvas and scales with zoom,
+ *                so the whole scene zooms as one rigid object (the document feel).
+ *   { px: n }  — SCREEN px: UI-stable spacing, the same in every document at every
+ *                zoom (the browser-of-items feel: thumbnails, organizers).
+ */
+export type Gap = number | { px: number };
+
+/**
  * The Stage's orthogonal, independently-settable primitives. Every field can be set
  * on its own (setLayout, setBounded, …) or several at once via `update()`. A
  * "preset" is just a `Partial<StageSettings>` the app keeps and applies — no preset
@@ -57,8 +66,12 @@ export interface StageSettings {
    * camera reveal exactly this much beyond each content edge.
    */
   padding: number;
-  /** Space (world units) BETWEEN items — and between the halves of a spread. */
-  gap: number;
+  /**
+   * Space BETWEEN items — and between the halves of a spread. A number is world
+   * units (scales with zoom — the canvas feel); `{ px }` is screen px (UI-stable
+   * — the thumbnail feel). See {@link Gap}.
+   */
+  gap: Gap;
   /**
    * Reserved chrome space around EACH PAGE, in SCREEN px (labels below, button
    * rows above, side rails — rendered by the app in the band, e.g. `top: 100%`).
@@ -177,7 +190,7 @@ export interface StageCapability {
   columns(): GridColumns;
   bounded(): boolean;
   padding(): number;
-  gap(): number;
+  gap(): Gap;
   pageMargin(): PageMargin;
   align(): Alignment;
   direction(): Direction;
@@ -229,7 +242,7 @@ export interface StageCapability {
   setColumns(columns: GridColumns): void;
   setBounded(bounded: boolean): void;
   setPadding(padding: number): void;
-  setGap(gap: number): void;
+  setGap(gap: Gap): void;
   setPageMargin(pageMargin: PageMargin): void;
   setAlign(align: Alignment): void;
   setDirection(direction: Direction): void;
