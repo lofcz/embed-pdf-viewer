@@ -245,6 +245,7 @@ export interface PdfFunctions {
   ) => Ptr;
   EPDFDoc_GetPageObjectNumberByIndex: (arg0: Ptr, arg1: number) => number;
   EPDFDoc_LoadPageByObjectNumber: (arg0: Ptr, arg1: number) => Ptr;
+  EPDFDoc_LoadPageByObjectNumberNormalized: (arg0: Ptr, arg1: number) => Ptr;
   EPDFDocument_ClearEmbedMetadata: (arg0: Ptr) => boolean;
   EPDFImageObj_SetJpeg: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFImageObj_SetPng: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
@@ -4167,6 +4168,25 @@ export const pdfFunctionSignatures = {
     },
   },
   EPDFDoc_LoadPageByObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFDoc_LoadPageByObjectNumberNormalized: {
     params: [
       {
         ts: 'Ptr',

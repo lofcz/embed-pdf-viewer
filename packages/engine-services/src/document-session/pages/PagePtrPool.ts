@@ -6,8 +6,10 @@ import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
  * Manages pagePtr lifetime for a single open `DocumentSession`.
  *
  * `acquire(pon)` returns a loaded pagePtr for the given PDF object number,
- * loading it via `EPDFDoc_LoadPageByObjectNumber` if not already in the
- * pool. `release(pon)` decrements the refcount and closes when it reaches
+ * loading it via `EPDFDoc_LoadPageByObjectNumberNormalized` (rotation forced
+ * to 0deg so render/text/geometry/annotation coordinates all share one
+ * normalized space) if not already in the pool. `release(pon)` decrements the
+ * refcount and closes when it reaches
  * zero; `closeAll()` is called by `DocumentSession.close()`.
  *
  * While at least one holder is active the pagePtr is shared (refcounted),
@@ -31,7 +33,7 @@ export class PagePtrPool {
       existing.refs++;
       return existing.ptr;
     }
-    const ptr = fn.EPDFDoc_LoadPageByObjectNumber(this.docPtr, pageObjectNumber);
+    const ptr = fn.EPDFDoc_LoadPageByObjectNumberNormalized(this.docPtr, pageObjectNumber);
     if (!ptr) {
       throw new EngineError(
         EngineErrorCode.NotFound,
