@@ -54,6 +54,7 @@ const plugins = [
     padding: 10,
     gap: { px: 12 }, // UI-stable spacing: 12px between thumbs in EVERY document
     pageMargin: { top: 0, right: 0, bottom: 16, left: 0 }, // reserved label band (screen px)
+    fitAlign: { x: 'center', y: 'start' }, // few pages? thumbs hug the TOP, not the middle
     scrollBehavior: 'instant',
   }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
@@ -74,7 +75,7 @@ const PRESETS: Record<string, Partial<StageSettings>> = {
     bounded: true,
     padding: 24,
     gap: 16,
-    align: { x: 'start', y: 'start' }, // arrive at the reading start (direction-aware)
+    overflowAlign: { x: 'start', y: 'start' }, // arrive at the reading start (direction-aware)
     zoom: { mode: 'automatic' },
   },
   // Construction: every sheet in view on an infinite canvas, then zoom in to work.
@@ -84,15 +85,15 @@ const PRESETS: Record<string, Partial<StageSettings>> = {
     bounded: false,
     padding: 24,
     gap: 56, // sheets spread out on a table
-    align: { x: 'center', y: 'center' }, // drawings: arrive centered (Drawboard feel)
+    overflowAlign: { x: 'center', y: 'center' }, // drawings: arrive centered (Drawboard feel)
     zoom: { mode: 'fit-all' },
   },
 };
 
-// Arrival alignment, expressed as the combos a UI actually offers. The plugin keeps
-// the orthogonal per-axis primitive; naming the useful pairs is the app's concern.
-// Values are LOGICAL (CSS-style): 'reading start' = top-left in LTR, top-RIGHT in RTL.
-const ALIGNMENTS: Record<string, StageSettings['align']> = {
+// Arrival alignment (overflowAlign), expressed as the combos a UI actually offers.
+// The plugin keeps the orthogonal per-axis primitive; naming the useful pairs is
+// the app's concern. LOGICAL: 'reading start' = top-left in LTR, top-RIGHT in RTL.
+const ALIGNMENTS: Record<string, StageSettings['overflowAlign']> = {
   'reading start': { x: 'start', y: 'start' }, // where the text begins (direction-aware)
   'reading end': { x: 'end', y: 'start' }, // the far edge of the line
   center: { x: 'center', y: 'center' }, // drawings (Drawboard feel)
@@ -290,11 +291,13 @@ function Toolbar() {
       <select
         value={
           Object.keys(ALIGNMENTS).find(
-            (k) => ALIGNMENTS[k].x === settings.align.x && ALIGNMENTS[k].y === settings.align.y,
+            (k) =>
+              ALIGNMENTS[k].x === settings.overflowAlign.x &&
+              ALIGNMENTS[k].y === settings.overflowAlign.y,
           ) ?? 'reading start'
         }
-        onChange={(e) => update({ align: ALIGNMENTS[e.target.value] })}
-        title="arrival alignment when the page overflows — logical: 'reading start' follows the direction (top-left in LTR, top-right in RTL); center for drawings"
+        onChange={(e) => update({ overflowAlign: ALIGNMENTS[e.target.value] })}
+        title="overflowAlign: where you LAND when the page overflows — logical: 'reading start' follows the direction (top-left in LTR, top-right in RTL); center for drawings"
       >
         {Object.keys(ALIGNMENTS).map((k) => (
           <option key={k} value={k}>

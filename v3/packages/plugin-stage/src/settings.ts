@@ -19,7 +19,8 @@ export const DEFAULT_SETTINGS: StageSettings = {
   gap: 16,
   pageMargin: { top: 0, right: 0, bottom: 0, left: 0 },
   direction: 'ltr',
-  align: { x: 'start', y: 'start' },
+  fitAlign: { x: 'center', y: 'center' },
+  overflowAlign: { x: 'start', y: 'start' },
   zoom: { mode: ZoomMode.Automatic },
   scrollBehavior: 'smooth',
 };

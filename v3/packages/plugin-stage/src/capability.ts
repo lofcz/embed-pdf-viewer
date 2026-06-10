@@ -23,8 +23,9 @@ import type {
  *     timing) enters through an injected Scheduler, never a hidden global.
  *
  * The model rests on one geometric question — "does it fit the viewport?":
- *   • centering: an arrival is centered when its subject fits, start-aligned when
- *     it overflows (the clamp's fit-case — see stage-core placeCamera).
+ *   • alignment: an arrival RESTS at fitAlign when its subject fits, LANDS at
+ *     overflowAlign when it overflows (the clamp's fit-case — see stage-core
+ *     placeCamera; the two settings are the two branches of the question).
  *   • step size: next/prev step by ITEM (spread) when the item fits, by PAGE when
  *     zoomed in past it.
  *   • subject:   you arrive AT the unit that fits (item, page — or the whole scene
@@ -231,6 +232,8 @@ export function createStageCapability(
   const constraint = (): S.CameraConstraint => ({
     bounded: ctx.getState().bounded,
     padding: pad(),
+    fitAlign: ctx.getState().fitAlign,
+    direction: ctx.getState().direction,
   });
 
   // The ONE low-level camera write: clamp to `bounds`, dispatch. MECHANISM only —
@@ -342,7 +345,8 @@ export function createStageCapability(
   // 1. move the cursor to the target page (paged: rebuilds the one-item slice),
   // 2. choose the SUBJECT by the fits-predicate (scene under fit-all; the item if
   //    it fits; else the page),
-  // 3. placeCamera(subject): centered when it fits, start-aligned when it overflows.
+  // 3. placeCamera(subject): rests at fitAlign when it fits, lands at overflowAlign
+  //    when it overflows.
   // The legitimate "nothing moves" cases are STRUCTURAL, not conditional: under
   // fit-all the canonical placement is the centered scene, which doesn't change.
   const goToTarget = (pageIndex: number, opts?: GoToOptions) => {
@@ -376,8 +380,9 @@ export function createStageCapability(
           vp(),
           zoom,
           pad(),
-          ctx.getState().align,
+          ctx.getState().overflowAlign,
           ctx.getState().direction,
+          ctx.getState().fitAlign,
         ),
         bounds: boundsFor(item),
       };
@@ -444,7 +449,8 @@ export function createStageCapability(
       gap: s.gap,
       pageMargin: s.pageMargin,
       direction: s.direction,
-      align: s.align,
+      fitAlign: s.fitAlign,
+      overflowAlign: s.overflowAlign,
       zoom: s.zoom,
       scrollBehavior: s.scrollBehavior,
     };
@@ -496,7 +502,8 @@ export function createStageCapability(
     padding: () => ctx.getState().padding,
     gap: () => ctx.getState().gap,
     pageMargin: () => ctx.getState().pageMargin,
-    align: () => ctx.getState().align,
+    fitAlign: () => ctx.getState().fitAlign,
+    overflowAlign: () => ctx.getState().overflowAlign,
     direction: () => ctx.getState().direction,
     scrollBehavior: () => ctx.getState().scrollBehavior,
     zoomLevel: () => cam().zoom,
@@ -621,10 +628,14 @@ export function createStageCapability(
         goToTarget(ctx.getState().cursor, { behavior: 'instant' });
       } else if (structural || patch.zoom !== undefined) {
         reapply(anchor); // rebuild + keep page + re-fit (fit-all: re-place the scene)
-      } else if (patch.bounded !== undefined || patch.padding !== undefined) {
-        setCam(cam()); // bounds changed: just re-clamp the current camera in place
+      } else if (
+        patch.bounded !== undefined ||
+        patch.padding !== undefined ||
+        patch.fitAlign !== undefined
+      ) {
+        setCam(cam()); // clamp policy changed: just re-clamp the current camera
       }
-      // scrollBehavior: no camera effect
+      // overflowAlign guides future arrivals only; scrollBehavior: no camera effect
     },
     setFlow: (flow) => api.update({ flow }),
     setLayout: (layout) => api.update({ layout }),
@@ -635,7 +646,8 @@ export function createStageCapability(
     setPadding: (padding) => api.update({ padding }),
     setGap: (gap) => api.update({ gap }),
     setPageMargin: (pageMargin) => api.update({ pageMargin }),
-    setAlign: (align) => api.update({ align }),
+    setFitAlign: (fitAlign) => api.update({ fitAlign }),
+    setOverflowAlign: (overflowAlign) => api.update({ overflowAlign }),
     setDirection: (direction) => api.update({ direction }),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
     applyViewState: (view) => {
@@ -653,7 +665,8 @@ export function createStageCapability(
           gap: view.gap,
           pageMargin: view.pageMargin,
           direction: view.direction,
-          align: view.align,
+          fitAlign: view.fitAlign,
+          overflowAlign: view.overflowAlign,
           zoom: view.zoom,
           scrollBehavior: view.scrollBehavior,
         },
@@ -677,7 +690,8 @@ export function createStageCapability(
       }
       api.resetView();
     },
-    // Home = page 0, placed by the unit rule (centers what fits, starts what overflows).
+    // Home = page 0, placed by the unit rule (fitAlign for what fits, overflowAlign
+    // for what overflows).
     resetView: () => goToTarget(0, { behavior: 'instant' }),
   };
   return api;

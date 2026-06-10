@@ -544,9 +544,12 @@ describe('cursor is INTENT: a clamped camera never revokes navigation', () => {
   });
 });
 
-describe('align: arrival alignment on overflowing axes', () => {
+describe('overflowAlign: arrival alignment on overflowing axes', () => {
   it("RTL ({x:'end'}): zoomed-in navigation lands top-RIGHT", () => {
-    const { stage } = harness(PORTRAIT, { align: { x: 'end', y: 'start' }, zoom: { level: 2 } });
+    const { stage } = harness(PORTRAIT, {
+      overflowAlign: { x: 'end', y: 'start' },
+      zoom: { level: 2 },
+    });
     stage.goToPage(2, { behavior: 'instant' });
     const box = stage.pageRect(3)!;
     // page right edge sits a padding in from the viewport right edge; top a padding down
@@ -556,7 +559,7 @@ describe('align: arrival alignment on overflowing axes', () => {
 
   it('Drawboard ({center,center}): zoomed-in navigation centers the page', () => {
     const { stage } = harness(PORTRAIT, {
-      align: { x: 'center', y: 'center' },
+      overflowAlign: { x: 'center', y: 'center' },
       zoom: { level: 2 },
       bounded: false, // construction feel — and proves placement needs no real clamp
     });
@@ -567,15 +570,67 @@ describe('align: arrival alignment on overflowing axes', () => {
     expect(center.y).toBeCloseTo(350, 0);
   });
 
-  it('align is runtime-changeable and only affects the NEXT arrival', () => {
+  it('overflowAlign is runtime-changeable and only affects the NEXT arrival', () => {
     const { stage } = harness(PORTRAIT, { zoom: { level: 2 } });
     stage.goToPage(1, { behavior: 'instant' });
     const before = stage.camera();
-    stage.setAlign({ x: 'end', y: 'start' });
+    stage.setOverflowAlign({ x: 'end', y: 'start' });
     expect(stage.camera()).toEqual(before); // no camera jump on the setting change
     stage.goToPage(2, { behavior: 'instant' });
     const box = stage.pageRect(3)!;
     expect(stage.toScreen({ x: box.x + box.width, y: box.y }).x).toBeCloseTo(1000 - PAD, 0);
+  });
+});
+
+describe('fitAlign: where content RESTS on a fitting axis', () => {
+  // the sidebar shape: content narrower & shorter than the viewport
+  const FEW = Array.from({ length: 2 }, () => ({ width: 600, height: 800 }));
+
+  it("default {center,center}: a fitting document rests centered (today's feel)", () => {
+    const { stage } = harness(FEW, { zoom: { level: 0.25 } });
+    const box = stage.pageRect(1)!;
+    // content cross extent centered: page 1 center x at viewport center
+    expect(stage.toScreen({ x: box.x + box.width / 2, y: 0 }).x).toBeCloseTo(500, 0);
+  });
+
+  it("y:'start' — the sidebar fix: few thumbs hug the TOP, padding-exact", () => {
+    const { stage } = harness(FEW, {
+      zoom: { level: 0.25 },
+      fitAlign: { x: 'center', y: 'start' },
+    });
+    const box = stage.pageRect(1)!;
+    expect(stage.toScreen({ x: 0, y: box.y }).y).toBeCloseTo(PAD, 4); // top edge at the gutter
+    expect(stage.toScreen({ x: box.x + box.width / 2, y: 0 }).x).toBeCloseTo(500, 0); // x stays centered
+  });
+
+  it("logical x: RTL + x:'start' rests at the RIGHT edge", () => {
+    const { stage } = harness(FEW, {
+      zoom: { level: 0.25 },
+      direction: 'rtl',
+      fitAlign: { x: 'start', y: 'start' },
+    });
+    const box = stage.pageRect(1)!;
+    expect(stage.toScreen({ x: box.x + box.width, y: 0 }).x).toBeCloseTo(1000 - PAD, 4);
+  });
+
+  it('changing fitAlign re-clamps the camera in place (no navigation needed)', () => {
+    const { stage } = harness(FEW, { zoom: { level: 0.25 } });
+    const centered = stage.camera();
+    stage.setFitAlign({ x: 'center', y: 'start' });
+    expect(stage.camera().y).not.toBeCloseTo(centered.y, 4); // moved up immediately
+    const box = stage.pageRect(1)!;
+    expect(stage.toScreen({ x: 0, y: box.y }).y).toBeCloseTo(PAD, 4);
+  });
+
+  it('fitAlign never touches an OVERFLOWING axis (free scroll keeps its position)', () => {
+    const { stage } = harness(PORTRAIT, {
+      zoom: { level: 2 },
+      fitAlign: { x: 'center', y: 'start' },
+    });
+    stage.goToPage(1, { behavior: 'instant' });
+    const before = stage.camera();
+    stage.panBy(0, -50); // scroll down a bit on the overflowing y axis
+    expect(stage.camera().y).toBeGreaterThan(before.y); // pan respected, not snapped back
   });
 });
 

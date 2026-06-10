@@ -84,16 +84,26 @@ export interface StageSettings {
   pageMargin: PageMargin;
   /**
    * Reading direction. RTL: horizontal items advance leftward, spreads bind on the
-   * right, grid rows fill right→left, and align.x 'start' means the RIGHT edge
-   * (logical, CSS-style). Navigation is index-based and never changes.
+   * right, grid rows fill right→left, and alignment 'start' on x means the RIGHT
+   * edge (logical, CSS-style). Navigation is index-based and never changes.
    */
   direction: Direction;
   /**
-   * Arrival alignment per axis: where attention lands when the target OVERFLOWS
-   * (fits → always centered, derived). start/start = LTR reading (top-left),
-   * end/start = RTL reading (top-right), center/center = drawings (Drawboard feel).
+   * The two alignment settings are the two branches of the model's one geometric
+   * question — "does it fit the viewport?" (per axis, logical x):
+   *
+   *   fitAlign      — it FITS: where does content REST in the leftover space?
+   *                   Enforced continuously (a fitting axis has nowhere else to
+   *                   be). center/center = document feel; y:'start' = sidebar
+   *                   thumbnails hugging the top.
+   *   overflowAlign — it OVERFLOWS: which part do you show on ARRIVAL
+   *                   (goToPage/next/prev)? Guides arrivals only — afterwards the
+   *                   axis is free to scroll. start/start = LTR reading
+   *                   (top-left), center/center = drawings (Drawboard feel).
    */
-  align: Alignment;
+  fitAlign: Alignment;
+  /** See {@link StageSettings.fitAlign} — arrival anchor on overflowing axes. */
+  overflowAlign: Alignment;
   /** Zoom intent: a fit-mode (automatic/fit-page/fit-width/fit-all) or a fixed level. */
   zoom: ZoomSpec;
   /** Default behaviour for goToPage/next/prev. */
@@ -192,7 +202,8 @@ export interface StageCapability {
   padding(): number;
   gap(): Gap;
   pageMargin(): PageMargin;
-  align(): Alignment;
+  fitAlign(): Alignment;
+  overflowAlign(): Alignment;
   direction(): Direction;
   scrollBehavior(): ScrollBehaviorKind;
   zoomLevel(): number;
@@ -244,7 +255,8 @@ export interface StageCapability {
   setPadding(padding: number): void;
   setGap(gap: Gap): void;
   setPageMargin(pageMargin: PageMargin): void;
-  setAlign(align: Alignment): void;
+  setFitAlign(fitAlign: Alignment): void;
+  setOverflowAlign(overflowAlign: Alignment): void;
   setDirection(direction: Direction): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;
   applyViewState(view: StageViewState): void;

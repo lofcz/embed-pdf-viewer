@@ -78,6 +78,10 @@ export interface CameraConstraint {
    * camera reveal exactly this much beyond each content edge.
    */
   padding: number;
+  /** Where content RESTS on an axis it FITS (locked — there is nowhere else to
+   *  be). Default center/center. x is logical against `direction`. */
+  fitAlign?: Alignment;
+  direction?: Direction;
 }
 /**
  * The zoom intent — an equation about the fit-box, each resolved by `resolveZoom`:
@@ -171,29 +175,41 @@ export const centerOnWorld = (worldPt: Point, vp: Size, zoom: number): Camera =>
  * Bounds — the one place travel limits live. Clamps the camera into an arbitrary
  * world `Rect` (the whole document in continuous flow, one item in paged flow),
  * with a `padding` gutter the camera may reveal beyond each content edge.
- * Per axis: if the padded content fits the viewport it is CENTERED & locked;
- * otherwise the camera travels freely between the padded edges.
+ *
+ * Per axis there are two flush positions: `near` (content's start edge at the
+ * padded viewport edge) and `far` (its end edge). If the padded content OVERFLOWS
+ * the viewport, the camera travels freely in [near, far]. If it FITS, the interval
+ * inverts and the camera is LOCKED to the `fitAlign` rest point — start = near,
+ * end = far, center = midpoint (x resolved logically against `direction`).
  */
 export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstraint): Camera => {
   if (!k.bounded) return c;
   const p = k.padding;
-  const axis = (pos: number, origin: number, content: number, view: number): number => {
-    if (content * c.zoom <= view - 2 * p) return origin + (content - view / c.zoom) / 2; // fits: centre & lock
-    return clamp(pos, origin - p / c.zoom, origin + content - (view - p) / c.zoom);
+  const fit = k.fitAlign ?? { x: 'center', y: 'center' };
+  const axis = (pos: number, origin: number, content: number, view: number, a: Align): number => {
+    const near = origin - p / c.zoom;
+    const far = origin + content - (view - p) / c.zoom;
+    if (content * c.zoom <= view - 2 * p)
+      return a === 'start' ? near : a === 'end' ? far : (near + far) / 2; // fits: rest & lock
+    return clamp(pos, near, far);
   };
+  // logical x: under RTL the reading start is the RIGHT edge
+  const ax =
+    k.direction === 'rtl' && fit.x !== 'center' ? (fit.x === 'start' ? 'end' : 'start') : fit.x;
   return {
     zoom: c.zoom,
-    x: axis(c.x, bounds.x, bounds.width, vp.width),
-    y: axis(c.y, bounds.y, bounds.height, vp.height),
+    x: axis(c.x, bounds.x, bounds.width, vp.width, ax),
+    y: axis(c.y, bounds.y, bounds.height, vp.height, fit.y),
   };
 };
 
 /**
- * Per-axis arrival alignment: where attention lands on an OVERFLOWING axis.
- * On the x-axis the values are LOGICAL (CSS-style): 'start' = where reading begins
- * (left in LTR, RIGHT in RTL), 'end' = where it ends. On the y-axis they are
- * physical (start = top). So the default { x:'start', y:'start' } is automatically
- * correct in both directions — no 'auto' value needed.
+ * Per-axis alignment value, used by both halves of the one geometric question:
+ * where content RESTS when it fits (fitAlign) and where attention LANDS when it
+ * overflows (overflowAlign). On the x-axis the values are LOGICAL (CSS-style):
+ * 'start' = where reading begins (left in LTR, RIGHT in RTL), 'end' = where it
+ * ends. On the y-axis they are physical (start = top). So a 'start' default is
+ * automatically correct in both directions — no 'auto' value needed.
  */
 export type Align = 'start' | 'center' | 'end';
 export interface Alignment {
@@ -203,22 +219,24 @@ export interface Alignment {
 
 /**
  * THE placement algorithm — used for every arrival (goToPage, next/prev, reset).
- * The clamp defines the camera's legal travel range within the subject; alignment
- * just picks a point in it: start = min, center = midpoint, end = max — with x
- * resolved logically against the reading direction. On an axis where the subject
- * FITS, min = mid = max (the locked center), so alignment automatically becomes
- * irrelevant — "centered when it fits" stays derived, and alignment only resolves
- * the freedom that overflow creates.
+ * The clamp defines the camera's legal travel range within the subject;
+ * `overflowAlign` just picks a point in it: start = min, center = midpoint,
+ * end = max — with x resolved logically against the reading direction. On an axis
+ * where the subject FITS, the clamp's range collapses to the `fitAlign` rest
+ * point (min = mid = max), so overflowAlign automatically becomes irrelevant —
+ * the rest position stays DERIVED from the clamp, and overflowAlign only
+ * resolves the freedom that overflow creates.
  */
 export function placeCamera(
   subject: Rect,
   vp: Size,
   zoom: number,
   padding = 0,
-  align: Alignment = { x: 'start', y: 'start' },
+  overflowAlign: Alignment = { x: 'start', y: 'start' },
   direction: Direction = 'ltr',
+  fitAlign: Alignment = { x: 'center', y: 'center' },
 ): Camera {
-  const k: CameraConstraint = { bounded: true, padding };
+  const k: CameraConstraint = { bounded: true, padding, fitAlign, direction };
   const lo = clampCamera({ x: -Infinity, y: -Infinity, zoom }, subject, vp, k);
   const hi = clampCamera({ x: Infinity, y: Infinity, zoom }, subject, vp, k);
   const pick = (a: Align, min: number, max: number): number =>
@@ -226,9 +244,13 @@ export function placeCamera(
   // logical x: in RTL, reading starts at the right edge of the travel range
   const x =
     direction === 'rtl'
-      ? pick(align.x === 'start' ? 'end' : align.x === 'end' ? 'start' : 'center', lo.x, hi.x)
-      : pick(align.x, lo.x, hi.x);
-  return { zoom, x, y: pick(align.y, lo.y, hi.y) };
+      ? pick(
+          overflowAlign.x === 'start' ? 'end' : overflowAlign.x === 'end' ? 'start' : 'center',
+          lo.x,
+          hi.x,
+        )
+      : pick(overflowAlign.x, lo.x, hi.x);
+  return { zoom, x, y: pick(overflowAlign.y, lo.y, hi.y) };
 }
 
 /**

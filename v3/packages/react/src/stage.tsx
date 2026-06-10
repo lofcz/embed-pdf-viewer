@@ -315,8 +315,10 @@ export function useStageSettings(token: StageTokenProp = StageToken) {
       a.pageMargin.bottom === b.pageMargin.bottom &&
       a.pageMargin.left === b.pageMargin.left &&
       a.direction === b.direction &&
-      a.align.x === b.align.x &&
-      a.align.y === b.align.y &&
+      a.fitAlign.x === b.fitAlign.x &&
+      a.fitAlign.y === b.fitAlign.y &&
+      a.overflowAlign.x === b.overflowAlign.x &&
+      a.overflowAlign.y === b.overflowAlign.y &&
       a.scrollBehavior === b.scrollBehavior &&
       a.zoom === b.zoom,
   );
