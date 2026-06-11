@@ -1,5 +1,7 @@
 import * as S from '@embedpdf-x/stage-core';
 import type { PluginContext } from '@embedpdf-x/kernel';
+import { SETTINGS_EFFECT, SETTING_KEYS } from './settings';
+import type { SettingEffect } from './settings';
 import type {
   GoToOptions,
   Scheduler,
@@ -164,6 +166,26 @@ export function createStageCapability(
     return st.columns === 'auto' ? `auto:${Math.round(wrapLineWidth())}` : String(st.columns);
   };
 
+  // The scene's settings signature — DERIVED from the registry: every 'scene'
+  // setting contributes automatically, so a new layout-affecting setting only
+  // needs its SETTINGS_EFFECT row — it can't be forgotten here, which is what
+  // makes stale-scene bugs unrepresentable. The default keys by VALUE (objects
+  // via JSON); the custom fns aren't for correctness, they QUANTIZE px-derived
+  // values so sub-pixel zoom/resize churn doesn't rebuild the scene.
+  const SCENE_KEY_FNS: Partial<Record<keyof StageSettings, () => string>> = {
+    columns: columnsKey,
+    gap: gapKey,
+    pageMargin: marginKey,
+  };
+  const SCENE_KEYS = SETTING_KEYS.filter((k) => SETTINGS_EFFECT[k] === 'scene');
+  const settingsKey = (): string =>
+    SCENE_KEYS.map((k) => {
+      const fn = SCENE_KEY_FNS[k];
+      if (fn) return fn();
+      const v = ctx.getState()[k];
+      return typeof v === 'object' && v !== null ? JSON.stringify(v) : String(v);
+    }).join('|');
+
   // Scene cache. Continuous = the whole document. Paged = a ONE-ITEM SLICE at the
   // origin containing only the cursor's item — so isolation is STRUCTURAL (no other
   // page exists to leak), unbounded pan is free, and coordinates stay local.
@@ -174,13 +196,13 @@ export function createStageCapability(
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${st.layout}|${st.sizing}|${st.spread}|${gapKey()}|${st.direction}|${columnsKey()}|${marginKey()}|${idx}`;
+      const key = `paged|${settingsKey()}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
       return scene;
     }
-    const key = `cont|${doc ? doc.pageCount : 0}|${st.layout}|${st.spread}|${st.sizing}|${gapKey()}|${st.direction}|${columnsKey()}|${marginKey()}`;
+    const key = `cont|${doc ? doc.pageCount : 0}|${settingsKey()}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const scene = layoutFor(g);
     sceneCache = { key, scene };
@@ -436,25 +458,14 @@ export function createStageCapability(
     return vis;
   };
 
-  const snapshotSettings = (): StageSettings => {
-    const s = ctx.getState();
-    return {
-      flow: s.flow,
-      layout: s.layout,
-      spread: s.spread,
-      sizing: s.sizing,
-      columns: s.columns,
-      bounded: s.bounded,
-      padding: s.padding,
-      gap: s.gap,
-      pageMargin: s.pageMargin,
-      direction: s.direction,
-      fitAlign: s.fitAlign,
-      overflowAlign: s.overflowAlign,
-      zoom: s.zoom,
-      scrollBehavior: s.scrollBehavior,
-    };
+  // The settings slice of a larger object (state, or a saved view) — derived from
+  // the registry, so the shape is never spelled out by hand again.
+  const pickSettings = (src: StageSettings): StageSettings => {
+    const out: Partial<Record<keyof StageSettings, unknown>> = {};
+    for (const k of SETTING_KEYS) out[k] = src[k];
+    return out as StageSettings;
   };
+  const snapshotSettings = (): StageSettings => pickSettings(ctx.getState());
 
   // Initial-view providers (persist, deep-link, an explicit prop…). One owner
   // (placeInitial) resolves them by priority — no effect-ordering races.
@@ -613,29 +624,21 @@ export function createStageCapability(
       cancelAnim();
       const anchor = currentAnchor(); // capture (page-durable) against the current scene
       ctx.dispatch({ type: 'PATCH', patch });
-      const structural =
-        patch.layout !== undefined ||
-        patch.spread !== undefined ||
-        patch.sizing !== undefined ||
-        patch.gap !== undefined ||
-        patch.direction !== undefined ||
-        patch.columns !== undefined ||
-        patch.pageMargin !== undefined;
-      if (structural) sceneCache = null;
-      if (patch.flow !== undefined) {
+      // React per the registry — the strongest effect among the touched settings
+      // wins: 'reflow' ⊃ 'scene'/'refit' ⊃ 'reclamp' ⊃ 'none'.
+      const touched = (effect: SettingEffect) =>
+        SETTING_KEYS.some((k) => patch[k] !== undefined && SETTINGS_EFFECT[k] === effect);
+      if (touched('scene')) sceneCache = null;
+      if (touched('reflow')) {
         // flow toggled: re-place onto the cursor's page under the new flow's scene
         // (the camera's coordinates are meaningless across the flow boundary).
         goToTarget(ctx.getState().cursor, { behavior: 'instant' });
-      } else if (structural || patch.zoom !== undefined) {
+      } else if (touched('scene') || touched('refit')) {
         reapply(anchor); // rebuild + keep page + re-fit (fit-all: re-place the scene)
-      } else if (
-        patch.bounded !== undefined ||
-        patch.padding !== undefined ||
-        patch.fitAlign !== undefined
-      ) {
+      } else if (touched('reclamp')) {
         setCam(cam()); // clamp policy changed: just re-clamp the current camera
       }
-      // overflowAlign guides future arrivals only; scrollBehavior: no camera effect
+      // 'none' (overflowAlign, scrollBehavior): guides future verbs only
     },
     setFlow: (flow) => api.update({ flow }),
     setLayout: (layout) => api.update({ layout }),
@@ -652,25 +655,7 @@ export function createStageCapability(
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
     applyViewState: (view) => {
       cancelAnim();
-      ctx.dispatch({
-        type: 'PATCH',
-        patch: {
-          flow: view.flow,
-          layout: view.layout,
-          spread: view.spread,
-          sizing: view.sizing,
-          columns: view.columns,
-          bounded: view.bounded,
-          padding: view.padding,
-          gap: view.gap,
-          pageMargin: view.pageMargin,
-          direction: view.direction,
-          fitAlign: view.fitAlign,
-          overflowAlign: view.overflowAlign,
-          zoom: view.zoom,
-          scrollBehavior: view.scrollBehavior,
-        },
-      });
+      ctx.dispatch({ type: 'PATCH', patch: pickSettings(view) });
       ctx.dispatch({ type: 'CURSOR', cursor: view.cursor ?? 0 });
       sceneCache = null;
       applyAnchor(view.anchor);

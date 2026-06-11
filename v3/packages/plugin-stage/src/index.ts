@@ -8,7 +8,7 @@
 export { stagePlugin } from './stage.plugin';
 export type { StagePluginOptions } from './stage.plugin';
 export { StageToken } from './types';
-export { DEFAULT_SETTINGS } from './settings';
+export { DEFAULT_SETTINGS, settingsEqual } from './settings';
 export type {
   FlowMode,
   Gap,

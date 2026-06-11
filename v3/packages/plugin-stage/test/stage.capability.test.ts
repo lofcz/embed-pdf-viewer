@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PluginContext } from '@embedpdf-x/kernel';
 import { createStageCapability } from '../src/capability';
 import { initialStageState, stageReducer } from '../src/reducer';
+import { DEFAULT_SETTINGS, settingsEqual } from '../src/settings';
 import { stagePlugin } from '../src/stage.plugin';
 import type { StageAction, StageConfig, StageState } from '../src/types';
 
@@ -541,6 +542,26 @@ describe('cursor is INTENT: a clamped camera never revokes navigation', () => {
     expect(stage.currentPage()).toBe(3); // …and mid-tween
     run(240);
     expect(stage.currentPage()).toBe(3); // …and at the end
+  });
+});
+
+describe('settingsEqual: registry-derived equality (the React selector contract)', () => {
+  it('compares by VALUE one level deep — fresh-but-equal objects are equal', () => {
+    const a = { ...DEFAULT_SETTINGS };
+    // same values in brand-new objects (what a reducer PATCH produces)
+    const b = {
+      ...DEFAULT_SETTINGS,
+      pageMargin: { ...DEFAULT_SETTINGS.pageMargin },
+      fitAlign: { ...DEFAULT_SETTINGS.fitAlign },
+    };
+    expect(settingsEqual(a, b)).toBe(true);
+    // a fresh zoom intent with the SAME level is equal (no pinch-tick re-renders)…
+    expect(settingsEqual({ ...a, zoom: { level: 1 } }, { ...a, zoom: { level: 1 } })).toBe(true);
+    // …and every changed value — primitive, union shape, or nested field — is not
+    expect(settingsEqual(a, { ...a, padding: 32 })).toBe(false);
+    expect(settingsEqual(a, { ...a, gap: { px: 12 } })).toBe(false);
+    expect(settingsEqual(a, { ...a, zoom: { level: 1 } })).toBe(false);
+    expect(settingsEqual(a, { ...a, fitAlign: { x: 'center', y: 'start' } })).toBe(false);
   });
 });
 

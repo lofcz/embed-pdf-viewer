@@ -7,7 +7,7 @@
  */
 import * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
-import { StageToken } from '@embedpdf-x/plugin-stage';
+import { StageToken, settingsEqual } from '@embedpdf-x/plugin-stage';
 import type { StageCapability, VisiblePage } from '@embedpdf-x/plugin-stage';
 import type { CapabilityToken } from '@embedpdf-x/kernel';
 
@@ -297,30 +297,8 @@ export function usePageList(token: StageTokenProp = StageToken) {
  */
 export function useStageSettings(token: StageTokenProp = StageToken) {
   const s = useCapability(token);
-  const settings = useSelector(
-    token,
-    (c) => c.settings(),
-    (a, b) =>
-      a.flow === b.flow &&
-      a.layout === b.layout &&
-      a.spread === b.spread &&
-      a.sizing === b.sizing &&
-      a.bounded === b.bounded &&
-      a.padding === b.padding &&
-      (typeof a.gap === 'number' || typeof b.gap === 'number'
-        ? a.gap === b.gap
-        : a.gap.px === b.gap.px) &&
-      a.pageMargin.top === b.pageMargin.top &&
-      a.pageMargin.right === b.pageMargin.right &&
-      a.pageMargin.bottom === b.pageMargin.bottom &&
-      a.pageMargin.left === b.pageMargin.left &&
-      a.direction === b.direction &&
-      a.fitAlign.x === b.fitAlign.x &&
-      a.fitAlign.y === b.fitAlign.y &&
-      a.overflowAlign.x === b.overflowAlign.x &&
-      a.overflowAlign.y === b.overflowAlign.y &&
-      a.scrollBehavior === b.scrollBehavior &&
-      a.zoom === b.zoom,
-  );
+  // settingsEqual derives from the plugin's settings registry — a new setting is
+  // covered here automatically, without this package spelling out the shape.
+  const settings = useSelector(token, (c) => c.settings(), settingsEqual);
   return { settings, update: s.update, reset: s.resetView };
 }

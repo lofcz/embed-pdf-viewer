@@ -24,3 +24,54 @@ export const DEFAULT_SETTINGS: StageSettings = {
   zoom: { mode: ZoomMode.Automatic },
   scrollBehavior: 'smooth',
 };
+
+/**
+ * How a CHANGE to each setting affects the view — THE single source of truth.
+ * One row per setting, completeness enforced by the compiler (`Record<keyof
+ * StageSettings, …>`: adding a setting without classifying it is a type error).
+ * Everything else derives from this table: the scene-cache invalidation and key,
+ * `update()`'s reaction, the settings snapshot/patch picks, and the React
+ * selector equality.
+ *
+ *   'reflow'  — crosses the flow boundary: camera coordinates are meaningless
+ *               there, so re-place canonically onto the cursor's page.
+ *   'scene'   — a LAYOUT INPUT: invalidates the scene, then re-applies the anchor.
+ *   'refit'   — re-resolves zoom against the (possibly re-keyed) scene: re-applies
+ *               the anchor without an explicit invalidation.
+ *   'reclamp' — pure clamp policy: re-clamp the current camera in place.
+ *   'none'    — guides future verbs only (arrival alignment, scroll behavior).
+ */
+export type SettingEffect = 'reflow' | 'scene' | 'refit' | 'reclamp' | 'none';
+export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
+  flow: 'reflow',
+  layout: 'scene',
+  spread: 'scene',
+  sizing: 'scene',
+  columns: 'scene',
+  bounded: 'reclamp',
+  padding: 'reclamp',
+  gap: 'scene',
+  pageMargin: 'scene',
+  direction: 'scene',
+  fitAlign: 'reclamp',
+  overflowAlign: 'none',
+  zoom: 'refit',
+  scrollBehavior: 'none',
+};
+export const SETTING_KEYS = Object.keys(SETTINGS_EFFECT) as Array<keyof StageSettings>;
+
+// Settings values are primitives or one-level objects (align pairs, pageMargin,
+// gap { px }, zoom intents) — one level of structural equality covers them all.
+const valueEq = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const ka = Object.keys(a);
+  return (
+    ka.length === Object.keys(b).length &&
+    ka.every((k) => (a as Record<string, unknown>)[k] === (b as Record<string, unknown>)[k])
+  );
+};
+/** Field-by-field settings equality, derived from the registry — a new setting is
+ *  covered automatically. (The React `useStageSettings` selector equality.) */
+export const settingsEqual = (a: StageSettings, b: StageSettings): boolean =>
+  SETTING_KEYS.every((k) => valueEq(a[k], b[k]));

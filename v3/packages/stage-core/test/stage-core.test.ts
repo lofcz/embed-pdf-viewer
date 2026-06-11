@@ -211,6 +211,26 @@ describe('clampCamera', () => {
     expect(c.y).toBeCloseTo(4000 + (300 - vp.height) / 2, 6); // centered within the item's rect
   });
 
+  it('fitAlign picks the REST point of a fitting axis (start/end, logical x)', () => {
+    const bounds = { x: 0, y: 0, width: 300, height: 300 }; // fits both axes
+    const k = (fa: S.Alignment, direction?: S.Direction) =>
+      ({ bounded: true, padding: 24, fitAlign: fa, direction }) as S.CameraConstraint;
+    // y:'start' — content's top edge a padding below the viewport top
+    const top = S.clampCamera({ x: 0, y: 0, zoom: 1 }, bounds, vp, k({ x: 'center', y: 'start' }));
+    expect(top.y).toBeCloseTo(-24, 6); // camera above origin by the gutter
+    // y:'end' — bottom edge a padding above the viewport bottom
+    const bot = S.clampCamera({ x: 0, y: 0, zoom: 1 }, bounds, vp, k({ x: 'center', y: 'end' }));
+    expect(bot.y).toBeCloseTo(300 - (vp.height - 24), 6);
+    // logical x: RTL + 'start' rests at the RIGHT edge (mirrors to 'end')
+    const rtl = S.clampCamera(
+      { x: 0, y: 0, zoom: 1 },
+      bounds,
+      vp,
+      k({ x: 'start', y: 'center' }, 'rtl'),
+    );
+    expect(rtl.x).toBeCloseTo(300 - (vp.width - 24), 6);
+  });
+
   it('padding = a constant breathing gutter the camera may reveal', () => {
     const p = 24;
     const k = { bounded: true, padding: p } as const;
