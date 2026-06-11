@@ -126,6 +126,13 @@ export class SseClient {
       }
     } else if (event === 'full-refresh') {
       this.opts.onFullRefresh();
+    } else if (event === 'auth-revoked') {
+      // Terminal: the credential is dead by decree, not by clock — never
+      // retry against it (a reconnect would just 401; this saves the trip
+      // and surfaces the loss immediately).
+      this.closed = true;
+      this.abort?.abort();
+      this.opts.onAuthLost();
     }
     // 'auth-expiring' needs no handling: the server ends the stream right
     // after, and the reconnect path fetches a fresh token.

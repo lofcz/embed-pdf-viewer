@@ -35,6 +35,17 @@ export interface RealtimeBus {
    * unsubscriber.
    */
   subscribeMutation(key: AuditDocKey, listener: () => void): () => void;
+  /**
+   * Revocation channel — GLOBAL, unlike the per-doc mutation channel: a
+   * revoked `jti` may hold SSE streams on any document, on any replica.
+   * Two consumers: open SSE handlers close their stream when their jti
+   * matches, and `RevokedJtisGuard` instances fill their LRU so the
+   * REQUEST path stops accepting the token immediately too (instead of
+   * after the 60s negative-cache TTL). `expiresAt` (token exp, epoch ms)
+   * lets caches self-prune.
+   */
+  publishRevocation(jti: string, expiresAt: number): Promise<void>;
+  subscribeRevocation(listener: (jti: string, expiresAt: number) => void): () => void;
   close(): Promise<void>;
 }
 
@@ -45,6 +56,7 @@ export const docChannelKey = (key: AuditDocKey): string => `${key.tenantId}::${k
  *  `PostgresRealtimeBus` or replicas will not see each other's mutations. */
 export class InProcessRealtimeBus implements RealtimeBus {
   private readonly listeners = new Map<string, Set<() => void>>();
+  private readonly revocationListeners = new Set<(jti: string, expiresAt: number) => void>();
 
   async publishMutation(key: AuditDocKey): Promise<void> {
     const set = this.listeners.get(docChannelKey(key));
@@ -66,7 +78,19 @@ export class InProcessRealtimeBus implements RealtimeBus {
     };
   }
 
+  async publishRevocation(jti: string, expiresAt: number): Promise<void> {
+    for (const listener of [...this.revocationListeners]) listener(jti, expiresAt);
+  }
+
+  subscribeRevocation(listener: (jti: string, expiresAt: number) => void): () => void {
+    this.revocationListeners.add(listener);
+    return () => {
+      this.revocationListeners.delete(listener);
+    };
+  }
+
   async close(): Promise<void> {
     this.listeners.clear();
+    this.revocationListeners.clear();
   }
 }

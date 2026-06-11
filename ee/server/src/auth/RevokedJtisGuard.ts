@@ -1,5 +1,6 @@
 import type { Kysely } from 'kysely';
 import type { Database as Schema } from '../db/schema';
+import type { RealtimeBus } from '../realtime/RealtimeBus';
 import type { RevocationCheck } from './JwtVerifier';
 
 export interface RevokedJtisGuardOptions {
@@ -12,6 +13,15 @@ export interface RevokedJtisGuardOptions {
    * but delay the propagation of new revocations to other replicas.
    */
   negativeTtlMs?: number;
+  /**
+   * Cross-replica revocation push. When supplied, `revoke()` publishes
+   * after the DB write, AND this guard subscribes so a revocation issued
+   * on any replica fills the local LRU immediately — collapsing the
+   * negative-cache propagation window from `negativeTtlMs` to
+   * notification latency. The DB stays the source of truth; the push is a
+   * cache-fill optimization, exactly like the mutation doorbell.
+   */
+  realtime?: RealtimeBus;
 }
 
 interface CacheEntry {
@@ -45,10 +55,18 @@ export class RevokedJtisGuard implements RevocationCheck {
   // capacity.
   private readonly cache = new Map<string, CacheEntry>();
 
+  private readonly realtime?: RealtimeBus;
+
   constructor(opts: RevokedJtisGuardOptions) {
     this.db = opts.db;
     this.lruSize = opts.lruSize ?? 10_000;
     this.negativeTtlMs = opts.negativeTtlMs ?? 60_000;
+    this.realtime = opts.realtime;
+    // Remote revocations land in the LRU as positive entries, so the
+    // request path on THIS replica rejects the jti without a DB read.
+    this.realtime?.subscribeRevocation((jti, expiresAt) => {
+      this.put(jti, { revoked: true, expiresAt: Math.max(Date.now() + 1_000, expiresAt) });
+    });
   }
 
   async isRevoked(jti: string): Promise<boolean> {
@@ -108,6 +126,11 @@ export class RevokedJtisGuard implements RevocationCheck {
       )
       .execute();
     this.put(input.jti, { revoked: true, expiresAt: input.expiresAt });
+    // After the DB write, never before: a subscriber reacting to the push
+    // (an SSE close, a sibling replica's cache fill) must find the row.
+    if (this.realtime) {
+      await this.realtime.publishRevocation(input.jti, input.expiresAt).catch(() => undefined);
+    }
   }
 
   /**

@@ -6,6 +6,7 @@ import { toJsonlEvent } from '../services/EventLogService';
 import type { DocumentService } from '../services/DocumentService';
 import type { RealtimeBus } from '../realtime/RealtimeBus';
 import { requireLayerCapability, requireLayerDocAccessOnly } from '../app/jwt-plugin';
+import type { RevocationCheck } from '../auth/JwtVerifier';
 
 /** Per-drain page size; rings coalesce, so a burst streams in pages. */
 const DRAIN_LIMIT = 200;
@@ -24,6 +25,10 @@ export interface EventsRoutesOptions {
   db: Kysely<Schema>;
   documentService: DocumentService;
   realtimeBus: RealtimeBus;
+  /** The jti denylist (present when `enableRevocation` is on). Heartbeats
+   *  revalidate against it — the belt-and-braces for a replica whose
+   *  revocation-push subscription is down. */
+  revocation?: RevocationCheck;
 }
 
 /**
@@ -42,6 +47,11 @@ export interface EventsRoutesOptions {
  *     a cursor at head — refetch state, then stream forward.
  *   - `auth-expiring` is sent shortly before JWT expiry; the client
  *     refreshes its token and reconnects with its cursor.
+ *   - `auth-revoked` closes the stream the moment the connection's `jti`
+ *     is revoked (pushed via the bus's revocation channel, any replica),
+ *     with a heartbeat revalidation sweep as the fallback for a broken
+ *     push subscription. The client treats it as terminal — a revoked
+ *     credential must not keep WATCHING a document either.
  */
 export async function registerEventsRoutes(
   app: FastifyInstance,
@@ -126,8 +136,37 @@ export async function registerEventsRoutes(
       () => void drain(),
     );
 
+    const myJti = ctx.jwt.jti;
+    const closeRevoked = () => {
+      if (closed) return;
+      raw.write(`event: auth-revoked\ndata: {"reason":"jti-revoked"}\n\n`);
+      cleanup();
+      raw.end();
+    };
+    // Push path: a revocation issued on ANY replica closes this stream in
+    // notification latency. Tokens without a jti cannot be individually
+    // revoked (consistent with the verifier) — their lifetime is bounded
+    // by `exp` like any bearer credential.
+    const unsubscribeRevocation = myJti
+      ? opts.realtimeBus.subscribeRevocation((revokedJti) => {
+          if (revokedJti === myJti) closeRevoked();
+        })
+      : () => undefined;
+
     const heartbeat = setInterval(() => {
-      if (!closed) raw.write(':ping\n\n');
+      if (closed) return;
+      raw.write(':ping\n\n');
+      // Sweep path: revalidate the jti against the denylist (LRU-backed,
+      // cheap). Covers a replica whose push subscription is down — the
+      // worst case becomes one heartbeat interval, not token expiry.
+      if (myJti && opts.revocation) {
+        void opts.revocation
+          .isRevoked(myJti)
+          .then((revoked) => {
+            if (revoked) closeRevoked();
+          })
+          .catch(() => undefined);
+      }
     }, HEARTBEAT_MS);
 
     // Expiry close, re-armed in slices (see MAX_TIMER_MS).
@@ -149,6 +188,7 @@ export async function registerEventsRoutes(
       if (closed) return;
       closed = true;
       unsubscribe();
+      unsubscribeRevocation();
       clearInterval(heartbeat);
       if (expTimer) clearTimeout(expTimer);
     };

@@ -181,6 +181,9 @@ export interface AppBundle {
  * responsible for `app.listen()`.
  */
 export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
+  // The cross-replica doorbell exists for the whole app lifetime: mutation
+  // signals for SSE, revocation pushes for the auth guard + open streams.
+  const realtimeBus = opts.realtimeBus ?? new InProcessRealtimeBus();
   const app = Fastify({
     logger: {
       level: process.env['LOG_LEVEL'] ?? 'info',
@@ -200,6 +203,9 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     // can exceed that ceiling without 404-ing at the router. The token
     // codec separately enforces a 512-char limit, so this stays bounded.
     maxParamLength: 512,
+  });
+  app.addHook('onClose', async () => {
+    await realtimeBus.close();
   });
 
   await app.register(compress, {
@@ -233,7 +239,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
   let revokedJtisGuard: RevokedJtisGuard | undefined;
   let revocation: RevocationCheck | undefined;
   if (opts.enableRevocation && opts.db) {
-    revokedJtisGuard = new RevokedJtisGuard({ db: opts.db });
+    revokedJtisGuard = new RevokedJtisGuard({ db: opts.db, realtime: realtimeBus });
     revocation = revokedJtisGuard;
   }
   let jwksCacheStore: JwksCacheStore | undefined;
@@ -332,10 +338,6 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         repo: new WeakAnnotationSessionsRepo(opts.db),
       });
       const eventLog = new EventLogService({ storage: opts.objectStore });
-      const realtimeBus = opts.realtimeBus ?? new InProcessRealtimeBus();
-      app.addHook('onClose', async () => {
-        await realtimeBus.close();
-      });
       const passwordSessionServerSecret = {
         id:
           opts.pdfPasswordSessionServerSecretId ??
@@ -405,6 +407,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         db: opts.db,
         documentService,
         realtimeBus,
+        ...(revokedJtisGuard ? { revocation: revokedJtisGuard } : {}),
       });
       await registerAnnotationRoutes(app, {
         documentService,

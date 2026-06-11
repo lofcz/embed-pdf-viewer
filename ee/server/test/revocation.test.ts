@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
+import { InProcessRealtimeBus } from '../src/realtime/RealtimeBus';
 import {
   buildApp,
   createSqliteDb,
@@ -80,6 +81,30 @@ describe('RevokedJtisGuard (unit)', () => {
     // Probe a 4th distinct jti to confirm the LRU still bounds size.
     await guard.isRevoked('d'); // cache: [c, d]
     expect(await guard.isRevoked('d')).toBe(false);
+    await db.destroy();
+  });
+
+  test('revoke() publishes on the bus; remote pushes fill the LRU instantly', async () => {
+    const db = createSqliteDb({ path: ':memory:' });
+    await migrate(db, { source: { kind: 'inline', migrations: sqliteMigrations } });
+    const bus = new InProcessRealtimeBus();
+    const guard = new RevokedJtisGuard({ db, negativeTtlMs: 60_000, realtime: bus });
+
+    // 1. Local revoke → pushed on the bus (the SSE close + sibling fill signal).
+    const pushed: Array<{ jti: string; expiresAt: number }> = [];
+    bus.subscribeRevocation((jti, expiresAt) => pushed.push({ jti, expiresAt }));
+    const exp = Date.now() + 60_000;
+    await guard.revoke({ jti: 'jti-local', tenantId: 't', expiresAt: exp });
+    expect(pushed).toEqual([{ jti: 'jti-local', expiresAt: exp }]);
+
+    // 2. Warm the NEGATIVE cache for a jti, then simulate a SIBLING
+    //    replica's revoke arriving as a push: the LRU flips to revoked
+    //    immediately — no 60s negative-TTL window, and no DB row needed
+    //    locally to prove the cache (not the DB) answered.
+    expect(await guard.isRevoked('jti-remote')).toBe(false); // negative-cached
+    await bus.publishRevocation('jti-remote', Date.now() + 60_000);
+    expect(await guard.isRevoked('jti-remote')).toBe(true);
+
     await db.destroy();
   });
 });

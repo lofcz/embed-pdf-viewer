@@ -3,6 +3,7 @@ import type { AuditDocKey } from '../db/repos/audit_log.repo';
 import { docChannelKey, type RealtimeBus } from './RealtimeBus';
 
 const CHANNEL = 'cloudpdf_audit_v1';
+const REVOKE_CHANNEL = 'cloudpdf_revoked_v1';
 
 /**
  * Cross-replica doorbell over Postgres LISTEN/NOTIFY — the rendezvous is the
@@ -30,6 +31,7 @@ const CHANNEL = 'cloudpdf_audit_v1';
  */
 export class PostgresRealtimeBus implements RealtimeBus {
   private readonly listeners = new Map<string, Set<() => void>>();
+  private readonly revocationListeners = new Set<(jti: string, expiresAt: number) => void>();
   private client: Client | null = null;
   private closed = false;
   private connecting: Promise<void> | null = null;
@@ -44,32 +46,46 @@ export class PostgresRealtimeBus implements RealtimeBus {
   }
 
   async publishMutation(key: AuditDocKey, lastAuditId: number): Promise<void> {
-    const payload = JSON.stringify({
-      tenantId: key.tenantId,
-      docId: key.docId,
-      lastAuditId,
-    });
+    await this.notify(
+      CHANNEL,
+      JSON.stringify({ tenantId: key.tenantId, docId: key.docId, lastAuditId }),
+    );
+  }
+
+  private async notify(channel: string, payload: string): Promise<void> {
     try {
       await this.ensureConnected();
-      await this.client!.query('SELECT pg_notify($1, $2)', [CHANNEL, payload]);
+      await this.client!.query('SELECT pg_notify($1, $2)', [channel, payload]);
     } catch (err) {
       this.onError(err);
       // Best effort while the long-lived client is down: a one-shot
-      // connection keeps other replicas informed of local commits.
+      // connection keeps other replicas informed of local publishes.
       try {
         const oneShot = new Client({ connectionString: this.connectionString });
         await oneShot.connect();
         try {
-          await oneShot.query('SELECT pg_notify($1, $2)', [CHANNEL, payload]);
+          await oneShot.query('SELECT pg_notify($1, $2)', [channel, payload]);
         } finally {
           await oneShot.end();
         }
       } catch (fallbackErr) {
-        // The doorbell is lost; subscribers on other replicas converge via
-        // their reconnect/backfill paths. Report and move on.
+        // The signal is lost; mutation subscribers converge via their
+        // reconnect/backfill paths, revocation via the heartbeat
+        // revalidation sweep. Report and move on.
         this.onError(fallbackErr);
       }
     }
+  }
+
+  async publishRevocation(jti: string, expiresAt: number): Promise<void> {
+    await this.notify(REVOKE_CHANNEL, JSON.stringify({ jti, expiresAt }));
+  }
+
+  subscribeRevocation(listener: (jti: string, expiresAt: number) => void): () => void {
+    this.revocationListeners.add(listener);
+    return () => {
+      this.revocationListeners.delete(listener);
+    };
   }
 
   subscribeMutation(key: AuditDocKey, listener: () => void): () => void {
@@ -90,6 +106,7 @@ export class PostgresRealtimeBus implements RealtimeBus {
     this.closed = true;
     if (this.retryTimer) clearTimeout(this.retryTimer);
     this.listeners.clear();
+    this.revocationListeners.clear();
     const client = this.client;
     this.client = null;
     if (client) await client.end().catch(() => {});
@@ -108,11 +125,19 @@ export class PostgresRealtimeBus implements RealtimeBus {
   private async connect(): Promise<void> {
     const client = new Client({ connectionString: this.connectionString });
     client.on('notification', (msg) => {
-      if (msg.channel !== CHANNEL || !msg.payload) return;
+      if (!msg.payload) return;
       try {
-        const parsed = JSON.parse(msg.payload) as { tenantId?: string; docId?: string };
-        if (typeof parsed.tenantId !== 'string' || typeof parsed.docId !== 'string') return;
-        this.ring(docChannelKey({ tenantId: parsed.tenantId, docId: parsed.docId }));
+        if (msg.channel === CHANNEL) {
+          const parsed = JSON.parse(msg.payload) as { tenantId?: string; docId?: string };
+          if (typeof parsed.tenantId !== 'string' || typeof parsed.docId !== 'string') return;
+          this.ring(docChannelKey({ tenantId: parsed.tenantId, docId: parsed.docId }));
+        } else if (msg.channel === REVOKE_CHANNEL) {
+          const parsed = JSON.parse(msg.payload) as { jti?: string; expiresAt?: number };
+          if (typeof parsed.jti !== 'string') return;
+          for (const listener of [...this.revocationListeners]) {
+            listener(parsed.jti, typeof parsed.expiresAt === 'number' ? parsed.expiresAt : 0);
+          }
+        }
       } catch (err) {
         this.onError(err);
       }
@@ -125,6 +150,7 @@ export class PostgresRealtimeBus implements RealtimeBus {
 
     await client.connect();
     await client.query(`LISTEN ${CHANNEL}`);
+    await client.query(`LISTEN ${REVOKE_CHANNEL}`);
     this.client = client;
     this.retryDelayMs = 500;
 

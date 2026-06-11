@@ -16,6 +16,7 @@ import {
   type AppBundle,
   type DbSchema,
 } from '../src/index';
+import { InProcessRealtimeBus } from '../src/realtime/RealtimeBus';
 
 const STUB_ENTRY = new URL('./_helpers/stub-worker-entry.cjs', import.meta.url);
 const SECRET = 'events-sse-secret';
@@ -27,6 +28,7 @@ interface Fixture {
   baseUrl: string;
   storageRoot: string;
   cacheRoot: string;
+  bus: InProcessRealtimeBus;
 }
 
 interface SseEvent {
@@ -82,6 +84,11 @@ class SseCollector {
 
   async close(): Promise<void> {
     this.abort.abort();
+    await this.done;
+  }
+
+  /** Resolves when the server ends the stream (reader sees done). */
+  async waitForEnd(): Promise<void> {
     await this.done;
   }
 
@@ -227,6 +234,63 @@ describe('GET /events — the SSE half of the document event stream', () => {
     await sse.close();
   });
 
+  test('revoking the jti closes the stream with auth-revoked (no more watching)', async () => {
+    const tenantId = 'tenant-sse';
+    const docId = 'docsse005';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 3 });
+    const token = signDevToken(SECRET, {
+      sub: 'user-1',
+      tenant_id: tenantId,
+      doc_id: docId,
+      layer_name: layerName,
+      scope: ['*'],
+      jti: 'jti-revoke-me',
+    });
+
+    const sse = new SseCollector();
+    await sse.open(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/events`, token);
+
+    // Revocation pushed on the bus (any replica) → the open stream closes.
+    await fx.bus.publishRevocation('jti-revoke-me', Date.now() + 60_000);
+
+    await sse.waitFor(1);
+    expect(sse.events[0].event).toBe('auth-revoked');
+    expect(JSON.parse(sse.events[0].data)).toEqual({ reason: 'jti-revoked' });
+    await sse.waitForEnd();
+    await sse.close();
+  });
+
+  test('revoking a DIFFERENT jti leaves the stream open (events keep flowing)', async () => {
+    const tenantId = 'tenant-sse';
+    const docId = 'docsse006';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 3 });
+    const token = signDevToken(SECRET, {
+      sub: 'user-1',
+      tenant_id: tenantId,
+      doc_id: docId,
+      layer_name: layerName,
+      scope: ['*'],
+      jti: 'jti-innocent',
+    });
+
+    const sse = new SseCollector();
+    await sse.open(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/events`, token);
+    await fx.bus.publishRevocation('jti-someone-else', Date.now() + 60_000);
+
+    // The stream must still deliver mutations afterwards.
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/rotate`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pageObjectNumbers: [1], rotation: 90 }),
+    });
+    expect(res.status).toBe(200);
+    await sse.waitFor(1);
+    expect(sse.events[0].event).toBe('mutation');
+    await sse.close();
+  });
+
   test('the manifest publishes auditHead — the gapless subscribe cursor', async () => {
     const tenantId = 'tenant-sse';
     const docId = 'docsse004';
@@ -263,6 +327,7 @@ async function buildFixture(): Promise<Fixture> {
   const db = createSqliteDb({ path: ':memory:' });
   await migrate(db, { source: { kind: 'inline', migrations: sqliteMigrations } });
   const store = new FsObjectStore({ root: storageRoot });
+  const bus = new InProcessRealtimeBus();
   const bundle = await buildApp({
     verifier: { mode: 'hs256', secret: SECRET },
     workerEntry: STUB_ENTRY,
@@ -273,10 +338,11 @@ async function buildFixture(): Promise<Fixture> {
     sweepIntervalMs: 0,
     cacheRoot,
     cacheMaxBytes: 1024 * 1024,
+    realtimeBus: bus,
   });
   const addr = await bundle.app.listen({ host: '127.0.0.1', port: 0 });
   const baseUrl = typeof addr === 'string' ? addr : `http://127.0.0.1:${addr}`;
-  return { bundle, app: bundle.app, db, baseUrl, storageRoot, cacheRoot };
+  return { bundle, app: bundle.app, db, baseUrl, storageRoot, cacheRoot, bus };
 }
 
 async function tearDown(fx: Fixture | undefined): Promise<void> {
