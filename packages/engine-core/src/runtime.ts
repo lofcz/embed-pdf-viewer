@@ -14,6 +14,13 @@ export { AbortError, isAbortError } from './promise/AbortError';
 
 export type { Engine } from './engine/Engine';
 export type { DocumentHandle } from './engine/DocumentHandle';
+export type {
+  DocumentEvent,
+  DocumentEventInit,
+  DocumentEventType,
+  EventOrigin,
+} from './events/DocumentEvent';
+export type { DocumentEventStream } from './events/DocumentEventStream';
 export {
   advisoryFromPdfBits,
   permissionInfoFromProbe,

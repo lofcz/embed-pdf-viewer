@@ -5,6 +5,7 @@ import {
   EngineError,
   EngineErrorCode,
   type DocumentAnnotationsService,
+  type DocumentEventStream,
   type DocumentHandle,
   type DocumentPagesService,
   type DocumentSecurityService,
@@ -23,6 +24,7 @@ import {
   type DocumentHead,
   type DocumentManifest,
 } from '@embedpdf/engine-core/wire';
+import { EventHub, SessionEventPublisher } from '@embedpdf/engine-services';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudMetadataService } from './CloudMetadataService';
 import { CloudDocumentAnnotationsService } from './CloudDocumentAnnotationsService';
@@ -63,6 +65,8 @@ export class CloudDocumentHandle implements DocumentHandle {
   readonly annotations: DocumentAnnotationsService;
   readonly pages: DocumentPagesService;
   readonly security: DocumentSecurityService;
+  readonly events: DocumentEventStream;
+  private readonly publisher: SessionEventPublisher;
   private closed = false;
 
   /**
@@ -96,6 +100,7 @@ export class CloudDocumentHandle implements DocumentHandle {
      * empty scope and null identity until /access is called.
      */
     initialToken: string | null = null,
+    sessionId: string = `cloud:anon:${id}`,
   ) {
     this.id = id;
     this.pendingInitialHead = initialHead ?? null;
@@ -107,6 +112,12 @@ export class CloudDocumentHandle implements DocumentHandle {
       { isClosed: () => this.closed },
       initialToken,
     );
+    const hub = new EventHub();
+    this.events = hub;
+    // Your OWN mutations publish here at POST-confirmation time (kind:
+    // 'local'); the remote channel (SSE) will publish everyone else's into
+    // the same hub. Exactly one event per mutation, either way.
+    this.publisher = new SessionEventPublisher(hub, sessionId);
     this.manifestAccessor = {
       get: (signal) => this.getManifest(signal),
       refresh: (signal) => this.refreshManifest(signal),
@@ -121,6 +132,7 @@ export class CloudDocumentHandle implements DocumentHandle {
       layerName,
       () => this.closed,
       this.manifestAccessor,
+      this.publisher,
     );
     this.annotations = new CloudDocumentAnnotationsService(
       http,
@@ -135,6 +147,7 @@ export class CloudDocumentHandle implements DocumentHandle {
       layerName,
       () => this.closed,
       this.manifestAccessor,
+      this.publisher,
     );
   }
 
@@ -147,6 +160,7 @@ export class CloudDocumentHandle implements DocumentHandle {
       this.layerName,
       () => this.closed,
       this.manifestAccessor,
+      this.publisher,
     );
   }
 

@@ -1,4 +1,5 @@
 import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core/runtime';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import { LocalPageAnnotationsService } from './LocalPageAnnotationsService';
 import { LocalPageGeometryService } from './LocalPageGeometryService';
 import { LocalPageRenderService } from './LocalPageRenderService';
@@ -30,8 +31,16 @@ export class LocalPageHandle implements PageHandle {
     view: DocClosedView,
     imageEncoder: LocalImageEncoder,
     guard: ScopeGuard,
+    publisher: SessionEventPublisher,
   ) {
-    this.annotations = new LocalPageAnnotationsService(docId, pageObjectNumber, queue, view, guard);
+    this.annotations = new LocalPageAnnotationsService(
+      docId,
+      pageObjectNumber,
+      queue,
+      view,
+      guard,
+      publisher,
+    );
     this.text = new LocalPageTextService(docId, pageObjectNumber, queue, view, guard);
     this.geometry = new LocalPageGeometryService(docId, pageObjectNumber, queue, view, guard);
     this.render = new LocalPageRenderService(

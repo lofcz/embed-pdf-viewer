@@ -1,4 +1,5 @@
 import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core/runtime';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudPageAnnotationsService } from './CloudPageAnnotationsService';
 import { CloudPageGeometryService } from './CloudPageGeometryService';
@@ -20,6 +21,7 @@ export class CloudPageHandle implements PageHandle {
     layerName: string,
     isClosed: () => boolean,
     manifest: ManifestAccessor,
+    publisher: SessionEventPublisher,
   ) {
     this.annotations = new CloudPageAnnotationsService(
       http,
@@ -28,6 +30,7 @@ export class CloudPageHandle implements PageHandle {
       pageObjectNumber,
       isClosed,
       manifest,
+      publisher,
     );
     this.text = new CloudPageTextService(
       http,

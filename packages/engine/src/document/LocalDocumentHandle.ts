@@ -5,6 +5,7 @@ import {
   EngineErrorCode,
   wirePack,
   type DocumentAnnotationsService,
+  type DocumentEventStream,
   type DocumentHandle,
   type DocumentPagesService,
   type DocumentSecurityProbeInfo,
@@ -14,6 +15,7 @@ import {
   type PageObjectNumber,
   type PdfSaveMode,
 } from '@embedpdf/engine-core/runtime';
+import { EventHub, SessionEventPublisher } from '@embedpdf/engine-services';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
@@ -34,6 +36,8 @@ export class LocalDocumentHandle implements DocumentHandle {
   readonly annotations: DocumentAnnotationsService;
   readonly pages: DocumentPagesService;
   readonly security: DocumentSecurityService;
+  readonly events: DocumentEventStream;
+  private readonly publisher: SessionEventPublisher;
   private closed = false;
 
   constructor(
@@ -42,12 +46,18 @@ export class LocalDocumentHandle implements DocumentHandle {
     private readonly imageEncoder: LocalImageEncoder,
     initialSecurity: DocumentSecurityProbeInfo,
     private readonly guard: ScopeGuard,
+    sessionId: string,
   ) {
     const view = { isClosed: () => this.closed };
+    const hub = new EventHub();
+    this.events = hub;
+    // A single instance, so every event is `kind: 'local'` — the same
+    // interface as cloud with the collaborative fields at rest.
+    this.publisher = new SessionEventPublisher(hub, sessionId);
     this.security = new LocalDocumentSecurityService(initialSecurity, id, queue, view, guard);
-    this.metadata = new LocalMetadataService(id, queue, view, guard);
+    this.metadata = new LocalMetadataService(id, queue, view, guard, this.publisher);
     this.annotations = new LocalDocumentAnnotationsService(id, queue, view, guard);
-    this.pages = new LocalDocumentPagesService(id, queue, view, guard);
+    this.pages = new LocalDocumentPagesService(id, queue, view, guard, this.publisher);
   }
 
   /**
@@ -71,6 +81,7 @@ export class LocalDocumentHandle implements DocumentHandle {
       },
       this.imageEncoder,
       this.guard,
+      this.publisher,
     );
   }
 

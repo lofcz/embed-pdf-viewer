@@ -8,6 +8,7 @@ import {
   type OpenOptions,
 } from '@embedpdf/engine-core/runtime';
 import { DEFAULT_LAYER_NAME, DocumentHeadSchema, wirePaths } from '@embedpdf/engine-core/wire';
+import { generateUuid } from '@embedpdf/engine-services';
 import { HttpClient, type HttpClientOptions } from './transport/HttpClient';
 import { CloudDocumentHandle } from './document/CloudDocumentHandle';
 import { CloudDocumentSecurityService } from './document/CloudDocumentSecurityService';
@@ -26,6 +27,9 @@ export class CloudEngine implements Engine {
   }
 
   private destroyed = false;
+
+  /** This engine instance's identity on every event's `origin.sessionId`. */
+  private readonly sessionId = `cloud:${generateUuid()}`;
 
   private constructor(private readonly http: HttpClient) {}
 
@@ -71,7 +75,14 @@ export class CloudEngine implements Engine {
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        const handle = new CloudDocumentHandle(docHttp, head.id, layerName, head, token);
+        const handle = new CloudDocumentHandle(
+          docHttp,
+          head.id,
+          layerName,
+          head,
+          token,
+          this.sessionId,
+        );
         await maybeAutoEstablishAccess(handle, head, signal);
         return handle;
       });
@@ -107,7 +118,14 @@ export class CloudEngine implements Engine {
           (raw) => DocumentHeadSchema.parse(raw),
           signal,
         );
-        const handle = new CloudDocumentHandle(docHttp, head.id, layerName, head, resolvedToken);
+        const handle = new CloudDocumentHandle(
+          docHttp,
+          head.id,
+          layerName,
+          head,
+          resolvedToken,
+          this.sessionId,
+        );
         await maybeAutoEstablishAccess(handle, head, signal);
         return handle;
       });

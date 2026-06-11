@@ -12,6 +12,7 @@ import {
   MetadataUpdateResultSchema,
   wirePaths,
 } from '@embedpdf/engine-core/wire';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { HttpClient } from '../transport/HttpClient';
 import type { ManifestAccessor } from './CloudDocumentHandle';
 
@@ -22,6 +23,7 @@ export class CloudMetadataService implements MetadataService {
     private readonly layerName: string,
     private readonly isClosed: () => boolean,
     private readonly manifest: ManifestAccessor,
+    private readonly publisher: SessionEventPublisher,
   ) {}
 
   /**
@@ -72,6 +74,7 @@ export class CloudMetadataService implements MetadataService {
       // per-page pin changes, no layoutVersion), so the cached manifest can
       // be patched in place — no refetch.
       if (result.cache) this.manifest.applyMetadata(result.cache);
+      this.publisher.publishLocal({ type: 'metadata.updated', ...result });
       return result;
     });
   }

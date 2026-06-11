@@ -11,6 +11,7 @@ import {
   type PageRotateResult,
   type PageRotation,
 } from '@embedpdf/engine-core/runtime';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
@@ -34,6 +35,7 @@ export class LocalDocumentPagesService implements DocumentPagesService {
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
     private readonly guard: ScopeGuard,
+    private readonly publisher: SessionEventPublisher,
   ) {}
 
   list(): AbortablePromise<PageListSnapshot> {
@@ -104,6 +106,12 @@ export class LocalDocumentPagesService implements DocumentPagesService {
       if (payload.tag !== 'pages.move') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({
+        type: 'pages.moved',
+        pageObjectNumbers,
+        destIndex,
+        ...payload.result,
+      });
       return payload.result;
     });
   }
@@ -146,6 +154,12 @@ export class LocalDocumentPagesService implements DocumentPagesService {
       if (payload.tag !== 'pages.rotate') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({
+        type: 'pages.rotated',
+        pageObjectNumbers,
+        rotation,
+        ...payload.result,
+      });
       return payload.result;
     });
   }
@@ -184,6 +198,11 @@ export class LocalDocumentPagesService implements DocumentPagesService {
       if (payload.tag !== 'pages.delete') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({
+        type: 'pages.deleted',
+        pageObjectNumbers,
+        ...payload.result,
+      });
       return payload.result;
     });
   }

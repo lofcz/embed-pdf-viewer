@@ -17,6 +17,7 @@ import {
   PageRotateResultSchema,
   wirePaths,
 } from '@embedpdf/engine-core/wire';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { HttpClient } from '../transport/HttpClient';
 import type { ManifestAccessor } from './CloudDocumentHandle';
 
@@ -41,6 +42,7 @@ export class CloudDocumentPagesService implements DocumentPagesService {
     private readonly layerName: string,
     private readonly isClosed: () => boolean,
     private readonly manifest: ManifestAccessor,
+    private readonly publisher: SessionEventPublisher,
   ) {}
 
   /**
@@ -91,6 +93,9 @@ export class CloudDocumentPagesService implements DocumentPagesService {
       // A move only advances docVersion + layoutVersion (no per-page pin
       // changes), so the cached manifest can be patched in place — no refetch.
       if (result.cache) this.manifest.applyPageStructure(result.cache);
+      // Publish AFTER absorb: listeners reading the manifest in their
+      // callback must see post-mutation state.
+      this.publisher.publishLocal({ type: 'pages.moved', pageObjectNumbers, destIndex, ...result });
       return result;
     });
   }
@@ -114,6 +119,12 @@ export class CloudDocumentPagesService implements DocumentPagesService {
       // Rotation shares the move patch exactly: docVersion + layoutVersion
       // advance, every per-page pin (and its cached render) stays warm.
       if (result.cache) this.manifest.applyPageStructure(result.cache);
+      this.publisher.publishLocal({
+        type: 'pages.rotated',
+        pageObjectNumbers,
+        rotation,
+        ...result,
+      });
       return result;
     });
   }
@@ -134,6 +145,7 @@ export class CloudDocumentPagesService implements DocumentPagesService {
       // The structural advance plus dropping the deleted pages' manifest
       // rows — a retired PON must not be buildable from the local cache.
       if (result.cache) this.manifest.applyPageDelete(result.cache, pageObjectNumbers);
+      this.publisher.publishLocal({ type: 'pages.deleted', pageObjectNumbers, ...result });
       return result;
     });
   }

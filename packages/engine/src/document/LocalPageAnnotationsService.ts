@@ -15,6 +15,7 @@ import {
   type PageAnnotationsService,
   type PageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
@@ -30,6 +31,9 @@ interface DocClosedView {
  * worker; the worker host runs `AnnotationMutator` synchronously
  * inside the same PDFium runtime instance the read path uses, so create
  * sees its own writes immediately.
+ *
+ * Every mutation publishes its result to the document's event stream
+ * AFTER the worker confirms — ground truth, never optimistic.
  */
 export class LocalPageAnnotationsService implements PageAnnotationsService {
   constructor(
@@ -38,6 +42,7 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
     private readonly guard: ScopeGuard,
+    private readonly publisher: SessionEventPublisher,
   ) {}
 
   list(): AbortablePromise<AnnotationListPageSnapshot> {
@@ -121,6 +126,11 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       if (payload.tag !== 'annotations.create') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({
+        type: 'annotation.created',
+        pageObjectNumber: pon,
+        ...payload.result,
+      });
       return payload.result;
     });
   }
@@ -171,6 +181,11 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       if (payload.tag !== 'annotations.update') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({
+        type: 'annotation.updated',
+        pageObjectNumber: this.pageObjectNumber,
+        ...payload.result,
+      });
       return payload.result;
     });
   }
@@ -205,6 +220,11 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       if (payload.tag !== 'annotations.delete') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({
+        type: 'annotation.deleted',
+        pageObjectNumber: this.pageObjectNumber,
+        ...payload.result,
+      });
       return payload.result;
     });
   }
@@ -247,6 +267,11 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       if (payload.tag !== 'annotations.move') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({
+        type: 'annotation.moved',
+        pageObjectNumber: pon,
+        ...payload.result,
+      });
       return payload.result;
     });
   }

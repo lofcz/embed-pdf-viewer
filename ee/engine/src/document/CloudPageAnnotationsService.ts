@@ -11,6 +11,7 @@ import {
   type AnnotationDeleteResult,
   type AnnotationMoveResult,
   type AnnotationUpdateResult,
+  type DocumentEventInit,
   type MutationMeta,
   type PageAnnotationsService,
   type PageObjectNumber,
@@ -23,6 +24,7 @@ import {
   AnnotationUpdateResultSchema,
   wirePaths,
 } from '@embedpdf/engine-core/wire';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { HttpClient } from '../transport/HttpClient';
 import type { ManifestAccessor } from './CloudDocumentHandle';
 
@@ -43,6 +45,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly isClosed: () => boolean,
     private readonly manifest: ManifestAccessor,
+    private readonly publisher: SessionEventPublisher,
   ) {}
 
   list(): AbortablePromise<AnnotationListPageSnapshot> {
@@ -92,7 +95,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         (raw) => AnnotationCreateResultSchema.parse(raw),
         signal,
       );
-      return this.absorbMutation(result);
+      return this.absorbMutation(result, 'annotation.created');
     });
   }
 
@@ -127,7 +130,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
           (raw) => AnnotationUpdateResultSchema.parse(raw),
           signal,
         );
-        return this.absorbMutation(result);
+        return this.absorbMutation(result, 'annotation.updated');
       });
     }
     const stableKey = encodeStableIdKey(refToStableId(ref));
@@ -144,7 +147,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         (raw) => AnnotationUpdateResultSchema.parse(raw),
         signal,
       );
-      return this.absorbMutation(result);
+      return this.absorbMutation(result, 'annotation.updated');
     });
   }
 
@@ -179,7 +182,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
           (raw) => AnnotationDeleteResultSchema.parse(raw),
           signal,
         );
-        return this.absorbMutation(result);
+        return this.absorbMutation(result, 'annotation.deleted');
       });
     }
     const stableKey = encodeStableIdKey(refToStableId(ref));
@@ -195,7 +198,7 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         (raw) => AnnotationDeleteResultSchema.parse(raw),
         signal,
       );
-      return this.absorbMutation(result);
+      return this.absorbMutation(result, 'annotation.deleted');
     });
   }
 
@@ -229,12 +232,27 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         (raw) => AnnotationMoveResultSchema.parse(raw),
         signal,
       );
-      return this.absorbMutation(result);
+      return this.absorbMutation(result, 'annotation.moved');
     });
   }
 
-  private absorbMutation<T extends { meta: MutationMeta }>(result: T): T {
+  /**
+   * Patch the cached manifest, then publish the mutation to the document's
+   * event stream (in that order — listeners reading the manifest in their
+   * callback must see post-mutation state). Each call site pairs the event
+   * `type` with the matching result by construction; the cast localizes that
+   * pairing here instead of widening every site.
+   */
+  private absorbMutation<T extends { meta: MutationMeta }>(
+    result: T,
+    type: 'annotation.created' | 'annotation.updated' | 'annotation.deleted' | 'annotation.moved',
+  ): T {
     this.manifest.apply(result.meta);
+    this.publisher.publishLocal({
+      type,
+      pageObjectNumber: this.pageObjectNumber,
+      ...result,
+    } as unknown as DocumentEventInit);
     return result;
   }
 }

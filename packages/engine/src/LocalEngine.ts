@@ -8,6 +8,7 @@ import {
   type OpenInput,
   type OpenOptions,
 } from '@embedpdf/engine-core/runtime';
+import { generateUuid } from '@embedpdf/engine-services';
 import type { Transport } from './transport/Transport';
 import { WorkerQueue } from './worker/WorkerQueue';
 import { Priority } from './worker/Priority';
@@ -34,6 +35,8 @@ export class LocalEngine implements Engine {
 
   private readonly queue: WorkerQueue;
   private readonly imageEncoder: LocalImageEncoder;
+  /** This engine instance's identity on every event's `origin.sessionId`. */
+  private readonly sessionId = `local:${generateUuid()}`;
   private destroyed = false;
 
   private constructor(
@@ -158,7 +161,14 @@ export class LocalEngine implements Engine {
           pdfPermissionsBits: payload.security.pdfPermissionsBits,
         }),
       );
-      return new LocalDocumentHandle(payload.docId, queue, imageEncoder, payload.security, guard);
+      return new LocalDocumentHandle(
+        payload.docId,
+        queue,
+        imageEncoder,
+        payload.security,
+        guard,
+        this.sessionId,
+      );
     });
   }
 

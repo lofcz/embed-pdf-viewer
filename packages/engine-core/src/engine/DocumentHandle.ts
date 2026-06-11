@@ -1,6 +1,7 @@
 import { AbortablePromise } from '../promise/AbortablePromise';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
+import type { DocumentEventStream } from '../events/DocumentEventStream';
 import type { DocumentAnnotationsService } from './DocumentAnnotationsService';
 import type { DocumentPagesService } from './DocumentPagesService';
 import type { DocumentSecurityService } from './DocumentSecurityService';
@@ -27,13 +28,15 @@ export interface DocumentHandle {
    */
   readonly pages: DocumentPagesService;
   /**
+   * The document's event stream — every confirmed mutation, exactly once,
+   * identical shape on local and cloud engines (see `DocumentEvent`). The
+   * engine-instance identity lives on each event's `origin.sessionId`.
+   */
+  readonly events: DocumentEventStream;
+  /**
    * Returns a handle scoped to a page by PDF indirect object number.
    * Throws `EngineError(NotFound)` if the document has no such page.
    * Synchronous because page records are cached on `DocumentSession`.
-   *
-   * Note: when mutations land, `DocumentHandle` will also expose
-   * `sessionId` so clients can detect engine restarts. The revision
-   * tokens already carry it internally; we will plumb it through then.
    */
   page(pageObjectNumber: PageObjectNumber): PageHandle;
   download(opts?: { mode?: PdfSaveMode }): AbortablePromise<Uint8Array>;

@@ -43,11 +43,12 @@
   ],
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
-    "@embedpdf/engine-core": "workspace:*"
+    "@embedpdf/engine-core": "workspace:*",
+    "@embedpdf/engine-services": "workspace:^"
   },
   "devDependencies": {
-    "@embedpdf/build": "workspace:*",
     "@cloudpdf/server": "workspace:*",
+    "@embedpdf/build": "workspace:*",
     "rimraf": "^5.0.0",
     "typescript": "^5.0.0",
     "vitest": "^2.1.0"

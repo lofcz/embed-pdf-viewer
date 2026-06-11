@@ -8,6 +8,7 @@ import {
   type MetadataService,
   type MetadataUpdateResult,
 } from '@embedpdf/engine-core/runtime';
+import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
@@ -23,6 +24,7 @@ export class LocalMetadataService implements MetadataService {
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
     private readonly guard: ScopeGuard,
+    private readonly publisher: SessionEventPublisher,
   ) {}
 
   read(): AbortablePromise<DocumentMetadata> {
@@ -87,6 +89,7 @@ export class LocalMetadataService implements MetadataService {
       if (payload.tag !== 'metadata.update') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
+      this.publisher.publishLocal({ type: 'metadata.updated', ...payload.result });
       return payload.result;
     });
   }
