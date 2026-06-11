@@ -20,6 +20,7 @@ import {
   type MetadataPatch,
   type MetadataUpdateResult,
   type PageDeleteResult,
+  type PageListSnapshot,
   type PageMoveResult,
   type PageObjectNumber,
   type PageRotateResult,
@@ -42,6 +43,15 @@ import type { MutationImpactKind } from './LayerStateService';
 import type { WeakAnnotationSessionService } from './WeakAnnotationSessionService';
 
 type LayerArtifactInput = { bytes: ArrayBuffer; size: number } | { path: string };
+
+/** The durable state an annotation commit produced inside its transaction —
+ *  the input `finalizePayload` turns into the wire result. */
+interface CommittedAnnotationMutation {
+  page: DurablePageRow;
+  weakRefsInvalidated: boolean;
+  previousLayerDocVersion: number;
+  layerDocVersion: number;
+}
 
 export interface LayerServiceOptions {
   db?: Kysely<Schema>;
@@ -604,7 +614,7 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    const durable = await this.commitAnnotationMutation({
+    const committed = await this.commitAnnotationMutation({
       ctx,
       docId,
       layerName,
@@ -618,8 +628,27 @@ export class LayerService {
       hasWeakAnnotations: requireKnownWeakAnnotationBoolean(
         requireSingleAffectedPage(input.result.meta.affectedPages),
       ),
-      payload: input.result,
+      finalizePayload: (durable) =>
+        this.finalizeAnnotationResult(docId, layerName, input.result, durable),
     });
+    // The response IS the audited payload — one fact for caller and history.
+    return committed.payload as TResult;
+  }
+
+  /**
+   * Turn the worker's session-relative result into the FINALIZED wire result:
+   * cloud-stable revision tokens (the bridge's deterministic
+   * `cloud:layer:{doc}:{layer}` scope + the durable generation) and the real
+   * cacheDelta from the committed version bumps. Pure and synchronous — it
+   * runs inside the commit transaction so the audit row can store its output.
+   */
+  private finalizeAnnotationResult<
+    TResult extends
+      | AnnotationCreateResult
+      | AnnotationUpdateResult
+      | AnnotationDeleteResult
+      | AnnotationMoveResult,
+  >(docId: string, layerName: string, raw: TResult, durable: CommittedAnnotationMutation): TResult {
     const cacheDelta = this.layerState.buildCacheDelta({
       docId,
       layerName,
@@ -627,12 +656,11 @@ export class LayerService {
       docVersion: durable.layerDocVersion,
       pages: [durable.page],
     });
-
     const pageState = this.layerState.decorateLayerPageState(docId, layerName, durable.page);
     const result = {
-      ...input.result,
+      ...raw,
       meta: {
-        ...input.result.meta,
+        ...raw.meta,
         cacheDelta,
         affectedPages: [pageState],
         weakRefsInvalidated: durable.weakRefsInvalidated,
@@ -657,28 +685,23 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    const committed = await this.commitPageStructure({
+    // The commit assembles, audits, and returns the finalized result (the
+    // worker's layout + the coherence pins it just computed) — the response
+    // is the audited payload, byte for byte.
+    return this.commitPageStructure({
       ctx,
       docId,
       layerName,
       layer,
       kind: 'pages.move',
-      // The worker's layout IS the new order; derive the durable page order
-      // (by PON, in display order) from it for the commit-time validation.
-      pageOrder: input.result.layout.pages.map((page) => page.pageObjectNumber),
+      layout: input.result.layout,
       // Every page's position is touched by a reorder.
       affectedPages: input.result.layout.pages.map((page) => page.pageObjectNumber),
       artifactKey,
       artifactSha: uploaded.sha256,
       artifactSize: uploaded.size,
       nextVersion,
-      payload: input.result,
     });
-
-    // Return the worker's layout verbatim (no second /layout read needed) plus
-    // the coherence pins so a cloud client advances its cached manifest in
-    // place instead of refetching.
-    return { layout: input.result.layout, cache: committed };
   }
 
   /**
@@ -701,21 +724,19 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    const committed = await this.commitPageStructure({
+    return this.commitPageStructure({
       ctx,
       docId,
       layerName,
       layer,
       kind: 'pages.rotate',
-      pageOrder: input.result.layout.pages.map((page) => page.pageObjectNumber),
+      layout: input.result.layout,
       affectedPages: input.affectedPages,
       artifactKey,
       artifactSha: uploaded.sha256,
       artifactSize: uploaded.size,
       nextVersion,
-      payload: input.result,
     });
-    return { layout: input.result.layout, cache: committed };
   }
 
   private async persistPageDelete(
@@ -732,20 +753,18 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    const committed = await this.commitPageDelete({
+    return this.commitPageDelete({
       ctx,
       docId,
       layerName,
       layer,
-      survivorOrder: input.result.layout.pages.map((page) => page.pageObjectNumber),
+      layout: input.result.layout,
       deletedPages: input.deletedPages,
       artifactKey,
       artifactSha: uploaded.sha256,
       artifactSize: uploaded.size,
       nextVersion,
-      payload: input.result,
     });
-    return { layout: input.result.layout, cache: committed };
   }
 
   private async persistMetadataUpdate(
@@ -761,29 +780,20 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    const committed = await this.commitMetadataUpdate({
+    // The commit assembles, audits, and returns the finalized result (the
+    // worker's re-read metadata + the coherence pins it just computed) — the
+    // response is the audited payload, byte for byte.
+    return this.commitMetadataUpdate({
       ctx,
       docId,
       layerName,
       layer,
+      metadata: input.result.metadata,
       artifactKey,
       artifactSha: uploaded.sha256,
       artifactSize: uploaded.size,
       nextVersion,
-      payload: input.result,
     });
-
-    // Return the worker's re-read metadata verbatim plus the coherence pins
-    // so a cloud client advances its cached manifest in place instead of
-    // refetching.
-    return {
-      metadata: input.result.metadata,
-      cache: {
-        previousDocVersion: committed.previousLayerDocVersion,
-        docVersion: committed.layerDocVersion,
-        metadataVersion: committed.metadataVersion,
-      },
-    };
   }
 
   private async uploadLayerArtifact(
@@ -935,13 +945,16 @@ export class LayerService {
     artifactSize: number;
     nextVersion: number;
     hasWeakAnnotations: boolean;
-    payload: unknown;
-  }): Promise<{
-    page: DurablePageRow;
-    weakRefsInvalidated: boolean;
-    previousLayerDocVersion: number;
-    layerDocVersion: number;
-  }> {
+    /**
+     * Builds the FINALIZED result (cloud-stable revision tokens, real
+     * cacheDelta) from the in-transaction durable state. Its return is what
+     * the audit row stores AND what the caller receives — the invariant is
+     * that the audited payload is byte-identical to the response: what we
+     * tell the caller is what we tell history (and, later, every remote
+     * event subscriber).
+     */
+    finalizePayload: (durable: CommittedAnnotationMutation) => unknown;
+  }): Promise<{ durable: CommittedAnnotationMutation; payload: unknown }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -1017,6 +1030,17 @@ export class LayerService {
           .where('page_object_number', '=', input.pageObjectNumber)
           .execute();
 
+        const durable: CommittedAnnotationMutation = {
+          page: nextPage,
+          weakRefsInvalidated: bumps.weakRefsInvalidated,
+          previousLayerDocVersion,
+          layerDocVersion,
+        };
+        // Finalize BEFORE the audit append so the row stores exactly what the
+        // caller will receive (cloud-stable tokens + real cacheDelta), never
+        // the worker's session-relative draft.
+        const payload = input.finalizePayload(durable);
+
         const auditEvent = makeAuditEvent({
           ctx: input.ctx,
           docId: input.docId,
@@ -1029,17 +1053,12 @@ export class LayerService {
           artifactKey: input.artifactKey,
           artifactSha: input.artifactSha,
           artifactSize: input.artifactSize,
-          payload: input.payload,
+          payload,
           ts: now,
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return {
-          page: nextPage,
-          weakRefsInvalidated: bumps.weakRefsInvalidated,
-          previousLayerDocVersion,
-          layerDocVersion,
-        };
+        return { durable, payload };
       });
   }
 
@@ -1056,33 +1075,36 @@ export class LayerService {
     layerName: string;
     layer: LayerRow;
     kind: 'pages.move' | 'pages.rotate';
-    pageOrder: PageObjectNumber[];
+    /** The worker's post-mutation layout — becomes `result.layout`. */
+    layout: PageListSnapshot;
     affectedPages: PageObjectNumber[];
     artifactKey: string;
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
-    payload: unknown;
-  }): Promise<PageStructureCache> {
+  }): Promise<{ layout: PageListSnapshot; cache: PageStructureCache }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
         const now = Date.now();
         const currentLayer = await this.requireUnchangedLayer(trx, input.layer);
 
+        // The worker's layout IS the new order; validate its page set against
+        // the durable rows before trusting it.
+        const pageOrder = input.layout.pages.map((page) => page.pageObjectNumber);
         const rows = await trx
           .selectFrom('layer_pages')
           .select('page_object_number')
           .where('layer_id', '=', input.layer.id)
           .execute();
-        if (rows.length !== input.pageOrder.length) {
+        if (rows.length !== pageOrder.length) {
           throw new EngineError(
             EngineErrorCode.WireFormat,
-            `${input.kind} returned ${input.pageOrder.length} pages for ${rows.length} layer page rows`,
+            `${input.kind} returned ${pageOrder.length} pages for ${rows.length} layer page rows`,
           );
         }
         const known = new Set(rows.map((row) => Number(row.page_object_number)));
-        for (const pageObjectNumber of input.pageOrder) {
+        for (const pageObjectNumber of pageOrder) {
           if (!known.has(pageObjectNumber)) {
             throw new EngineError(
               EngineErrorCode.WireFormat,
@@ -1092,6 +1114,10 @@ export class LayerService {
         }
 
         const versions = await this.advanceLayerVersions(trx, input, currentLayer, now);
+
+        // The finalized result — audited and returned IDENTICALLY: what we
+        // tell the caller is what we tell history (and remote subscribers).
+        const result = { layout: input.layout, cache: versions };
 
         const auditEvent = makeAuditEvent({
           ctx: input.ctx,
@@ -1105,12 +1131,12 @@ export class LayerService {
           artifactKey: input.artifactKey,
           artifactSha: input.artifactSha,
           artifactSize: input.artifactSize,
-          payload: input.payload,
+          payload: result,
           ts: now,
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return versions;
+        return result;
       });
   }
 
@@ -1126,14 +1152,14 @@ export class LayerService {
     docId: string;
     layerName: string;
     layer: LayerRow;
-    survivorOrder: PageObjectNumber[];
+    /** The worker's post-delete layout (survivors) — becomes `result.layout`. */
+    layout: PageListSnapshot;
     deletedPages: PageObjectNumber[];
     artifactKey: string;
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
-    payload: unknown;
-  }): Promise<PageStructureCache> {
+  }): Promise<{ layout: PageListSnapshot; cache: PageStructureCache }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -1147,10 +1173,11 @@ export class LayerService {
           .execute();
         const known = new Set(rows.map((row) => Number(row.page_object_number)));
         const deleted = new Set(input.deletedPages);
-        if (rows.length !== input.survivorOrder.length + input.deletedPages.length) {
+        const survivorOrder = input.layout.pages.map((page) => page.pageObjectNumber);
+        if (rows.length !== survivorOrder.length + input.deletedPages.length) {
           throw new EngineError(
             EngineErrorCode.WireFormat,
-            `pages.delete returned ${input.survivorOrder.length} survivors for ${rows.length} layer page rows minus ${input.deletedPages.length} deleted`,
+            `pages.delete returned ${survivorOrder.length} survivors for ${rows.length} layer page rows minus ${input.deletedPages.length} deleted`,
           );
         }
         for (const pageObjectNumber of input.deletedPages) {
@@ -1161,7 +1188,7 @@ export class LayerService {
             );
           }
         }
-        for (const pageObjectNumber of input.survivorOrder) {
+        for (const pageObjectNumber of survivorOrder) {
           if (!known.has(pageObjectNumber) || deleted.has(pageObjectNumber)) {
             throw new EngineError(
               EngineErrorCode.WireFormat,
@@ -1199,6 +1226,10 @@ export class LayerService {
 
         const versions = await this.advanceLayerVersions(trx, input, currentLayer, now);
 
+        // The finalized result — audited and returned IDENTICALLY: what we
+        // tell the caller is what we tell history (and remote subscribers).
+        const result = { layout: input.layout, cache: versions };
+
         const auditEvent = makeAuditEvent({
           ctx: input.ctx,
           docId: input.docId,
@@ -1211,12 +1242,12 @@ export class LayerService {
           artifactKey: input.artifactKey,
           artifactSha: input.artifactSha,
           artifactSize: input.artifactSize,
-          payload: input.payload,
+          payload: result,
           ts: now,
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return versions;
+        return result;
       });
   }
 
@@ -1285,16 +1316,13 @@ export class LayerService {
     docId: string;
     layerName: string;
     layer: LayerRow;
+    /** The worker's re-read metadata — becomes `result.metadata`. */
+    metadata: MetadataUpdateResult['metadata'];
     artifactKey: string;
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
-    payload: unknown;
-  }): Promise<{
-    previousLayerDocVersion: number;
-    layerDocVersion: number;
-    metadataVersion: number;
-  }> {
+  }): Promise<MetadataUpdateResult> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -1338,6 +1366,17 @@ export class LayerService {
           .where('id', '=', input.layer.id)
           .execute();
 
+        // The finalized result — audited and returned IDENTICALLY: what we
+        // tell the caller is what we tell history (and remote subscribers).
+        const result: MetadataUpdateResult = {
+          metadata: input.metadata,
+          cache: {
+            previousDocVersion: previousLayerDocVersion,
+            docVersion: layerDocVersion,
+            metadataVersion,
+          },
+        };
+
         const auditEvent = makeAuditEvent({
           ctx: input.ctx,
           docId: input.docId,
@@ -1350,12 +1389,12 @@ export class LayerService {
           artifactKey: input.artifactKey,
           artifactSha: input.artifactSha,
           artifactSize: input.artifactSize,
-          payload: input.payload,
+          payload: result,
           ts: now,
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return { previousLayerDocVersion, layerDocVersion, metadataVersion };
+        return result;
       });
   }
 

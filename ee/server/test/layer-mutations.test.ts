@@ -684,6 +684,65 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(pages.map((page) => Number(page.annotation_version))).toEqual([1, 1]);
   });
 
+  test('the audited payload is byte-identical to the HTTP response (event-stream invariant)', async () => {
+    // What we tell the caller is what we tell history: the audit row must
+    // store the FINALIZED result (cloud-stable revision tokens, real
+    // cacheDelta / coherence pins), never the worker's session-relative
+    // draft. A remote event subscriber replays exactly these payloads.
+    const tenantId = 'tenant-layer-pages';
+    const docId = 'doclayermut009';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 3 });
+    const headers = {
+      Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+      'Content-Type': 'application/json',
+    };
+
+    const mutations: Array<{ kind: string; response: unknown }> = [];
+
+    const created = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items`,
+      { method: 'POST', headers, body: JSON.stringify(highlightDraft()) },
+    );
+    expect(created.status).toBe(200);
+    mutations.push({ kind: 'annot.create', response: await created.json() });
+
+    const moved = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/move`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ pageObjectNumbers: [3], destIndex: 0 }),
+    });
+    expect(moved.status).toBe(200);
+    mutations.push({ kind: 'pages.move', response: await moved.json() });
+
+    const rotated = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/rotate`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ pageObjectNumbers: [2], rotation: 90 }),
+    });
+    expect(rotated.status).toBe(200);
+    mutations.push({ kind: 'pages.rotate', response: await rotated.json() });
+
+    const deleted = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/delete`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ pageObjectNumbers: [2] }),
+    });
+    expect(deleted.status).toBe(200);
+    mutations.push({ kind: 'pages.delete', response: await deleted.json() });
+
+    const auditRows = await fx.db
+      .selectFrom('audit_log')
+      .select(['kind', 'payload_json'])
+      .where('doc_id', '=', docId)
+      .orderBy('id', 'asc')
+      .execute();
+    expect(auditRows.map((row) => row.kind)).toEqual(mutations.map((m) => m.kind));
+    for (let i = 0; i < mutations.length; i++) {
+      expect(JSON.parse(String(auditRows[i]!.payload_json))).toEqual(mutations[i]!.response);
+    }
+  });
+
   test('deleting every page is rejected and commits nothing', async () => {
     const tenantId = 'tenant-layer-pages';
     const docId = 'doclayermut008';
