@@ -5,6 +5,7 @@ import {
   EngineError,
   EngineErrorCode,
   type DocumentAnnotationsService,
+  type DocumentEvent,
   type DocumentEventStream,
   type DocumentHandle,
   type DocumentPagesService,
@@ -25,6 +26,8 @@ import {
   type DocumentManifest,
 } from '@embedpdf/engine-core/wire';
 import { EventHub, SessionEventPublisher } from '@embedpdf/engine-services';
+import { SseClient } from '../realtime/SseClient';
+import { auditRowToEvent } from '../realtime/auditRowToEvent';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudMetadataService } from './CloudMetadataService';
 import { CloudDocumentAnnotationsService } from './CloudDocumentAnnotationsService';
@@ -67,6 +70,10 @@ export class CloudDocumentHandle implements DocumentHandle {
   readonly security: DocumentSecurityService;
   readonly events: DocumentEventStream;
   private readonly publisher: SessionEventPublisher;
+  private readonly hub: EventHub;
+  private readonly sessionId: string;
+  private sseClient: SseClient | null = null;
+  private sseSubscribers = 0;
   private closed = false;
 
   /**
@@ -113,10 +120,29 @@ export class CloudDocumentHandle implements DocumentHandle {
       initialToken,
     );
     const hub = new EventHub();
-    this.events = hub;
+    this.hub = hub;
+    this.sessionId = sessionId;
     // Your OWN mutations publish here at POST-confirmation time (kind:
-    // 'local'); the remote channel (SSE) will publish everyone else's into
-    // the same hub. Exactly one event per mutation, either way.
+    // 'local'); the remote channel (SSE) publishes everyone else's into the
+    // same hub. Exactly one event per mutation, either way. The SSE stream
+    // is LAZY: it opens on the first subscriber and closes on the last —
+    // non-collaborative usage never holds a connection (browsers cap ~6
+    // per origin on HTTP/1.1).
+    this.events = {
+      subscribe: (listener) => {
+        const unsubscribe = hub.subscribe(listener);
+        this.retainRemoteStream();
+        let released = false;
+        return () => {
+          unsubscribe();
+          if (!released) {
+            released = true;
+            this.releaseRemoteStream();
+          }
+        };
+      },
+      lastServerId: () => hub.lastServerId(),
+    };
     this.publisher = new SessionEventPublisher(hub, sessionId);
     this.manifestAccessor = {
       get: (signal) => this.getManifest(signal),
@@ -419,9 +445,77 @@ export class CloudDocumentHandle implements DocumentHandle {
       return AbortablePromise.resolveValue<void>(undefined);
     }
     this.closed = true;
+    this.sseClient?.close();
+    this.sseClient = null;
     this.manifestCache = null;
     this.inflightManifest = null;
     return AbortablePromise.resolveValue<void>(undefined);
+  }
+
+  private retainRemoteStream(): void {
+    this.sseSubscribers += 1;
+    if (this.sseSubscribers > 1 || this.closed || this.sseClient) return;
+    this.sseClient = new SseClient({
+      http: this.http,
+      path: wirePaths.layerEvents(this.id, this.layerName),
+      // Gapless handshake: resume from the newest cursor we know — events
+      // already seen, else the cached manifest's transactional auditHead.
+      // Null (cold start, no manifest yet) subscribes "from now", which is
+      // exact too: the first manifest fetched afterwards is newer anyway.
+      initialCursor: this.hub.lastServerId() ?? this.manifestCache?.auditHead ?? null,
+      onRow: (row) => {
+        const event = auditRowToEvent(row, this.sessionId);
+        if (!event) return; // own echo or unknown kind
+        // Absorb BEFORE publish: a listener reading the manifest in its
+        // callback must see post-mutation state (same order as local).
+        this.absorbRemoteEvent(event);
+        this.hub.publish(event);
+      },
+      onFullRefresh: () => {
+        // Too far behind to replay: drop the cache; the next read refetches.
+        this.manifestCache = null;
+        this.inflightManifest = null;
+      },
+      onAuthLost: () => {
+        // The stream is gone for good under this credential. Local events
+        // keep flowing; remote delivery resumes if the doc is re-opened
+        // with a fresh token.
+        this.sseClient = null;
+      },
+    });
+    this.sseClient.open();
+  }
+
+  private releaseRemoteStream(): void {
+    this.sseSubscribers = Math.max(0, this.sseSubscribers - 1);
+    if (this.sseSubscribers === 0 && this.sseClient) {
+      this.sseClient.close();
+      this.sseClient = null;
+    }
+  }
+
+  /** Patch the cached manifest from a REMOTE event's coherence pins — the
+   *  same absorb rails local mutations use, so reads stay warm no matter
+   *  whose hand caused the change. */
+  private absorbRemoteEvent(event: DocumentEvent): void {
+    switch (event.type) {
+      case 'annotation.created':
+      case 'annotation.updated':
+      case 'annotation.deleted':
+      case 'annotation.moved':
+        this.absorbMutation(event.meta);
+        return;
+      case 'pages.moved':
+      case 'pages.rotated':
+        if (event.cache) this.absorbPageStructure(event.cache);
+        return;
+      case 'pages.deleted':
+        if (event.cache) this.absorbPageDelete(event.cache, event.pageObjectNumbers);
+        return;
+      case 'metadata.updated':
+        if (event.cache) this.absorbMetadata(event.cache);
+        return;
+    }
   }
 }
 

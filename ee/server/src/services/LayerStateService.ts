@@ -95,6 +95,9 @@ export class LayerStateService {
       // Likewise the base Info dict is never edited (metadata writes always
       // target a layer), so its metadata pointer is the initial epoch.
       metadataVersion: BASE_METADATA_VERSION,
+      // No layer writes have happened on the base view; a fresh subscriber's
+      // gapless cursor starts at 0 ("everything in the log is new to me").
+      auditHead: 0,
       baseSha: head.baseSha,
       pages: pages.map((page) => this.toManifestPage(`cloud:base:${head.id}`, page)),
     };
@@ -104,13 +107,16 @@ export class LayerStateService {
     docId: string,
     baseSha: string,
     layerName: string,
-    layer: Pick<LayerRow, 'docVersion' | 'layoutVersion' | 'metadataVersion'>,
+    layer: Pick<LayerRow, 'docVersion' | 'layoutVersion' | 'metadataVersion' | 'lastAuditId'>,
     pages: DurablePageRow[],
   ): DocumentManifest {
     return {
       docVersion: layer.docVersion,
       layoutVersion: layer.layoutVersion,
       metadataVersion: layer.metadataVersion,
+      // Written in the same transaction as the audit append, so a client
+      // subscribing from this manifest can never miss a row (gapless cursor).
+      auditHead: layer.lastAuditId,
       baseSha,
       pages: pages.map((page) =>
         this.toManifestPage(this.layerRevisionScopeId(docId, layerName), page),

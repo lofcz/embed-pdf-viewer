@@ -103,6 +103,9 @@ export interface OpenContext {
   tenantId: string;
   sub: string;
   jwt?: RequestJwtContext;
+  /** Mutating client's engine-instance id (X-Engine-Session-Id), stored on
+   *  audit rows for SSE own-echo suppression. Absent on read contexts. */
+  originSessionId?: string | null;
 }
 
 export interface SavedPdfFile {
@@ -388,7 +391,7 @@ export class DocumentService {
         docId,
         head.baseSha,
         layerName,
-        { docVersion: head.docVersion, layoutVersion: 1, metadataVersion: 1 },
+        { docVersion: head.docVersion, layoutVersion: 1, metadataVersion: 1, lastAuditId: 0 },
         pages,
       );
     }

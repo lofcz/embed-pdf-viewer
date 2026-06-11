@@ -33,6 +33,13 @@ export interface DocumentManifest {
   docVersion: number;
   layoutVersion: number;
   metadataVersion: number;
+  /**
+   * Audit-log head at this manifest's state — written in the same
+   * transaction as the version bumps, so an event subscriber that starts
+   * from `auditHead` can never miss a mutation between manifest fetch and
+   * stream open (the gapless-subscribe cursor).
+   */
+  auditHead: number;
   baseSha: string;
   pages: ManifestPage[];
 }

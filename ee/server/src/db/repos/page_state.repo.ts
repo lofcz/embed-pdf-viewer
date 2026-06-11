@@ -132,6 +132,8 @@ export interface LayerRow {
   docVersion: number;
   layoutVersion: number;
   metadataVersion: number;
+  /** Audit-log head at this layer's state — the manifest's `auditHead`. */
+  lastAuditId: number;
   currentVersion: number;
   currentArtifactKey: string | null;
   currentArtifactSha: string | null;
@@ -172,6 +174,7 @@ export class LayersRepo {
         doc_version: 1,
         layout_version: 1,
         metadata_version: 1,
+        last_audit_id: 0,
         current_version: 0,
         current_artifact_key: null,
         current_artifact_sha: null,
@@ -292,6 +295,7 @@ function mapLayerRow(row: {
   current_artifact_key: string | null;
   current_artifact_sha: string | null;
   current_artifact_size: number | null;
+  last_audit_id?: number | bigint;
   created_at: number;
   updated_at: number;
 }): LayerRow {
@@ -303,6 +307,7 @@ function mapLayerRow(row: {
     docVersion: Number(row.doc_version),
     layoutVersion: Number(row.layout_version),
     metadataVersion: Number(row.metadata_version),
+    lastAuditId: Number(row.last_audit_id ?? 0),
     currentVersion: Number(row.current_version),
     currentArtifactKey: row.current_artifact_key,
     currentArtifactSha: row.current_artifact_sha,

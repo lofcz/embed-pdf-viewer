@@ -3,6 +3,7 @@
 import { buildApp } from '../app/buildApp';
 import { createSqliteDb, type CreateSqliteDbOptions } from '../db/drivers/sqlite';
 import { createPostgresDb, type CreatePostgresDbOptions } from '../db/drivers/postgres';
+import { PostgresRealtimeBus } from '../realtime/PostgresRealtimeBus';
 import {
   migrate,
   migrateDown,
@@ -47,6 +48,8 @@ import type { Kysely } from 'kysely';
  *   CLOUDPDF_DB_DRIVER     sqlite|postgres   (default: sqlite)
  *   CLOUDPDF_DB_SQLITE_PATH                  (default: ./data/cloudpdf.db)
  *   CLOUDPDF_DB_URL         postgres://...    (required for postgres)
+ *   CLOUDPDF_REALTIME       in-process        (opt OUT of LISTEN/NOTIFY; postgres
+ *                                              defaults to cross-replica delivery)
  *   CLOUDPDF_JWT_SECRET    (default: dev secret; warn at startup)
  *   CLOUDPDF_STORAGE_KIND  fs|s3|gcs|azure-blob   (default: fs)
  *   CLOUDPDF_STORAGE_FS_ROOT                (default: ./data/objects)
@@ -491,6 +494,19 @@ async function cmdServe(): Promise<void> {
   const cdnSigner = await createCdnSigner(loadCdnConfigFromEnv(process.env), { resolver });
   const kms = await buildKms(resolver);
 
+  // Cross-replica realtime doorbell. With Postgres the default is
+  // LISTEN/NOTIFY — REQUIRED for multi-replica deployments (compose
+  // --scale / Helm replicas), where in-process delivery would silently
+  // hide other replicas' mutations from SSE subscribers. Opt out with
+  // CLOUDPDF_REALTIME=in-process (single-replica Postgres only).
+  const realtimeMode = (process.env['CLOUDPDF_REALTIME'] ?? '').toLowerCase();
+  const realtimeBus =
+    dbCtx.dialect === 'postgres' && realtimeMode !== 'in-process'
+      ? new PostgresRealtimeBus(process.env['CLOUDPDF_DB_URL']!, (err) => {
+          console.error('[cloudpdf] realtime bus error:', err);
+        })
+      : undefined;
+
   const bundle = await buildApp({
     verifier: { mode: 'hs256', secret: JWT_SECRET },
     workerEntry: WORKER_ENTRY_URL,
@@ -503,6 +519,7 @@ async function cmdServe(): Promise<void> {
     ...(AUTO_PROVISION_TENANT ? { autoProvisionTenant: true } : {}),
     expectedMigrations: dbCtx.migrations,
     failOnPending: FAIL_ON_PENDING,
+    ...(realtimeBus ? { realtimeBus } : {}),
   });
 
   const onSignal = async (sig: string) => {

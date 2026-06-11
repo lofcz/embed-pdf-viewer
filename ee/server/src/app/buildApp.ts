@@ -37,8 +37,18 @@ import { SharpImageEncoder } from '../render/SharpImageEncoder';
 import type { KmsKeyring } from '../security';
 import type { CdnSigner } from '../cdn/CdnSigner';
 import { NoneCdnSigner } from '../cdn/adapters/NoneCdnSigner';
+import { InProcessRealtimeBus, type RealtimeBus } from '../realtime/RealtimeBus';
+import { registerEventsRoutes } from '../routes/events';
 
 export interface BuildAppOptions {
+  /**
+   * Cross-replica mutation doorbell. Defaults to in-process delivery —
+   * complete for single-replica deployments (the SQLite profile) and tests.
+   * Multi-replica Postgres deployments MUST pass a `PostgresRealtimeBus`
+   * (the production entrypoint does this by default when the driver is
+   * postgres) or replicas will not see each other's mutations.
+   */
+  realtimeBus?: RealtimeBus;
   /**
    * JWT verifier config. Use `{ mode: 'hs256', secret }` for Tiny/dev
    * deployments, or RS/ES/JWKS modes for production IdP integration.
@@ -322,6 +332,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         repo: new WeakAnnotationSessionsRepo(opts.db),
       });
       const eventLog = new EventLogService({ storage: opts.objectStore });
+      const realtimeBus = opts.realtimeBus ?? new InProcessRealtimeBus();
+      app.addHook('onClose', async () => {
+        await realtimeBus.close();
+      });
       const passwordSessionServerSecret = {
         id:
           opts.pdfPasswordSessionServerSecretId ??
@@ -373,6 +387,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         documentService,
         pool,
         storage: opts.objectStore,
+        realtime: realtimeBus,
       });
       await registerAccessRoutes(app, {
         service: documentService,
@@ -385,6 +400,11 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         layerService,
         pool,
         imageEncoder: new SharpImageEncoder(),
+      });
+      await registerEventsRoutes(app, {
+        db: opts.db,
+        documentService,
+        realtimeBus,
       });
       await registerAnnotationRoutes(app, {
         documentService,

@@ -27,6 +27,10 @@ export interface AppendAuditLogInput {
   artifactSize: number;
   idempotencyKey?: string | null;
   payload: unknown;
+  /** Engine-instance session id of the mutating client (X-Engine-Session-Id).
+   *  SSE subscribers drop rows whose origin matches their own session — their
+   *  local publish already covered them (exactly-once). */
+  originSessionId?: string | null;
 }
 
 export interface AuditLogRow extends AppendAuditLogInput {
@@ -43,8 +47,11 @@ type DbExecutor = Kysely<Schema> | Transaction<Schema>;
 export class AuditLogRepo {
   constructor(private readonly db: DbExecutor) {}
 
-  async append(input: AppendAuditLogInput): Promise<void> {
-    await this.db
+  /** Append one event row and return its monotonic id — the same-transaction
+   *  caller advances `layers.last_audit_id` with it and the realtime bus
+   *  signals it after commit. */
+  async append(input: AppendAuditLogInput): Promise<number> {
+    const row = await this.db
       .insertInto('audit_log')
       .values({
         tenant_id: input.tenantId,
@@ -62,8 +69,11 @@ export class AuditLogRepo {
         artifact_size: input.artifactSize,
         idempotency_key: input.idempotencyKey ?? null,
         payload_json: JSON.stringify(input.payload),
+        origin_session_id: input.originSessionId ?? null,
       })
-      .execute();
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    return Number(row.id);
   }
 
   async findForDocTimeRange(input: {
@@ -82,24 +92,32 @@ export class AuditLogRepo {
       .orderBy('ts', 'asc')
       .orderBy('id', 'asc')
       .execute();
-    return rows.map((row) => ({
-      id: Number(row.id),
-      tenantId: row.tenant_id,
-      docId: row.doc_id,
-      layerId: row.layer_id,
-      layerName: row.layer_name,
-      ts: Number(row.ts),
-      sub: row.sub,
-      kind: row.kind as AuditMutationKind,
-      pageObjectNumber: row.page_object_number === null ? null : Number(row.page_object_number),
-      affectedPages: parseNumberArray(row.affected_pages_json),
-      artifactVersion: Number(row.artifact_version),
-      artifactKey: row.artifact_key,
-      artifactSha: row.artifact_sha,
-      artifactSize: Number(row.artifact_size),
-      idempotencyKey: row.idempotency_key,
-      payload: JSON.parse(row.payload_json) as unknown,
-    }));
+    return rows.map(mapAuditRow);
+  }
+
+  /**
+   * The realtime backfill/drain query: every row for a doc+layer strictly
+   * after `afterId`, oldest first, capped. The SSE handler calls this on
+   * every doorbell ring and on connect with the client's `Last-Event-ID`.
+   */
+  async findSince(input: {
+    tenantId: string;
+    docId: string;
+    layerName: string;
+    afterId: number;
+    limit: number;
+  }): Promise<AuditLogRow[]> {
+    const rows = await this.db
+      .selectFrom('audit_log')
+      .selectAll()
+      .where('tenant_id', '=', input.tenantId)
+      .where('doc_id', '=', input.docId)
+      .where('layer_name', '=', input.layerName)
+      .where('id', '>', input.afterId)
+      .orderBy('id', 'asc')
+      .limit(input.limit)
+      .execute();
+    return rows.map(mapAuditRow);
   }
 
   async findDocKeysForTimeRange(input: { startTs: number; endTs: number }): Promise<AuditDocKey[]> {
@@ -122,4 +140,46 @@ export class AuditLogRepo {
 function parseNumberArray(json: string): number[] {
   const value = JSON.parse(json) as unknown;
   return Array.isArray(value) ? value.map((item) => Number(item)) : [];
+}
+
+interface AuditLogDbRow {
+  id: number | bigint;
+  tenant_id: string;
+  doc_id: string;
+  layer_id: string;
+  layer_name: string;
+  ts: number | bigint;
+  sub: string;
+  kind: string;
+  page_object_number: number | bigint | null;
+  affected_pages_json: string;
+  artifact_version: number | bigint;
+  artifact_key: string;
+  artifact_sha: string;
+  artifact_size: number | bigint;
+  idempotency_key: string | null;
+  payload_json: string;
+  origin_session_id: string | null;
+}
+
+function mapAuditRow(row: AuditLogDbRow): AuditLogRow {
+  return {
+    id: Number(row.id),
+    tenantId: row.tenant_id,
+    docId: row.doc_id,
+    layerId: row.layer_id,
+    layerName: row.layer_name,
+    ts: Number(row.ts),
+    sub: row.sub,
+    kind: row.kind as AuditMutationKind,
+    pageObjectNumber: row.page_object_number === null ? null : Number(row.page_object_number),
+    affectedPages: parseNumberArray(row.affected_pages_json),
+    artifactVersion: Number(row.artifact_version),
+    artifactKey: row.artifact_key,
+    artifactSha: row.artifact_sha,
+    artifactSize: Number(row.artifact_size),
+    idempotencyKey: row.idempotency_key,
+    originSessionId: row.origin_session_id ?? null,
+    payload: JSON.parse(row.payload_json) as unknown,
+  };
 }

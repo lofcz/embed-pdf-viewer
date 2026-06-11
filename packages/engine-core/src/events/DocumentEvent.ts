@@ -81,8 +81,12 @@ export type DocumentEvent =
     } & AnnotationMoveResult)
   | ({
       type: 'pages.moved';
+      /** Locally: the moved block. Remotely the audit row only records the
+       *  outcome, so this is the full new order — consumers should read
+       *  `layout` for positions, never reconstruct the gesture. */
       pageObjectNumbers: PageObjectNumber[];
-      destIndex: number;
+      /** The originator's insertion point; absent on remote events. */
+      destIndex?: number;
       origin: EventOrigin;
     } & PageMoveResult)
   | ({

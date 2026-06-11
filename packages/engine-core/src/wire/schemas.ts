@@ -326,6 +326,7 @@ export const DocumentManifestSchema: z.ZodType<DocumentManifest> = z.object({
   docVersion: z.number().int().positive(),
   layoutVersion: z.number().int().positive(),
   metadataVersion: z.number().int().positive(),
+  auditHead: z.number().int().nonnegative(),
   baseSha: z.string(),
   pages: z.array(ManifestPageSchema),
 });

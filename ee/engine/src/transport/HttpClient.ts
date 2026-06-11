@@ -21,6 +21,12 @@ export interface HttpClientOptions {
    * the engine itself has no engine-level credentials.
    */
   token?: string | (() => string | Promise<string>);
+  /**
+   * Engine-instance session id, sent as `X-Engine-Session-Id` on every
+   * request. The server stores it on mutation audit rows so this
+   * instance's SSE stream can drop its own echoes (exactly-once events).
+   */
+  sessionId?: string;
   /** Replace the global fetch (e.g. in Node tests with undici). */
   fetch?: typeof globalThis.fetch;
 }
@@ -46,12 +52,14 @@ export class HttpClient {
   private readonly baseUrl: string;
   private readonly tokenFn: (() => string | Promise<string>) | null;
   private readonly fetchFn: typeof globalThis.fetch;
+  private readonly sessionId: string | null;
   private cdnBinding: CdnBinding | null = null;
 
   constructor(opts: HttpClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/$/, '');
     const token = opts.token;
     this.tokenFn = token === undefined ? null : typeof token === 'function' ? token : () => token;
+    this.sessionId = opts.sessionId ?? null;
     this.fetchFn = opts.fetch ?? globalThis.fetch.bind(globalThis);
   }
 
@@ -66,7 +74,24 @@ export class HttpClient {
     return new HttpClient({
       baseUrl: this.baseUrl,
       token,
+      ...(this.sessionId ? { sessionId: this.sessionId } : {}),
       fetch: this.fetchFn,
+    });
+  }
+
+  /**
+   * Raw streaming GET (the SSE channel). Same auth/session headers and
+   * error mapping as every other request; the caller owns the body stream.
+   */
+  async stream(
+    path: string,
+    headers: Record<string, string>,
+    signal: AbortSignal,
+  ): Promise<Response> {
+    return this.request(path, {
+      method: 'GET',
+      headers: new Headers({ Accept: 'text/event-stream', ...headers }),
+      signal,
     });
   }
 
@@ -241,6 +266,7 @@ export class HttpClient {
       headers.set('Authorization', `Bearer ${token}`);
     }
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
+    if (this.sessionId) headers.set('X-Engine-Session-Id', this.sessionId);
     if (extraHeader) headers.set(extraHeader.name, extraHeader.value);
     try {
       return await this.fetchFn(url, { ...init, headers });

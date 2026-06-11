@@ -23,15 +23,20 @@ export interface CloudEngineOptions extends HttpClientOptions {}
  */
 export class CloudEngine implements Engine {
   static fromOptions(opts: CloudEngineOptions): CloudEngine {
-    return new CloudEngine(new HttpClient(opts));
+    // One identity per engine instance: it stamps local events' origins AND
+    // travels as X-Engine-Session-Id so the server can mark this instance's
+    // audit rows — the SSE stream drops those echoes (exactly-once events).
+    const sessionId = `cloud:${generateUuid()}`;
+    return new CloudEngine(new HttpClient({ ...opts, sessionId }), sessionId);
   }
 
   private destroyed = false;
 
-  /** This engine instance's identity on every event's `origin.sessionId`. */
-  private readonly sessionId = `cloud:${generateUuid()}`;
-
-  private constructor(private readonly http: HttpClient) {}
+  private constructor(
+    private readonly http: HttpClient,
+    /** This engine instance's identity on every event's `origin.sessionId`. */
+    private readonly sessionId: string,
+  ) {}
 
   open(input: OpenInput, options?: OpenOptions): AbortablePromise<DocumentHandle> {
     if (this.destroyed) {

@@ -393,10 +393,26 @@ export function requireLayerCapability(
   layerName: string,
   capability: DocCapability,
   pdfBits: PdfBits,
-): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+): {
+  tenantId: string;
+  sub: string;
+  mode: DocAccessMode;
+  jwt: RequestJwtContext;
+  originSessionId: string | null;
+} {
   const ctx = requireCapability(req, docId, capability, pdfBits);
   enforceLayerPin(req, layerName);
-  return ctx;
+  // The mutating client's engine-instance id (X-Engine-Session-Id). Stored on
+  // the audit row so SSE subscribers can drop their own echoes. Advisory only
+  // — it never participates in auth — so it's length-capped, not validated.
+  return { ...ctx, originSessionId: originSessionIdFromRequest(req) };
+}
+
+function originSessionIdFromRequest(req: FastifyRequest): string | null {
+  const raw = req.headers['x-engine-session-id'];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== 'string' || value.length === 0) return null;
+  return value.slice(0, 128);
 }
 
 export function requireLayerAnyCapability(
@@ -405,10 +421,16 @@ export function requireLayerAnyCapability(
   layerName: string,
   capabilities: ReadonlyArray<DocCapability>,
   pdfBits: PdfBits,
-): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+): {
+  tenantId: string;
+  sub: string;
+  mode: DocAccessMode;
+  jwt: RequestJwtContext;
+  originSessionId: string | null;
+} {
   const ctx = requireAnyCapability(req, docId, capabilities, pdfBits);
   enforceLayerPin(req, layerName);
-  return ctx;
+  return { ...ctx, originSessionId: originSessionIdFromRequest(req) };
 }
 
 export function requireLayerResource(
@@ -417,10 +439,16 @@ export function requireLayerResource(
   layerName: string,
   resourceId: DocResourceId,
   pdfBits: PdfBits,
-): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+): {
+  tenantId: string;
+  sub: string;
+  mode: DocAccessMode;
+  jwt: RequestJwtContext;
+  originSessionId: string | null;
+} {
   const ctx = requireResource(req, docId, resourceId, pdfBits);
   enforceLayerPin(req, layerName);
-  return ctx;
+  return { ...ctx, originSessionId: originSessionIdFromRequest(req) };
 }
 
 export function requireLayerCollabAction(
@@ -430,10 +458,16 @@ export function requireLayerCollabAction(
   action: CollabAction,
   target: CollabTarget,
   pdfBits: PdfBits,
-): { tenantId: string; sub: string; mode: DocAccessMode; jwt: RequestJwtContext } {
+): {
+  tenantId: string;
+  sub: string;
+  mode: DocAccessMode;
+  jwt: RequestJwtContext;
+  originSessionId: string | null;
+} {
   const ctx = requireCollabAction(req, docId, action, target, pdfBits);
   enforceLayerPin(req, layerName);
-  return ctx;
+  return { ...ctx, originSessionId: originSessionIdFromRequest(req) };
 }
 
 // ----------------------------------------------------------------------

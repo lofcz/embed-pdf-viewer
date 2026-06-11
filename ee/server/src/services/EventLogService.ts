@@ -76,8 +76,10 @@ export class EventLogService {
     this.storage = opts.storage;
   }
 
-  async appendDb(db: DbExecutor, event: AuditEvent): Promise<void> {
-    await new AuditLogRepo(db).append(event);
+  /** Append inside the caller's transaction; returns the row's monotonic id
+   *  (the realtime cursor — see `layers.last_audit_id`). */
+  async appendDb(db: DbExecutor, event: AuditEvent): Promise<number> {
+    return new AuditLogRepo(db).append(event);
   }
 
   async exportDocDayJsonl(
@@ -197,7 +199,7 @@ export class EventLogService {
   }
 }
 
-function toJsonlEvent(event: AuditLogRow): Record<string, unknown> {
+export function toJsonlEvent(event: AuditLogRow): Record<string, unknown> {
   return {
     id: event.id,
     ts: event.ts,
@@ -214,6 +216,7 @@ function toJsonlEvent(event: AuditLogRow): Record<string, unknown> {
     artifactSha: event.artifactSha,
     artifactSize: event.artifactSize,
     idempotencyKey: event.idempotencyKey ?? null,
+    originSessionId: event.originSessionId ?? null,
     payload: event.payload,
   };
 }

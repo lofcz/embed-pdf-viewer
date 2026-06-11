@@ -11,6 +11,7 @@ import sql009 from './009_pdf_password_sessions.sql';
 import sql010 from './010_layer_layout_version.sql';
 import sql011 from './011_drop_page_index.sql';
 import sql012 from './012_layer_metadata_version.sql';
+import sql013 from './013_realtime_events.sql';
 import down001 from './001_initial.down.sql';
 import down002 from './002_auth.down.sql';
 import down003 from './003_layer_state.down.sql';
@@ -23,6 +24,7 @@ import down009 from './009_pdf_password_sessions.down.sql';
 import down010 from './010_layer_layout_version.down.sql';
 import down011 from './011_drop_page_index.down.sql';
 import down012 from './012_layer_metadata_version.down.sql';
+import down013 from './013_realtime_events.down.sql';
 
 /**
  * Postgres migration set, dialect-parallel to `./sqlite`. The `.sql`
@@ -48,4 +50,5 @@ export const postgresMigrations: ReadonlyArray<MigrationSource> = [
   { version: '010', name: '010_layer_layout_version.sql', sql: sql010, down: down010 },
   { version: '011', name: '011_drop_page_index.sql', sql: sql011, down: down011 },
   { version: '012', name: '012_layer_metadata_version.sql', sql: sql012, down: down012 },
+  { version: '013', name: '013_realtime_events.sql', sql: sql013, down: down013 },
 ];

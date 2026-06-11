@@ -88,6 +88,10 @@ export interface LayersTable {
    * `doc_version` and `layout_version`.
    */
   metadata_version: number;
+  /** Audit-log head at this layer's current state — advanced in the same
+   *  transaction as every audit append. Published as the manifest's
+   *  `auditHead` (the gapless subscribe cursor). */
+  last_audit_id: number;
   current_version: number;
   current_artifact_key: string | null;
   current_artifact_sha: string | null;
@@ -141,6 +145,9 @@ export interface AuditLogTable {
   artifact_size: number;
   idempotency_key: string | null;
   payload_json: string;
+  /** Engine-instance session id of the mutating client (X-Engine-Session-Id);
+   *  lets SSE subscribers drop their own echoes. NULL when not sent. */
+  origin_session_id: string | null;
 }
 
 export type AuditExportStatus = 'running' | 'succeeded' | 'failed';

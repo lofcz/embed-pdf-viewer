@@ -35,6 +35,7 @@ import type { DurablePageRow, LayerRow } from '../db/repos/page_state.repo';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
 import type { ObjectStore } from '../storage/ObjectStore';
 import { StorageKeys } from '../storage/keys';
+import type { RealtimeBus } from '../realtime/RealtimeBus';
 import type { CloudRevisionBridge } from './CloudRevisionBridge';
 import type { DocumentService, OpenContext } from './DocumentService';
 import type { AuditEvent, EventLogService } from './EventLogService';
@@ -63,6 +64,8 @@ export interface LayerServiceOptions {
   weakAnnotationSessions?: WeakAnnotationSessionService;
   pool?: WorkerThreadPool;
   storage?: ObjectStore;
+  /** Cross-replica doorbell — rung after every mutation commit. */
+  realtime?: RealtimeBus;
 }
 
 export type LayerWriteContext = OpenContext;
@@ -90,6 +93,7 @@ export class LayerService {
   private readonly weakAnnotationSessions?: WeakAnnotationSessionService;
   private readonly pool?: WorkerThreadPool;
   private readonly storage?: ObjectStore;
+  private readonly realtime?: RealtimeBus;
   private readonly layerWriteQueues = new Map<string, Promise<unknown>>();
 
   constructor(opts: LayerServiceOptions) {
@@ -102,6 +106,7 @@ export class LayerService {
     this.weakAnnotationSessions = opts.weakAnnotationSessions;
     this.pool = opts.pool;
     this.storage = opts.storage;
+    this.realtime = opts.realtime;
   }
 
   /**
@@ -631,6 +636,7 @@ export class LayerService {
       finalizePayload: (durable) =>
         this.finalizeAnnotationResult(docId, layerName, input.result, durable),
     });
+    this.publishMutation(ctx, docId, committed.auditId);
     // The response IS the audited payload — one fact for caller and history.
     return committed.payload as TResult;
   }
@@ -688,7 +694,7 @@ export class LayerService {
     // The commit assembles, audits, and returns the finalized result (the
     // worker's layout + the coherence pins it just computed) — the response
     // is the audited payload, byte for byte.
-    return this.commitPageStructure({
+    const committed = await this.commitPageStructure({
       ctx,
       docId,
       layerName,
@@ -702,6 +708,8 @@ export class LayerService {
       artifactSize: uploaded.size,
       nextVersion,
     });
+    this.publishMutation(ctx, docId, committed.auditId);
+    return committed.result;
   }
 
   /**
@@ -724,7 +732,7 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    return this.commitPageStructure({
+    const committed = await this.commitPageStructure({
       ctx,
       docId,
       layerName,
@@ -737,6 +745,8 @@ export class LayerService {
       artifactSize: uploaded.size,
       nextVersion,
     });
+    this.publishMutation(ctx, docId, committed.auditId);
+    return committed.result;
   }
 
   private async persistPageDelete(
@@ -753,7 +763,7 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    return this.commitPageDelete({
+    const committed = await this.commitPageDelete({
       ctx,
       docId,
       layerName,
@@ -765,6 +775,8 @@ export class LayerService {
       artifactSize: uploaded.size,
       nextVersion,
     });
+    this.publishMutation(ctx, docId, committed.auditId);
+    return committed.result;
   }
 
   private async persistMetadataUpdate(
@@ -783,7 +795,7 @@ export class LayerService {
     // The commit assembles, audits, and returns the finalized result (the
     // worker's re-read metadata + the coherence pins it just computed) — the
     // response is the audited payload, byte for byte.
-    return this.commitMetadataUpdate({
+    const committed = await this.commitMetadataUpdate({
       ctx,
       docId,
       layerName,
@@ -794,6 +806,8 @@ export class LayerService {
       artifactSize: uploaded.size,
       nextVersion,
     });
+    this.publishMutation(ctx, docId, committed.auditId);
+    return committed.result;
   }
 
   private async uploadLayerArtifact(
@@ -954,7 +968,7 @@ export class LayerService {
      * event subscriber).
      */
     finalizePayload: (durable: CommittedAnnotationMutation) => unknown;
-  }): Promise<{ durable: CommittedAnnotationMutation; payload: unknown }> {
+  }): Promise<{ durable: CommittedAnnotationMutation; payload: unknown; auditId: number }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -1004,32 +1018,6 @@ export class LayerService {
         const previousLayerDocVersion = Number(currentLayer.doc_version);
         const layerDocVersion = previousLayerDocVersion + (bumps.bumpLayerDocVersion ? 1 : 0);
 
-        await trx
-          .updateTable('layers')
-          .set({
-            doc_version: layerDocVersion,
-            current_version: input.nextVersion,
-            current_artifact_key: input.artifactKey,
-            current_artifact_sha: input.artifactSha,
-            current_artifact_size: input.artifactSize,
-            updated_at: now,
-          })
-          .where('id', '=', input.layer.id)
-          .execute();
-
-        await trx
-          .updateTable('layer_pages')
-          .set({
-            content_version: nextPage.contentVersion,
-            annotation_version: nextPage.annotationVersion,
-            annotation_generation: nextPage.annotationGeneration,
-            has_weak_annotations: nextPage.hasWeakAnnotations ? 1 : 0,
-            updated_at: now,
-          })
-          .where('layer_id', '=', input.layer.id)
-          .where('page_object_number', '=', input.pageObjectNumber)
-          .execute();
-
         const durable: CommittedAnnotationMutation = {
           page: nextPage,
           weakRefsInvalidated: bumps.weakRefsInvalidated,
@@ -1056,9 +1044,36 @@ export class LayerService {
           payload,
           ts: now,
         });
-        await this.eventLog?.appendDb(trx, auditEvent);
+        const auditId = (await this.eventLog?.appendDb(trx, auditEvent)) ?? 0;
 
-        return { durable, payload };
+        await trx
+          .updateTable('layers')
+          .set({
+            doc_version: layerDocVersion,
+            current_version: input.nextVersion,
+            current_artifact_key: input.artifactKey,
+            current_artifact_sha: input.artifactSha,
+            current_artifact_size: input.artifactSize,
+            ...(auditId > 0 ? { last_audit_id: auditId } : {}),
+            updated_at: now,
+          })
+          .where('id', '=', input.layer.id)
+          .execute();
+
+        await trx
+          .updateTable('layer_pages')
+          .set({
+            content_version: nextPage.contentVersion,
+            annotation_version: nextPage.annotationVersion,
+            annotation_generation: nextPage.annotationGeneration,
+            has_weak_annotations: nextPage.hasWeakAnnotations ? 1 : 0,
+            updated_at: now,
+          })
+          .where('layer_id', '=', input.layer.id)
+          .where('page_object_number', '=', input.pageObjectNumber)
+          .execute();
+
+        return { durable, payload, auditId };
       });
   }
 
@@ -1082,7 +1097,10 @@ export class LayerService {
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
-  }): Promise<{ layout: PageListSnapshot; cache: PageStructureCache }> {
+  }): Promise<{
+    result: { layout: PageListSnapshot; cache: PageStructureCache };
+    auditId: number;
+  }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -1113,7 +1131,12 @@ export class LayerService {
           }
         }
 
-        const versions = await this.advanceLayerVersions(trx, input, currentLayer, now);
+        const previousDocVersion = Number(currentLayer.doc_version);
+        const versions: PageStructureCache = {
+          previousDocVersion,
+          docVersion: previousDocVersion + 1,
+          layoutVersion: Number(currentLayer.layout_version) + 1,
+        };
 
         // The finalized result — audited and returned IDENTICALLY: what we
         // tell the caller is what we tell history (and remote subscribers).
@@ -1134,9 +1157,17 @@ export class LayerService {
           payload: result,
           ts: now,
         });
-        await this.eventLog?.appendDb(trx, auditEvent);
+        const auditId = (await this.eventLog?.appendDb(trx, auditEvent)) ?? 0;
 
-        return result;
+        await this.writeLayerAdvance(
+          trx,
+          input,
+          { doc_version: versions.docVersion, layout_version: versions.layoutVersion },
+          auditId,
+          now,
+        );
+
+        return { result, auditId };
       });
   }
 
@@ -1159,7 +1190,10 @@ export class LayerService {
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
-  }): Promise<{ layout: PageListSnapshot; cache: PageStructureCache }> {
+  }): Promise<{
+    result: { layout: PageListSnapshot; cache: PageStructureCache };
+    auditId: number;
+  }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -1224,7 +1258,12 @@ export class LayerService {
             .execute();
         }
 
-        const versions = await this.advanceLayerVersions(trx, input, currentLayer, now);
+        const previousDocVersion = Number(currentLayer.doc_version);
+        const versions: PageStructureCache = {
+          previousDocVersion,
+          docVersion: previousDocVersion + 1,
+          layoutVersion: Number(currentLayer.layout_version) + 1,
+        };
 
         // The finalized result — audited and returned IDENTICALLY: what we
         // tell the caller is what we tell history (and remote subscribers).
@@ -1245,9 +1284,17 @@ export class LayerService {
           payload: result,
           ts: now,
         });
-        await this.eventLog?.appendDb(trx, auditEvent);
+        const auditId = (await this.eventLog?.appendDb(trx, auditEvent)) ?? 0;
 
-        return result;
+        await this.writeLayerAdvance(
+          trx,
+          input,
+          { doc_version: versions.docVersion, layout_version: versions.layoutVersion },
+          auditId,
+          now,
+        );
+
+        return { result, auditId };
       });
   }
 
@@ -1275,10 +1322,10 @@ export class LayerService {
     return currentLayer;
   }
 
-  /** Advance the structural version pointers (`doc_version`, the CDN
-   *  `layout_version` leaf) and the artifact epoch — shared by every
-   *  page-structure commit. Per-page versions are never touched here. */
-  private async advanceLayerVersions(
+  /** Advance the layer row: version pointers, artifact epoch, and the
+   *  realtime cursor (`last_audit_id` — written in the SAME transaction as
+   *  the audit append, so the manifest's `auditHead` is gapless). */
+  private async writeLayerAdvance(
     trx: Transaction<Schema>,
     input: {
       layer: LayerRow;
@@ -1287,28 +1334,32 @@ export class LayerService {
       artifactSha: string;
       artifactSize: number;
     },
-    currentLayer: { doc_version: number | bigint; layout_version: number | bigint },
+    versions: { doc_version: number; layout_version?: number; metadata_version?: number },
+    lastAuditId: number,
     now: number,
-  ): Promise<PageStructureCache> {
-    const previousDocVersion = Number(currentLayer.doc_version);
-    const docVersion = previousDocVersion + 1;
-    const layoutVersion = Number(currentLayer.layout_version) + 1;
-
+  ): Promise<void> {
     await trx
       .updateTable('layers')
       .set({
-        doc_version: docVersion,
-        layout_version: layoutVersion,
+        ...versions,
         current_version: input.nextVersion,
         current_artifact_key: input.artifactKey,
         current_artifact_sha: input.artifactSha,
         current_artifact_size: input.artifactSize,
+        ...(lastAuditId > 0 ? { last_audit_id: lastAuditId } : {}),
         updated_at: now,
       })
       .where('id', '=', input.layer.id)
       .execute();
+  }
 
-    return { previousDocVersion, docVersion, layoutVersion };
+  /** Ring the cross-replica doorbell — strictly AFTER the commit resolved,
+   *  fire-and-forget (the doorbell must never fail or delay a response). */
+  private publishMutation(ctx: LayerWriteContext, docId: string, auditId: number): void {
+    if (!this.realtime || auditId <= 0) return;
+    void this.realtime
+      .publishMutation({ tenantId: ctx.tenantId, docId }, auditId)
+      .catch(() => undefined);
   }
 
   private async commitMetadataUpdate(input: {
@@ -1322,7 +1373,7 @@ export class LayerService {
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
-  }): Promise<MetadataUpdateResult> {
+  }): Promise<{ result: MetadataUpdateResult; auditId: number }> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
@@ -1352,20 +1403,6 @@ export class LayerService {
         // content/annotation versions stay put (their caches stay warm).
         const metadataVersion = Number(currentLayer.metadata_version) + 1;
 
-        await trx
-          .updateTable('layers')
-          .set({
-            doc_version: layerDocVersion,
-            metadata_version: metadataVersion,
-            current_version: input.nextVersion,
-            current_artifact_key: input.artifactKey,
-            current_artifact_sha: input.artifactSha,
-            current_artifact_size: input.artifactSize,
-            updated_at: now,
-          })
-          .where('id', '=', input.layer.id)
-          .execute();
-
         // The finalized result — audited and returned IDENTICALLY: what we
         // tell the caller is what we tell history (and remote subscribers).
         const result: MetadataUpdateResult = {
@@ -1392,9 +1429,17 @@ export class LayerService {
           payload: result,
           ts: now,
         });
-        await this.eventLog?.appendDb(trx, auditEvent);
+        const auditId = (await this.eventLog?.appendDb(trx, auditEvent)) ?? 0;
 
-        return result;
+        await this.writeLayerAdvance(
+          trx,
+          input,
+          { doc_version: layerDocVersion, metadata_version: metadataVersion },
+          auditId,
+          now,
+        );
+
+        return { result, auditId };
       });
   }
 
@@ -1499,6 +1544,7 @@ function makeAuditEvent(input: {
     artifactSize: input.artifactSize,
     idempotencyKey: null,
     payload: input.payload,
+    originSessionId: input.ctx.originSessionId ?? null,
   };
 }
 
