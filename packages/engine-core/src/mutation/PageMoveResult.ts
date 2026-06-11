@@ -1,21 +1,9 @@
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageStructureCache } from './PageStructureCache';
 
-/**
- * Cloud-only coherence pins returned by a page move so a cached manifest can
- * advance without a refetch. A move is a structural op: it bumps the manifest
- * `docVersion` and the geometry pointer `layoutVersion`, but touches no
- * per-page content/annotation pins (those caches stay warm).
- *
- * `previousDocVersion` makes the patch safe to apply: a client only advances
- * its cached manifest when it is exactly at that version, otherwise it
- * refreshes instead of manufacturing a mixed-version manifest. `null` on the
- * result for local engines (no manifest/CDN).
- */
-export interface PageMoveCache {
-  previousDocVersion: number;
-  docVersion: number;
-  layoutVersion: number;
-}
+/** A move's coherence pins are the shared structure-op shape — see
+ *  {@link PageStructureCache} for the semantics. */
+export type PageMoveCache = PageStructureCache;
 
 /**
  * Result of a `pages.move()`. Page reorder is intentionally **outside** the

@@ -3,13 +3,18 @@ import {
   EngineError,
   EngineErrorCode,
   type DocumentPagesService,
+  type PageDeleteResult,
   type PageListSnapshot,
   type PageMoveResult,
   type PageObjectNumber,
+  type PageRotateResult,
+  type PageRotation,
 } from '@embedpdf/engine-core/runtime';
 import {
+  PageDeleteResultSchema,
   PageListSnapshotSchema,
   PageMoveResultSchema,
+  PageRotateResultSchema,
   wirePaths,
 } from '@embedpdf/engine-core/wire';
 import type { HttpClient } from '../transport/HttpClient';
@@ -85,7 +90,50 @@ export class CloudDocumentPagesService implements DocumentPagesService {
       );
       // A move only advances docVersion + layoutVersion (no per-page pin
       // changes), so the cached manifest can be patched in place — no refetch.
-      if (result.cache) this.manifest.applyPageMove(result.cache);
+      if (result.cache) this.manifest.applyPageStructure(result.cache);
+      return result;
+    });
+  }
+
+  rotate(
+    pageObjectNumbers: PageObjectNumber[],
+    rotation: PageRotation,
+  ): AbortablePromise<PageRotateResult> {
+    if (this.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
+      );
+    }
+    return AbortablePromise.run<PageRotateResult>(async (signal) => {
+      const result = await this.http.postJson(
+        wirePaths.layerPagesRotate(this.docId, this.layerName),
+        { pageObjectNumbers, rotation },
+        (raw) => PageRotateResultSchema.parse(raw),
+        signal,
+      );
+      // Rotation shares the move patch exactly: docVersion + layoutVersion
+      // advance, every per-page pin (and its cached render) stays warm.
+      if (result.cache) this.manifest.applyPageStructure(result.cache);
+      return result;
+    });
+  }
+
+  delete(pageObjectNumbers: PageObjectNumber[]): AbortablePromise<PageDeleteResult> {
+    if (this.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
+      );
+    }
+    return AbortablePromise.run<PageDeleteResult>(async (signal) => {
+      const result = await this.http.postJson(
+        wirePaths.layerPagesDelete(this.docId, this.layerName),
+        { pageObjectNumbers },
+        (raw) => PageDeleteResultSchema.parse(raw),
+        signal,
+      );
+      // The structural advance plus dropping the deleted pages' manifest
+      // rows — a retired PON must not be buildable from the local cache.
+      if (result.cache) this.manifest.applyPageDelete(result.cache, pageObjectNumbers);
       return result;
     });
   }

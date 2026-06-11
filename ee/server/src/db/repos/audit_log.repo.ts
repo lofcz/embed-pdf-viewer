@@ -7,6 +7,8 @@ export type AuditMutationKind =
   | 'annot.delete'
   | 'annot.move'
   | 'pages.move'
+  | 'pages.rotate'
+  | 'pages.delete'
   | 'metadata.update';
 
 export interface AppendAuditLogInput {

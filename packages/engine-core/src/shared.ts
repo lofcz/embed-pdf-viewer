@@ -20,7 +20,7 @@ export type {
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
 export type { MetadataPatch } from './dto/MetadataPatch';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
-export type { PageLayout, PageBoxes, PdfRect } from './dto/PageLayout';
+export type { PageLayout, PageBoxes, PageRotation, PdfRect } from './dto/PageLayout';
 export type { PageTextSnapshot } from './dto/PageTextSnapshot';
 export type {
   PageGeometryGlyph,
@@ -145,6 +145,11 @@ export type {
 } from './mutation/AnnotationMutationResults';
 export type { PageMoveInput } from './mutation/PageMoveInput';
 export type { PageMoveResult, PageMoveCache } from './mutation/PageMoveResult';
+export type { PageStructureCache } from './mutation/PageStructureCache';
+export type { PageRotateInput } from './mutation/PageRotateInput';
+export type { PageRotateResult } from './mutation/PageRotateResult';
+export type { PageDeleteInput } from './mutation/PageDeleteInput';
+export type { PageDeleteResult } from './mutation/PageDeleteResult';
 export type { MetadataUpdateResult, MetadataCache } from './mutation/MetadataUpdateResult';
 
 export type {

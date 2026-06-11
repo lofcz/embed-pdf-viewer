@@ -36,6 +36,10 @@ export interface PageBoxes {
  * consistent with the raw `boxes` and with the "transform lives in the SDK"
  * principle.
  */
+/** A page's display rotation in degrees clockwise — the `/Rotate` values PDF
+ *  permits. Presentation metadata only: content coordinates stay normalized. */
+export type PageRotation = 0 | 90 | 180 | 270;
+
 export interface PageLayout {
   /** Display order at read time. Not an identity; shifts on a page move. */
   index: number;
@@ -49,7 +53,7 @@ export interface PageLayout {
   width: number;
   /** Un-rotated crop height in PDF points. */
   height: number;
-  rotation: 0 | 90 | 180 | 270;
+  rotation: PageRotation;
   /** `/UserUnit`; defaults to the PDF default of 1. */
   userUnit: number;
   boxes: PageBoxes;

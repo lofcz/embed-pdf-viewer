@@ -1,22 +1,24 @@
 import { AbortablePromise } from '../promise/AbortablePromise';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageRotation } from '../dto/PageLayout';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
+import type { PageRotateResult } from '../mutation/PageRotateResult';
+import type { PageDeleteResult } from '../mutation/PageDeleteResult';
 
 /**
  * Document-scoped page service exposed via `DocumentHandle.pages`.
  *
  * Mirrors the shape of `DocumentAnnotationsService` so that anything
  * touching "many things at the document level" lives in one place. The
- * service is intentionally narrow today — `list` and `move` only — but
- * the surface is designed for `insert`, `delete`, and `rotate` to slot
- * in without API churn.
+ * structure verbs are `move`, `rotate`, and `delete`; the surface is
+ * designed for `insert` to slot in without API churn.
  *
  * Identity rule: pages are addressed by indirect `pageObjectNumber`
  * everywhere except `list()`, which exposes display order through
- * `PageState.pageIndex`. There is no "weak page ref" model — `move()`
- * therefore does not bump per-page revisions and does not invalidate
- * any in-flight annotation refs.
+ * `PageState.pageIndex`. There is no "weak page ref" model — structure
+ * verbs therefore do not bump per-page revisions and do not invalidate
+ * any in-flight annotation refs on surviving pages.
  */
 export interface DocumentPagesService {
   /**
@@ -37,4 +39,23 @@ export interface DocumentPagesService {
    * @param destIndex Insertion point in `[0, pageCount - len]`.
    */
   move(pageObjectNumbers: PageObjectNumber[], destIndex: number): AbortablePromise<PageMoveResult>;
+
+  /**
+   * Set the ABSOLUTE display rotation of the supplied pages (one value
+   * for all — the multi-select thumbnail gesture). Pure presentation
+   * metadata: content coordinates are normalized, so cached renders,
+   * annotation refs, and `RevisionToken`s all survive untouched. See
+   * `PageRotateInput` for why the wire is absolute, never relative.
+   */
+  rotate(
+    pageObjectNumbers: PageObjectNumber[],
+    rotation: PageRotation,
+  ): AbortablePromise<PageRotateResult>;
+
+  /**
+   * Delete pages. Deleting every page is rejected (`InvalidArg`) — a
+   * document must keep at least one. Deleted PONs are retired, never
+   * recycled; surviving pages keep their identity and revisions.
+   */
+  delete(pageObjectNumbers: PageObjectNumber[]): AbortablePromise<PageDeleteResult>;
 }

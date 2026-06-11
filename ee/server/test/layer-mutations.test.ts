@@ -560,6 +560,154 @@ describe('Phase 5 layer mutation pipeline', () => {
     expect(pages.map((page) => Number(page.annotation_version))).toEqual([1, 1, 1]);
     expect(pages.map((page) => Number(page.annotation_generation))).toEqual([0, 0, 0]);
   });
+
+  test('page rotate shares the move commit: versions bump, page rows stay warm', async () => {
+    const tenantId = 'tenant-layer-pages';
+    const docId = 'doclayermut006';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 3 });
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/rotate`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pageObjectNumbers: [1, 2], rotation: 90 }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe(NO_STORE);
+    const body = (await res.json()) as {
+      layout: {
+        pageCount: number;
+        pages: Array<{ pageObjectNumber: number; rotation: number }>;
+      };
+      cache: {
+        previousDocVersion: number;
+        docVersion: number;
+        layoutVersion: number;
+      } | null;
+    };
+    // Rotation is presentation metadata: same pages, same order, new values.
+    expect(body.layout.pageCount).toBe(3);
+    expect(body.layout.pages.map((page) => [page.pageObjectNumber, page.rotation])).toEqual([
+      [1, 90],
+      [2, 90],
+      [3, 0],
+    ]);
+    expect(body.cache).toEqual({ previousDocVersion: 1, docVersion: 2, layoutVersion: 2 });
+
+    // The audit trail records the rotate against the AFFECTED pages only.
+    const audit = await fx.db
+      .selectFrom('audit_log')
+      .select(['kind', 'affected_pages_json'])
+      .where('doc_id', '=', docId)
+      .orderBy('id', 'desc')
+      .executeTakeFirstOrThrow();
+    expect(audit.kind).toBe('pages.rotate');
+    expect(JSON.parse(String(audit.affected_pages_json))).toEqual([1, 2]);
+
+    // `layer_pages` rows are untouched: renders are normalized, every
+    // per-page cache stays warm across a rotate.
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    const pages = await fx.db
+      .selectFrom('layer_pages')
+      .select(['page_object_number', 'annotation_version', 'annotation_generation'])
+      .where('layer_id', '=', layer.id)
+      .orderBy('page_object_number', 'asc')
+      .execute();
+    expect(pages.map((page) => Number(page.page_object_number))).toEqual([1, 2, 3]);
+    expect(pages.map((page) => Number(page.annotation_version))).toEqual([1, 1, 1]);
+  });
+
+  test('page delete removes the page, its row, and its weak-session claims', async () => {
+    const tenantId = 'tenant-layer-pages';
+    const docId = 'doclayermut007';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 3 });
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/delete`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pageObjectNumbers: [2] }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      layout: {
+        pageCount: number;
+        pages: Array<{ pageObjectNumber: number; index: number }>;
+      };
+      cache: {
+        previousDocVersion: number;
+        docVersion: number;
+        layoutVersion: number;
+      } | null;
+    };
+    expect(body.layout.pageCount).toBe(2);
+    expect(body.layout.pages.map((page) => page.pageObjectNumber)).toEqual([1, 3]);
+    expect(body.layout.pages.map((page) => page.index)).toEqual([0, 1]);
+    expect(body.cache).toEqual({ previousDocVersion: 1, docVersion: 2, layoutVersion: 2 });
+
+    const audit = await fx.db
+      .selectFrom('audit_log')
+      .select(['kind', 'affected_pages_json'])
+      .where('doc_id', '=', docId)
+      .orderBy('id', 'desc')
+      .executeTakeFirstOrThrow();
+    expect(audit.kind).toBe('pages.delete');
+    expect(JSON.parse(String(audit.affected_pages_json))).toEqual([2]);
+
+    // The deleted page's row is gone; survivors keep their pins.
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    const pages = await fx.db
+      .selectFrom('layer_pages')
+      .select(['page_object_number', 'annotation_version'])
+      .where('layer_id', '=', layer.id)
+      .orderBy('page_object_number', 'asc')
+      .execute();
+    expect(pages.map((page) => Number(page.page_object_number))).toEqual([1, 3]);
+    expect(pages.map((page) => Number(page.annotation_version))).toEqual([1, 1]);
+  });
+
+  test('deleting every page is rejected and commits nothing', async () => {
+    const tenantId = 'tenant-layer-pages';
+    const docId = 'doclayermut008';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 3 });
+
+    const res = await fetch(`${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/pages/delete`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${docToken(tenantId, docId, layerName)}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pageObjectNumbers: [1, 2, 3] }),
+    });
+    expect(res.status).toBe(400);
+
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    expect(layer.doc_version).toBe(1); // nothing advanced
+  });
 });
 
 async function buildFixture(): Promise<Fixture> {

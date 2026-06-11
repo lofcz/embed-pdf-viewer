@@ -79,6 +79,8 @@ export type {
   DocumentSecurityProbeInfo,
   PagesListWorkerRequest,
   PagesMoveWorkerRequest,
+  PagesRotateWorkerRequest,
+  PagesDeleteWorkerRequest,
   PagesTextWorkerRequest,
   PagesGeometryWorkerRequest,
   PagesRenderWorkerRequest,

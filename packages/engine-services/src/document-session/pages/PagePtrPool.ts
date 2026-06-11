@@ -44,6 +44,17 @@ export class PagePtrPool {
     return ptr;
   }
 
+  /**
+   * True while at least one holder has the page open. Page-STRUCTURE
+   * mutations (delete) assert on this: thread confinement means no other
+   * job can be mid-flight, so a held pagePtr during a structural mutation
+   * is a leaked `acquire` (an internal bug) — the mutator fails loudly
+   * instead of mutating under a live handle.
+   */
+  isHeld(pageObjectNumber: PageObjectNumber): boolean {
+    return this.counts.has(pageObjectNumber);
+  }
+
   release(pageObjectNumber: PageObjectNumber): void {
     const entry = this.counts.get(pageObjectNumber);
     if (!entry) return;

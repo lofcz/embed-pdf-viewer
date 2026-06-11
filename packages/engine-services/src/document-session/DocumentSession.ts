@@ -204,6 +204,15 @@ export class DocumentSession {
     return this.requireRevisions().bump(pageObjectNumber);
   }
 
+  /**
+   * Forget a page's per-session state (revision generation + weak-annotation
+   * flag). Called by `pages.delete` after the page object is retired; the
+   * PON is never recycled, so this is hygiene, not correctness.
+   */
+  dropPageState(pageObjectNumber: PageObjectNumber): void {
+    this.requireRevisions().drop(pageObjectNumber);
+  }
+
   validateRevision(token: RevisionToken): void {
     this.requireRevisions().validate(token);
   }

@@ -20,6 +20,9 @@ import type {
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
+import type { PageRotateResult } from '../mutation/PageRotateResult';
+import type { PageDeleteResult } from '../mutation/PageDeleteResult';
+import type { PageRotation } from '../dto/PageLayout';
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { MetadataPatch } from '../dto/MetadataPatch';
 
@@ -231,6 +234,26 @@ export interface PagesMoveWorkerRequest {
   artifactPath?: string;
 }
 
+export interface PagesRotateWorkerRequest {
+  kind: 'pages.rotate';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumbers: PageObjectNumber[];
+  /** Absolute rotation in degrees clockwise — see `PageRotateInput`. */
+  rotation: PageRotation;
+  artifactPath?: string;
+}
+
+export interface PagesDeleteWorkerRequest {
+  kind: 'pages.delete';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumbers: PageObjectNumber[];
+  artifactPath?: string;
+}
+
 export interface DocumentSaveBufferWorkerRequest {
   kind: 'document.saveBuffer';
   jobId: WorkerJobId;
@@ -312,6 +335,8 @@ export type WorkerRequest =
   | AnnotationsMoveWorkerRequest
   | PagesListWorkerRequest
   | PagesMoveWorkerRequest
+  | PagesRotateWorkerRequest
+  | PagesDeleteWorkerRequest
   | PagesTextWorkerRequest
   | PagesGeometryWorkerRequest
   | PagesRenderWorkerRequest
@@ -363,6 +388,18 @@ export type WorkerResultPayload =
   | {
       tag: 'pages.move';
       result: PageMoveResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'pages.rotate';
+      result: PageRotateResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'pages.delete';
+      result: PageDeleteResult;
       artifact?: LayerArtifactWorkerPayload;
       artifactFile?: LayerArtifactFileWorkerPayload;
     }

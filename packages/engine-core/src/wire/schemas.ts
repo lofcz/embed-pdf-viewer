@@ -31,6 +31,11 @@ import type { PageState } from '../revision/PageState';
 import type { WeakAnnotationState } from '../revision/WeakAnnotationState';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
+import type { PageStructureCache } from '../mutation/PageStructureCache';
+import type { PageRotateInput } from '../mutation/PageRotateInput';
+import type { PageRotateResult } from '../mutation/PageRotateResult';
+import type { PageDeleteInput } from '../mutation/PageDeleteInput';
+import type { PageDeleteResult } from '../mutation/PageDeleteResult';
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
 export type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
@@ -644,19 +649,56 @@ export const PageMoveInputSchema: z.ZodType<PageMoveInput> = z.object({
 });
 
 /**
+ * Coherence pins shared by every page-STRUCTURE result (move/rotate/delete) —
+ * see `PageStructureCache`. Nullable at each use site (local engines).
+ */
+export const PageStructureCacheSchema: z.ZodType<PageStructureCache> = z.object({
+  previousDocVersion: z.number().int().nonnegative(),
+  docVersion: z.number().int().positive(),
+  layoutVersion: z.number().int().positive(),
+});
+
+/**
  * Page reorder result. No revision is bumped (no doc-level revision exists,
  * and per-page revisions intentionally survive a page reorder). The full
  * post-move order is returned so callers can swap their snapshot directly.
  */
 export const PageMoveResultSchema: z.ZodType<PageMoveResult> = z.object({
   layout: PageListSnapshotSchema,
-  cache: z
-    .object({
-      previousDocVersion: z.number().int().nonnegative(),
-      docVersion: z.number().int().positive(),
-      layoutVersion: z.number().int().positive(),
-    })
-    .nullable(),
+  cache: PageStructureCacheSchema.nullable(),
+});
+
+/**
+ * Page rotate input. ABSOLUTE rotation (idempotent — see `PageRotateInput`),
+ * one value applied to every listed page.
+ */
+export const PageRotateInputSchema: z.ZodType<PageRotateInput> = z.object({
+  pageObjectNumbers: z.array(z.number().int().positive()),
+  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+});
+
+/**
+ * Page rotate result. Rotation is presentation metadata over normalized
+ * content: nothing per-page invalidates; the new `layout` carries the
+ * rotation values (see `PageRotateResult`).
+ */
+export const PageRotateResultSchema: z.ZodType<PageRotateResult> = z.object({
+  layout: PageListSnapshotSchema,
+  cache: PageStructureCacheSchema.nullable(),
+});
+
+/** Page delete input. Deleting every page is rejected server/worker-side. */
+export const PageDeleteInputSchema: z.ZodType<PageDeleteInput> = z.object({
+  pageObjectNumbers: z.array(z.number().int().positive()),
+});
+
+/**
+ * Page delete result. Deleted PONs are retired (never recycled); surviving
+ * pages keep identity + revisions (see `PageDeleteResult`).
+ */
+export const PageDeleteResultSchema: z.ZodType<PageDeleteResult> = z.object({
+  layout: PageListSnapshotSchema,
+  cache: PageStructureCacheSchema.nullable(),
 });
 
 /**

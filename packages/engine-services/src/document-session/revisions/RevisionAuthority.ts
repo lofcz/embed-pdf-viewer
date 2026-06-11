@@ -17,6 +17,10 @@ export interface RevisionAuthority {
   validate(token: RevisionToken): void;
   weakAnnotationState(pageObjectNumber: PageObjectNumber): WeakAnnotationState;
   recordWeakAnnotationState(pageObjectNumber: PageObjectNumber, state: WeakAnnotationState): void;
+  /** Forget a page entirely (generation + weak state). Called when the page
+   *  is DELETED — its object number is retired, never recycled, so dropping
+   *  is hygiene, not correctness. */
+  drop(pageObjectNumber: PageObjectNumber): void;
   clear(): void;
 }
 
@@ -85,6 +89,11 @@ export class LocalRevisionAuthority implements RevisionAuthority {
 
   recordWeakAnnotationState(pageObjectNumber: PageObjectNumber, state: WeakAnnotationState): void {
     this.weakAnnotationStates.set(pageObjectNumber, state);
+  }
+
+  drop(pageObjectNumber: PageObjectNumber): void {
+    this.generations.delete(pageObjectNumber);
+    this.weakAnnotationStates.delete(pageObjectNumber);
   }
 
   clear(): void {

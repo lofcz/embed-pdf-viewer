@@ -4,9 +4,12 @@ import {
   EngineErrorCode,
   wirePack,
   type DocumentPagesService,
+  type PageDeleteResult,
   type PageListSnapshot,
   type PageMoveResult,
   type PageObjectNumber,
+  type PageRotateResult,
+  type PageRotation,
 } from '@embedpdf/engine-core/runtime';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
@@ -99,6 +102,86 @@ export class LocalDocumentPagesService implements DocumentPagesService {
       else signal.addEventListener('abort', onAbort, { once: true });
       const payload = await submission;
       if (payload.tag !== 'pages.move') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
+    });
+  }
+
+  rotate(
+    pageObjectNumbers: PageObjectNumber[],
+    rotation: PageRotation,
+  ): AbortablePromise<PageRotateResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    // pages.rotate maps to the cloud's POST /pages/rotate (gated by
+    // `doc.pages.assemble`, like every page-structure verb).
+    try {
+      this.guard.assertCapability('doc.pages.assemble');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
+    }
+    const docId = this.docId;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'pages.rotate',
+            jobId,
+            docId,
+            pageObjectNumbers,
+            rotation,
+          }),
+      },
+      { priority: Priority.HIGH },
+    );
+    return AbortablePromise.run<PageRotateResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'pages.rotate') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
+    });
+  }
+
+  delete(pageObjectNumbers: PageObjectNumber[]): AbortablePromise<PageDeleteResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    // pages.delete maps to the cloud's POST /pages/delete (gated by
+    // `doc.pages.assemble`, like every page-structure verb).
+    try {
+      this.guard.assertCapability('doc.pages.assemble');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
+    }
+    const docId = this.docId;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'pages.delete',
+            jobId,
+            docId,
+            pageObjectNumbers,
+          }),
+      },
+      { priority: Priority.HIGH },
+    );
+    return AbortablePromise.run<PageDeleteResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'pages.delete') {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
       return payload.result;

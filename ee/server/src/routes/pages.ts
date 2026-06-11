@@ -5,15 +5,19 @@ import {
   wirePack,
   type PageImageOptions,
   type PageNetworkRenderFormat,
+  type PageDeleteInput,
   type PageMoveInput,
+  type PageRotateInput,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import {
   decodeContentToken,
   decodeRenderToken,
   pageRenderOptionsFromImageOptions,
+  PageDeleteInputSchema,
   PageMoveInputSchema,
   PageNetworkRenderFormatSchema,
+  PageRotateInputSchema,
   PageRenderQuerySchema,
   unflatten,
   type ManifestPage,
@@ -299,6 +303,59 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
         layerName,
         pageObjectNumbers: body.pageObjectNumbers,
         destIndex: body.destIndex,
+      },
+      abortSignalFromRequest(req),
+    );
+  });
+
+  app.post('/v1/docs/:docId/layers/:layerName/pages/rotate', async (req, reply) => {
+    const { docId, layerName } = req.params as {
+      docId: string;
+      layerName: string;
+    };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.pages.assemble', pdfBits);
+    const body = parseOrInvalidArg<PageRotateInput>(
+      PageRotateInputSchema as unknown as SchemaLike<PageRotateInput>,
+      req.body,
+      'request body',
+    );
+
+    setNoStore(reply);
+    return layerService.rotatePages(
+      ctx,
+      {
+        docId,
+        layerName,
+        pageObjectNumbers: body.pageObjectNumbers,
+        rotation: body.rotation,
+      },
+      abortSignalFromRequest(req),
+    );
+  });
+
+  app.post('/v1/docs/:docId/layers/:layerName/pages/delete', async (req, reply) => {
+    const { docId, layerName } = req.params as {
+      docId: string;
+      layerName: string;
+    };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.pages.assemble', pdfBits);
+    const body = parseOrInvalidArg<PageDeleteInput>(
+      PageDeleteInputSchema as unknown as SchemaLike<PageDeleteInput>,
+      req.body,
+      'request body',
+    );
+
+    setNoStore(reply);
+    return layerService.deletePages(
+      ctx,
+      {
+        docId,
+        layerName,
+        pageObjectNumbers: body.pageObjectNumbers,
       },
       abortSignalFromRequest(req),
     );

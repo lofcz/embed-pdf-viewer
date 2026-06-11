@@ -26,6 +26,8 @@
  *   /v1/docs/{id}/layers/{L}/annotations/pages/{N}/items/{key}    — member
  *   /v1/docs/{id}/layers/{L}/annotations/pages/{N}/items/move     — batch reorder
  *   /v1/docs/{id}/layers/{L}/pages/move                           — batch page reorder
+ *   /v1/docs/{id}/layers/{L}/pages/rotate                         — batch absolute rotation
+ *   /v1/docs/{id}/layers/{L}/pages/delete                         — batch page delete
  *   /v1/docs/{id}/layers/{L}/download@{ver}
  *
  * `items` appears on both the read collection (`items@{ver}`) and
@@ -205,6 +207,12 @@ export const wirePaths = {
 
   layerPagesMove: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/move`,
+
+  layerPagesRotate: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/rotate`,
+
+  layerPagesDelete: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/delete`,
 
   layerDownload: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/download`,

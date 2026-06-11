@@ -11,8 +11,8 @@ import {
   type MetadataCache,
   type MutationMeta,
   type PageHandle,
-  type PageMoveCache,
   type PageObjectNumber,
+  type PageStructureCache,
   type PdfSaveMode,
 } from '@embedpdf/engine-core/runtime';
 import {
@@ -43,8 +43,12 @@ export interface ManifestAccessor {
   refresh(signal: AbortSignal): Promise<DocumentManifest>;
   /** Absorb mutation-returned state/cache deltas when safe. */
   apply(meta: MutationMeta): void;
-  /** Advance the cached manifest's docVersion + layoutVersion after a page move. */
-  applyPageMove(cache: PageMoveCache): void;
+  /** Advance the cached manifest's docVersion + layoutVersion after a page
+   *  STRUCTURE op that keeps the page set intact (move, rotate). */
+  applyPageStructure(cache: PageStructureCache): void;
+  /** Same advance for a page delete, additionally dropping the deleted
+   *  pages' manifest rows so per-page leaf URLs stop resolving locally. */
+  applyPageDelete(cache: PageStructureCache, deletedPages: PageObjectNumber[]): void;
   /** Advance the cached manifest's docVersion + metadataVersion after a metadata write. */
   applyMetadata(cache: MetadataCache): void;
 }
@@ -107,7 +111,8 @@ export class CloudDocumentHandle implements DocumentHandle {
       get: (signal) => this.getManifest(signal),
       refresh: (signal) => this.refreshManifest(signal),
       apply: (meta) => this.absorbMutation(meta),
-      applyPageMove: (cache) => this.absorbPageMove(cache),
+      applyPageStructure: (cache) => this.absorbPageStructure(cache),
+      applyPageDelete: (cache, deletedPages) => this.absorbPageDelete(cache, deletedPages),
       applyMetadata: (cache) => this.absorbMetadata(cache),
     };
     this.metadata = new CloudMetadataService(
@@ -254,13 +259,15 @@ export class CloudDocumentHandle implements DocumentHandle {
   }
 
   /**
-   * Patch the cached manifest after a page move. A move is purely structural:
-   * it advances `docVersion` (so leaf URLs re-resolve) and `layoutVersion` (so
-   * the /layout leaf re-fetches), but leaves every per-page pin untouched. We
-   * raise the floor unconditionally and, when our cache is exactly one version
-   * behind, advance it in place; otherwise we drop it and refetch lazily.
+   * Patch the cached manifest after a set-preserving page-structure op (move,
+   * rotate). Both are purely structural: they advance `docVersion` (so leaf
+   * URLs re-resolve) and `layoutVersion` (so the /layout leaf re-fetches),
+   * but leave every per-page pin untouched — a rotate renders the SAME
+   * normalized bitmaps, a move the same pages. We raise the floor
+   * unconditionally and, when our cache is exactly one version behind,
+   * advance it in place; otherwise we drop it and refetch lazily.
    */
-  private absorbPageMove(cache: PageMoveCache): void {
+  private absorbPageStructure(cache: PageStructureCache): void {
     this.manifestFloorVersion = Math.max(this.manifestFloorVersion, cache.docVersion);
     this.inflightManifest = null;
 
@@ -274,6 +281,31 @@ export class CloudDocumentHandle implements DocumentHandle {
       ...this.manifestCache,
       docVersion: cache.docVersion,
       layoutVersion: cache.layoutVersion,
+    };
+  }
+
+  /**
+   * Patch the cached manifest after a page delete: the shared structural
+   * advance plus dropping the deleted pages' manifest rows, so no leaf URL
+   * for a retired PON can be built from the cache (a stale request would
+   * 404 anyway — this keeps the failure local and instant).
+   */
+  private absorbPageDelete(cache: PageStructureCache, deletedPages: PageObjectNumber[]): void {
+    this.manifestFloorVersion = Math.max(this.manifestFloorVersion, cache.docVersion);
+    this.inflightManifest = null;
+
+    if (!this.manifestCache) return;
+    if (cache.docVersion <= this.manifestCache.docVersion) return;
+    if (cache.previousDocVersion !== this.manifestCache.docVersion) {
+      this.manifestCache = null;
+      return;
+    }
+    const deleted = new Set(deletedPages);
+    this.manifestCache = {
+      ...this.manifestCache,
+      docVersion: cache.docVersion,
+      layoutVersion: cache.layoutVersion,
+      pages: this.manifestCache.pages.filter((page) => !deleted.has(page.state.pageObjectNumber)),
     };
   }
 

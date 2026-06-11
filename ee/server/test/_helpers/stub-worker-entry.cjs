@@ -83,7 +83,7 @@ function pageState(pon, generation = 0, hasWeak = false) {
 // Pure geometry for one page. Mirrors `PageLayout`: durable PON, display
 // `index`, and a letter-sized media/crop box. No annotation liveness here —
 // that rides on annotation reads, not the geometry list.
-function pageLayout(pon, index) {
+function pageLayout(pon, index, rotation = 0) {
   const box = [0, 0, 612, 792];
   return {
     index,
@@ -91,19 +91,20 @@ function pageLayout(pon, index) {
     label: null,
     width: 612,
     height: 792,
-    rotation: 0,
+    rotation,
     userUnit: 1,
     boxes: { media: box, crop: box },
   };
 }
 
 // Build a `PageListSnapshot` ({ pageCount, pages: PageLayout[] }) from the
-// session's current page order (falling back to 1..pageCount).
+// session's current page order (falling back to 1..pageCount) and the
+// per-page rotations set by pages.rotate.
 function layoutSnapshot(meta) {
   const order = meta.pageOrder ?? Array.from({ length: meta.pageCount }, (_, i) => i + 1);
   return {
     pageCount: order.length,
-    pages: order.map((pon, index) => pageLayout(pon, index)),
+    pages: order.map((pon, index) => pageLayout(pon, index, meta.pageRotations?.[pon] ?? 0)),
   };
 }
 
@@ -453,6 +454,62 @@ parentPort.on('message', (msg) => {
       resolveMutation(msg, {
         tag: 'pages.move',
         result,
+        artifact: layerArtifact(msg),
+      });
+      return;
+    }
+    case 'pages.rotate': {
+      const meta = openDocs.get(sessionKey(msg));
+      if (!meta) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: { name: 'EngineError', message: `not open: ${msg.docId}`, code: 'DocNotOpen' },
+        });
+        return;
+      }
+      // Rotation is presentation metadata: same pages, same order, new
+      // per-page rotation values (the real mutator's exact contract).
+      meta.pageRotations = meta.pageRotations ?? {};
+      for (const pon of msg.pageObjectNumbers) {
+        meta.pageRotations[pon] = msg.rotation;
+      }
+      resolveMutation(msg, {
+        tag: 'pages.rotate',
+        result: { layout: layoutSnapshot(meta), cache: null },
+        artifact: layerArtifact(msg),
+      });
+      return;
+    }
+    case 'pages.delete': {
+      const meta = openDocs.get(sessionKey(msg));
+      if (!meta) {
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: { name: 'EngineError', message: `not open: ${msg.docId}`, code: 'DocNotOpen' },
+        });
+        return;
+      }
+      const current = meta.pageOrder ?? Array.from({ length: meta.pageCount }, (_, i) => i + 1);
+      if (msg.pageObjectNumbers.length >= current.length) {
+        // Mirrors PagesMutator: a document must keep at least one page.
+        parentPort.postMessage({
+          kind: 'reject',
+          jobId: msg.jobId,
+          error: {
+            name: 'EngineError',
+            message: 'pages.delete would remove every page',
+            code: 'InvalidArg',
+          },
+        });
+        return;
+      }
+      const deleting = new Set(msg.pageObjectNumbers);
+      meta.pageOrder = current.filter((pon) => !deleting.has(pon));
+      resolveMutation(msg, {
+        tag: 'pages.delete',
+        result: { layout: layoutSnapshot(meta), cache: null },
         artifact: layerArtifact(msg),
       });
       return;

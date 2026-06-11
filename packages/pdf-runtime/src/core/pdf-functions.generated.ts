@@ -243,9 +243,11 @@ export interface PdfFunctions {
     arg5: boolean,
     arg6: number,
   ) => Ptr;
+  EPDFDoc_DeletePageByObjectNumber: (arg0: Ptr, arg1: number) => boolean;
   EPDFDoc_GetPageObjectNumberByIndex: (arg0: Ptr, arg1: number) => number;
   EPDFDoc_LoadPageByObjectNumber: (arg0: Ptr, arg1: number) => Ptr;
   EPDFDoc_LoadPageByObjectNumberNormalized: (arg0: Ptr, arg1: number) => Ptr;
+  EPDFDoc_SetPageRotationByObjectNumber: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   EPDFDocument_ClearEmbedMetadata: (arg0: Ptr) => boolean;
   EPDFImageObj_SetJpeg: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFImageObj_SetPng: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
@@ -4148,6 +4150,25 @@ export const pdfFunctionSignatures = {
       native: { kind: 'pointer', cwrap: 'bigint' },
     },
   },
+  EPDFDoc_DeletePageByObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
   EPDFDoc_GetPageObjectNumberByIndex: {
     params: [
       {
@@ -4203,6 +4224,30 @@ export const pdfFunctionSignatures = {
       ts: 'Ptr',
       wasm: { kind: 'pointer', cwrap: 'number' },
       native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFDoc_SetPageRotationByObjectNumber: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
   EPDFDocument_ClearEmbedMetadata: {

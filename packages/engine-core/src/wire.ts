@@ -40,6 +40,11 @@ export {
   PdfRectSchema,
   PageMoveInputSchema,
   PageMoveResultSchema,
+  PageStructureCacheSchema,
+  PageRotateInputSchema,
+  PageRotateResultSchema,
+  PageDeleteInputSchema,
+  PageDeleteResultSchema,
   WeakAnnotationSessionResponseSchema,
   WeakAnnotationSessionPagesRequestSchema,
 } from './wire/schemas';

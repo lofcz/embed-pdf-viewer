@@ -20,6 +20,8 @@ export type {
   PageReorderConformanceFixture,
   PageReorderConformanceOptions,
 } from './conformance/runPageReorderConformance';
+export { runPageRotateConformance } from './conformance/runPageRotateConformance';
+export { runPageDeleteConformance } from './conformance/runPageDeleteConformance';
 export { runPageTextConformance } from './conformance/runPageTextConformance';
 export type {
   PageTextConformanceFixture,

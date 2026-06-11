@@ -22,6 +22,8 @@ import {
   type PagesListWorkerRequest,
   type PagesGeometryWorkerRequest,
   type PagesMoveWorkerRequest,
+  type PagesRotateWorkerRequest,
+  type PagesDeleteWorkerRequest,
   type PagesRenderWorkerRequest,
   type PagesTextWorkerRequest,
   type SerializedEngineError,
@@ -136,6 +138,12 @@ export class WorkerHost {
           break;
         case 'pages.move':
           resultPack = this.handlePagesMove(msg, ctrl.signal);
+          break;
+        case 'pages.rotate':
+          resultPack = this.handlePagesRotate(msg, ctrl.signal);
+          break;
+        case 'pages.delete':
+          resultPack = this.handlePagesDelete(msg, ctrl.signal);
           break;
         case 'pages.text':
           resultPack = this.handlePagesText(msg, ctrl.signal);
@@ -332,6 +340,26 @@ export class WorkerHost {
     const mutator = new PagesMutator(this.runtime, session);
     const result = mutator.move(req.pageObjectNumbers, req.destIndex, signal);
     return this.finishMutation(session, { tag: 'pages.move', result }, req.artifactPath);
+  }
+
+  private handlePagesRotate(
+    req: PagesRotateWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new PagesMutator(this.runtime, session);
+    const result = mutator.rotate(req.pageObjectNumbers, req.rotation, signal);
+    return this.finishMutation(session, { tag: 'pages.rotate', result }, req.artifactPath);
+  }
+
+  private handlePagesDelete(
+    req: PagesDeleteWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new PagesMutator(this.runtime, session);
+    const result = mutator.delete(req.pageObjectNumbers, signal);
+    return this.finishMutation(session, { tag: 'pages.delete', result }, req.artifactPath);
   }
 
   private handlePagesText(

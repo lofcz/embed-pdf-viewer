@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import {
   EngineError,
   EngineErrorCode,
@@ -19,9 +19,13 @@ import {
   type IdentityClaims,
   type MetadataPatch,
   type MetadataUpdateResult,
+  type PageDeleteResult,
   type PageMoveResult,
   type PageObjectNumber,
+  type PageRotateResult,
+  type PageRotation,
   type PageState,
+  type PageStructureCache,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import type { Database as Schema } from '../db/schema';
@@ -443,6 +447,95 @@ export class LayerService {
     });
   }
 
+  async rotatePages(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      pageObjectNumbers: PageObjectNumber[];
+      rotation: PageRotation;
+    },
+    signal?: AbortSignal,
+  ): Promise<PageRotateResult> {
+    return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
+      const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      // No weak-session guard: rotation is presentation metadata — it never
+      // touches a page's /Annots array, so no in-flight weak edit can break.
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'pages.rotate' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            pageObjectNumbers: input.pageObjectNumbers,
+            rotation: input.rotation,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'pages.rotate') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected pages.rotate payload: ${payload.tag}`,
+          );
+        }
+        return this.persistPageRotate(ctx, input.docId, input.layerName, layer, {
+          result: payload.result,
+          affectedPages: input.pageObjectNumbers,
+          artifact: requireLayerArtifact(payload as unknown),
+        });
+      });
+    });
+  }
+
+  async deletePages(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      pageObjectNumbers: PageObjectNumber[];
+    },
+    signal?: AbortSignal,
+  ): Promise<PageDeleteResult> {
+    return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
+      const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      // Destroying a page someone is mid-edit on is the collaboration
+      // conflict the weak-session model exists for: for every target page
+      // with weak annotations the caller must be the sole active editor.
+      for (const pageObjectNumber of input.pageObjectNumbers) {
+        await this.assertWeakAnnotationStructuralEditAllowed(ctx, {
+          docId: input.docId,
+          layerName: input.layerName,
+          layer,
+          pageObjectNumber,
+        });
+      }
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'pages.delete' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            pageObjectNumbers: input.pageObjectNumbers,
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'pages.delete') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected pages.delete payload: ${payload.tag}`,
+          );
+        }
+        return this.persistPageDelete(ctx, input.docId, input.layerName, layer, {
+          result: payload.result,
+          deletedPages: input.pageObjectNumbers,
+          artifact: requireLayerArtifact(payload as unknown),
+        });
+      });
+    });
+  }
+
   async updateMetadata(
     ctx: LayerWriteContext,
     input: {
@@ -564,14 +657,17 @@ export class LayerService {
     const nextVersion = layer.currentVersion + 1;
     const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
     const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
-    const committed = await this.commitPageMove({
+    const committed = await this.commitPageStructure({
       ctx,
       docId,
       layerName,
       layer,
+      kind: 'pages.move',
       // The worker's layout IS the new order; derive the durable page order
       // (by PON, in display order) from it for the commit-time validation.
       pageOrder: input.result.layout.pages.map((page) => page.pageObjectNumber),
+      // Every page's position is touched by a reorder.
+      affectedPages: input.result.layout.pages.map((page) => page.pageObjectNumber),
       artifactKey,
       artifactSha: uploaded.sha256,
       artifactSize: uploaded.size,
@@ -582,14 +678,74 @@ export class LayerService {
     // Return the worker's layout verbatim (no second /layout read needed) plus
     // the coherence pins so a cloud client advances its cached manifest in
     // place instead of refetching.
-    return {
-      layout: input.result.layout,
-      cache: {
-        previousDocVersion: committed.previousLayerDocVersion,
-        docVersion: committed.layerDocVersion,
-        layoutVersion: committed.layoutVersion,
-      },
-    };
+    return { layout: input.result.layout, cache: committed };
+  }
+
+  /**
+   * Rotate shares the move commit EXACTLY (the corrected model: rotation is
+   * presentation metadata — `doc_version` + `layout_version` bump, no
+   * `layer_pages` touch, every per-page cache stays warm). Only the audit
+   * kind and the affected-page set differ.
+   */
+  private async persistPageRotate(
+    ctx: LayerWriteContext,
+    docId: string,
+    layerName: string,
+    layer: LayerRow,
+    input: {
+      result: PageRotateResult;
+      affectedPages: PageObjectNumber[];
+      artifact: LayerArtifactInput;
+    },
+  ): Promise<PageRotateResult> {
+    const nextVersion = layer.currentVersion + 1;
+    const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
+    const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
+    const committed = await this.commitPageStructure({
+      ctx,
+      docId,
+      layerName,
+      layer,
+      kind: 'pages.rotate',
+      pageOrder: input.result.layout.pages.map((page) => page.pageObjectNumber),
+      affectedPages: input.affectedPages,
+      artifactKey,
+      artifactSha: uploaded.sha256,
+      artifactSize: uploaded.size,
+      nextVersion,
+      payload: input.result,
+    });
+    return { layout: input.result.layout, cache: committed };
+  }
+
+  private async persistPageDelete(
+    ctx: LayerWriteContext,
+    docId: string,
+    layerName: string,
+    layer: LayerRow,
+    input: {
+      result: PageDeleteResult;
+      deletedPages: PageObjectNumber[];
+      artifact: LayerArtifactInput;
+    },
+  ): Promise<PageDeleteResult> {
+    const nextVersion = layer.currentVersion + 1;
+    const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
+    const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
+    const committed = await this.commitPageDelete({
+      ctx,
+      docId,
+      layerName,
+      layer,
+      survivorOrder: input.result.layout.pages.map((page) => page.pageObjectNumber),
+      deletedPages: input.deletedPages,
+      artifactKey,
+      artifactSha: uploaded.sha256,
+      artifactSize: uploaded.size,
+      nextVersion,
+      payload: input.result,
+    });
+    return { layout: input.result.layout, cache: committed };
   }
 
   private async persistMetadataUpdate(
@@ -887,40 +1043,32 @@ export class LayerService {
       });
   }
 
-  private async commitPageMove(input: {
+  /**
+   * Shared commit for the page-structure ops that keep the page SET intact
+   * (move + rotate). Both have the same shape: the layer's `doc_version` and
+   * `layout_version` advance, `layer_pages` rows are left entirely untouched
+   * (display order and rotation live in the artifact, read back via /layout),
+   * and every per-page content/annotation cache stays warm.
+   */
+  private async commitPageStructure(input: {
     ctx: LayerWriteContext;
     docId: string;
     layerName: string;
     layer: LayerRow;
+    kind: 'pages.move' | 'pages.rotate';
     pageOrder: PageObjectNumber[];
+    affectedPages: PageObjectNumber[];
     artifactKey: string;
     artifactSha: string;
     artifactSize: number;
     nextVersion: number;
     payload: unknown;
-  }): Promise<{
-    previousLayerDocVersion: number;
-    layerDocVersion: number;
-    layoutVersion: number;
-  }> {
+  }): Promise<PageStructureCache> {
     return this.requireDb()
       .transaction()
       .execute(async (trx) => {
         const now = Date.now();
-        const currentLayer = await trx
-          .selectFrom('layers')
-          .select(['current_version', 'doc_version', 'layout_version'])
-          .where('id', '=', input.layer.id)
-          .executeTakeFirst();
-        if (!currentLayer) {
-          throw new EngineError(EngineErrorCode.NotFound, `layer not found: ${input.layer.id}`);
-        }
-        if (Number(currentLayer.current_version) !== input.layer.currentVersion) {
-          throw new EngineError(
-            EngineErrorCode.Aborted,
-            `layer version changed while saving artifact for ${input.layer.id}`,
-          );
-        }
+        const currentLayer = await this.requireUnchangedLayer(trx, input.layer);
 
         const rows = await trx
           .selectFrom('layer_pages')
@@ -930,7 +1078,7 @@ export class LayerService {
         if (rows.length !== input.pageOrder.length) {
           throw new EngineError(
             EngineErrorCode.WireFormat,
-            `pages.move returned ${input.pageOrder.length} pages for ${rows.length} layer page rows`,
+            `${input.kind} returned ${input.pageOrder.length} pages for ${rows.length} layer page rows`,
           );
         }
         const known = new Set(rows.map((row) => Number(row.page_object_number)));
@@ -938,45 +1086,21 @@ export class LayerService {
           if (!known.has(pageObjectNumber)) {
             throw new EngineError(
               EngineErrorCode.WireFormat,
-              `pages.move returned unknown page object number ${pageObjectNumber}`,
+              `${input.kind} returned unknown page object number ${pageObjectNumber}`,
             );
           }
         }
 
-        // A move changes neither the page set nor any page's per-page
-        // versions — only display order, which now lives in the artifact and
-        // is read back via /layout. So `layer_pages` rows are left entirely
-        // untouched (no staging-offset reshuffle): we only advance the layer
-        // version pointers below.
-        const previousLayerDocVersion = Number(currentLayer.doc_version);
-        const layerDocVersion = previousLayerDocVersion + 1;
-        // A page move is a structural op: bump the geometry pointer so the
-        // CDN-immutable /layout@layoutVersion leaf is re-fetched. Per-page
-        // content/annotation versions stay put (their caches stay warm).
-        const layoutVersion = Number(currentLayer.layout_version) + 1;
-
-        await trx
-          .updateTable('layers')
-          .set({
-            doc_version: layerDocVersion,
-            layout_version: layoutVersion,
-            current_version: input.nextVersion,
-            current_artifact_key: input.artifactKey,
-            current_artifact_sha: input.artifactSha,
-            current_artifact_size: input.artifactSize,
-            updated_at: now,
-          })
-          .where('id', '=', input.layer.id)
-          .execute();
+        const versions = await this.advanceLayerVersions(trx, input, currentLayer, now);
 
         const auditEvent = makeAuditEvent({
           ctx: input.ctx,
           docId: input.docId,
           layer: input.layer,
           layerName: input.layerName,
-          kind: 'pages.move',
+          kind: input.kind,
           pageObjectNumber: null,
-          affectedPages: input.pageOrder,
+          affectedPages: input.affectedPages,
           artifactVersion: input.nextVersion,
           artifactKey: input.artifactKey,
           artifactSha: input.artifactSha,
@@ -986,8 +1110,174 @@ export class LayerService {
         });
         await this.eventLog?.appendDb(trx, auditEvent);
 
-        return { previousLayerDocVersion, layerDocVersion, layoutVersion };
+        return versions;
       });
+  }
+
+  /**
+   * Delete commit: the only page-structure op that mutates the page SET. On
+   * top of the shared version bumps it removes the deleted pages'
+   * `layer_pages` rows and any weak-annotation-session claims on them
+   * (sessions themselves survive — they may hold other pages). Surviving
+   * pages' rows are untouched, so their pins and revisions stay warm.
+   */
+  private async commitPageDelete(input: {
+    ctx: LayerWriteContext;
+    docId: string;
+    layerName: string;
+    layer: LayerRow;
+    survivorOrder: PageObjectNumber[];
+    deletedPages: PageObjectNumber[];
+    artifactKey: string;
+    artifactSha: string;
+    artifactSize: number;
+    nextVersion: number;
+    payload: unknown;
+  }): Promise<PageStructureCache> {
+    return this.requireDb()
+      .transaction()
+      .execute(async (trx) => {
+        const now = Date.now();
+        const currentLayer = await this.requireUnchangedLayer(trx, input.layer);
+
+        const rows = await trx
+          .selectFrom('layer_pages')
+          .select('page_object_number')
+          .where('layer_id', '=', input.layer.id)
+          .execute();
+        const known = new Set(rows.map((row) => Number(row.page_object_number)));
+        const deleted = new Set(input.deletedPages);
+        if (rows.length !== input.survivorOrder.length + input.deletedPages.length) {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `pages.delete returned ${input.survivorOrder.length} survivors for ${rows.length} layer page rows minus ${input.deletedPages.length} deleted`,
+          );
+        }
+        for (const pageObjectNumber of input.deletedPages) {
+          if (!known.has(pageObjectNumber)) {
+            throw new EngineError(
+              EngineErrorCode.WireFormat,
+              `pages.delete removed unknown page object number ${pageObjectNumber}`,
+            );
+          }
+        }
+        for (const pageObjectNumber of input.survivorOrder) {
+          if (!known.has(pageObjectNumber) || deleted.has(pageObjectNumber)) {
+            throw new EngineError(
+              EngineErrorCode.WireFormat,
+              `pages.delete returned unexpected surviving page object number ${pageObjectNumber}`,
+            );
+          }
+        }
+
+        await trx
+          .deleteFrom('layer_pages')
+          .where('layer_id', '=', input.layer.id)
+          .where('page_object_number', 'in', input.deletedPages)
+          .execute();
+
+        // Weak-annotation sessions of THIS layer lose their claims on the
+        // deleted pages (the guard ran pre-worker; this is the cleanup).
+        const sessions = await trx
+          .selectFrom('weak_annotation_sessions')
+          .select('id')
+          .where('tenant_id', '=', input.ctx.tenantId)
+          .where('doc_id', '=', input.docId)
+          .where('layer_name', '=', input.layerName)
+          .execute();
+        if (sessions.length > 0) {
+          await trx
+            .deleteFrom('weak_annotation_session_pages')
+            .where(
+              'session_id',
+              'in',
+              sessions.map((session) => session.id),
+            )
+            .where('page_object_number', 'in', input.deletedPages)
+            .execute();
+        }
+
+        const versions = await this.advanceLayerVersions(trx, input, currentLayer, now);
+
+        const auditEvent = makeAuditEvent({
+          ctx: input.ctx,
+          docId: input.docId,
+          layer: input.layer,
+          layerName: input.layerName,
+          kind: 'pages.delete',
+          pageObjectNumber: null,
+          affectedPages: input.deletedPages,
+          artifactVersion: input.nextVersion,
+          artifactKey: input.artifactKey,
+          artifactSha: input.artifactSha,
+          artifactSize: input.artifactSize,
+          payload: input.payload,
+          ts: now,
+        });
+        await this.eventLog?.appendDb(trx, auditEvent);
+
+        return versions;
+      });
+  }
+
+  /** Re-read the layer inside the commit transaction and reject if another
+   *  write advanced it since `prepareLayerMutation` (the optimistic check
+   *  every structure commit shares). */
+  private async requireUnchangedLayer(
+    trx: Transaction<Schema>,
+    layer: LayerRow,
+  ): Promise<{ doc_version: number | bigint; layout_version: number | bigint }> {
+    const currentLayer = await trx
+      .selectFrom('layers')
+      .select(['current_version', 'doc_version', 'layout_version'])
+      .where('id', '=', layer.id)
+      .executeTakeFirst();
+    if (!currentLayer) {
+      throw new EngineError(EngineErrorCode.NotFound, `layer not found: ${layer.id}`);
+    }
+    if (Number(currentLayer.current_version) !== layer.currentVersion) {
+      throw new EngineError(
+        EngineErrorCode.Aborted,
+        `layer version changed while saving artifact for ${layer.id}`,
+      );
+    }
+    return currentLayer;
+  }
+
+  /** Advance the structural version pointers (`doc_version`, the CDN
+   *  `layout_version` leaf) and the artifact epoch — shared by every
+   *  page-structure commit. Per-page versions are never touched here. */
+  private async advanceLayerVersions(
+    trx: Transaction<Schema>,
+    input: {
+      layer: LayerRow;
+      nextVersion: number;
+      artifactKey: string;
+      artifactSha: string;
+      artifactSize: number;
+    },
+    currentLayer: { doc_version: number | bigint; layout_version: number | bigint },
+    now: number,
+  ): Promise<PageStructureCache> {
+    const previousDocVersion = Number(currentLayer.doc_version);
+    const docVersion = previousDocVersion + 1;
+    const layoutVersion = Number(currentLayer.layout_version) + 1;
+
+    await trx
+      .updateTable('layers')
+      .set({
+        doc_version: docVersion,
+        layout_version: layoutVersion,
+        current_version: input.nextVersion,
+        current_artifact_key: input.artifactKey,
+        current_artifact_sha: input.artifactSha,
+        current_artifact_size: input.artifactSize,
+        updated_at: now,
+      })
+      .where('id', '=', input.layer.id)
+      .execute();
+
+    return { previousDocVersion, docVersion, layoutVersion };
   }
 
   private async commitMetadataUpdate(input: {
