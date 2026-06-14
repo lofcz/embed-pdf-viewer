@@ -2,10 +2,12 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  checkCapability,
   decodePdfBits,
   expandRawScope,
   passwordPromptFromState,
   securityStateFromHead,
+  type DocCapability,
   type DocumentAccessInfo,
   type DocumentIdentity,
   type DocumentSecurityService,
@@ -62,6 +64,19 @@ export class CloudDocumentSecurityService implements DocumentSecurityService {
     if (this.access) return this.access.effectiveScope;
     const bits = decodePdfBits(this.state.permissions.bits);
     return Array.from(expandRawScope(this.tokenScope, bits)).sort();
+  }
+
+  /**
+   * Wildcard-aware authorization check — mirrors what the server route layer
+   * enforces with. `effectiveScope` alone can't gate UI: it enumerates concrete
+   * grants and drops the `*` admin wildcard. So we honor a server-canonical
+   * concrete grant when present, then fall back to the same `checkCapability`
+   * predicate (which short-circuits `*`) against the JWT scope + /head bits.
+   */
+  allows(cap: DocCapability): boolean {
+    if (this.access?.effectiveScope.includes(cap)) return true;
+    const bits = decodePdfBits(this.state.permissions.bits);
+    return checkCapability(cap, this.tokenScope, bits);
   }
 
   /**

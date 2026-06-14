@@ -15,6 +15,7 @@ import type { CapabilityToken } from '@embedpdf-x/kernel';
  *  token to drive an additional lens (e.g. a wrapped thumbnail sidebar). */
 export type StageTokenProp = CapabilityToken<StageCapability>;
 import type { Camera } from '@embedpdf-x/stage-core';
+import { NO_FRAME, type PageFrame } from '@embedpdf-x/geometry';
 import {
   DocumentScope,
   makePageContext,
@@ -31,22 +32,45 @@ function PageSurface({
   documentId,
   page,
   camera,
+  frame,
   render,
+  chrome,
 }: {
   documentId: string;
   page: VisiblePage;
   camera: Camera;
+  /** Reserved chrome bands around the page (screen px); the layout reserved the
+   *  matching space, so the outer box tiles into it. */
+  frame: PageFrame;
   render: (page: PageContextValue) => React.ReactNode;
+  chrome?: (page: PageContextValue) => React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const zoom = camera.zoom;
+  // page.width/height are the DISPLAY footprint (already w↔h-swapped for 90/270
+  // by the layout). The CONTENT box occupies that footprint on screen.
   const w = page.width * zoom;
   const h = page.height * zoom;
-  const left = (page.x - camera.x) * zoom;
-  const top = (page.y - camera.y) * zoom;
+  const rotation = page.rotation;
+  const quarter = rotation === 90 || rotation === 270;
+  // Un-rotated content footprint on screen: for a quarter-turn the content's
+  // width spans the box height and vice-versa.
+  const contentW = quarter ? h : w;
+  const contentH = quarter ? w : h;
+  // The OUTER box = content box + the reserved frame on every side. Chrome paints
+  // into it; the content box is inset by the frame. The surface's top-left moves
+  // out by the frame so the content box keeps its scene position.
+  const left = (page.x - camera.x) * zoom - frame.left;
+  const top = (page.y - camera.y) * zoom - frame.top;
+  const outerW = w + frame.left + frame.right;
+  const outerH = h + frame.top + frame.bottom;
   // Render/coordinate scale is device-px per PDF point = the page's content scale
-  // (world ÷ intrinsic, from the sizing policy) times the camera zoom.
+  // (world ÷ intrinsic, from the sizing policy) times the camera zoom. Isotropic,
+  // so rotation doesn't change it.
   const renderScale = page.contentScale * zoom;
+  // PageContext lives in UN-rotated content space (size = contentW×contentH, ref
+  // on the rotated wrapper): layers position in page coordinates and the wrapper's
+  // CSS rotation carries them; toPagePoint inverts the rotation for hit-testing.
   const ctx = useMemo(
     () =>
       makePageContext(
@@ -54,32 +78,69 @@ function PageSurface({
         page.pon,
         page.pageIndex,
         renderScale,
-        { width: w, height: h },
+        { width: contentW, height: contentH },
         () => ref.current!.getBoundingClientRect(),
+        rotation,
+        frame,
       ),
-    [documentId, page.pon, page.pageIndex, w, h, renderScale],
+    [documentId, page.pon, page.pageIndex, contentW, contentH, renderScale, rotation, frame],
   );
   return (
-    <div
-      ref={ref}
-      style={{
-        position: 'absolute',
-        left,
-        top,
-        width: w,
-        height: h,
-        background: '#fff',
-        boxShadow: '0 6px 18px rgba(0,0,0,.18)',
-      }}
-    >
-      <PageProvider value={ctx}>{render(ctx)}</PageProvider>
+    <div style={{ position: 'absolute', left, top, width: outerW, height: outerH }}>
+      <PageProvider value={ctx}>
+        {/* the page's white background + shadow — axis-aligned at the content box
+            (inset by the frame), so the shadow stays put under rotation. */}
+        <div
+          style={{
+            position: 'absolute',
+            left: frame.left,
+            top: frame.top,
+            width: w,
+            height: h,
+            background: '#fff',
+            boxShadow: '0 6px 18px rgba(0,0,0,.18)',
+          }}
+        />
+        {/* page-space content — the ONLY thing the rotation turns. Centered on the
+            content box; markers/annotations ride the rotation in page coordinates. */}
+        <div
+          ref={ref}
+          style={{
+            position: 'absolute',
+            left: frame.left + w / 2,
+            top: frame.top + h / 2,
+            width: contentW,
+            height: contentH,
+            transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+          }}
+        >
+          {render(ctx)}
+        </div>
+        {/* box-space chrome — labels, selection border, per-page buttons — fills
+            the outer box, NEVER rotates. Bands are plain regions: a label is
+            `bottom:0; height: frame.bottom`, a button row `top:0; height: frame.top`. */}
+        {chrome?.(ctx)}
+      </PageProvider>
     </div>
   );
 }
 
 export interface StageProps {
-  /** Render prop: you decide what each visible page contains. */
+  /**
+   * PAGE-SPACE content for each visible page (RenderLayer, annotations,
+   * markers). Rendered inside the page's content frame, so it ROTATES with the
+   * page's display rotation — coordinates are plain PDF points.
+   */
   children: (page: PageContextValue) => React.ReactNode;
+  /**
+   * BOX-SPACE chrome for each visible page (page-number label, selection
+   * border, a per-page rotate/delete button). Rendered into the OUTER box
+   * (content + reserved `pageFrame`), so it does NOT rotate and the reserved
+   * bands are plain regions (`bottom:0; height: page.frame.bottom`). The three
+   * coordinate spaces: `children` (page content), `pageChrome` (page box +
+   * frame), `overlay` (viewport).
+   */
+  pageChrome?: (page: PageContextValue) => React.ReactNode;
   /** Viewport-space UI (menus, controls) rendered above the pages. */
   overlay?: React.ReactNode;
   /** The stage lens to drive (default: the main StageToken). */
@@ -88,12 +149,26 @@ export interface StageProps {
   style?: React.CSSProperties;
 }
 
-export function Stage({ children, overlay, token = StageToken, className, style }: StageProps) {
+export function Stage({
+  children,
+  pageChrome,
+  overlay,
+  token = StageToken,
+  className,
+  style,
+}: StageProps) {
   const stage = useCapability(token);
   const ref = useRef<HTMLDivElement>(null);
   const docId = useDocumentId();
   const camera = useSelector(token, (c) => c.camera()); // ref changes on camera change
   const pages = useSelector(token, (c) => c.visiblePages()); // memoized -> stable ref
+  // Reserved chrome bands (screen px), uniform across pages — the frame the
+  // outer box reserves and `pageChrome` paints into.
+  const frame = useSelector(
+    token,
+    (c) => c.pageFrame(),
+    (a, b) => a.top === b.top && a.right === b.right && a.bottom === b.bottom && a.left === b.left,
+  );
 
   useEffect(() => {
     const el = ref.current!;
@@ -162,7 +237,9 @@ export function Stage({ children, overlay, token = StageToken, className, style 
           documentId={docId ?? ''}
           page={p}
           camera={camera}
+          frame={frame}
           render={children}
+          chrome={pageChrome}
         />
       ))}
       {overlay}
@@ -174,13 +251,28 @@ export interface PageViewProps {
   page: number;
   /** Which document to show. Defaults to the active document. */
   documentId?: string;
+  /** Target width for the page CONTENT; the display box is the rotated footprint. */
   width?: number;
+  /** Reserved chrome bands around the page (screen px) — same model as `<Stage>`. */
+  pageFrame?: PageFrame;
+  /** Page-space content (rotates with the page). */
   children: React.ReactNode;
+  /** Box-space chrome (label, border, …) — never rotated. Mirrors `<Stage pageChrome>`. */
+  pageChrome?: React.ReactNode;
   style?: React.CSSProperties;
 }
 
-/** A single page surface with NO Stage — same layers, no camera/scroll/zoom. */
-export function PageView({ page, documentId, width = 240, children, style }: PageViewProps) {
+/** A single page surface with NO Stage — same layers + rotation + chrome frame,
+ *  no camera/scroll/zoom. */
+export function PageView({
+  page,
+  documentId,
+  width = 240,
+  pageFrame = NO_FRAME,
+  children,
+  pageChrome,
+  style,
+}: PageViewProps) {
   const kernel = useKernel();
   const active = useActiveDocumentId();
   const ref = useRef<HTMLDivElement>(null);
@@ -188,31 +280,62 @@ export function PageView({ page, documentId, width = 240, children, style }: Pag
   const meta = docId ? kernel.getState().core.documents[docId] : undefined;
   const base = meta?.pages[page];
   const pon = base?.pageObjectNumber ?? page + 1;
+  const rotation = base?.rotation ?? 0;
+  const quarter = rotation === 90 || rotation === 270;
   const scale = base ? width / base.width : 1;
-  const w = base ? base.width * scale : 0;
-  const h = base ? base.height * scale : 0;
+  // content footprint (screen px); the display box swaps for quarter-turns
+  const contentW = base ? base.width * scale : 0;
+  const contentH = base ? base.height * scale : 0;
+  const w = quarter ? contentH : contentW;
+  const h = quarter ? contentW : contentH;
+  // outer box = display box + reserved frame on every side
+  const outerW = w + pageFrame.left + pageFrame.right;
+  const outerH = h + pageFrame.top + pageFrame.bottom;
   const ctx = useMemo(
     () =>
-      makePageContext(docId ?? '', pon, page, scale, { width: w, height: h }, () =>
-        ref.current!.getBoundingClientRect(),
+      makePageContext(
+        docId ?? '',
+        pon,
+        page,
+        scale,
+        { width: contentW, height: contentH },
+        () => ref.current!.getBoundingClientRect(),
+        rotation,
+        pageFrame,
       ),
-    [docId, pon, page, w, h, scale],
+    [docId, pon, page, contentW, contentH, scale, rotation, pageFrame],
   );
   if (!docId || !meta) return null;
   return (
     <DocumentScope id={docId}>
-      <div
-        ref={ref}
-        style={{
-          position: 'relative',
-          width: w,
-          height: h,
-          background: '#fff',
-          boxShadow: '0 6px 18px rgba(0,0,0,.18)',
-          ...style,
-        }}
-      >
-        <PageProvider value={ctx}>{children}</PageProvider>
+      <div style={{ position: 'relative', width: outerW, height: outerH, ...style }}>
+        <PageProvider value={ctx}>
+          <div
+            style={{
+              position: 'absolute',
+              left: pageFrame.left,
+              top: pageFrame.top,
+              width: w,
+              height: h,
+              background: '#fff',
+              boxShadow: '0 6px 18px rgba(0,0,0,.18)',
+            }}
+          />
+          <div
+            ref={ref}
+            style={{
+              position: 'absolute',
+              left: pageFrame.left + w / 2,
+              top: pageFrame.top + h / 2,
+              width: contentW,
+              height: contentH,
+              transform: `translate(-50%, -50%) rotate(${rotation}deg)`,
+            }}
+          >
+            {children}
+          </div>
+          {pageChrome}
+        </PageProvider>
       </div>
     </DocumentScope>
   );

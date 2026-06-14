@@ -9,14 +9,19 @@
  * No DOM, no framework, fully serializable — this is the v4 Rust core, verbatim.
  */
 
-export interface Size {
-  width: number;
-  height: number;
-}
-export interface Point {
-  x: number;
-  y: number;
-}
+// The pure coordinate primitives live in the dependency-free geometry base
+// (shared with the framework adapters); stage-core re-exports them so existing
+// `from '@embedpdf-x/stage-core'` imports are unaffected.
+import {
+  displaySize,
+  NO_FRAME,
+  type PageFrame,
+  type PageRotation,
+  type Point,
+  type Size,
+} from '@embedpdf-x/geometry';
+export type { Point, Size, PageRotation, PageFrame } from '@embedpdf-x/geometry';
+
 export interface Rect {
   x: number;
   y: number;
@@ -28,22 +33,41 @@ export interface Camera {
   y: number;
   zoom: number;
 }
+
 export interface PageGeom {
+  /** UN-rotated (intrinsic) width — the content's own width before rotation. */
   width: number;
+  /** UN-rotated (intrinsic) height. */
   height: number;
+  /** Total display rotation. Layout swaps w↔h for 90/270 so the box is the
+   *  on-screen footprint; the renderer rotates the content into it. */
+  rotation?: PageRotation;
 }
 export interface PageBox {
   pageIndex: number;
   x: number;
   y: number;
+  /** DISPLAY width — swapped to the page's height for 90/270 rotations. */
   width: number;
+  /** DISPLAY height — swapped to the page's width for 90/270 rotations. */
   height: number;
+  /** The page's total display rotation; the renderer rotates the (normalized,
+   *  un-rotated) content bitmap by this to fill the display box. */
+  rotation: PageRotation;
   /**
    * World size ÷ intrinsic size for this page (1 for `intrinsic` sizing). The shell
    * multiplies it by the camera zoom to get device-px-per-PDF-point, so render
    * resolution and point↔screen mapping stay correct under `uniform` sizing.
+   * Isotropic, so it is unaffected by rotation.
    */
   contentScale: number;
+}
+
+/** The page's on-screen footprint: w↔h swapped for quarter-turns (via the shared
+ *  geometry primitive). Everything the layout packs uses these display dims; the
+ *  content scale (isotropic) and the renderer's transform recover the content. */
+function displayDims(pg: PageGeom): Size {
+  return displaySize({ width: pg.width, height: pg.height }, pg.rotation ?? 0);
 }
 export interface SceneItem {
   index: number;
@@ -368,17 +392,11 @@ function upperBound(arr: number[], t: number): number {
 const OVERSCAN = 2;
 
 /**
- * Reserved chrome space around each PAGE (world units in this pure layer; the
- * plugin derives them from screen px). Margins belong to PAGES, not items — in a
- * spread every page keeps its own flanks, so left/right chrome works everywhere.
+ * Reserved chrome space around each PAGE — the `PageFrame` primitive (world
+ * units in this pure layer; the shell derives them from screen px). The frame
+ * belongs to PAGES, not items — in a spread every page keeps its own flanks,
+ * so left/right chrome works everywhere.
  */
-export interface PageMargin {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
-const NO_MARGIN: PageMargin = { top: 0, right: 0, bottom: 0, left: 0 };
 
 interface LocalBox {
   pageIndex: number;
@@ -386,9 +404,12 @@ interface LocalBox {
   ly: number;
   w: number;
   h: number;
+  rotation: PageRotation;
 }
 
-/** Intrinsic item dimensions (pages only, no margins) — the `uniform` reference. */
+/** Intrinsic item dimensions (pages only, no margins) — the `uniform` reference.
+ *  Uses DISPLAY dims, so `uniform` equalizes the rotated footprint and a rotated
+ *  page sizes to match its neighbours as it actually appears. */
 function measureItem(
   pages: readonly PageGeom[],
   group: number[],
@@ -397,9 +418,9 @@ function measureItem(
   let w = 0;
   let h = 0;
   for (let j = 0; j < group.length; j++) {
-    const pg = pages[group[j]];
-    w += pg.width + (j > 0 ? gap : 0);
-    if (pg.height > h) h = pg.height;
+    const d = displayDims(pages[group[j]]);
+    w += d.width + (j > 0 ? gap : 0);
+    if (d.height > h) h = d.height;
   }
   return { width: w, height: h };
 }
@@ -414,31 +435,34 @@ function packScaledItem(
   group: number[],
   scale: number,
   gap: number,
-  margin: PageMargin,
+  frame: PageFrame,
   direction: Direction,
 ): { local: LocalBox[]; width: number; height: number } {
   let maxH = 0;
-  for (let j = 0; j < group.length; j++) maxH = Math.max(maxH, pages[group[j]].height * scale);
+  for (let j = 0; j < group.length; j++)
+    maxH = Math.max(maxH, displayDims(pages[group[j]]).height * scale);
   const local: LocalBox[] = [];
   let lx = 0;
   for (let j = 0; j < group.length; j++) {
-    const w = pages[group[j]].width * scale;
-    const h = pages[group[j]].height * scale;
+    const d = displayDims(pages[group[j]]);
+    const w = d.width * scale;
+    const h = d.height * scale;
     local.push({
       pageIndex: group[j],
-      lx: lx + margin.left,
-      ly: margin.top + (maxH - h) / 2, // page centers within the inner band
+      lx: lx + frame.left,
+      ly: frame.top + (maxH - h) / 2, // page centers within the inner band
       w,
       h,
+      rotation: pages[group[j]].rotation ?? 0,
     });
-    lx += margin.left + w + margin.right + gap * scale;
+    lx += frame.left + w + frame.right + gap * scale;
   }
   const width = Math.max(0, lx - gap * scale);
-  const height = margin.top + maxH + margin.bottom;
+  const height = frame.top + maxH + frame.bottom;
   if (direction === 'rtl') {
     // reading-first page takes the RIGHTMOST slot (the spread binds on the right);
     // slots mirror, but each page keeps its PHYSICAL margins (left room stays left)
-    for (const b of local) b.lx = width - b.lx - b.w + (margin.left - margin.right);
+    for (const b of local) b.lx = width - b.lx - b.w + (frame.left - frame.right);
   }
   return { local, width, height };
 }
@@ -450,6 +474,7 @@ function placePages(item: SceneItem, local: LocalBox[], contentScale: number): P
     y: item.y + b.ly,
     width: b.w,
     height: b.h,
+    rotation: b.rotation,
     contentScale,
   }));
 }
@@ -467,7 +492,7 @@ export interface LinearOptions {
   sizing?: SizingMode;
   direction?: Direction;
   /** Reserved chrome space around each PAGE (world units; constant, never scaled). */
-  pageMargin?: PageMargin;
+  pageFrame?: PageFrame;
 }
 export function linearLayout(
   pages: readonly PageGeom[],
@@ -483,7 +508,7 @@ export function linearLayout(
   // direction-agnostic (RTL books still scroll down) — only spreads swap.
   const mirrored = !vertical && direction === 'rtl';
 
-  const margin = opts.pageMargin ?? NO_MARGIN;
+  const frame = opts.pageFrame ?? NO_FRAME;
 
   // Pass 1: measure every item at intrinsic PAGE size (no margins) — the cross axis
   // (width when vertical) gives the reference for `uniform` sizing, so uniform
@@ -503,7 +528,7 @@ export function linearLayout(
 
   for (let i = 0; i < grouping.length; i++) {
     const s = itemScale(crossOf(measures[i]), refCross, sizing);
-    const packed = packScaledItem(pages, grouping[i], s, gap, margin, direction);
+    const packed = packScaledItem(pages, grouping[i], s, gap, frame, direction);
     const { width, height } = packed;
     scales[i] = s;
     locals[i] = packed.local;
@@ -592,7 +617,7 @@ export interface GridOptions {
   sizing?: SizingMode;
   direction?: Direction;
   /** Reserved chrome space around each PAGE (world units; constant, never scaled). */
-  pageMargin?: PageMargin;
+  pageFrame?: PageFrame;
 }
 export function gridLayout(
   pages: readonly PageGeom[],
@@ -604,7 +629,7 @@ export function gridLayout(
   const sizing = opts.sizing ?? 'intrinsic';
   const direction = opts.direction ?? 'ltr';
 
-  const margin = opts.pageMargin ?? NO_MARGIN;
+  const frame = opts.pageFrame ?? NO_FRAME;
 
   // Pass 1: measure at intrinsic PAGE size; the widest item is the `uniform` reference.
   const measures = grouping.map((group) => measureItem(pages, group, gap));
@@ -619,7 +644,7 @@ export function gridLayout(
   let cellH = 1;
   for (let i = 0; i < n; i++) {
     const s = itemScale(measures[i].width, refW, sizing);
-    const packed = packScaledItem(pages, grouping[i], s, gap, margin, direction);
+    const packed = packScaledItem(pages, grouping[i], s, gap, frame, direction);
     scales[i] = s;
     locals[i] = packed.local;
     sizes[i] = { width: packed.width, height: packed.height };

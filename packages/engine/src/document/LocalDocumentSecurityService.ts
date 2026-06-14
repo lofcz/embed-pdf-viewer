@@ -12,6 +12,7 @@ import {
   type DocumentUnlockInput,
   type DocumentUnlockResult,
   type PasswordPrompt,
+  type DocCapability,
 } from '@embedpdf/engine-core/runtime';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
@@ -51,6 +52,16 @@ export class LocalDocumentSecurityService implements DocumentSecurityService {
    */
   get effectiveScope(): ReadonlyArray<string> {
     return this.guard ? this.guard.effectiveScope() : [];
+  }
+
+  /**
+   * Wildcard-aware authorization check — the same predicate the page/
+   * annotation services enforce with (`ScopeGuard.can`/`assertCapability`).
+   * Returns `false` on the legacy no-ScopeGuard open path (no scope was
+   * supplied, so we can't affirm a grant — UI should hide edit affordances).
+   */
+  allows(cap: DocCapability): boolean {
+    return this.guard ? this.guard.can(cap) : false;
   }
 
   /** Identity claims supplied at `engine.open()`, or null when none. */

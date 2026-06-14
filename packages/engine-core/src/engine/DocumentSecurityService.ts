@@ -1,4 +1,4 @@
-import type { PdfBits } from '../auth/scope';
+import type { DocCapability, PdfBits } from '../auth/scope';
 import type { AbortablePromise } from '../promise/AbortablePromise';
 
 export type DocumentOpenMode = 'none' | 'user' | 'owner';
@@ -174,13 +174,28 @@ export interface DocumentSecurityService {
   readonly current: DocumentSecurityState;
 
   /**
-   * The caller's expanded capability set — the result of evaluating
-   * raw scope + pdf bits + implication rules. Use this to gate UI
-   * (e.g. `effectiveScope.includes('doc.text.copy')`). Identical shape
-   * on local and cloud; cloud uses the server-canonical value when
-   * available, else computes locally from JWT scope + /head bits.
+   * The caller's expanded capability set — raw scope + pdf bits +
+   * implication rules, enumerated for DISPLAY ("here's what you can
+   * do"). Identical shape on local and cloud; cloud uses the
+   * server-canonical value when available, else computes locally from
+   * JWT scope + /head bits.
+   *
+   * NOTE: this is an *enumeration*, not an authorization check. The `*`
+   * admin wildcard and unbounded parametric collab grants are NOT
+   * listed here (they can't be). To gate UI, use {@link allows} — the
+   * same wildcard-aware predicate the engine enforces with.
    */
   readonly effectiveScope: ReadonlyArray<string>;
+
+  /**
+   * Wildcard-aware authorization check — the SAME predicate the engine
+   * enforces with (`checkCapability`). A shown control gated on this
+   * mirrors exactly what the engine will allow: the `*` admin grant and
+   * `pdf.permissions`-derived bits are both honored. Use this for edit
+   * gating (e.g. `allows('doc.pages.assemble')`); use `effectiveScope`
+   * only to *display* the concrete grants.
+   */
+  allows(capability: DocCapability): boolean;
 
   /**
    * Identity of the current caller, or null when anonymous.

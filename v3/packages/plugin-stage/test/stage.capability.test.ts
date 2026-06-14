@@ -12,7 +12,7 @@ import type { StageAction, StageConfig, StageState } from '../src/types';
  * the whole Stage is deterministically testable because the core is pure.
  */
 function harness(
-  sizes: Array<{ width: number; height: number }>,
+  sizes: Array<{ width: number; height: number; rotation?: 0 | 90 | 180 | 270 }>,
   config: StageConfig = {},
   opts: { skipViewport?: boolean } = {},
 ) {
@@ -21,12 +21,12 @@ function harness(
     pageObjectNumber: i + 1,
     width: s.width,
     height: s.height,
-    rotation: 0,
+    rotation: s.rotation ?? 0,
     label: null,
     userUnit: 1,
     boxes: {},
   }));
-  const meta = { id: 'doc', name: 'doc', pageCount: pages.length, pages };
+  const meta = { id: 'doc', name: 'doc', pageCount: pages.length, pages, revision: 0 };
   let state = initialStageState(config);
   const ctx = {
     id: 'stage',
@@ -45,7 +45,11 @@ function harness(
   // is level-triggered inside setViewport (no manual placeInitial; that's the fix
   // for the "page stuck at top-left until the first scroll" race).
   if (!opts.skipViewport) stage.setViewport({ width: 1000, height: 700 });
-  return { stage };
+  // `meta` is the live registry the capability reads through `document()`. Mutating
+  // a page's rotation + bumping `revision` simulates a rotate/move/delete event,
+  // exactly as the kernel's event→registry bridge would (which the stage effect
+  // then turns into a `refit()`).
+  return { stage, meta };
 }
 
 const PORTRAIT = Array.from({ length: 5 }, () => ({ width: 600, height: 800 }));
@@ -241,6 +245,95 @@ describe('pageToWorld: page space → world space (the sizing-policy transform)'
   it('returns null for an unknown pon', () => {
     const { stage } = harness(MIXED);
     expect(stage.pageToWorld(99, { x: 0, y: 0 })).toBeNull();
+  });
+});
+
+describe('document rotation: the stage honors PageLayout.rotation', () => {
+  it('a rotated page reports a swapped display box via pageRect', () => {
+    const { stage } = harness([{ width: 600, height: 800, rotation: 90 }]);
+    const pr = stage.pageRect(1)!;
+    expect(pr.rotation).toBe(90);
+    expect(pr.width).toBe(800); // portrait → landscape footprint
+    expect(pr.height).toBe(600);
+  });
+
+  it('pageToWorld maps a content corner into the rotated display box', () => {
+    // 90° CW: the content top-left (0,0) lands at the display box top-RIGHT.
+    const { stage } = harness([{ width: 600, height: 800, rotation: 90 }]);
+    const pr = stage.pageRect(1)!; // intrinsic sizing → contentScale 1, display 800×600
+    const topLeft = stage.pageToWorld(1, { x: 0, y: 0 })!;
+    expect(topLeft.x).toBeCloseTo(pr.x + pr.width, 4); // top-right corner
+    expect(topLeft.y).toBeCloseTo(pr.y, 4);
+    // content bottom-left (0,800) → display top-left
+    const bottomLeft = stage.pageToWorld(1, { x: 0, y: 800 })!;
+    expect(bottomLeft.x).toBeCloseTo(pr.x, 4);
+    expect(bottomLeft.y).toBeCloseTo(pr.y, 4);
+    // round-trips back to 0° behaviour when unrotated
+    const flat = harness([{ width: 600, height: 800 }]).stage;
+    const fr = flat.pageRect(1)!;
+    expect(flat.pageToWorld(1, { x: 10, y: 20 })).toEqual({ x: fr.x + 10, y: fr.y + 20 });
+  });
+
+  it('a rotated page changes which axis fit-width resolves against', () => {
+    // a lone portrait rotated 90° fills the pane by its 800 (was height) edge
+    const { stage } = harness([{ width: 600, height: 800, rotation: 90 }]);
+    stage.fitWidth();
+    expect(stage.pageRect(1)!.width * stage.zoomLevel()).toBeCloseTo(1000 - 2 * PAD, 4);
+  });
+});
+
+describe('refit: a runtime registry change (rotate/move/delete) re-resolves the zoom', () => {
+  // On-screen width of page pon=1 = its display width × the resolved camera zoom.
+  const widthPx = (stage: ReturnType<typeof harness>['stage']) =>
+    stage.pageRect(1)!.width * stage.zoomLevel();
+
+  it('keeps `pageWidth: 110` exactly 110px wide across a 90° rotation', () => {
+    const { stage, meta } = harness([{ width: 600, height: 800 }], {
+      layout: 'vertical',
+      zoom: { pageWidth: 110 },
+    });
+    expect(widthPx(stage)).toBeCloseTo(110, 4); // portrait: 600 × (110/600)
+
+    // Rotate the page 90°: display width swaps 600 → 800, exactly as a rotate
+    // event would, and bump the registry revision.
+    meta.pages[0].rotation = 90;
+    meta.revision += 1;
+    stage.refit();
+
+    // The zoom re-resolved against the 800-wide footprint, so width stays 110.
+    expect(widthPx(stage)).toBeCloseTo(110, 4); // landscape: 800 × (110/800)
+  });
+
+  it('without refit the resolved zoom is stale (the bug this fixes)', () => {
+    const { stage, meta } = harness([{ width: 600, height: 800 }], {
+      layout: 'vertical',
+      zoom: { pageWidth: 110 },
+    });
+    meta.pages[0].rotation = 90;
+    meta.revision += 1;
+    // No refit(): the scene re-keys (display width is now 800) but cam.zoom still
+    // targets the old 600 width → 800 × (110/600) ≈ 146.7px, not 110.
+    expect(widthPx(stage)).toBeCloseTo((800 * 110) / 600, 4);
+    expect(widthPx(stage)).not.toBeCloseTo(110, 1);
+  });
+
+  it('re-fits `fitPage` to the rotated footprint', () => {
+    const { stage, meta } = harness([{ width: 600, height: 800 }], { layout: 'vertical' });
+    stage.fitPage(); // portrait 600×800 in 1000×700: height-bound
+    const before = stage.zoomLevel();
+
+    meta.pages[0].rotation = 90; // → landscape 800×600
+    meta.revision += 1;
+    stage.refit();
+
+    // Still fits, now bound by the rotated height (600) against the viewport.
+    expect(stage.pageRect(1)!.height * stage.zoomLevel()).toBeCloseTo(700 - 2 * PAD, 4);
+    expect(stage.zoomLevel()).not.toBeCloseTo(before, 4);
+  });
+
+  it('is a no-op before the first placement (does not throw)', () => {
+    const { stage } = harness([{ width: 600, height: 800 }], {}, { skipViewport: true });
+    expect(() => stage.refit()).not.toThrow();
   });
 });
 
@@ -551,7 +644,7 @@ describe('settingsEqual: registry-derived equality (the React selector contract)
     // same values in brand-new objects (what a reducer PATCH produces)
     const b = {
       ...DEFAULT_SETTINGS,
-      pageMargin: { ...DEFAULT_SETTINGS.pageMargin },
+      pageFrame: { ...DEFAULT_SETTINGS.pageFrame },
       fitAlign: { ...DEFAULT_SETTINGS.fitAlign },
     };
     expect(settingsEqual(a, b)).toBe(true);
@@ -979,11 +1072,11 @@ describe('gap: the value carries the unit — world (canvas) vs { px } (UI-stabl
   });
 });
 
-describe('pageMargin (screen px): reserved chrome bands at the lens zoom', () => {
+describe('pageFrame (screen px): reserved chrome bands at the lens zoom', () => {
   it('px-exact bands at a fixed zoom level', () => {
     const { stage } = harness(PORTRAIT, {
       zoom: { level: 0.5 },
-      pageMargin: { top: 10, right: 0, bottom: 30, left: 0 },
+      pageFrame: { top: 10, right: 0, bottom: 30, left: 0 },
     });
     const p1 = stage.pageRect(1)!;
     const p2 = stage.pageRect(2)!;
@@ -997,12 +1090,12 @@ describe('pageMargin (screen px): reserved chrome bands at the lens zoom', () =>
     const bare = harness(PORTRAIT, { zoom: { mode: 'fit-page' } }).stage.zoomLevel();
     const chromed = harness(PORTRAIT, {
       zoom: { mode: 'fit-page' },
-      pageMargin: { top: 0, right: 0, bottom: 40, left: 0 },
+      pageFrame: { top: 0, right: 0, bottom: 40, left: 0 },
     }).stage.zoomLevel();
     expect(chromed).toBeLessThan(bare); // zooms out to keep the band visible
   });
 
-  it('wrapped + pageMargin converges (the thumbnail-sidebar config)', () => {
+  it('wrapped + pageFrame converges (the thumbnail-sidebar config)', () => {
     const { stage } = harness(
       PORTRAIT,
       {
@@ -1012,7 +1105,7 @@ describe('pageMargin (screen px): reserved chrome bands at the lens zoom', () =>
         zoom: { pageWidth: 110 },
         padding: 10,
         gap: 12,
-        pageMargin: { top: 0, right: 0, bottom: 16, left: 0 },
+        pageFrame: { top: 0, right: 0, bottom: 16, left: 0 },
       },
       { skipViewport: true },
     );
@@ -1032,7 +1125,7 @@ describe('pageMargin (screen px): reserved chrome bands at the lens zoom', () =>
   it('reveal includes the chrome band (the label scrolls into view too)', () => {
     const { stage } = harness(PORTRAIT, {
       zoom: { level: 0.5 },
-      pageMargin: { top: 0, right: 0, bottom: 30, left: 0 },
+      pageFrame: { top: 0, right: 0, bottom: 30, left: 0 },
     });
     stage.reveal(3, { behavior: 'instant' });
     const rect = stage.pageRect(4)!; // pon 4 = page index 3

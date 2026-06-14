@@ -6,7 +6,7 @@ import type {
   Direction,
   Camera,
   PageBox,
-  PageMargin,
+  PageFrame,
   Point,
   Size,
   SizingMode,
@@ -73,15 +73,17 @@ export interface StageSettings {
    */
   gap: Gap;
   /**
-   * Reserved chrome space around EACH PAGE, in SCREEN px (labels below, button
-   * rows above, side rails — rendered by the app in the band, e.g. `top: 100%`).
-   * Per page, not per item: in a spread every page keeps its own flanks.
+   * Reserved chrome real estate around EACH PAGE, in SCREEN px — one thickness
+   * per side. The page content is inset by these; the bands hold box-space
+   * chrome (a label below, a button row above, side rails) painted by the app
+   * via the adapter's `pageChrome` slot. Per page, not per item: in a spread
+   * every page keeps its own flanks. Constant screen px (unaffected by zoom).
    *
    * Naming rule for this settings bag: every setting describes the STAGE itself
    * (the container) — `padding`, `gap`, `layout`, … The rare setting owned by the
-   * page carries the `page` prefix (`pageMargin`; `pageWidth` in zoom).
+   * page carries the `page` prefix (`pageFrame`; `pageWidth` in zoom).
    */
-  pageMargin: PageMargin;
+  pageFrame: PageFrame;
   /**
    * Reading direction. RTL: horizontal items advance leftward, spreads bind on the
    * right, grid rows fill right→left, and alignment 'start' on x means the RIGHT
@@ -201,7 +203,7 @@ export interface StageCapability {
   bounded(): boolean;
   padding(): number;
   gap(): Gap;
-  pageMargin(): PageMargin;
+  pageFrame(): PageFrame;
   fitAlign(): Alignment;
   overflowAlign(): Alignment;
   direction(): Direction;
@@ -229,6 +231,16 @@ export interface StageCapability {
   fitAll(): void;
   /** Fit width but never upscale past 100% (Adobe's "Automatic"). */
   automatic(): void;
+  /**
+   * Re-resolve the active zoom intent and re-place against the CURRENT scene,
+   * preserving the anchored page-point. Call after the page geometry changes
+   * underneath the lens — rotate/move/delete — so fit/pixel zoom modes
+   * (`fitPage`, `pageWidth`, …) recompute against the new footprint. A no-op
+   * before the first placement; for a fixed `{ level }` zoom it just re-anchors.
+   * Wired automatically to the document's page-registry revision; exposed for
+   * any external geometry change a host wants to react to.
+   */
+  refit(): void;
   /** Go to a page. Fresh arrival places by the unit rule; pass `viewpoint` to restore. */
   goToPage(pageIndex: number, opts?: GoToOptions): void;
   /**
@@ -254,7 +266,7 @@ export interface StageCapability {
   setBounded(bounded: boolean): void;
   setPadding(padding: number): void;
   setGap(gap: Gap): void;
-  setPageMargin(pageMargin: PageMargin): void;
+  setPageFrame(pageFrame: PageFrame): void;
   setFitAlign(fitAlign: Alignment): void;
   setOverflowAlign(overflowAlign: Alignment): void;
   setDirection(direction: Direction): void;

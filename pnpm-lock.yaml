@@ -2774,15 +2774,15 @@ importers:
       '@cloudpdf/engine':
         specifier: workspace:*
         version: link:../../../ee/engine
-      '@embedpdf-x/engine-fake':
-        specifier: workspace:*
-        version: link:../../packages/engine-fake
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
       '@embedpdf-x/plugin-marker':
         specifier: workspace:*
         version: link:../../packages/plugin-marker
+      '@embedpdf-x/plugin-page-edit':
+        specifier: workspace:*
+        version: link:../../packages/plugin-page-edit
       '@embedpdf-x/plugin-persist':
         specifier: workspace:*
         version: link:../../packages/plugin-persist
@@ -2833,15 +2833,14 @@ importers:
         specifier: ^6.0.0
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  v3/packages/engine-fake:
-    dependencies:
-      '@embedpdf/engine-core':
-        specifier: workspace:*
-        version: link:../../../packages/engine-core
+  v3/packages/geometry:
     devDependencies:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
 
   v3/packages/kernel:
     dependencies:
@@ -2852,6 +2851,9 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
 
   v3/packages/plugin-marker:
     dependencies:
@@ -2862,6 +2864,19 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
+
+  v3/packages/plugin-page-edit:
+    dependencies:
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
 
   v3/packages/plugin-persist:
     dependencies:
@@ -2888,6 +2903,9 @@ importers:
 
   v3/packages/plugin-stage:
     dependencies:
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
@@ -2914,12 +2932,18 @@ importers:
 
   v3/packages/react:
     dependencies:
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
       '@embedpdf-x/plugin-marker':
         specifier: workspace:*
         version: link:../plugin-marker
+      '@embedpdf-x/plugin-page-edit':
+        specifier: workspace:*
+        version: link:../plugin-page-edit
       '@embedpdf-x/plugin-render':
         specifier: workspace:*
         version: link:../plugin-render
@@ -2942,8 +2966,15 @@ importers:
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
 
   v3/packages/stage-core:
+    dependencies:
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
     devDependencies:
       typescript:
         specifier: ^5.0.0

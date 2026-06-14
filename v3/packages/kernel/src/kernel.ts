@@ -9,6 +9,7 @@ import { planPlugins } from './order';
 import {
   CORE_ACTIVE_CHANGED,
   CORE_DOCUMENT_ADDED,
+  CORE_DOCUMENT_PAGES_UPDATED,
   CORE_DOCUMENT_REMOVED,
   CORE_ORDER_CHANGED,
   DocumentsToken,
@@ -27,6 +28,21 @@ import {
   type PluginScope,
   type Unsubscribe,
 } from './types';
+import type { DocumentEvent } from '@embedpdf/engine-core/runtime';
+
+/** The new page registry a document mutation carries, or null for events that
+ *  don't change page structure (annotations, metadata). The snapshot is the
+ *  same shape `pages.list()` returns, so callers swap it in directly. */
+function layoutFromEvent(event: DocumentEvent) {
+  switch (event.type) {
+    case 'pages.moved':
+    case 'pages.rotated':
+    case 'pages.deleted':
+      return event.layout;
+    default:
+      return null;
+  }
+}
 
 export interface Kernel {
   readonly engine: Engine;
@@ -129,6 +145,7 @@ export function createKernel(opts: { engine: Engine; plugins: AnyPlugin[] }): Ke
       name,
       pageCount: snapshot.pageCount,
       pages: snapshot.pages,
+      revision: 0,
     };
     documentHandles.set(meta.id, handle);
 
@@ -143,8 +160,32 @@ export function createKernel(opts: { engine: Engine; plugins: AnyPlugin[] }): Ke
       { type: CORE_DOCUMENT_ADDED },
     );
 
-    // bring up every document-scoped plugin for this document
+    // Document mutation events (rotate/move/delete) replace the page
+    // registry in place — the snapshot they carry is byte-identical to
+    // pages.list(), so this is a direct swap, no merge. Every document-scoped
+    // plugin (every Stage lens) re-derives from the new registry for free.
+    // Own mutations and remote (collaborator) mutations arrive identically;
+    // the handler is origin-agnostic, as the event model intends.
     documentTeardowns.set(meta.id, []);
+    const unsubscribeEvents = handle.events.subscribe((event) => {
+      const layout = layoutFromEvent(event);
+      if (!layout) return;
+      const now = store.getCore();
+      const existing = now.documents[meta.id];
+      if (!existing) return; // closed mid-flight
+      const updated: DocumentMeta = {
+        ...existing,
+        pageCount: layout.pageCount,
+        pages: layout.pages,
+        revision: existing.revision + 1,
+      };
+      store.setCore(
+        { documents: { ...now.documents, [meta.id]: updated } },
+        { type: CORE_DOCUMENT_PAGES_UPDATED },
+      );
+    });
+    documentTeardowns.get(meta.id)!.push(unsubscribeEvents);
+
     for (const plugin of documentScopedPlugins) {
       store.registerSlice(sliceKey(plugin.id, meta.id), reducerOf(plugin), initialStateOf(plugin));
     }

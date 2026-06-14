@@ -1,8 +1,8 @@
 {
-  "name": "@embedpdf-x/kernel",
+  "name": "@embedpdf-x/plugin-page-edit",
   "version": "0.0.0",
   "private": true,
-  "description": "Pure, framework-free runtime for the EmbedPDF v3 viewer: store, typed capabilities, plugin lifecycle. No DOM, serializable, Rust/Crux-ready.",
+  "description": "Document-scoped page-edit capability: PON-addressed rotate/move/delete over the engine DocumentHandle. Owns relative→absolute rotation so framework adapters never re-derive it; the home for pending/undo/gating state.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -34,7 +34,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/engine-core": "workspace:*"
+    "@embedpdf-x/kernel": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

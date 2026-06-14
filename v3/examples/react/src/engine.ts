@@ -3,15 +3,14 @@
  * — it only speaks the @embedpdf/engine-core `Engine` contract, so swapping the
  * implementation here changes nothing above it.
  *
- * Pick with ?engine=local|cloud|fake  (default: local wasm)
+ * Pick with ?engine=local|cloud  (default: local wasm)
  *   local — @embedpdf/engine: PDFium wasm in a Worker thread (real rendering)
  *   cloud — @cloudpdf/engine: the same contract over HTTP (needs a running server)
- *   fake  — @embedpdf-x/engine-fake: synthesized pages (no assets)
  */
 import type { Engine, OpenInput } from '@embedpdf-x/kernel';
 import type { InitialDocument } from '@embedpdf-x/react';
 
-export type EngineMode = 'local' | 'cloud' | 'fake';
+export type EngineMode = 'local' | 'cloud';
 
 export const engineMode: EngineMode =
   (new URLSearchParams(window.location.search).get('engine') as EngineMode | null) ?? 'local';
@@ -25,10 +24,6 @@ export async function createEngine(): Promise<Engine> {
         baseUrl: import.meta.env.VITE_CLOUDPDF_URL ?? 'http://127.0.0.1:3000',
         token: import.meta.env.VITE_CLOUDPDF_TOKEN,
       });
-    }
-    case 'fake': {
-      const { createFakeEngine } = await import('@embedpdf-x/engine-fake');
-      return createFakeEngine();
     }
     case 'local':
     default: {

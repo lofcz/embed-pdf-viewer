@@ -15,13 +15,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@embedpdf-x/kernel': src('kernel'),
+      '@embedpdf-x/geometry': src('geometry'),
       '@embedpdf-x/stage-core': src('stage-core'),
       '@embedpdf-x/plugin-stage': src('plugin-stage'),
       '@embedpdf-x/plugin-marker': src('plugin-marker'),
       '@embedpdf-x/plugin-persist': src('plugin-persist'),
       '@embedpdf-x/plugin-render': src('plugin-render'),
+      '@embedpdf-x/plugin-page-edit': src('plugin-page-edit'),
       '@embedpdf-x/plugin-view-manager': src('plugin-view-manager'),
-      '@embedpdf-x/engine-fake': src('engine-fake'),
       '@embedpdf-x/react': src('react'),
     },
   },

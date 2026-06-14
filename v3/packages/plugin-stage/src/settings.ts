@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS: StageSettings = {
   bounded: true,
   padding: 24,
   gap: 16,
-  pageMargin: { top: 0, right: 0, bottom: 0, left: 0 },
+  pageFrame: { top: 0, right: 0, bottom: 0, left: 0 },
   direction: 'ltr',
   fitAlign: { x: 'center', y: 'center' },
   overflowAlign: { x: 'start', y: 'start' },
@@ -51,7 +51,7 @@ export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
   bounded: 'reclamp',
   padding: 'reclamp',
   gap: 'scene',
-  pageMargin: 'scene',
+  pageFrame: 'scene',
   direction: 'scene',
   fitAlign: 'reclamp',
   overflowAlign: 'none',
@@ -60,7 +60,7 @@ export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
 };
 export const SETTING_KEYS = Object.keys(SETTINGS_EFFECT) as Array<keyof StageSettings>;
 
-// Settings values are primitives or one-level objects (align pairs, pageMargin,
+// Settings values are primitives or one-level objects (align pairs, pageFrame,
 // gap { px }, zoom intents) — one level of structural equality covers them all.
 const valueEq = (a: unknown, b: unknown): boolean => {
   if (a === b) return true;

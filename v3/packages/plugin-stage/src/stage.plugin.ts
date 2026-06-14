@@ -1,6 +1,7 @@
 import { definePlugin } from '@embedpdf-x/kernel';
 import type { CapabilityToken } from '@embedpdf-x/kernel';
 import { createStageCapability } from './capability';
+import { registerStageEffects } from './effects';
 import { initialStageState, stageReducer } from './reducer';
 import { StageToken } from './types';
 import type { StageAction, StageCapability, StageConfig, StageState } from './types';
@@ -40,9 +41,12 @@ export const stagePlugin = (options: StagePluginOptions = {}) => {
     initialState: () => initialStageState(config),
     reduce: stageReducer,
     capability: (ctx) => createStageCapability(ctx, config),
-    // No effects: initial placement is LEVEL-triggered inside the capability's
-    // setViewport (place when the stage first learns a real size), so it cannot
-    // race effect registration. Other plugins only *offer* initial views via
-    // provideInitialView; placeInitial resolves them by priority.
+    // INITIAL placement is deliberately NOT an effect: it's LEVEL-triggered
+    // inside the capability's setViewport (place when the stage first learns a
+    // real size), so it cannot race effect registration. Other plugins only
+    // *offer* initial views via provideInitialView; placeInitial resolves them
+    // by priority. The one effect below is STEADY-STATE — it re-fits when the
+    // page registry mutates (rotate/move/delete) and so has no such race.
+    effects: (ctx) => registerStageEffects(ctx, token),
   });
 };

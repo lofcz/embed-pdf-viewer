@@ -15,6 +15,7 @@ import type {
 import { markerPlugin } from '@embedpdf-x/plugin-marker';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
+import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
 import { viewManagerPlugin } from '@embedpdf-x/plugin-view-manager';
 import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
 import {
@@ -31,6 +32,8 @@ import {
   useStageSettings,
   useDocuments,
   useViews,
+  usePageEditor,
+  useSelector,
 } from '@embedpdf-x/react';
 import { bootstrap, engineMode, newDocument } from './engine';
 import type { Boot } from './engine';
@@ -53,11 +56,12 @@ const plugins = [
     zoom: { pageWidth: 110 }, // thumbs are 110 SCREEN px wide — for ANY document
     padding: 10,
     gap: { px: 12 }, // UI-stable spacing: 12px between thumbs in EVERY document
-    pageMargin: { top: 0, right: 0, bottom: 16, left: 0 }, // reserved label band (screen px)
+    pageFrame: { top: 0, right: 0, bottom: 16, left: 0 }, // reserved label band (screen px)
     fitAlign: { x: 'center', y: 'start' }, // few pages? thumbs hug the TOP, not the middle
     scrollBehavior: 'instant',
   }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
+  pageEditPlugin(), // document-scoped: PON-addressed rotate/move/delete over the handle
   markerPlugin(),
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
@@ -324,6 +328,10 @@ function Toolbar() {
 // columns by width. Click a thumb to navigate the MAIN lens.
 function ThumbnailSidebar() {
   const { currentPage, goToPage } = usePages(); // the MAIN lens
+  const editor = usePageEditor(); // PERSISTED page edits (document-scoped, shared by lenses)
+  const canEdit = editor.canEdit();
+  const pageCount = useSelector(ThumbsStageToken, (c) => c.pageCount()); // gates move/delete edges
+  const [menuPage, setMenuPage] = useState<number | null>(null); // which thumb's action menu is open
   const thumbs = useStageSettings(ThumbsStageToken); // the SIDEBAR lens
   const thumbPx = 'pageWidth' in thumbs.settings.zoom ? thumbs.settings.zoom.pageWidth : 110;
   // FOLLOW the main view (Adobe behavior): when its current page changes, make that
@@ -373,40 +381,165 @@ function ThumbnailSidebar() {
         />
         px
       </label>
-      <Stage token={ThumbsStageToken} style={{ flex: 1, position: 'relative' }}>
-        {(page) => (
-          <>
-            <RenderLayer />
-            <div
-              onClick={() => goToPage(page.pageIndex)}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                cursor: 'pointer',
-                boxSizing: 'border-box',
-                border: page.pageIndex === currentPage ? '3px solid #3858e9' : '1px solid #d0d0d0',
-              }}
-            />
-            {/* page label in the RESERVED band below the page (pageMargin.bottom) */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                height: 16,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 10,
-                color: '#666',
-                pointerEvents: 'none',
-              }}
-            >
-              {page.pageIndex + 1}
-            </div>
-          </>
-        )}
+      <Stage
+        token={ThumbsStageToken}
+        style={{ flex: 1, position: 'relative' }}
+        pageChrome={(page) => {
+          // BOX-SPACE chrome: the click target/selection border hug the CONTENT
+          // box (inset by the frame), and the label sits in the reserved bottom
+          // band. None of this rotates with the page content; that's the point.
+          const menuOpen = menuPage === page.pageIndex;
+          // Run an edit, then close the menu — a move/delete reshuffles indices,
+          // so leaving it open would leave it pointing at a different page.
+          const act = (e: React.MouseEvent, fn: () => void) => {
+            e.stopPropagation();
+            fn();
+            setMenuPage(null);
+          };
+          const itemStyle: React.CSSProperties = {
+            display: 'block',
+            width: '100%',
+            textAlign: 'left',
+            padding: '5px 10px',
+            border: 'none',
+            background: 'transparent',
+            font: 'inherit',
+            fontSize: 11,
+            color: '#222',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          };
+          return (
+            <>
+              <div
+                onClick={() => goToPage(page.pageIndex)}
+                style={{
+                  position: 'absolute',
+                  top: page.frame.top,
+                  left: page.frame.left,
+                  right: page.frame.right,
+                  bottom: page.frame.bottom,
+                  cursor: 'pointer',
+                  boxSizing: 'border-box',
+                  border:
+                    page.pageIndex === currentPage ? '3px solid #3858e9' : '1px solid #d0d0d0',
+                }}
+              />
+              {/* Page-actions menu. Box-space, gated on the assemble permission.
+                  Every edit writes through the engine, so the MAIN lens updates too. */}
+              {canEdit && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // don't navigate the main lens
+                    setMenuPage(menuOpen ? null : page.pageIndex);
+                  }}
+                  title="Page actions"
+                  style={{
+                    position: 'absolute',
+                    top: page.frame.top + 3,
+                    right: page.frame.right + 3,
+                    zIndex: 12,
+                    width: 20,
+                    height: 20,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                    fontSize: 13,
+                    lineHeight: 1,
+                    border: 'none',
+                    borderRadius: 4,
+                    background: menuOpen ? '#1f3bb3' : 'rgba(56, 88, 233, 0.9)',
+                    color: '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ⋯
+                </button>
+              )}
+              {canEdit && menuOpen && (
+                <>
+                  {/* click-away backdrop: `fixed` escapes the Stage's overflow:hidden */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuPage(null);
+                    }}
+                    style={{ position: 'fixed', inset: 0, zIndex: 10 }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: page.frame.top + 26,
+                      right: page.frame.right + 3,
+                      zIndex: 11,
+                      minWidth: 128,
+                      background: '#fff',
+                      border: '1px solid #d0d0d0',
+                      borderRadius: 6,
+                      boxShadow: '0 6px 18px rgba(0,0,0,0.18)',
+                      overflow: 'hidden',
+                      padding: '3px 0',
+                    }}
+                  >
+                    <button
+                      style={itemStyle}
+                      onClick={(e) => act(e, () => editor.rotateBy(page.pon, 90))}
+                    >
+                      ↻ Rotate
+                    </button>
+                    {/* hide "move up" on the first page; "move down" on the last */}
+                    {page.pageIndex > 0 && (
+                      <button
+                        style={itemStyle}
+                        onClick={(e) => act(e, () => editor.move([page.pon], page.pageIndex - 1))}
+                      >
+                        ↑ Move page up
+                      </button>
+                    )}
+                    {page.pageIndex < pageCount - 1 && (
+                      <button
+                        style={itemStyle}
+                        onClick={(e) => act(e, () => editor.move([page.pon], page.pageIndex + 1))}
+                      >
+                        ↓ Move page down
+                      </button>
+                    )}
+                    {/* the engine rejects deleting the last remaining page */}
+                    {pageCount > 1 && (
+                      <button
+                        style={{ ...itemStyle, color: '#c0322b' }}
+                        onClick={(e) => act(e, () => editor.delete([page.pon]))}
+                      >
+                        🗑 Delete
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  height: page.frame.bottom,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 10,
+                  color: '#666',
+                  pointerEvents: 'none',
+                }}
+              >
+                {page.pageIndex + 1}
+              </div>
+            </>
+          );
+        }}
+      >
+        {/* page-space content: the bitmap, which rotates with the page */}
+        {() => <RenderLayer />}
       </Stage>
     </div>
   );

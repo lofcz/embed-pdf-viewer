@@ -33,6 +33,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@embedpdf-x/geometry": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9"

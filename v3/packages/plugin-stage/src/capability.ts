@@ -1,4 +1,5 @@
 import * as S from '@embedpdf-x/stage-core';
+import { displaySize, rotateInBox } from '@embedpdf-x/geometry';
 import type { PluginContext } from '@embedpdf-x/kernel';
 import { SETTINGS_EFFECT, SETTING_KEYS } from './settings';
 import type { SettingEffect } from './settings';
@@ -90,7 +91,7 @@ export function createStageCapability(
   // The effective zoom for converting SCREEN px settings into world units — a
   // fixed zoom intent gives an exact, stable value (the thumbnail case); other
   // intents fall back to the camera's current zoom (`stabilized` converges it).
-  // Screen-px settings (wrapped lineWidth, pageMargin) are the ONLY way a scene
+  // Screen-px settings (wrapped lineWidth, pageFrame) are the ONLY way a scene
   // depends on the viewport/zoom.
   const effectiveZoom = (): number => {
     const z = ctx.getState().zoom;
@@ -100,23 +101,23 @@ export function createStageCapability(
   // Wrapped grid: the line width (world units) the columns must fit.
   const wrapLineWidth = (): number => Math.max(1, (vp().width - 2 * pad()) / effectiveZoom());
 
-  // pageMargin (screen px) → world units at the effective zoom.
-  const worldPageMargin = (): S.PageMargin => {
-    const m = ctx.getState().pageMargin;
+  // pageFrame (screen px) → world units at the effective zoom.
+  const worldPageFrame = (): S.PageFrame => {
+    const m = ctx.getState().pageFrame;
     if (!m.top && !m.right && !m.bottom && !m.left) return m;
     const ez = effectiveZoom();
     return { top: m.top / ez, right: m.right / ez, bottom: m.bottom / ez, left: m.left / ez };
   };
-  const marginKey = (): string => {
-    const m = ctx.getState().pageMargin;
+  const frameKey = (): string => {
+    const m = ctx.getState().pageFrame;
     if (!m.top && !m.right && !m.bottom && !m.left) return '-';
-    const w = worldPageMargin();
+    const w = worldPageFrame();
     return `${Math.round(w.top)},${Math.round(w.right)},${Math.round(w.bottom)},${Math.round(w.left)}`;
   };
 
   // gap → world units. A plain number IS world (the scene stays zoom-invariant —
   // the rigid-canvas default); { px } converts at the effective zoom, exactly
-  // like pageMargin (UI-stable spacing for browser-style lenses).
+  // like pageFrame (UI-stable spacing for browser-style lenses).
   const worldGap = (): number => {
     const g = ctx.getState().gap;
     return typeof g === 'number' ? g : g.px ? g.px / effectiveZoom() : 0;
@@ -129,14 +130,14 @@ export function createStageCapability(
   const layoutFor = (groups: number[][]): S.Scene => {
     const st = ctx.getState();
     const pages = ctx.document()?.pages ?? [];
-    const pageMargin = worldPageMargin();
+    const pageFrame = worldPageFrame();
     const gap = worldGap();
     if (st.layout === 'grid') {
       return S.gridLayout(pages, groups, {
         gap,
         sizing: st.sizing,
         direction: st.direction,
-        pageMargin,
+        pageFrame,
         columns: typeof st.columns === 'number' ? st.columns : undefined,
         lineWidth: st.columns === 'auto' ? wrapLineWidth() : undefined,
       });
@@ -147,14 +148,14 @@ export function createStageCapability(
           gap,
           sizing: st.sizing,
           direction: st.direction,
-          pageMargin,
+          pageFrame,
         })
       : S.linearLayout(pages, groups, {
           axis: 'y',
           gap,
           sizing: st.sizing,
           direction: st.direction,
-          pageMargin,
+          pageFrame,
         });
   };
 
@@ -175,7 +176,7 @@ export function createStageCapability(
   const SCENE_KEY_FNS: Partial<Record<keyof StageSettings, () => string>> = {
     columns: columnsKey,
     gap: gapKey,
-    pageMargin: marginKey,
+    pageFrame: frameKey,
   };
   const SCENE_KEYS = SETTING_KEYS.filter((k) => SETTINGS_EFFECT[k] === 'scene');
   const settingsKey = (): string =>
@@ -190,19 +191,26 @@ export function createStageCapability(
   // origin containing only the cursor's item — so isolation is STRUCTURAL (no other
   // page exists to leak), unbounded pan is free, and coordinates stay local.
   let sceneCache: { key: string; scene: S.Scene } | null = null;
-  const buildScene = (): S.Scene => {
+  // Registry signature: page count + the kernel's monotonic `revision`. The
+  // revision bumps on every page-mutation event (rotate/move/delete), so a
+  // change that leaves pageCount the same — a rotation — still re-keys the
+  // scene. Without it a rotated page would render in its stale box.
+  const docKey = (): string => {
     const doc = ctx.document();
+    return doc ? `${doc.pageCount}.${doc.revision}` : '0.0';
+  };
+  const buildScene = (): S.Scene => {
     const st = ctx.getState();
     const { grouping: g } = grouping();
     if (st.flow === 'paged') {
       const idx = g.length ? Math.min(itemIndexOfPage(st.cursor), g.length - 1) : 0;
-      const key = `paged|${settingsKey()}|${idx}`;
+      const key = `paged|${docKey()}|${settingsKey()}|${idx}`;
       if (sceneCache && sceneCache.key === key) return sceneCache.scene;
       const scene = layoutFor(g.length ? [g[idx]] : []);
       sceneCache = { key, scene };
       return scene;
     }
-    const key = `cont|${doc ? doc.pageCount : 0}|${settingsKey()}`;
+    const key = `cont|${docKey()}|${settingsKey()}`;
     if (sceneCache && sceneCache.key === key) return sceneCache.scene;
     const scene = layoutFor(g);
     sceneCache = { key, scene };
@@ -500,7 +508,19 @@ export function createStageCapability(
     },
     pageToWorld: (pon, pt) => {
       const pr = api.pageRect(pon);
-      return pr ? { x: pr.x + pt.x * pr.contentScale, y: pr.y + pt.y * pr.contentScale } : null;
+      if (!pr) return null;
+      // Place the (scaled) content offset into the page's display box via the
+      // SAME rotation primitive the layout/renderer use — so this forward
+      // transform and the adapter's inverse hit-test can't drift. `displaySize`
+      // is its own inverse, so it recovers the un-rotated content size from the
+      // display box.
+      const content = displaySize({ width: pr.width, height: pr.height }, pr.rotation);
+      const offset = rotateInBox(
+        { x: pt.x * pr.contentScale, y: pt.y * pr.contentScale },
+        content,
+        pr.rotation,
+      );
+      return { x: pr.x + offset.x, y: pr.y + offset.y };
     },
     toScreen: (w) => S.toScreen(cam(), w),
     toWorld: (s) => S.toWorld(cam(), s),
@@ -512,7 +532,7 @@ export function createStageCapability(
     bounded: () => ctx.getState().bounded,
     padding: () => ctx.getState().padding,
     gap: () => ctx.getState().gap,
-    pageMargin: () => ctx.getState().pageMargin,
+    pageFrame: () => ctx.getState().pageFrame,
     fitAlign: () => ctx.getState().fitAlign,
     overflowAlign: () => ctx.getState().overflowAlign,
     direction: () => ctx.getState().direction,
@@ -585,6 +605,16 @@ export function createStageCapability(
     fitPage: () => api.update({ zoom: { mode: S.ZoomMode.FitPage } }),
     fitAll: () => api.update({ zoom: { mode: S.ZoomMode.FitAll } }),
     automatic: () => api.update({ zoom: { mode: S.ZoomMode.Automatic } }),
+    refit: () => {
+      // The page geometry changed underneath us (rotate/move/delete). Treat it
+      // exactly like a viewport resize: re-resolve the active zoom intent and
+      // re-place against the now-current scene, keeping the anchored page-point.
+      // No-op until the first placement; the scene is re-keyed on the registry
+      // revision, so `reapply` reads the rotated footprint.
+      if (!hasPlaced) return;
+      cancelAnim();
+      reapply(currentAnchor());
+    },
     goToPage: (pageIndex, opts) => goToTarget(pageIndex, opts),
     reveal: (pageIndex, opts) => {
       // NOT navigation: minimal visibility, cursor untouched (see revealCamera).
@@ -599,9 +629,9 @@ export function createStageCapability(
       const sc = buildScene();
       if (!sc.itemCount) return;
       const page = pageRectOf(sc.items[itemIndexOfPage(target)], target);
-      // Reveal the OUTER box: pageMargin chrome (labels, buttons) belongs to the
+      // Reveal the OUTER box: pageFrame chrome (labels, buttons) belongs to the
       // page, so "make the page visible" includes its reserved bands.
-      const m = worldPageMargin();
+      const m = worldPageFrame();
       const box = {
         x: page.x - m.left,
         y: page.y - m.top,
@@ -648,7 +678,7 @@ export function createStageCapability(
     setBounded: (bounded) => api.update({ bounded }),
     setPadding: (padding) => api.update({ padding }),
     setGap: (gap) => api.update({ gap }),
-    setPageMargin: (pageMargin) => api.update({ pageMargin }),
+    setPageFrame: (pageFrame) => api.update({ pageFrame }),
     setFitAlign: (fitAlign) => api.update({ fitAlign }),
     setOverflowAlign: (overflowAlign) => api.update({ overflowAlign }),
     setDirection: (direction) => api.update({ direction }),

@@ -326,6 +326,62 @@ describe('sizing: uniform (cross-axis equalize)', () => {
   });
 });
 
+describe('page rotation: the box is the DISPLAY footprint (w↔h for quarter-turns)', () => {
+  it('a 90° page lays out as landscape; the PageBox carries the rotation', () => {
+    const scene = S.linearLayout(
+      [{ width: 600, height: 800, rotation: 90 }],
+      S.groupPages(1, 'none'),
+      {
+        axis: 'y',
+        gap: GAP,
+        sizing: 'intrinsic',
+      },
+    );
+    const box = scene.items[0].pages[0];
+    // intrinsic 600×800 portrait, rotated 90° → 800×600 landscape footprint
+    expect(box.width).toBe(800);
+    expect(box.height).toBe(600);
+    expect(box.rotation).toBe(90);
+    expect(box.contentScale).toBe(1); // rotation is isotropic — scale unaffected
+  });
+
+  it('180° keeps dimensions; 270° swaps them (same as 90°)', () => {
+    const half = S.linearLayout(
+      [{ width: 600, height: 800, rotation: 180 }],
+      S.groupPages(1, 'none'),
+      {
+        axis: 'y',
+        gap: GAP,
+      },
+    );
+    expect([half.items[0].pages[0].width, half.items[0].pages[0].height]).toEqual([600, 800]);
+    const three = S.linearLayout(
+      [{ width: 600, height: 800, rotation: 270 }],
+      S.groupPages(1, 'none'),
+      {
+        axis: 'y',
+        gap: GAP,
+      },
+    );
+    expect([three.items[0].pages[0].width, three.items[0].pages[0].height]).toEqual([800, 600]);
+  });
+
+  it('uniform equalizes the DISPLAY width — a rotated page sizes to its footprint', () => {
+    // page 0 is a portrait rotated 90° → 800-wide footprint, the widest.
+    const scene = S.linearLayout(
+      [
+        { width: 600, height: 800, rotation: 90 }, // display 800×600 — widest footprint
+        { width: 700, height: 500 }, // display 700×500
+      ],
+      S.groupPages(2, 'none'),
+      { axis: 'y', gap: GAP, sizing: 'uniform' },
+    );
+    expect(scene.items.every((it) => Math.abs(it.width - 800) < 1e-6)).toBe(true);
+    expect(scene.items[0].pages[0].contentScale).toBeCloseTo(1, 6); // widest footprint → factor 1
+    expect(scene.items[1].pages[0].contentScale).toBeCloseTo(800 / 700, 6);
+  });
+});
+
 describe('direction: rtl (a layout property, not a navigation one)', () => {
   const four = Array.from({ length: 4 }, () => ({ width: 600, height: 800 }));
 
@@ -381,7 +437,7 @@ describe('direction: rtl (a layout property, not a navigation one)', () => {
   });
 });
 
-describe('pageMargin: reserved chrome space around each PAGE', () => {
+describe('pageFrame: reserved chrome space around each PAGE', () => {
   const P = { width: 600, height: 800 };
   const m = { top: 10, right: 8, bottom: 20, left: 6 };
 
@@ -389,7 +445,7 @@ describe('pageMargin: reserved chrome space around each PAGE', () => {
     const scene = S.linearLayout([P, P], S.groupPages(2, 'none'), {
       axis: 'y',
       gap: 16,
-      pageMargin: m,
+      pageFrame: m,
     });
     const p0 = scene.items[0].pages[0];
     const p1 = scene.items[1].pages[0];
@@ -404,7 +460,7 @@ describe('pageMargin: reserved chrome space around each PAGE', () => {
     const scene = S.linearLayout([P, P], S.groupPages(2, 'odd'), {
       axis: 'y',
       gap: 16,
-      pageMargin: m,
+      pageFrame: m,
     });
     const [a, b] = scene.items[0].pages;
     // between the spread halves: a's right band + gap + b's left band
@@ -416,7 +472,7 @@ describe('pageMargin: reserved chrome space around each PAGE', () => {
     const scene = S.linearLayout([P, P], S.groupPages(2, 'odd'), {
       axis: 'y',
       gap: 16,
-      pageMargin: m,
+      pageFrame: m,
       direction: 'rtl',
     });
     const item = scene.items[0];
@@ -433,7 +489,7 @@ describe('pageMargin: reserved chrome space around each PAGE', () => {
         { width: 1200, height: 800 },
       ],
       S.groupPages(2, 'none'),
-      { axis: 'y', gap: 16, sizing: 'uniform', pageMargin: m },
+      { axis: 'y', gap: 16, sizing: 'uniform', pageFrame: m },
     );
     // page 1 scaled up to 1200 wide; both outer widths equal 1200 + 14
     expect(scene.items[0].pages[0].width).toBeCloseTo(1200, 6);

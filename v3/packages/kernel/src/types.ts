@@ -14,10 +14,27 @@ import type {
   OpenOptions,
   PageLayout,
   PageObjectNumber,
+  PageRotation,
+  PageRotateResult,
+  PageMoveResult,
+  PageDeleteResult,
+  DocCapability,
 } from '@embedpdf/engine-core/runtime';
 
 // re-export the engine contracts so consumers import them from @embedpdf-x/kernel
-export type { DocumentHandle, Engine, OpenInput, OpenOptions, PageLayout, PageObjectNumber };
+export type {
+  DocumentHandle,
+  Engine,
+  OpenInput,
+  OpenOptions,
+  PageLayout,
+  PageObjectNumber,
+  PageRotation,
+  PageRotateResult,
+  PageMoveResult,
+  PageDeleteResult,
+  DocCapability,
+};
 
 export type Unsubscribe = () => void;
 
@@ -31,6 +48,8 @@ export const CORE_DOCUMENT_ADDED = '@@core/document-added';
 export const CORE_DOCUMENT_REMOVED = '@@core/document-removed';
 export const CORE_ACTIVE_CHANGED = '@@core/active-changed';
 export const CORE_ORDER_CHANGED = '@@core/order-changed';
+/** A document's page registry was replaced by a mutation event (rotate/move/delete). */
+export const CORE_DOCUMENT_PAGES_UPDATED = '@@core/document-pages-updated';
 
 /** A typed handle to a capability — typed resolution, no string casts. */
 export interface CapabilityToken<T> {
@@ -50,6 +69,13 @@ export interface DocumentMeta {
   readonly name?: string;
   readonly pageCount: number;
   readonly pages: readonly PageLayout[];
+  /**
+   * Bumps every time the page registry is replaced by a document mutation
+   * event (rotate/move/delete). The registry's monotonic version: anything
+   * caching a derivation of `pages` (e.g. the Stage's laid-out scene) keys
+   * on it so a same-`pageCount` change — like a rotation — still invalidates.
+   */
+  readonly revision: number;
 }
 
 /** The document registry — what document scope is built on. */

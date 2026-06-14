@@ -50,9 +50,19 @@ export class ScopeGuard {
     return [...expandRawScope(this.ctx.scope, this.ctx.pdfBits)].sort() as DocCapability[];
   }
 
+  /**
+   * Non-throwing capability check — the same predicate `assertCapability`
+   * uses, exposed for UI gating (`DocumentSecurityService.allows`). Honors
+   * the `*` wildcard and `pdf.permissions` bits, so a gated control mirrors
+   * exactly what `assertCapability` would let through.
+   */
+  can(cap: DocCapability): boolean {
+    return checkCapability(cap, this.ctx.scope, this.ctx.pdfBits);
+  }
+
   /** Throws `PermissionDenied` if the scope doesn't grant `cap`. */
   assertCapability(cap: DocCapability): void {
-    if (!checkCapability(cap, this.ctx.scope, this.ctx.pdfBits)) {
+    if (!this.can(cap)) {
       throw new PermissionDenied(cap, 'engine-local');
     }
   }

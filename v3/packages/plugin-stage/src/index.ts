@@ -31,7 +31,7 @@ export type {
   Align,
   Alignment,
   Direction,
-  PageMargin,
+  PageFrame,
   SpreadMode,
   SizingMode,
   ZoomModeValue,

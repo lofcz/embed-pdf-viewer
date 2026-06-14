@@ -18,6 +18,9 @@ import {
 } from 'react';
 import { createKernel } from '@embedpdf-x/kernel';
 import type { AnyPlugin, CapabilityToken, Engine, Kernel, OpenInput } from '@embedpdf-x/kernel';
+// Pure coordinate math from the geometry base — NOT from stage-core. The
+// PageContext seam stays stage-agnostic (it must also serve standalone PageView).
+import { screenToPagePoint, NO_FRAME, type PageFrame } from '@embedpdf-x/geometry';
 
 const KernelCtx = createContext<Kernel | null>(null);
 /** The document a subtree is bound to. null => use the active document. */
@@ -166,8 +169,15 @@ export interface PageContextValue {
   pon: number;
   /** Display index (page N) — use for ordering / human-facing page numbers. */
   pageIndex: number;
+  /** The page content's on-screen size (un-rotated footprint, screen px). */
   size: { width: number; height: number };
   scale: number;
+  /**
+   * Reserved chrome bands around the page (screen px per side). The page-chrome
+   * slot renders into the outer box (content + frame); these thicknesses size
+   * the bands — a label in the bottom band is `bottom:0; height: frame.bottom`.
+   */
+  frame: PageFrame;
   toPagePoint(clientX: number, clientY: number): { x: number; y: number };
   rectStyle(rect: { x: number; y: number; width: number; height: number }): React.CSSProperties;
 }
@@ -188,6 +198,13 @@ export function makePageContext(
   scale: number,
   size: { width: number; height: number },
   getRect: () => DOMRect,
+  /** The surface's display rotation. `size` is the UN-rotated content size, so
+   *  layers position in page coordinates and the surface's CSS rotation carries
+   *  them visually; only `toPagePoint` must invert the rotation. */
+  rotation: 0 | 90 | 180 | 270 = 0,
+  /** Reserved chrome bands around the page (screen px) — surfaced for the
+   *  page-chrome slot to size its bands. */
+  frame: PageFrame = NO_FRAME,
 ): PageContextValue {
   return {
     documentId,
@@ -195,9 +212,20 @@ export function makePageContext(
     pageIndex,
     size,
     scale,
+    frame,
     toPagePoint: (cx, cy) => {
+      // The rect is the rotated wrapper's axis-aligned bounding box; its center
+      // is rotation-invariant. The pure rotation/scale inverse lives in the
+      // geometry base so it's verified once for every framework adapter (not
+      // re-derived, and mis-derived, per port).
       const r = getRect();
-      return { x: (cx - r.left) / scale, y: (cy - r.top) / scale };
+      return screenToPagePoint({
+        screen: { x: cx, y: cy },
+        center: { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 },
+        contentSize: size,
+        scale,
+        rotation,
+      });
     },
     rectStyle: (rect) => ({
       position: 'absolute',

@@ -34,6 +34,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@embedpdf-x/geometry": "workspace:*",
     "@embedpdf-x/kernel": "workspace:*",
     "@embedpdf-x/stage-core": "workspace:*"
   },
