@@ -1,7 +1,7 @@
 import { AbortablePromise } from '../promise/AbortablePromise';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
-import type { PageRotation } from '../dto/PageLayout';
+import type { PdfRotation } from '../geometry/primitives';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { PageRotateResult } from '../mutation/PageRotateResult';
 import type { PageDeleteResult } from '../mutation/PageDeleteResult';
@@ -49,7 +49,7 @@ export interface DocumentPagesService {
    */
   rotate(
     pageObjectNumbers: PageObjectNumber[],
-    rotation: PageRotation,
+    rotation: PdfRotation,
   ): AbortablePromise<PageRotateResult>;
 
   /**

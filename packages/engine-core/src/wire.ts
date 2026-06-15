@@ -37,7 +37,6 @@ export {
   PageListSnapshotSchema,
   PageLayoutSchema,
   PageBoxesSchema,
-  PdfRectSchema,
   PageMoveInputSchema,
   PageMoveResultSchema,
   PageStructureCacheSchema,
@@ -120,6 +119,15 @@ export {
 } from './wire/renderOptionsCodec';
 export type { RenderVersions } from './wire/renderOptionsCodec';
 
+// Canonical PDF-document geometry schemas (zod). Exported from `wire` ONLY.
+export {
+  PdfPointSchema,
+  PdfRectSchema,
+  PdfSizeSchema,
+  PdfQuadSchema,
+  PdfRotationSchema,
+} from './geometry/schemas';
+
 export {
   AnnotationStableIdSchema,
   AnnotationRefSchema,
@@ -127,7 +135,6 @@ export {
   AnnotationFlagsSchema,
   ColorSchema,
   PointSchema,
-  QuadPointSchema,
   RectSchema,
   LineEndingSchema,
   AnnotationBaseShape,

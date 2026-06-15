@@ -1,5 +1,5 @@
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
-import type { PageRotation } from '../dto/PageLayout';
+import type { PdfRotation } from '../geometry/primitives';
 import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
@@ -92,7 +92,7 @@ export type DocumentEvent =
   | ({
       type: 'pages.rotated';
       pageObjectNumbers: PageObjectNumber[];
-      rotation: PageRotation;
+      rotation: PdfRotation;
       origin: EventOrigin;
     } & PageRotateResult)
   | ({

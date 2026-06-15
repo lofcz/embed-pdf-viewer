@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import type { AnnotationBase } from '../base';
-import { AnnotationBaseShape, ColorSchema, QuadPointSchema } from '../base.schema';
-import type { Color, QuadPoint } from '../primitives';
+import { AnnotationBaseShape, ColorSchema } from '../base.schema';
+import { PdfQuadSchema } from '../../geometry/schemas';
+import type { PdfQuad } from '../../geometry/primitives';
+import type { Color } from '../primitives';
 
 /**
  * Text-markup family-specific fields. The four text-markup subtypes
@@ -18,38 +20,38 @@ import type { Color, QuadPoint } from '../primitives';
 export interface TextMarkupAnnotationFields {
   color: Color;
   opacity: number;
-  quadPoints: QuadPoint[];
+  quadPoints: PdfQuad[];
 }
 
 export interface TextMarkupDraftFields {
   color?: Color;
   opacity?: number;
-  quadPoints: QuadPoint[];
+  quadPoints: PdfQuad[];
 }
 
 export interface TextMarkupPatchFields {
   color?: Color;
   opacity?: number;
-  quadPoints?: QuadPoint[];
+  quadPoints?: PdfQuad[];
 }
 
 export const TextMarkupDTOShape = {
   ...AnnotationBaseShape,
   color: ColorSchema,
   opacity: z.number().min(0).max(1),
-  quadPoints: z.array(QuadPointSchema),
+  quadPoints: z.array(PdfQuadSchema),
 } as const;
 
 export const TextMarkupDraftShape = {
   color: ColorSchema.optional(),
   opacity: z.number().min(0).max(1).optional(),
-  quadPoints: z.array(QuadPointSchema),
+  quadPoints: z.array(PdfQuadSchema),
 } as const;
 
 export const TextMarkupPatchShape = {
   color: ColorSchema.optional(),
   opacity: z.number().min(0).max(1).optional(),
-  quadPoints: z.array(QuadPointSchema).optional(),
+  quadPoints: z.array(PdfQuadSchema).optional(),
 } as const;
 
 /** Glue type used by each kind file to construct its concrete DTO. */

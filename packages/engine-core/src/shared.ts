@@ -20,7 +20,28 @@ export type {
 export type { DocumentMetadata, DocumentMetadataTrapped } from './dto/DocumentMetadata';
 export type { MetadataPatch } from './dto/MetadataPatch';
 export type { PageListSnapshot } from './dto/PageListSnapshot';
-export type { PageLayout, PageBoxes, PageRotation, PdfRect } from './dto/PageLayout';
+export type { PageLayout, PageBoxes, PageRotation } from './dto/PageLayout';
+
+// Canonical PDF-document geometry vocabulary (y-up, edges, browser-free).
+export type {
+  PdfPoint,
+  PdfRect,
+  PdfSize,
+  PdfQuad,
+  PdfRotation,
+  PdfOriginSize,
+  PdfQuadCorners,
+} from './geometry';
+export {
+  pdfRectWidth,
+  pdfRectHeight,
+  pdfRectSize,
+  pdfRectToOriginSize,
+  pdfRectFromOriginSize,
+  pdfQuadBounds,
+  pdfQuadCorners,
+  pdfQuadFromCorners,
+} from './geometry';
 export type { PageTextSnapshot } from './dto/PageTextSnapshot';
 export type {
   PageGeometryGlyph,
@@ -72,7 +93,6 @@ export type { WeakAnnotationState } from './revision/WeakAnnotationState';
 export type {
   Color,
   Point,
-  QuadPoint,
   Rect,
   Size,
   Rotation,

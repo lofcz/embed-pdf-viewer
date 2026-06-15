@@ -6,13 +6,14 @@ import type {
 } from '../annotation/AnnotationListSnapshot';
 import { AnnotationStableIdSchema, RevisionTokenSchema } from '../annotation/base.schema';
 import { AnnotationDTOSchema } from '../annotation/kinds';
+import { PdfRectSchema, PdfRotationSchema, PdfSizeSchema } from '../geometry/schemas';
 import type { CachePins } from '../dto/CachePins';
 import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { MetadataPatch } from '../dto/MetadataPatch';
 import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
-import type { PageBoxes, PageLayout, PdfRect } from '../dto/PageLayout';
+import type { PageBoxes, PageLayout } from '../dto/PageLayout';
 import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
@@ -355,24 +356,13 @@ export const PageTextSnapshotSchema: z.ZodType<PageTextSnapshot> = z.object({
 });
 
 export const PageGeometryGlyphSchema = z.object({
-  x: z.number(),
-  y: z.number(),
-  width: z.number().nonnegative(),
-  height: z.number().nonnegative(),
+  looseBox: PdfRectSchema,
   flags: z.number().int().nonnegative(),
-  tightX: z.number().optional(),
-  tightY: z.number().optional(),
-  tightWidth: z.number().positive().optional(),
-  tightHeight: z.number().positive().optional(),
+  tightBox: PdfRectSchema.optional(),
 });
 
 export const PageGeometryRunSchema = z.object({
-  rect: z.object({
-    x: z.number(),
-    y: z.number(),
-    width: z.number().nonnegative(),
-    height: z.number().nonnegative(),
-  }),
+  rect: PdfRectSchema,
   charStart: z.number().int().nonnegative(),
   glyphs: z.array(PageGeometryGlyphSchema),
   fontSize: z.number().optional(),
@@ -597,15 +587,11 @@ export const AnnotationMoveResultSchema: z.ZodType<AnnotationMoveResult> = z.obj
 });
 
 /**
- * A raw PDF box `[llx, lly, urx, ury]` in PDF user space (un-rotated,
- * not origin-normalized).
+ * A PDF box in PDF user space as a `PdfRect` (`{ left, bottom, right, top }`,
+ * y-up edges, un-rotated, not origin-normalized). Re-exported from the
+ * canonical geometry schema so the wire and the runtime agree.
  */
-export const PdfRectSchema: z.ZodType<PdfRect> = z.tuple([
-  z.number(),
-  z.number(),
-  z.number(),
-  z.number(),
-]);
+export { PdfRectSchema };
 
 export const PageBoxesSchema: z.ZodType<PageBoxes> = z.object({
   media: PdfRectSchema,
@@ -623,9 +609,8 @@ export const PageLayoutSchema: z.ZodType<PageLayout> = z.object({
   index: z.number().int().nonnegative(),
   pageObjectNumber: z.number().int().positive(),
   label: z.string().nullable(),
-  width: z.number().nonnegative(),
-  height: z.number().nonnegative(),
-  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+  size: PdfSizeSchema,
+  rotation: PdfRotationSchema,
   userUnit: z.number().positive(),
   boxes: PageBoxesSchema,
 });
@@ -675,7 +660,7 @@ export const PageMoveResultSchema: z.ZodType<PageMoveResult> = z.object({
  */
 export const PageRotateInputSchema: z.ZodType<PageRotateInput> = z.object({
   pageObjectNumbers: z.array(z.number().int().positive()),
-  rotation: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]),
+  rotation: PdfRotationSchema,
 });
 
 /**

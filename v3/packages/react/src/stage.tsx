@@ -285,12 +285,14 @@ export function PageView({
   const transform = useMemo(
     () =>
       pageTransform({
-        pageSize: base ? { width: base.width, height: base.height } : { width: 1, height: 1 },
+        pageSize: base
+          ? { width: base.size.width, height: base.size.height }
+          : { width: 1, height: 1 },
         rotation,
-        scale: base ? width / base.width : 1,
+        scale: base ? width / base.size.width : 1,
         dpr,
       }),
-    [base?.width, base?.height, rotation, width, dpr],
+    [base?.size.width, base?.size.height, rotation, width, dpr],
   );
   const ctx = useMemo(
     () =>

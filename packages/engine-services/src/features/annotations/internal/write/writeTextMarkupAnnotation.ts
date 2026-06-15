@@ -4,7 +4,7 @@ import {
   type Color,
   type HighlightDraft,
   type HighlightPatch,
-  type QuadPoint,
+  type PdfQuad,
   type SquigglyDraft,
   type SquigglyPatch,
   type StrikeoutDraft,
@@ -129,7 +129,7 @@ function appendQuadPoints(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
-  quadPoints: QuadPoint[],
+  quadPoints: PdfQuad[],
 ): void {
   const buf = mem.alloc(32);
   try {
@@ -161,7 +161,7 @@ function replaceQuadPoints(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
-  quadPoints: QuadPoint[],
+  quadPoints: PdfQuad[],
 ): void {
   const existing = fn.FPDFAnnot_CountAttachmentPoints(annotPtr);
   if (quadPoints.length < existing) {
@@ -198,31 +198,31 @@ function replaceQuadPoints(
   }
 }
 
-function writeQuadPointStruct(mem: PdfRuntimeMemory, buf: Ptr, qp: QuadPoint): void {
+function writeQuadPointStruct(mem: PdfRuntimeMemory, buf: Ptr, qp: PdfQuad): void {
   // FS_QUADPOINTSF layout per public/fpdf_annot.h: { x1,y1, x2,y2, x3,y3, x4,y4 }
-  // (topLeft, topRight, bottomLeft, bottomRight) — same order as readQuadPoints.
-  mem.poke(buf, 'f32', qp.topLeft.x, 0);
-  mem.poke(buf, 'f32', qp.topLeft.y, 4);
-  mem.poke(buf, 'f32', qp.topRight.x, 8);
-  mem.poke(buf, 'f32', qp.topRight.y, 12);
-  mem.poke(buf, 'f32', qp.bottomLeft.x, 16);
-  mem.poke(buf, 'f32', qp.bottomLeft.y, 20);
-  mem.poke(buf, 'f32', qp.bottomRight.x, 24);
-  mem.poke(buf, 'f32', qp.bottomRight.y, 28);
+  // = p1 p2 p3 p4 — same positional slot order as readQuadPoints.
+  mem.poke(buf, 'f32', qp.p1.x, 0);
+  mem.poke(buf, 'f32', qp.p1.y, 4);
+  mem.poke(buf, 'f32', qp.p2.x, 8);
+  mem.poke(buf, 'f32', qp.p2.y, 12);
+  mem.poke(buf, 'f32', qp.p3.x, 16);
+  mem.poke(buf, 'f32', qp.p3.y, 20);
+  mem.poke(buf, 'f32', qp.p4.x, 24);
+  mem.poke(buf, 'f32', qp.p4.y, 28);
 }
 
 function setRectFromQuadPoints(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
-  quadPoints: QuadPoint[],
+  quadPoints: PdfQuad[],
 ): void {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
   for (const qp of quadPoints) {
-    for (const p of [qp.topLeft, qp.topRight, qp.bottomLeft, qp.bottomRight]) {
+    for (const p of [qp.p1, qp.p2, qp.p3, qp.p4]) {
       if (p.x < minX) minX = p.x;
       if (p.x > maxX) maxX = p.x;
       if (p.y < minY) minY = p.y;

@@ -1,7 +1,8 @@
+import type { PdfRect } from '../geometry/primitives';
 import type { AnnotationIdentityQuality } from '../identity/AnnotationIdentityQuality';
 import type { AnnotationRef } from '../identity/AnnotationRef';
+import type { AnnotationFlags } from './primitives';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
-import type { AnnotationFlags, Rect } from './primitives';
 
 /**
  * Identity + provenance shell every annotation DTO extends.
@@ -19,7 +20,7 @@ export interface AnnotationBase {
   /** /NM if present, exposed read-only. The engine never auto-stamps it. */
   nm: string | null;
   flags: AnnotationFlags;
-  rect: Rect;
+  rect: PdfRect;
   /** /Contents text. */
   contents: string | null;
   /** /T author. */

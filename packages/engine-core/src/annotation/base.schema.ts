@@ -1,34 +1,21 @@
 import { z } from 'zod';
-import type { AnnotationFlags, Color, LineEnding, Point, QuadPoint, Rect } from './primitives';
+import type { AnnotationFlags, Color, LineEnding } from './primitives';
 import type { AnnotationBase } from './base';
+import { PdfPointSchema, PdfRectSchema, PdfQuadSchema } from '../geometry/schemas';
 import type { AnnotationStableId } from '../identity/AnnotationStableId';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { RevisionToken } from '../revision/RevisionToken';
 
-export const PointSchema: z.ZodType<Point> = z.object({
-  x: z.number(),
-  y: z.number(),
-});
-
-export const RectSchema: z.ZodType<Rect> = z.object({
-  left: z.number(),
-  top: z.number(),
-  right: z.number(),
-  bottom: z.number(),
-});
+/** @deprecated Use `PdfPointSchema` from `../geometry/schemas`. */
+export const PointSchema = PdfPointSchema;
+/** @deprecated Use `PdfRectSchema` from `../geometry/schemas`. */
+export const RectSchema = PdfRectSchema;
 
 export const ColorSchema: z.ZodType<Color> = z.object({
   r: z.number().int().min(0).max(255),
   g: z.number().int().min(0).max(255),
   b: z.number().int().min(0).max(255),
   a: z.number().min(0).max(1).optional(),
-});
-
-export const QuadPointSchema: z.ZodType<QuadPoint> = z.object({
-  topLeft: PointSchema,
-  topRight: PointSchema,
-  bottomLeft: PointSchema,
-  bottomRight: PointSchema,
 });
 
 export const LineEndingSchema: z.ZodType<LineEnding> = z.enum([
@@ -104,7 +91,7 @@ export const AnnotationBaseShape = {
   identityQuality: z.enum(['durable', 'weak']),
   nm: z.string().nullable(),
   flags: AnnotationFlagsSchema,
-  rect: RectSchema,
+  rect: PdfRectSchema,
   contents: z.string().nullable(),
   author: z.string().nullable(),
   created: z.string().datetime().nullable(),

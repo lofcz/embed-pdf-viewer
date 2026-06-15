@@ -943,10 +943,10 @@ function highlightDraft(): unknown {
     subtype: 'highlight',
     quadPoints: [
       {
-        topLeft: { x: 0, y: 0 },
-        topRight: { x: 10, y: 0 },
-        bottomLeft: { x: 0, y: 10 },
-        bottomRight: { x: 10, y: 10 },
+        p1: { x: 0, y: 0 },
+        p2: { x: 10, y: 0 },
+        p3: { x: 0, y: 10 },
+        p4: { x: 10, y: 10 },
       },
     ],
   };

@@ -10,10 +10,10 @@ import type { AnnotationRef } from '../identity/AnnotationRef';
 
 const QUAD: HighlightDraft['quadPoints'] = [
   {
-    topLeft: { x: 50, y: 100 },
-    topRight: { x: 150, y: 100 },
-    bottomLeft: { x: 50, y: 80 },
-    bottomRight: { x: 150, y: 80 },
+    p1: { x: 50, y: 100 },
+    p2: { x: 150, y: 100 },
+    p3: { x: 50, y: 80 },
+    p4: { x: 150, y: 80 },
   },
 ];
 
@@ -68,8 +68,8 @@ export function runPageRotateConformance(
 
         // Presentation metadata only: un-rotated dims, order, and the PON
         // set are all untouched.
-        expect(rotated?.width).toBe(target.width);
-        expect(rotated?.height).toBe(target.height);
+        expect(rotated?.size.width).toBe(target.size.width);
+        expect(rotated?.size.height).toBe(target.size.height);
         expect(after.pages.map((p) => p.pageObjectNumber)).toEqual(
           before.pages.map((p) => p.pageObjectNumber),
         );

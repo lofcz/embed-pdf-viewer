@@ -2,7 +2,7 @@ import type {
   AnnotationBase,
   Color,
   HighlightAnnotationDTO,
-  QuadPoint,
+  PdfQuad,
   SquigglyAnnotationDTO,
   StrikeoutAnnotationDTO,
   UnderlineAnnotationDTO,
@@ -27,7 +27,7 @@ export function readTextMarkupExtras(
 ): {
   color: Color;
   opacity: number;
-  quadPoints: QuadPoint[];
+  quadPoints: PdfQuad[];
 } {
   const color = readAnnotColor(fn, mem, annotPtr) ?? { ...fallbackColor };
   const ca = readAnnotNumber(fn, mem, annotPtr, 'CA');

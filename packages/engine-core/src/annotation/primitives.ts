@@ -1,30 +1,26 @@
 /**
- * Wire-stable primitives shared by every annotation DTO.
+ * Wire-stable annotation primitives that are NOT pure geometry.
+ *
+ * Geometry primitives (points, rects, sizes, quads, rotation) now live in
+ * `../geometry` as the canonical `Pdf*` vocabulary. The aliases below are
+ * TRANSITIONAL re-exports kept only so existing consumers keep compiling
+ * during the geometry consolidation; new code should import `Pdf*` directly
+ * from `../geometry`.
  *
  * These do not depend on PDFium or any browser/Node surface; they are
  * the lingua franca between local engine, cloud engine, and server.
  */
 
-export interface Point {
-  x: number;
-  y: number;
-}
+import type { PdfPoint, PdfRect, PdfRotation, PdfSize } from '../geometry/primitives';
 
-export interface Rect {
-  /** Left edge in user space. */
-  left: number;
-  /** Top edge in user space (PDF user space has origin at bottom-left, so top > bottom). */
-  top: number;
-  right: number;
-  bottom: number;
-}
-
-export interface Size {
-  width: number;
-  height: number;
-}
-
-export type Rotation = 0 | 90 | 180 | 270;
+/** @deprecated Use `PdfPoint` from `../geometry`. */
+export type Point = PdfPoint;
+/** @deprecated Use `PdfRect` from `../geometry`. */
+export type Rect = PdfRect;
+/** @deprecated Use `PdfSize` from `../geometry`. */
+export type Size = PdfSize;
+/** @deprecated Use `PdfRotation` from `../geometry`. */
+export type Rotation = PdfRotation;
 
 /**
  * sRGB color with optional alpha. Components are 0..255 integers; alpha is
@@ -36,18 +32,6 @@ export interface Color {
   g: number;
   b: number;
   a?: number;
-}
-
-/**
- * /QuadPoints entry as four corners (TL, TR, BL, BR per PDF 32000 12.5.6.10).
- * Stored as four Points so the wire format is self-describing instead of
- * an opaque 8-float array.
- */
-export interface QuadPoint {
-  topLeft: Point;
-  topRight: Point;
-  bottomLeft: Point;
-  bottomRight: Point;
 }
 
 /**

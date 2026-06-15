@@ -29,10 +29,10 @@ const DOC_ID = 'sample-pdf-remote-events-cloud';
 
 const QUAD: HighlightDraft['quadPoints'] = [
   {
-    topLeft: { x: 50, y: 100 },
-    topRight: { x: 150, y: 100 },
-    bottomLeft: { x: 50, y: 80 },
-    bottomRight: { x: 150, y: 80 },
+    p1: { x: 50, y: 100 },
+    p2: { x: 150, y: 100 },
+    p3: { x: 50, y: 80 },
+    p4: { x: 150, y: 80 },
   },
 ];
 

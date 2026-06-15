@@ -57,7 +57,7 @@ export class PagesReader {
             index,
             pageObjectNumber: record.pageObjectNumber,
             label: readLabel(fn, mem, docPtr, index),
-            ...readSize(fn, mem, docPtr, index, sizePtr),
+            size: readSize(fn, mem, docPtr, index, sizePtr),
             rotation: readRotation(fn, docPtr, index),
             userUnit: readUserUnit(fn, mem, docPtr, index, userUnitPtr),
             boxes: readBoxes(fn, mem, docPtr, index, rectPtr),
@@ -70,9 +70,10 @@ export class PagesReader {
 }
 
 /**
- * Read one FS_RECTF box and canonicalize to `[llx, lly, urx, ury]` so the
- * lower-left/upper-right invariant holds regardless of how the PDF ordered
- * the corners. Returns null when the optional box is absent.
+ * Read one FS_RECTF box and canonicalize to a y-up `PdfRect`
+ * (`{ left, bottom, right, top }`, equivalent to `[llx, lly, urx, ury]`) so
+ * the lower-left/upper-right invariant holds regardless of how the PDF
+ * ordered the corners. Returns null when the optional box is absent.
  */
 function readBox(
   fn: PdfFunctions,
@@ -84,12 +85,12 @@ function readBox(
 ): PdfRect | null {
   if (!fn.EPDF_GetPageBoxByIndex(docPtr, index, boxType, rectPtr)) return null;
   const { left, top, right, bottom } = readRectF(mem, rectPtr);
-  return [
-    Math.min(left, right),
-    Math.min(top, bottom),
-    Math.max(left, right),
-    Math.max(top, bottom),
-  ];
+  return {
+    left: Math.min(left, right),
+    bottom: Math.min(top, bottom),
+    right: Math.max(left, right),
+    top: Math.max(top, bottom),
+  };
 }
 
 function readBoxes(
@@ -101,7 +102,12 @@ function readBoxes(
 ): PageBoxes {
   // MediaBox always resolves (page-tree inheritance + PDFium default).
   // CropBox falls back to MediaBox, so both are guaranteed present.
-  const media = readBox(fn, mem, docPtr, index, BOX_MEDIA, rectPtr) ?? [0, 0, 0, 0];
+  const media = readBox(fn, mem, docPtr, index, BOX_MEDIA, rectPtr) ?? {
+    left: 0,
+    bottom: 0,
+    right: 0,
+    top: 0,
+  };
   const crop = readBox(fn, mem, docPtr, index, BOX_CROP, rectPtr) ?? media;
   const bleed = readBox(fn, mem, docPtr, index, BOX_BLEED, rectPtr);
   const trim = readBox(fn, mem, docPtr, index, BOX_TRIM, rectPtr);

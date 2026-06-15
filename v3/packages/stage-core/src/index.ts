@@ -35,10 +35,8 @@ export interface Camera {
 }
 
 export interface PageGeom {
-  /** UN-rotated (intrinsic) width — the content's own width before rotation. */
-  width: number;
-  /** UN-rotated (intrinsic) height. */
-  height: number;
+  /** UN-rotated (intrinsic) page size — the content's own dimensions before rotation. */
+  size: Size;
   /** Total display rotation. Layout swaps w↔h for 90/270 so the box is the
    *  on-screen footprint; the renderer rotates the content into it. */
   rotation?: PageRotation;
@@ -67,7 +65,7 @@ export interface PageBox {
  *  geometry primitive). Everything the layout packs uses these display dims; the
  *  content scale (isotropic) and the renderer's transform recover the content. */
 function displayDims(pg: PageGeom): Size {
-  return displaySize({ width: pg.width, height: pg.height }, pg.rotation ?? 0);
+  return displaySize(pg.size, pg.rotation ?? 0);
 }
 export interface SceneItem {
   index: number;

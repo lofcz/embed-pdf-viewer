@@ -1,4 +1,4 @@
-import type { Rect, Rotation } from '../annotation/primitives';
+import type { PdfRect, PdfRotation } from '../geometry/primitives';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
 
@@ -40,13 +40,13 @@ export type PageRenderTarget =
        * PDF user-space rectangle. Same convention as annotation rects:
        * top > bottom, origin at the PDF page's bottom-left.
        */
-      rect: Rect;
+      rect: PdfRect;
     };
 
 export interface PageRenderOptions {
   target?: PageRenderTarget;
   viewport?: PageRenderViewport;
-  rotation?: Rotation;
+  rotation?: PdfRotation;
   background?: PageRenderBackground;
   includeAnnotations?: boolean;
 }

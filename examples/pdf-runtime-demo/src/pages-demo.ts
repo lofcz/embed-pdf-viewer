@@ -127,8 +127,8 @@ export function summarizePages(result: PagesDemoResult) {
     before: result.before.pages.map((p) => ({
       pon: p.pageObjectNumber,
       idx: p.index,
-      w: p.width,
-      h: p.height,
+      w: p.size.width,
+      h: p.size.height,
       rot: p.rotation,
     })),
     movedSingle: result.movedSingle.layout.pages.map((p) => ({
@@ -142,8 +142,8 @@ export function summarizePages(result: PagesDemoResult) {
     after: result.after.pages.map((p) => ({
       pon: p.pageObjectNumber,
       idx: p.index,
-      w: p.width,
-      h: p.height,
+      w: p.size.width,
+      h: p.size.height,
       rot: p.rotation,
     })),
     invariants: result.invariants,

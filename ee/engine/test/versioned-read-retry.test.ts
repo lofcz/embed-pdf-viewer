@@ -125,7 +125,7 @@ function pageState(generation = 0) {
 // PageListSnapshot served by the /layout@layoutVersion leaf — pure geometry
 // for the single stub page (the harness only asserts page identity/order).
 function layoutSnapshot() {
-  const box: [number, number, number, number] = [0, 0, 612, 792];
+  const box = { left: 0, bottom: 0, right: 612, top: 792 };
   return {
     pageCount: 1,
     pages: [
@@ -133,11 +133,10 @@ function layoutSnapshot() {
         index: 0,
         pageObjectNumber: PAGE_OBJECT_NUMBER,
         label: null,
-        width: 612,
-        height: 792,
+        size: { width: 612, height: 792 },
         rotation: 0 as const,
         userUnit: 1,
-        boxes: { media: box, crop: box },
+        boxes: { media: { ...box }, crop: { ...box } },
       },
     ],
   };
@@ -740,10 +739,10 @@ describe('CloudPageTextService — end-to-end transparent retry', () => {
         contents: 'delta-driven-create',
         quadPoints: [
           {
-            topLeft: { x: 0, y: 0 },
-            topRight: { x: 10, y: 0 },
-            bottomLeft: { x: 0, y: 10 },
-            bottomRight: { x: 10, y: 10 },
+            p1: { x: 0, y: 0 },
+            p2: { x: 10, y: 0 },
+            p3: { x: 0, y: 10 },
+            p4: { x: 10, y: 10 },
           },
         ],
       });

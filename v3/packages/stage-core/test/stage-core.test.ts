@@ -4,6 +4,12 @@ import * as S from '../src';
 const vp = { width: 1000, height: 700 };
 const GAP = 16;
 
+/** Build a PageGeom from intrinsic dimensions (the layout fns take `size`, not bare w/h). */
+const pg = (width: number, height: number, rotation?: S.PageRotation): S.PageGeom => ({
+  size: { width, height },
+  ...(rotation !== undefined ? { rotation } : {}),
+});
+
 describe('resolveZoom', () => {
   it('fit-width fits the box width (minus gap)', () => {
     expect(
@@ -60,11 +66,7 @@ describe('resolveZoom', () => {
 
 describe('placeCamera — THE placement algorithm', () => {
   const scene = S.linearLayout(
-    [
-      { width: 600, height: 800 },
-      { width: 600, height: 800 },
-      { width: 600, height: 800 },
-    ],
+    [pg(600, 800), pg(600, 800), pg(600, 800)],
     S.groupPages(3, 'none'),
     { axis: 'y', gap: GAP },
   );
@@ -155,13 +157,12 @@ describe('zoomAround', () => {
 describe('anchor round-trip', () => {
   it('cameraFromAnchor inverts anchorFromCamera', () => {
     const scene = S.linearLayout(
-      [
-        { width: 600, height: 800 },
-        { width: 600, height: 800 },
-        { width: 600, height: 800 },
-      ],
+      [pg(600, 800), pg(600, 800), pg(600, 800)],
       S.groupPages(3, 'none'),
-      { axis: 'y', gap: GAP },
+      {
+        axis: 'y',
+        gap: GAP,
+      },
     );
     const cam = { x: scene.items[1].x, y: scene.items[1].y + 120, zoom: 1.3 };
     const anchor = S.anchorFromCamera(cam, scene, vp);
@@ -260,11 +261,7 @@ describe('resolveZoom: fit-all', () => {
 describe('layout maxItemSize', () => {
   it('linearLayout reports the max item width & height across mixed pages', () => {
     const scene = S.linearLayout(
-      [
-        { width: 600, height: 800 },
-        { width: 900, height: 700 },
-        { width: 600, height: 1200 },
-      ],
+      [pg(600, 800), pg(900, 700), pg(600, 1200)],
       S.groupPages(3, 'none'),
       { axis: 'y', gap: GAP },
     );
@@ -272,23 +269,16 @@ describe('layout maxItemSize', () => {
   });
 
   it('gridLayout reports the cell max as max item size', () => {
-    const scene = S.gridLayout(
-      [
-        { width: 600, height: 800 },
-        { width: 900, height: 700 },
-      ],
-      S.groupPages(2, 'none'),
-      { gap: 48 },
-    );
+    const scene = S.gridLayout([pg(600, 800), pg(900, 700)], S.groupPages(2, 'none'), { gap: 48 });
     expect(scene.maxItemSize).toEqual({ width: 900, height: 800 });
   });
 });
 
 describe('sizing: uniform (cross-axis equalize)', () => {
   const mixed = [
-    { width: 600, height: 800 }, // portrait
-    { width: 1000, height: 700 }, // widest
-    { width: 500, height: 900 }, // narrow + tallest
+    pg(600, 800), // portrait
+    pg(1000, 700), // widest
+    pg(500, 900), // narrow + tallest
   ];
 
   it('vertical uniform makes every item width equal (to the widest) + records contentScale', () => {
@@ -327,7 +317,7 @@ describe('sizing: uniform (cross-axis equalize)', () => {
 
 describe('viewUnitsPerPoint: physical unit factor folds into the layout', () => {
   const f = 96 / 72;
-  const page = [{ width: 612, height: 792 }]; // US Letter (points)
+  const page = [pg(612, 792)]; // US Letter (points)
 
   it('intrinsic: world size = points × factor, contentScale = factor', () => {
     const scene = S.linearLayout(page, S.groupPages(1, 'none'), { viewUnitsPerPoint: f });
@@ -343,10 +333,7 @@ describe('viewUnitsPerPoint: physical unit factor folds into the layout', () => 
   });
 
   it('uniform: factor composes with cross-equalize', () => {
-    const mixed = [
-      { width: 600, height: 800 },
-      { width: 1000, height: 700 },
-    ];
+    const mixed = [pg(600, 800), pg(1000, 700)];
     const scene = S.linearLayout(mixed, S.groupPages(2, 'none'), {
       sizing: 'uniform',
       viewUnitsPerPoint: f,
@@ -359,15 +346,11 @@ describe('viewUnitsPerPoint: physical unit factor folds into the layout', () => 
 
 describe('page rotation: the box is the DISPLAY footprint (w↔h for quarter-turns)', () => {
   it('a 90° page lays out as landscape; the PageBox carries the rotation', () => {
-    const scene = S.linearLayout(
-      [{ width: 600, height: 800, rotation: 90 }],
-      S.groupPages(1, 'none'),
-      {
-        axis: 'y',
-        gap: GAP,
-        sizing: 'intrinsic',
-      },
-    );
+    const scene = S.linearLayout([pg(600, 800, 90)], S.groupPages(1, 'none'), {
+      axis: 'y',
+      gap: GAP,
+      sizing: 'intrinsic',
+    });
     const box = scene.items[0].pages[0];
     // intrinsic 600×800 portrait, rotated 90° → 800×600 landscape footprint
     expect(box.width).toBe(800);
@@ -377,23 +360,15 @@ describe('page rotation: the box is the DISPLAY footprint (w↔h for quarter-tur
   });
 
   it('180° keeps dimensions; 270° swaps them (same as 90°)', () => {
-    const half = S.linearLayout(
-      [{ width: 600, height: 800, rotation: 180 }],
-      S.groupPages(1, 'none'),
-      {
-        axis: 'y',
-        gap: GAP,
-      },
-    );
+    const half = S.linearLayout([pg(600, 800, 180)], S.groupPages(1, 'none'), {
+      axis: 'y',
+      gap: GAP,
+    });
     expect([half.items[0].pages[0].width, half.items[0].pages[0].height]).toEqual([600, 800]);
-    const three = S.linearLayout(
-      [{ width: 600, height: 800, rotation: 270 }],
-      S.groupPages(1, 'none'),
-      {
-        axis: 'y',
-        gap: GAP,
-      },
-    );
+    const three = S.linearLayout([pg(600, 800, 270)], S.groupPages(1, 'none'), {
+      axis: 'y',
+      gap: GAP,
+    });
     expect([three.items[0].pages[0].width, three.items[0].pages[0].height]).toEqual([800, 600]);
   });
 
@@ -401,8 +376,8 @@ describe('page rotation: the box is the DISPLAY footprint (w↔h for quarter-tur
     // page 0 is a portrait rotated 90° → 800-wide footprint, the widest.
     const scene = S.linearLayout(
       [
-        { width: 600, height: 800, rotation: 90 }, // display 800×600 — widest footprint
-        { width: 700, height: 500 }, // display 700×500
+        pg(600, 800, 90), // display 800×600 — widest footprint
+        pg(700, 500), // display 700×500
       ],
       S.groupPages(2, 'none'),
       { axis: 'y', gap: GAP, sizing: 'uniform' },
@@ -414,7 +389,7 @@ describe('page rotation: the box is the DISPLAY footprint (w↔h for quarter-tur
 });
 
 describe('direction: rtl (a layout property, not a navigation one)', () => {
-  const four = Array.from({ length: 4 }, () => ({ width: 600, height: 800 }));
+  const four = Array.from({ length: 4 }, () => pg(600, 800));
 
   it('horizontal rtl: page 1 sits at the RIGHT, items advance leftward', () => {
     const scene = S.linearLayout(four, S.groupPages(4, 'none'), {
@@ -469,7 +444,7 @@ describe('direction: rtl (a layout property, not a navigation one)', () => {
 });
 
 describe('pageFrame: reserved chrome space around each PAGE', () => {
-  const P = { width: 600, height: 800 };
+  const P = pg(600, 800);
   const m = { top: 10, right: 8, bottom: 20, left: 6 };
 
   it('linear vertical: pages sit inside their slots; bands reserved between pages', () => {
@@ -514,14 +489,12 @@ describe('pageFrame: reserved chrome space around each PAGE', () => {
   });
 
   it('uniform sizing scales the PAGES, never the margins', () => {
-    const scene = S.linearLayout(
-      [
-        { width: 600, height: 800 },
-        { width: 1200, height: 800 },
-      ],
-      S.groupPages(2, 'none'),
-      { axis: 'y', gap: 16, sizing: 'uniform', pageFrame: m },
-    );
+    const scene = S.linearLayout([pg(600, 800), pg(1200, 800)], S.groupPages(2, 'none'), {
+      axis: 'y',
+      gap: 16,
+      sizing: 'uniform',
+      pageFrame: m,
+    });
     // page 1 scaled up to 1200 wide; both outer widths equal 1200 + 14
     expect(scene.items[0].pages[0].width).toBeCloseTo(1200, 6);
     expect(scene.items[0].width).toBeCloseTo(1200 + 14, 6);
@@ -533,10 +506,10 @@ describe('pageFrame: reserved chrome space around each PAGE', () => {
 describe('gridLayout per-row heights (mixed page sizes)', () => {
   it('a row is as tall as ITS tallest item, not the global max (no giant voids)', () => {
     const pages = [
-      { width: 600, height: 800 }, // row 0
-      { width: 600, height: 400 }, // row 0 (short — centers within ROW height)
-      { width: 600, height: 1200 }, // row 1 (the global max)
-      { width: 600, height: 600 }, // row 1
+      pg(600, 800), // row 0
+      pg(600, 400), // row 0 (short — centers within ROW height)
+      pg(600, 1200), // row 1 (the global max)
+      pg(600, 600), // row 1
     ];
     const scene = S.gridLayout(pages, S.groupPages(4, 'none'), { gap: 12, columns: 2 });
     // row 0 is 800 tall (NOT 1200): row 1 starts right below it + gap
@@ -554,7 +527,7 @@ describe('gridLayout per-row heights (mixed page sizes)', () => {
 });
 
 describe('gridLayout lineWidth (wrapped)', () => {
-  const pages = Array.from({ length: 7 }, () => ({ width: 600, height: 800 }));
+  const pages = Array.from({ length: 7 }, () => pg(600, 800));
   const g = () => S.groupPages(7, 'none');
   // cell = 600 wide, gap 48 → a column costs 648 of (lineWidth + 48)
 

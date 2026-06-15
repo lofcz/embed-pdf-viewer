@@ -774,10 +774,10 @@ async function createHighlight(): Promise<void> {
     opacity: 0.6,
     quadPoints: [
       {
-        topLeft: { x: 0, y: 0 },
-        topRight: { x: 40, y: 0 },
-        bottomLeft: { x: 0, y: 16 },
-        bottomRight: { x: 40, y: 16 },
+        p1: { x: 0, y: 0 },
+        p2: { x: 40, y: 0 },
+        p3: { x: 0, y: 16 },
+        p4: { x: 40, y: 16 },
       },
     ],
   };

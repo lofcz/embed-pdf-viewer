@@ -130,6 +130,9 @@ export function createStageCapability(
 
   const layoutFor = (groups: number[][]): S.Scene => {
     const st = ctx.getState();
+    // Engine PageLayout (PDF document geometry) structurally satisfies stage-core's
+    // viewer-local PageGeom (`size` + `rotation`): intrinsic page size needs no
+    // transform, so it flows straight into the layout with no conversion.
     const pages = ctx.document()?.pages ?? [];
     const pageFrame = worldPageFrame();
     const gap = worldGap();
@@ -468,7 +471,9 @@ export function createStageCapability(
   // box always yields the same transform regardless of pan.
   const withTransform = (box: S.PageBox): VisiblePage => {
     const reg = ctx.document()?.pages[box.pageIndex];
-    const pageSize = reg ? { width: reg.width, height: reg.height } : unrotatedPoints(box);
+    const pageSize = reg
+      ? { width: reg.size.width, height: reg.size.height }
+      : unrotatedPoints(box);
     const c = cam();
     const ratio = dpr();
     return {

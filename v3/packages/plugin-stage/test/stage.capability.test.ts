@@ -19,8 +19,7 @@ function harness(
   const pages = sizes.map((s, i) => ({
     index: i,
     pageObjectNumber: i + 1,
-    width: s.width,
-    height: s.height,
+    size: { width: s.width, height: s.height },
     rotation: s.rotation ?? 0,
     label: null,
     userUnit: 1,

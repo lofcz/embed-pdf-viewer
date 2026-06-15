@@ -19,17 +19,16 @@ import type { DocumentMeta, PluginContext } from '../src/types';
  * document-scoped plugin (every Stage lens) keys its derivations on.
  */
 
-const box = [0, 0, 600, 800] as const;
+const box = { left: 0, bottom: 0, right: 600, top: 800 } as const;
 function page(pon: number, index: number, rotation: PageRotation = 0): PageLayout {
   return {
     index,
     pageObjectNumber: pon,
     label: null,
-    width: 600,
-    height: 800,
+    size: { width: 600, height: 800 },
     rotation,
     userUnit: 1,
-    boxes: { media: [...box], crop: [...box] },
+    boxes: { media: { ...box }, crop: { ...box } },
   };
 }
 
