@@ -72,78 +72,6 @@ export function displaySize(content: Size, rotation: PageRotation): Size {
 }
 
 /**
- * Map an offset in a page's UN-rotated content frame (origin at the content
- * top-left) to the offset within its DISPLAY box (origin at the box top-left),
- * applying a clockwise `rotation`. Unit-agnostic — callers pass world units or
- * screen px. `content` is the un-rotated content size in the same unit.
- *
- * The single source of truth for the forward direction: `pageToWorld` (placing
- * a content point into the world box) and the page surface's content-wrapper
- * transform both derive from this.
- */
-export function rotateInBox(offset: Point, content: Size, rotation: PageRotation): Point {
-  switch (rotation) {
-    case 90:
-      // content top-left → box top-right; the left edge becomes the top edge
-      return { x: content.height - offset.y, y: offset.x };
-    case 180:
-      return { x: content.width - offset.x, y: content.height - offset.y };
-    case 270:
-      return { x: offset.y, y: content.width - offset.x };
-    default:
-      return { x: offset.x, y: offset.y };
-  }
-}
-
-/**
- * The exact inverse of {@link rotateInBox}: a display-box offset back to the
- * un-rotated content frame. Hit-testing (screen → page point) is built on this.
- */
-export function unrotateInBox(offset: Point, content: Size, rotation: PageRotation): Point {
-  switch (rotation) {
-    case 90:
-      return { x: offset.y, y: content.height - offset.x };
-    case 180:
-      return { x: content.width - offset.x, y: content.height - offset.y };
-    case 270:
-      return { x: content.width - offset.y, y: offset.x };
-    default:
-      return { x: offset.x, y: offset.y };
-  }
-}
-
-/**
- * Screen point → page point (PDF points), inverting a page surface's rotation
- * and scale. The whole of a framework adapter's `toPagePoint` minus the one
- * platform-bound line (`getRect`), so the trig is verified ONCE here rather
- * than re-derived (and mis-derived) per adapter.
- *
- *   - `center` is the surface's center on screen — rotation-invariant, so it is
- *     read from the rotated wrapper's axis-aligned bounding-box center.
- *   - `contentSize` is the UN-rotated content footprint in SCREEN px.
- *   - `scale` is screen px per PDF point (contentScale × zoom).
- */
-export function screenToPagePoint(args: {
-  screen: Point;
-  center: Point;
-  contentSize: Size;
-  scale: number;
-  rotation: PageRotation;
-}): Point {
-  const { screen, center, contentSize, scale, rotation } = args;
-  // The display box is centered at `center`; express the screen point relative
-  // to the box's top-left, then invert the rotation (corner-mapping) into the
-  // un-rotated content frame, then scale to PDF points.
-  const display = displaySize(contentSize, rotation);
-  const boxOffset: Point = {
-    x: screen.x - center.x + display.width / 2,
-    y: screen.y - center.y + display.height / 2,
-  };
-  const content = unrotateInBox(boxOffset, contentSize, rotation);
-  return { x: content.x / scale, y: content.y / scale };
-}
-
-/**
  * The engine's `kind:'width'` height rule, replicated EXACTLY so the viewer can
  * predict the rendered bitmap's height up front — the page box is sized to it,
  * so the box matches the bitmap with no reflow and no 1px seam.
@@ -158,11 +86,14 @@ export function deviceHeightForWidth(pageSize: Size, deviceWidth: number): numbe
 }
 
 /**
- * The single per-page bridge between the viewer's three coordinate spaces:
+ * The single per-page bridge between the viewer's three coordinate spaces. NB:
+ * these are all VIEWER spaces — top-left origin, y-down. They are NOT the
+ * engine's PDF user space (`Pdf*`, bottom-left origin, y-up); the engine→content
+ * hop (the y-flip + crop offset) is a separate matrix (`pageGeometry`).
  *
- *   page space    PDF points (top-left, y-down) — ALL document data lives here
- *   view space    platform logical px (web: CSS px) — layout, DOM, pointer events
- *   device space  physical pixels — the rendered bitmap
+ *   content space  page-local points, top-left, y-down — un-rotated page frame
+ *   view space     platform logical px (web: CSS px) — layout, DOM, pointer events
+ *   device space   physical pixels — the rendered bitmap
  *
  * PAGE-LOCAL by design: it knows this page's own box, NOT where the page sits in
  * the scene. Placement (camera/layout) stays on `VisiblePage.{x,y}` and positions
@@ -190,20 +121,20 @@ export interface PageTransform {
   readonly deviceHeight: number;
   /** Device px per PDF point (uniform). */
   readonly renderScale: number;
-  /** PDF point → UN-rotated content view px. For overlays INSIDE the rotated
+  /** Content point → UN-rotated content view px. For overlays INSIDE the rotated
    *  content wrapper (markers, annotations) — they ride the wrapper's rotation,
    *  so they place in content space and only scale here. */
   pageToContent(p: Point): Point;
-  /** PDF point → page-local view px in the DISPLAY box (rotation applied). For
+  /** Content point → page-local view px in the DISPLAY box (rotation applied). For
    *  footprint-space layers (outside the wrapper). */
   pageToView(p: Point): Point;
-  /** PDF-point rect → its axis-aligned view-px rect (exact for quarter-turns). */
+  /** Content rect → its axis-aligned view-px rect (exact for quarter-turns). */
   pageToViewRect(r: Rect): Rect;
-  /** Inverse — display-box view px (box-local) → PDF point. Hit-testing. */
+  /** Inverse — display-box view px (box-local) → content point. Hit-testing. */
   viewToPage(p: Point): Point;
-  /** CSS `matrix()` mapping page-point space → this page's display box. Drop it on
+  /** CSS `matrix()` mapping content space → this page's display box. Drop it on
    *  a footprint-space layer (`transform`, `transform-origin: 0 0`) and place
-   *  children in raw PDF points — rotation + scale handled for free. */
+   *  children in content points — rotation + scale handled for free. */
   readonly cssMatrix: string;
 }
 
@@ -239,35 +170,21 @@ export function pageTransform(input: {
 
   const footprint = displaySize(content, rotation);
 
-  const pageToContent = (p: Point): Point => ({ x: p.x * viewScale, y: p.y * viewScale });
+  // The two affines this page needs, as Mat2D — the matrix is the source of
+  // truth; the methods and `cssMatrix` below are sugar over it (so they can
+  // never drift).
+  // content point (top-left, y-down) → content view px: pure isotropic scale.
+  const contentMat = [viewScale, 0, 0, viewScale, 0, 0] as Mat2D;
+  // content point → display-box view px: scale + the page's quarter-turn, from
+  // the shared builder (the one quarter-turn encoding).
+  const viewMat = rotateScaleMatrix(viewScale, content.width, content.height, rotation);
+  const invMat = invert(viewMat);
 
-  const pageToView = (p: Point): Point => rotateInBox(pageToContent(p), content, rotation);
-
-  const viewToPage = (p: Point): Point => {
-    const c = unrotateInBox(p, content, rotation);
-    return { x: c.x / viewScale, y: c.y / viewScale };
-  };
-
-  const pageToViewRect = (r: Rect): Rect => {
-    const cs = [
-      pageToView({ x: r.x, y: r.y }),
-      pageToView({ x: r.x + r.width, y: r.y }),
-      pageToView({ x: r.x, y: r.y + r.height }),
-      pageToView({ x: r.x + r.width, y: r.y + r.height }),
-    ];
-    const xs = cs.map((c) => c.x);
-    const ys = cs.map((c) => c.y);
-    const minX = Math.min(...xs);
-    const minY = Math.min(...ys);
-    return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY };
-  };
-
-  // Derive the CSS matrix from `pageToView` itself (it's affine) so the two can
-  // never disagree: columns are the images of the page-space basis vectors.
-  const o = pageToView({ x: 0, y: 0 });
-  const ux = pageToView({ x: 1, y: 0 });
-  const uy = pageToView({ x: 0, y: 1 });
-  const cssMatrix = `matrix(${ux.x - o.x}, ${ux.y - o.y}, ${uy.x - o.x}, ${uy.y - o.y}, ${o.x}, ${o.y})`;
+  const pageToContent = (p: Point): Point => applyPoint(contentMat, p);
+  const pageToView = (p: Point): Point => applyPoint(viewMat, p);
+  const viewToPage = (p: Point): Point => applyPoint(invMat, p);
+  const pageToViewRect = (r: Rect): Rect => applyRect(viewMat, r);
+  const cssMatrix = matrixToCss(viewMat);
 
   return {
     viewWidth: footprint.width,
@@ -283,4 +200,257 @@ export function pageTransform(input: {
     viewToPage,
     cssMatrix,
   };
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Matrix-native geometry — the composable primitive under every space hop.
+ *
+ * A coordinate-space conversion is a 2D affine `Mat2D = [a,b,c,d,e,f]` (the same
+ * six numbers as CSS `matrix()`, `CGAffineTransform`, and Android `Matrix`):
+ *
+ *     x' = a·x + c·y + e
+ *     y' = b·x + d·y + f
+ *
+ * Three generic appliers + `compose` + `invert` are the ENTIRE runtime — they
+ * never grow as spaces/shapes/directions multiply, and they port 1:1 to Rust /
+ * Swift / Kotlin (every target has a native affine). Inverses (hit-testing) and
+ * screen composition fall out for free; there is no per-space hand-rolled y-flip
+ * to drift between adapters.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The coordinate spaces a viewer touches. `pdf` is the engine's PDF user space
+ * (y-up, origin at the crop box bottom-left); the rest are viewer-local, y-down.
+ */
+export type Space = 'pdf' | 'content' | 'view' | 'screen';
+
+/**
+ * Phantom space brand. It is OPTIONAL so plain `{ x, y }` / `{ x, y, w, h }`
+ * literals stay assignable day-to-day (terse), but a value EXPLICITLY tagged
+ * with the wrong space is rejected — and `Mat2D<From, To>` enforces the hop at
+ * the matrix, so you cannot `applyRect` a `pdf` rect with a `content→view`
+ * matrix. The brand is type-only; it carries no runtime field.
+ */
+interface SpaceBrand<S extends Space> {
+  readonly __space?: S;
+}
+
+/** A point tagged with its coordinate space. */
+export type PointIn<S extends Space> = Point & SpaceBrand<S>;
+/**
+ * An axis-aligned rect tagged with its space, as min-corner + positive extent:
+ * `(x, y)` is the corner with the smallest coordinates and `(x+width, y+height)`
+ * the largest. In `pdf` space (y-up) that corner is bottom-left (`x=left`,
+ * `y=bottom`); in the y-down viewer spaces it is top-left.
+ */
+export type RectIn<S extends Space> = Rect & SpaceBrand<S>;
+
+/**
+ * Four POSITIONAL points (no corner semantics) — the viewer twin of the engine's
+ * `PdfQuad`. Use this (via {@link applyQuad}) for rotatable/skewed content where
+ * an axis-aligned rect would lie.
+ */
+export interface Quad {
+  p1: Point;
+  p2: Point;
+  p3: Point;
+  p4: Point;
+}
+/** A quad tagged with its coordinate space. */
+export type QuadIn<S extends Space> = Quad & SpaceBrand<S>;
+
+/**
+ * A 2D affine transform from space `From` to space `To`, stored as the six
+ * numbers `[a, b, c, d, e, f]`. The phantom `From`/`To` make the compiler track
+ * which spaces a matrix bridges, so composition and application can only be
+ * wired up in the one correct order.
+ */
+export type Mat2D<From extends Space = Space, To extends Space = Space> = readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+] & {
+  readonly __from?: From;
+  readonly __to?: To;
+};
+
+/** The identity transform within a single space. */
+export function identity<S extends Space>(): Mat2D<S, S> {
+  return [1, 0, 0, 1, 0, 0] as Mat2D<S, S>;
+}
+
+/**
+ * Compose two matrices: `compose(m, n)` applies `n` first, then `m` (matrix
+ * product `m · n`). The shared middle space `B` must line up, so the type system
+ * rejects composing mismatched hops.
+ */
+export function compose<A extends Space, B extends Space, C extends Space>(
+  m: Mat2D<B, C>,
+  n: Mat2D<A, B>,
+): Mat2D<A, C> {
+  const [a, b, c, d, e, f] = m;
+  const [a2, b2, c2, d2, e2, f2] = n;
+  return [
+    a * a2 + c * b2,
+    b * a2 + d * b2,
+    a * c2 + c * d2,
+    b * c2 + d * d2,
+    a * e2 + c * f2 + e,
+    b * e2 + d * f2 + f,
+  ] as Mat2D<A, C>;
+}
+
+/** Invert a transform — `invert(pdfToView)` is `viewToPdf`, i.e. hit-testing for free. */
+export function invert<F extends Space, T extends Space>(m: Mat2D<F, T>): Mat2D<T, F> {
+  const [a, b, c, d, e, f] = m;
+  const det = a * d - b * c;
+  if (det === 0) throw new Error('Mat2D.invert: non-invertible matrix (det = 0)');
+  const ia = d / det;
+  const ib = -b / det;
+  const ic = -c / det;
+  const id = a / det;
+  return [ia, ib, ic, id, -(ia * e + ic * f), -(ib * e + id * f)] as Mat2D<T, F>;
+}
+
+/** Apply a transform to a point. */
+export function applyPoint<F extends Space, T extends Space>(
+  m: Mat2D<F, T>,
+  p: PointIn<F>,
+): PointIn<T> {
+  const [a, b, c, d, e, f] = m;
+  return { x: a * p.x + c * p.y + e, y: b * p.x + d * p.y + f } as PointIn<T>;
+}
+
+/**
+ * Apply a transform to a rect, returning the axis-aligned bounding box of the
+ * four transformed corners. EXACT for translate/scale/quarter-turn (every page
+ * transform `pageGeometry` produces); lossy under skew — use {@link applyQuad}
+ * for content that can be rotated off-axis.
+ */
+export function applyRect<F extends Space, T extends Space>(
+  m: Mat2D<F, T>,
+  r: RectIn<F>,
+): RectIn<T> {
+  const c0 = applyPoint(m, { x: r.x, y: r.y } as PointIn<F>);
+  const c1 = applyPoint(m, { x: r.x + r.width, y: r.y } as PointIn<F>);
+  const c2 = applyPoint(m, { x: r.x, y: r.y + r.height } as PointIn<F>);
+  const c3 = applyPoint(m, { x: r.x + r.width, y: r.y + r.height } as PointIn<F>);
+  const xs = [c0.x, c1.x, c2.x, c3.x];
+  const ys = [c0.y, c1.y, c2.y, c3.y];
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(...xs) - minX,
+    height: Math.max(...ys) - minY,
+  } as RectIn<T>;
+}
+
+/** Apply a transform to a quad, preserving orientation (maps the four points). */
+export function applyQuad<F extends Space, T extends Space>(
+  m: Mat2D<F, T>,
+  q: QuadIn<F>,
+): QuadIn<T> {
+  return {
+    p1: applyPoint(m, q.p1 as PointIn<F>),
+    p2: applyPoint(m, q.p2 as PointIn<F>),
+    p3: applyPoint(m, q.p3 as PointIn<F>),
+    p4: applyPoint(m, q.p4 as PointIn<F>),
+  } as QuadIn<T>;
+}
+
+/**
+ * A `Mat2D` IS a CSS `matrix()` — the six numbers are identical. Drop the result
+ * on a footprint-space layer (`transform`, `transform-origin: 0 0`) and place
+ * children in the source space; the rotation + scale are handled for free.
+ */
+export function matrixToCss(m: Mat2D): string {
+  const [a, b, c, d, e, f] = m;
+  return `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`;
+}
+
+/**
+ * The page's scale + integer quarter-turn as a `Mat2D`: a content point maps to
+ * its place in the rotated DISPLAY box. `scale` is output units per content
+ * point; `boxW`/`boxH` are the UN-rotated content's extents in those same output
+ * units, and the offsets keep the footprint in the box's positive quadrant
+ * (origin at the box top-left).
+ *
+ * THE single encoding of the quarter-turn — `pageTransform` (view px),
+ * `pageGeometry` (the `content→view` hop), and `pageToWorld` (world units) all
+ * build on this one function, so the rotation can never drift between them.
+ */
+export function rotateScaleMatrix(
+  scale: number,
+  boxW: number,
+  boxH: number,
+  rotation: PageRotation,
+): Mat2D {
+  switch (rotation) {
+    case 90:
+      return [0, scale, -scale, 0, boxH, 0] as Mat2D;
+    case 180:
+      return [-scale, 0, 0, -scale, boxW, boxH] as Mat2D;
+    case 270:
+      return [0, -scale, scale, 0, 0, boxW] as Mat2D;
+    default:
+      return [scale, 0, 0, scale, 0, 0] as Mat2D;
+  }
+}
+
+/**
+ * The per-page geometry input. Structurally a subset of the engine's
+ * `PageLayout` (so a layout can be passed straight in), but defined here to keep
+ * this package dependency-free — the same reason {@link PageRotation} is a
+ * structural twin of the engine's rotation.
+ */
+export interface PageGeometryInput {
+  /** Effective crop box in PDF user space (y-up edges); origin preserved, so
+   *  `left`/`bottom` may be non-zero or negative. */
+  crop: { left: number; bottom: number; right: number; top: number };
+  /** Persistent page rotation (the document's `/Rotate`). */
+  rotation: PageRotation;
+  /** PDF `userUnit` (§14.11.6): scales PDF points into the layout. 1 for most docs. */
+  userUnit: number;
+}
+
+/** The matrices bridging one page's spaces — every other matrix composes from these. */
+export interface PageGeometry {
+  /** PDF user space (y-up, crop-relative) → content space (y-down, crop top-left, unscaled points). */
+  readonly pdfToContent: Mat2D<'pdf', 'content'>;
+  /** Content → view: scale (zoom × userUnit) + the page's quarter-turn rotation. */
+  readonly contentToView: Mat2D<'content', 'view'>;
+  /** PDF → view, precomposed. */
+  readonly pdfToView: Mat2D<'pdf', 'view'>;
+  /** View → PDF, the inverse — hit-testing for free. */
+  readonly viewToPdf: Mat2D<'view', 'pdf'>;
+}
+
+/**
+ * Build a page's space matrices from its crop box, rotation, and `userUnit` plus
+ * the viewer `zoom`. This is the ONE function that knows the y-flip, crop origin,
+ * `userUnit`, and rotation; everything else composes from its output. The engine
+ * never emits these — they bake in viewer state (zoom, later scroll/dpr) — so the
+ * boundary stays clean: engine owns `Pdf*` truth, the viewer composes the rest.
+ */
+export function pageGeometry(input: PageGeometryInput, zoom: number): PageGeometry {
+  const { crop, rotation, userUnit } = input;
+  const s = zoom * userUnit; // view px per PDF point — userUnit folded in HERE, once
+
+  // PDF user space (y-up, origin = crop bottom-left) → content (y-down, origin = crop top-left).
+  const pdfToContent = [1, 0, 0, -1, -crop.left, crop.top] as Mat2D<'pdf', 'content'>;
+
+  // Content → view: scale + integer quarter-turn, from the shared builder (the
+  // one quarter-turn encoding). `Wc`/`Hc` are the unrotated content's view-px
+  // extents (the builder places the footprint in the box's positive quadrant).
+  const Wc = (crop.right - crop.left) * s;
+  const Hc = (crop.top - crop.bottom) * s;
+  const contentToView = rotateScaleMatrix(s, Wc, Hc, rotation) as Mat2D<'content', 'view'>;
+
+  const pdfToView = compose(contentToView, pdfToContent);
+  return { pdfToContent, contentToView, pdfToView, viewToPdf: invert(pdfToView) };
 }

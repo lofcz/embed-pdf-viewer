@@ -1,5 +1,11 @@
 import * as S from '@embedpdf-x/stage-core';
-import { displaySize, pageTransform, rotateInBox, snapToDevice } from '@embedpdf-x/geometry';
+import {
+  applyPoint,
+  displaySize,
+  pageTransform,
+  rotateScaleMatrix,
+  snapToDevice,
+} from '@embedpdf-x/geometry';
 import type { PluginContext } from '@embedpdf-x/kernel';
 import { SETTINGS_EFFECT, SETTING_KEYS } from './settings';
 import type { SettingEffect } from './settings';
@@ -551,17 +557,14 @@ export function createStageCapability(
     pageToWorld: (pon, pt) => {
       const pr = api.pageRect(pon);
       if (!pr) return null;
-      // Place the (scaled) content offset into the page's display box via the
-      // SAME rotation primitive the layout/renderer use — so this forward
-      // transform and the adapter's inverse hit-test can't drift. `displaySize`
-      // is its own inverse, so it recovers the un-rotated content size from the
-      // display box.
+      // Place the content point into the page's display box via the SAME
+      // quarter-turn matrix the layout/renderer use (`rotateScaleMatrix`) — so
+      // this forward transform and the adapter's inverse hit-test (which inverts
+      // the same matrix) can't drift. `displaySize` is its own inverse, so it
+      // recovers the un-rotated content size from the display box.
       const content = displaySize({ width: pr.width, height: pr.height }, pr.rotation);
-      const offset = rotateInBox(
-        { x: pt.x * pr.contentScale, y: pt.y * pr.contentScale },
-        content,
-        pr.rotation,
-      );
+      const m = rotateScaleMatrix(pr.contentScale, content.width, content.height, pr.rotation);
+      const offset = applyPoint(m, pt);
       return { x: pr.x + offset.x, y: pr.y + offset.y };
     },
     toScreen: (w) => S.toScreen(cam(), w),
