@@ -19,6 +19,11 @@ import type {
   PageMoveResult,
   PageDeleteResult,
   DocCapability,
+  PdfSaveMode,
+  DocumentMetadata,
+  MetadataPatch,
+  MetadataUpdateResult,
+  DocumentEvent,
 } from '@embedpdf/engine-core/runtime';
 
 // re-export the engine contracts so consumers import them from @embedpdf-x/kernel
@@ -34,6 +39,11 @@ export type {
   PageMoveResult,
   PageDeleteResult,
   DocCapability,
+  PdfSaveMode,
+  DocumentMetadata,
+  MetadataPatch,
+  MetadataUpdateResult,
+  DocumentEvent,
 };
 
 export type Unsubscribe = () => void;
@@ -172,6 +182,19 @@ export interface DocumentsCapability {
   move(id: string, toIndex: number): void;
   /** Swap two documents (tabs) in the order. */
   swap(a: string, b: string): void;
+  /**
+   * Save the COMPLETE document (base + layer) to PDF bytes. `mode` is
+   * `'incremental'` (append changes, original bytes preserved) or `'rewrite'`
+   * (flatten to a fresh PDF). Defaults to the active document.
+   */
+  download(id?: string, opts?: { mode?: PdfSaveMode }): Promise<Uint8Array>;
+  /**
+   * Export JUST the document's LAYER artifact (re-openable via `OpenInputLayerBytes`).
+   * Rejects when the document was opened without a layer, or the engine can't
+   * export one (cloud manages layers server-side — `DocumentHandle.downloadLayer`
+   * is absent there). Defaults to the active document.
+   */
+  downloadLayer(id?: string): Promise<Uint8Array>;
 }
 
 /** Built-in token for the document registry capability (provided by the kernel). */

@@ -36,15 +36,15 @@ export async function createEngine(): Promise<Engine> {
 
 // Sample documents shipped in /public. For cloud they'd address server documents
 // by id/token instead of carrying bytes.
-const SAMPLES: ReadonlyArray<{ id: string; name: string; url: string }> = [
+export const SAMPLES: ReadonlyArray<{ id: string; name: string; url: string }> = [
   { id: 'ebook', name: 'Ebook', url: '/ebook.pdf' },
   { id: 'ebook2', name: 'Ebook Rotated', url: '/ebook-rotated.pdf' },
   { id: 'mixed sizes', name: 'Mixed Sizes', url: '/mixed_page_sizes_test.pdf' },
-  { id: 'report', name: 'Report', url: '/report.pdf' },
+  { id: 'report', name: 'Whitepaper', url: '/report.pdf' },
   { id: 'manual', name: 'Manual', url: '/manual.pdf' },
 ];
 
-const fetchBytes = async (url: string): Promise<Uint8Array> =>
+export const fetchBytes = async (url: string): Promise<Uint8Array> =>
   new Uint8Array(await (await fetch(url)).arrayBuffer());
 
 async function loadInitialDocuments(): Promise<InitialDocument[]> {

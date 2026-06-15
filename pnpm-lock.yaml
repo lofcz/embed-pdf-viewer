@@ -2865,6 +2865,19 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
+  v3/packages/plugin-metadata:
+    dependencies:
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
   v3/packages/plugin-page-edit:
     dependencies:
       '@embedpdf-x/kernel':
@@ -2941,6 +2954,9 @@ importers:
       '@embedpdf-x/plugin-marker':
         specifier: workspace:*
         version: link:../plugin-marker
+      '@embedpdf-x/plugin-metadata':
+        specifier: workspace:*
+        version: link:../plugin-metadata
       '@embedpdf-x/plugin-page-edit':
         specifier: workspace:*
         version: link:../plugin-page-edit

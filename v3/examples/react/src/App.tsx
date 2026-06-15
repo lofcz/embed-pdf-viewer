@@ -16,6 +16,7 @@ import { markerPlugin } from '@embedpdf-x/plugin-marker';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
 import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
+import { metadataPlugin } from '@embedpdf-x/plugin-metadata';
 import { viewManagerPlugin } from '@embedpdf-x/plugin-view-manager';
 import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
 import {
@@ -33,9 +34,11 @@ import {
   useDocuments,
   useViews,
   usePageEditor,
+  useMetadata,
   useSelector,
 } from '@embedpdf-x/react';
-import { bootstrap, engineMode, newDocument } from './engine';
+import type { DocumentMetadata, MetadataPatch, OpenInput, PdfSaveMode } from '@embedpdf-x/kernel';
+import { bootstrap, engineMode, newDocument, SAMPLES, fetchBytes } from './engine';
 import type { Boot } from './engine';
 
 // The Stage is a LENS: a document can be viewed through several at once. The
@@ -62,6 +65,7 @@ const plugins = [
   }),
   renderPlugin(), // document-scoped: renders pages through the engine handle
   pageEditPlugin(), // document-scoped: PON-addressed rotate/move/delete over the handle
+  metadataPlugin(), // document-scoped: reactive Info-dict metadata (own + remote SSE edits)
   markerPlugin(),
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
@@ -781,6 +785,301 @@ function Workspace() {
   );
 }
 
+// ── File menu: open base / base+layer, save layer / PDF, edit metadata ───────────
+const saveToDisk = (bytes: Uint8Array, filename: string): void => {
+  const url = URL.createObjectURL(
+    new Blob([bytes as BlobPart], { type: 'application/octet-stream' }),
+  );
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+const pickFile = (accept: string): Promise<File | null> =>
+  new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = accept;
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.click();
+  });
+
+function FileMenu() {
+  const { open, download, downloadLayer } = useDocuments();
+  const { views, focusedViewId } = useViews();
+  const focused = views.find((v) => v.id === focusedViewId) ?? views[0];
+  const targetId = focused?.activeDocumentId ?? null;
+  const [sampleId, setSampleId] = useState(SAMPLES[0].id);
+  const [layered, setLayered] = useState<Set<string>>(new Set());
+  const [menu, setMenu] = useState(false);
+  const [showMeta, setShowMeta] = useState(false);
+  const [status, setStatus] = useState('');
+
+  const sample = () => SAMPLES.find((s) => s.id === sampleId)!;
+  const isLayered = targetId ? layered.has(targetId) : false;
+
+  const opened = async (source: OpenInput, name: string, isLayer: boolean) => {
+    setMenu(false);
+    try {
+      const id = await open(source, { name });
+      if (isLayer) setLayered((s) => new Set(s).add(id));
+      setStatus(
+        isLayer
+          ? `Opened “${name}” — page ops + metadata write to the layer.`
+          : `Opened “${name}”.`,
+      );
+    } catch (e) {
+      setStatus(`Open failed: ${(e as Error).message}`);
+    }
+  };
+  const openBase = async () => {
+    const s = sample();
+    void opened(
+      { kind: 'bytes', id: `${s.id}-base-${Date.now()}`, bytes: await fetchBytes(s.url) },
+      s.name,
+      false,
+    );
+  };
+  const openNewLayer = async () => {
+    const s = sample();
+    void opened(
+      {
+        kind: 'layerBytes',
+        id: `${s.id}-layer-${Date.now()}`,
+        baseBytes: await fetchBytes(s.url),
+        layer: { kind: 'fresh' },
+      } as OpenInput,
+      `${s.name} (layer)`,
+      true,
+    );
+  };
+  const openSavedLayer = async () => {
+    const file = await pickFile('.layer,application/octet-stream');
+    if (!file) return;
+    const s = sample();
+    void opened(
+      {
+        kind: 'layerBytes',
+        id: `${s.id}-relayer-${Date.now()}`,
+        baseBytes: await fetchBytes(s.url),
+        layer: { kind: 'artifact', bytes: new Uint8Array(await file.arrayBuffer()) },
+      } as OpenInput,
+      `${s.name} (layer)`,
+      true,
+    );
+  };
+  const doSaveLayer = async () => {
+    setMenu(false);
+    if (!targetId) return;
+    try {
+      const bytes = await downloadLayer(targetId);
+      saveToDisk(bytes, `${sample().id}.layer`);
+      setStatus(`Saved layer (${bytes.byteLength.toLocaleString()} bytes).`);
+    } catch (e) {
+      setStatus(`Save layer failed: ${(e as Error).message}`);
+    }
+  };
+  const doSavePdf = async (mode: PdfSaveMode) => {
+    setMenu(false);
+    if (!targetId) return;
+    try {
+      const bytes = await download(targetId, { mode });
+      saveToDisk(bytes, `${sample().id}-${mode}.pdf`);
+      setStatus(`Saved ${mode} PDF (${bytes.byteLength.toLocaleString()} bytes).`);
+    } catch (e) {
+      setStatus(`Save PDF failed: ${(e as Error).message}`);
+    }
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button onClick={() => setMenu((o) => !o)} style={fileBtn}>
+        File ▾
+      </button>
+      {status && <span style={{ marginLeft: 8, fontSize: 11, color: '#666' }}>{status}</span>}
+      {menu && (
+        <>
+          <div onClick={() => setMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 40 }} />
+          <div style={menuPanel}>
+            <label style={menuRow}>
+              base{' '}
+              <select value={sampleId} onChange={(e) => setSampleId(e.target.value)}>
+                {SAMPLES.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div style={menuDiv} />
+            <button style={menuItem} onClick={openBase}>
+              Open base (no layer)
+            </button>
+            <button style={menuItem} onClick={openNewLayer}>
+              Open base + new layer
+            </button>
+            <button style={menuItem} onClick={openSavedLayer}>
+              Open base + saved layer…
+            </button>
+            <div style={menuDiv} />
+            {isLayered && (
+              <button style={menuItem} onClick={doSaveLayer}>
+                ⬇ Save layer
+              </button>
+            )}
+            <button style={menuItem} disabled={!targetId} onClick={() => doSavePdf('incremental')}>
+              ⬇ Save PDF · incremental
+            </button>
+            <button style={menuItem} disabled={!targetId} onClick={() => doSavePdf('rewrite')}>
+              ⬇ Save PDF · full
+            </button>
+            <div style={menuDiv} />
+            <button
+              style={menuItem}
+              disabled={!targetId}
+              onClick={() => {
+                setShowMeta(true);
+                setMenu(false);
+              }}
+            >
+              Document properties…
+            </button>
+          </div>
+        </>
+      )}
+      {showMeta && targetId && (
+        <DocumentScope id={targetId}>
+          <MetadataDialog onClose={() => setShowMeta(false)} />
+        </DocumentScope>
+      )}
+    </div>
+  );
+}
+
+const EDITABLE = ['title', 'author', 'subject', 'keywords', 'creator', 'producer'] as const;
+
+function MetadataDialog({ onClose }: { onClose: () => void }) {
+  const { metadata, update } = useMetadata();
+  const [draft, setDraft] = useState<Record<string, string> | null>(null);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    if (metadata && !draft) {
+      setDraft(Object.fromEntries(EDITABLE.map((k) => [k, metadata[k] ?? ''])));
+    }
+  }, [metadata, draft]);
+
+  const save = async () => {
+    if (!draft) return;
+    setSaving(true);
+    // three-state: empty clears (null), text sets.
+    const patch: MetadataPatch = {};
+    for (const k of EDITABLE) patch[k] = draft[k].trim() === '' ? null : draft[k];
+    try {
+      await update(patch);
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={modalBackdrop} onClick={onClose}>
+      <div style={modalCard} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: '0 0 12px', fontSize: 14 }}>Document properties</h3>
+        {!draft ? (
+          <div style={{ color: '#888' }}>loading…</div>
+        ) : (
+          <>
+            {EDITABLE.map((k) => (
+              <label
+                key={k}
+                style={{ display: 'flex', alignItems: 'center', marginBottom: 8, fontSize: 12 }}
+              >
+                <span style={{ width: 78, color: '#555', textTransform: 'capitalize' }}>{k}</span>
+                <input
+                  value={draft[k]}
+                  onChange={(e) => setDraft({ ...draft, [k]: e.target.value })}
+                  style={{ flex: 1, padding: '4px 6px', border: '1px solid #ccc', borderRadius: 4 }}
+                />
+              </label>
+            ))}
+            <div style={{ marginTop: 14, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button style={fileBtn} onClick={onClose}>
+                Cancel
+              </button>
+              <button
+                style={{ ...fileBtn, background: '#3858e9', color: '#fff', border: 'none' }}
+                disabled={saving}
+                onClick={save}
+              >
+                {saving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const fileBtn: React.CSSProperties = {
+  padding: '4px 10px',
+  fontSize: 12,
+  border: '1px solid #ccc',
+  borderRadius: 6,
+  background: '#fff',
+  cursor: 'pointer',
+};
+const menuPanel: React.CSSProperties = {
+  position: 'absolute',
+  top: '100%',
+  left: 0,
+  marginTop: 4,
+  zIndex: 41,
+  minWidth: 230,
+  background: '#fff',
+  border: '1px solid #d0d0d0',
+  borderRadius: 8,
+  boxShadow: '0 8px 24px rgba(0,0,0,.16)',
+  padding: '4px 0',
+};
+const menuItem: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  textAlign: 'left',
+  padding: '6px 12px',
+  border: 'none',
+  background: 'transparent',
+  font: 'inherit',
+  fontSize: 12,
+  color: '#222',
+  cursor: 'pointer',
+};
+const menuRow: React.CSSProperties = {
+  display: 'block',
+  padding: '6px 12px',
+  fontSize: 12,
+  color: '#555',
+};
+const menuDiv: React.CSSProperties = { height: 1, background: '#eee', margin: '4px 0' };
+const modalBackdrop: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0,0,0,.35)',
+  display: 'grid',
+  placeItems: 'center',
+  zIndex: 50,
+};
+const modalCard: React.CSSProperties = {
+  background: '#fff',
+  borderRadius: 10,
+  padding: 18,
+  width: 420,
+  boxShadow: '0 12px 40px rgba(0,0,0,.25)',
+  font: '13px system-ui',
+};
+
 function Shell() {
   return (
     <div
@@ -801,6 +1100,7 @@ function Shell() {
         }}
       >
         <span style={{ fontWeight: 700, color: '#3858e9' }}>EmbedPDF v3</span>
+        <FileMenu />
         <span
           title="engine selected in ./engine — switch with ?engine=local|cloud|fake"
           style={{
@@ -816,9 +1116,6 @@ function Shell() {
           }}
         >
           {engineMode} engine
-        </span>
-        <span style={{ marginLeft: 'auto', color: '#aaa', fontSize: 11 }}>
-          each pane owns its tabs · drag a tab between panes · ⠿ reorder panes · ◫ split
         </span>
       </div>
       <Workspace />

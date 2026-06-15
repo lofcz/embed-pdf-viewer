@@ -40,5 +40,14 @@ export interface DocumentHandle {
    */
   page(pageObjectNumber: PageObjectNumber): PageHandle;
   download(opts?: { mode?: PdfSaveMode }): AbortablePromise<Uint8Array>;
+  /**
+   * Export JUST this document's LAYER as a self-contained artifact (the small
+   * overlay diff over the immutable base) — re-openable later via
+   * `OpenInputLayerBytes` with `{ kind: 'artifact', bytes }`. Optional: only the
+   * local engine, opened WITH a layer (`layerBytes`), supports it; the cloud
+   * engine manages layers server-side and omits it. Rejects if the document was
+   * opened without a layer.
+   */
+  downloadLayer?(): AbortablePromise<Uint8Array>;
   close(): AbortablePromise<void>;
 }

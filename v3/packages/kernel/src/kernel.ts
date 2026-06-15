@@ -263,6 +263,24 @@ export function createKernel(opts: { engine: Engine; plugins: AnyPlugin[] }): Ke
       next[indexB] = a;
       reorder(next);
     },
+    // Document IO — siblings of open/close, straight to the live engine handle.
+    download: (id, opts) => {
+      const handle = documentHandle(id);
+      if (!handle) return Promise.reject(new Error('[documents] no document to download'));
+      return handle.download(opts);
+    },
+    downloadLayer: (id) => {
+      const handle = documentHandle(id);
+      if (!handle) return Promise.reject(new Error('[documents] no document to download'));
+      if (!handle.downloadLayer) {
+        return Promise.reject(
+          new Error(
+            '[documents] this engine cannot export a layer (open with a layer on the local engine)',
+          ),
+        );
+      }
+      return handle.downloadLayer();
+    },
   };
   workspaceCapabilities.set(DocumentsToken, documents);
 

@@ -271,6 +271,15 @@ export interface DocumentSaveFileWorkerRequest {
   path: string;
 }
 
+/** Export JUST the layer artifact (the overlay diff) to a transferable buffer.
+ *  Layer sessions only; the host rejects a base-only session. */
+export interface DocumentSaveLayerBufferWorkerRequest {
+  kind: 'document.saveLayerBuffer';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+}
+
 export interface DocumentSecurityProbeInfo {
   encryptionState: 'unknown' | 'none' | 'encrypted' | 'unsupported';
   encryptionRequiresPassword: boolean | null;
@@ -342,6 +351,7 @@ export type WorkerRequest =
   | PagesRenderWorkerRequest
   | DocumentSaveBufferWorkerRequest
   | DocumentSaveFileWorkerRequest
+  | DocumentSaveLayerBufferWorkerRequest
   | DocumentProbeSecurityFileWorkerRequest
   | DocumentCheckPasswordPermissionsWorkerRequest
   | CloseWorkerRequest
@@ -407,6 +417,7 @@ export type WorkerResultPayload =
   | { tag: 'pages.geometry'; snapshot: PageGeometrySnapshot }
   | { tag: 'pages.render'; raster: PageRaster }
   | { tag: 'document.saveBuffer'; bytes: ArrayBuffer; size: number }
+  | { tag: 'document.saveLayerBuffer'; bytes: ArrayBuffer; size: number }
   | { tag: 'document.saveFile'; path: string }
   | { tag: 'document.probeSecurityFile'; security: DocumentSecurityProbeInfo }
   | { tag: 'document.checkPasswordPermissions'; security: DocumentSecurityProbeInfo }

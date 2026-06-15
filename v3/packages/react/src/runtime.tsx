@@ -117,6 +117,8 @@ export function useDocuments() {
     setActive: kernel.documents.setActive,
     move: kernel.documents.move,
     swap: kernel.documents.swap,
+    download: kernel.documents.download,
+    downloadLayer: kernel.documents.downloadLayer,
   };
 }
 

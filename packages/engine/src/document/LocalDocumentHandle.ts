@@ -122,6 +122,38 @@ export class LocalDocumentHandle implements DocumentHandle {
     });
   }
 
+  /** Export just this document's layer as a re-openable artifact. Rejects when the
+   *  document was opened without a layer (the worker rejects a base-only session). */
+  downloadLayer(): AbortablePromise<Uint8Array> {
+    if (this.closed) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.id}`),
+      );
+    }
+    try {
+      this.guard.assertCapability('doc.download');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
+    }
+    const docId = this.id;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) => wirePack({ kind: 'document.saveLayerBuffer', jobId, docId }),
+      },
+      { priority: Priority.HIGH },
+    );
+    return AbortablePromise.run<Uint8Array>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'document.saveLayerBuffer') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return new Uint8Array(payload.bytes);
+    });
+  }
+
   close(): AbortablePromise<void> {
     if (this.closed) {
       return AbortablePromise.resolveValue<void>(undefined);

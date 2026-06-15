@@ -10,6 +10,7 @@ import {
   type DocumentProbeSecurityFileWorkerRequest,
   type DocumentSaveBufferWorkerRequest,
   type DocumentSaveFileWorkerRequest,
+  type DocumentSaveLayerBufferWorkerRequest,
   type AnnotationsListFullPageWorkerRequest,
   type AnnotationsListRawAllWorkerRequest,
   type AnnotationsListRawPageWorkerRequest,
@@ -156,6 +157,9 @@ export class WorkerHost {
           break;
         case 'document.saveBuffer':
           resultPack = this.handleDocumentSaveBuffer(msg);
+          break;
+        case 'document.saveLayerBuffer':
+          resultPack = this.handleDocumentSaveLayerBuffer(msg);
           break;
         case 'document.saveFile':
           resultPack = this.handleDocumentSaveFile(msg);
@@ -408,6 +412,23 @@ export class WorkerHost {
     const session = this.requireSession(req);
     const saved = new DocumentSaver(this.runtime, session).saveStandaloneToFile(req.path, req.mode);
     return wirePack({ tag: 'document.saveFile', path: saved.path });
+  }
+
+  private handleDocumentSaveLayerBuffer(
+    req: DocumentSaveLayerBufferWorkerRequest,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    if (session.kind !== 'layer') {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        'document has no layer to export (opened without a layer)',
+      );
+    }
+    const artifact = new DocumentSaver(this.runtime, session).saveLayerArtifact();
+    return wirePack(
+      { tag: 'document.saveLayerBuffer', bytes: artifact.bytes, size: artifact.size },
+      [artifact.bytes],
+    );
   }
 
   private handleDocumentProbeSecurityFile(

@@ -22,6 +22,7 @@ export default defineConfig({
       '@embedpdf-x/plugin-persist': src('plugin-persist'),
       '@embedpdf-x/plugin-render': src('plugin-render'),
       '@embedpdf-x/plugin-page-edit': src('plugin-page-edit'),
+      '@embedpdf-x/plugin-metadata': src('plugin-metadata'),
       '@embedpdf-x/plugin-view-manager': src('plugin-view-manager'),
       '@embedpdf-x/react': src('react'),
     },

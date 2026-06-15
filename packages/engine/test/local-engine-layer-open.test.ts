@@ -33,6 +33,18 @@ class RecordingTransport implements Transport {
         });
         return;
       }
+      if (msg.kind === 'document.saveLayerBuffer') {
+        this.deliver({
+          kind: 'resolve',
+          jobId: msg.jobId,
+          result: {
+            tag: 'document.saveLayerBuffer',
+            bytes: new Uint8Array([5, 5, 5]).buffer,
+            size: 3,
+          },
+        });
+        return;
+      }
       if (msg.kind === 'close') {
         this.deliver({ kind: 'resolve', jobId: msg.jobId, result: { tag: 'close' } });
         return;
@@ -142,6 +154,30 @@ describe('LocalEngine layer open', () => {
     if (pack.payload.kind === 'open.layerMemBase' && pack.payload.layer.kind === 'artifact') {
       expect(pack.payload.layer.bytes).toBe(pack.transfer[1]);
     }
+
+    await handle.close();
+    await engine.destroy();
+  });
+
+  test('downloadLayer() exports the layer artifact via document.saveLayerBuffer', async () => {
+    const transport = new RecordingTransport();
+    const engine = LocalEngine.fromTransport({ transport });
+
+    const handle = await engine.open({
+      kind: 'layerBytes',
+      id: 'doc-export',
+      baseBytes: new Uint8Array([1, 2, 3]),
+      layer: { kind: 'fresh' },
+    });
+
+    const bytes = await handle.downloadLayer!();
+    expect(Array.from(bytes)).toEqual([5, 5, 5]);
+
+    const saveReq = transport.sent.find((p) => p.payload.kind === 'document.saveLayerBuffer');
+    expect(saveReq?.payload).toMatchObject({
+      kind: 'document.saveLayerBuffer',
+      docId: 'doc-export',
+    });
 
     await handle.close();
     await engine.destroy();

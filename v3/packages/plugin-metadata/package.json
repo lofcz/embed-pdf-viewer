@@ -1,8 +1,8 @@
 {
-  "name": "@embedpdf-x/react",
+  "name": "@embedpdf-x/plugin-metadata",
   "version": "0.0.0",
   "private": true,
-  "description": "React adapter for EmbedPDF v3: one generic reactive binding + structural components (Viewer, Stage, PageView) + headless layers & hooks. The whole framework surface.",
+  "description": "Document-scoped metadata: reactive Info-dict state fed by the document event stream (own edits + remote SSE), with a three-state update that writes to the layer.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -34,21 +34,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf-x/geometry": "workspace:*",
-    "@embedpdf-x/kernel": "workspace:*",
-    "@embedpdf-x/plugin-stage": "workspace:*",
-    "@embedpdf-x/plugin-render": "workspace:*",
-    "@embedpdf-x/plugin-page-edit": "workspace:*",
-    "@embedpdf-x/plugin-metadata": "workspace:*",
-    "@embedpdf-x/stage-core": "workspace:*",
-    "@embedpdf-x/plugin-marker": "workspace:*",
-    "@embedpdf-x/plugin-view-manager": "workspace:*"
-  },
-  "peerDependencies": {
-    "react": ">=18"
+    "@embedpdf-x/kernel": "workspace:*"
   },
   "devDependencies": {
-    "@types/react": "^18.3.0",
     "typescript": "^5.0.0",
     "vitest": "^2.1.9"
   },
