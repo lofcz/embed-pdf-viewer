@@ -80,6 +80,7 @@ export type {
   AnnotationsDeleteWorkerRequest,
   AnnotationsMoveWorkerRequest,
   DocumentSaveBufferWorkerRequest,
+  DocumentSaveLayerBufferWorkerRequest,
   DocumentSaveFileWorkerRequest,
   DocumentCheckPasswordPermissionsWorkerRequest,
   DocumentProbeSecurityFileWorkerRequest,
