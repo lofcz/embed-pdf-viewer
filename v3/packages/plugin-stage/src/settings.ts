@@ -23,6 +23,9 @@ export const DEFAULT_SETTINGS: StageSettings = {
   overflowAlign: { x: 'start', y: 'start' },
   zoom: { mode: ZoomMode.Automatic },
   scrollBehavior: 'smooth',
+  // Web: 1 PDF point = 96/72 CSS px, so 100% is physically accurate. A native
+  // adapter overrides this at registration with its own logical-unit factor.
+  viewUnitsPerPoint: 96 / 72,
 };
 
 /**
@@ -57,6 +60,7 @@ export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
   overflowAlign: 'none',
   zoom: 'refit',
   scrollBehavior: 'none',
+  viewUnitsPerPoint: 'scene', // a layout input: changing it resizes every page
 };
 export const SETTING_KEYS = Object.keys(SETTINGS_EFFECT) as Array<keyof StageSettings>;
 

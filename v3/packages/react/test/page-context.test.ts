@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
+import { pageTransform } from '@embedpdf-x/geometry';
 import { makePageContext } from '../src/runtime';
 
 /**
- * The rotation/scale math is exhaustively covered in @embedpdf-x/geometry. Here
- * we only verify the adapter WIRING: `makePageContext` feeds the DOM rect's
- * center + the content size + scale into `screenToPagePoint`. One un-rotated
- * non-unit-scale case and one quarter-turn case are enough to catch a wiring
- * regression (e.g. passing the wrong rect corner, or dropping `rotation`).
+ * The rotation/scale math is exhaustively covered in @embedpdf-x/geometry's
+ * pageTransform tests. Here we only verify the adapter WIRING: `makePageContext`
+ * turns a client point into a box-local point (client − the surface rect's
+ * top-left) and feeds it to `transform.viewToPage`, and carries `transform` +
+ * `frame` through.
  */
-describe('makePageContext.toPagePoint wiring', () => {
-  function rectAt(left: number, top: number, w: number, h: number): () => DOMRect {
-    return () =>
+describe('makePageContext wiring', () => {
+  const rectAt =
+    (left: number, top: number, w: number, h: number): (() => DOMRect) =>
+    () =>
       ({
         left,
         top,
@@ -22,62 +24,39 @@ describe('makePageContext.toPagePoint wiring', () => {
         y: top,
         toJSON() {},
       }) as DOMRect;
-  }
+  const NO_FRAME = { top: 0, right: 0, bottom: 0, left: 0 };
 
-  it('un-rotated, scale 2: classic (clientX − left) / scale', () => {
-    // surface at (10,20), content 200×300 screen px → AABB == content frame
-    const ctx = makePageContext(
-      'd',
-      1,
-      0,
-      2,
-      { width: 200, height: 300 },
-      rectAt(10, 20, 200, 300),
-      0,
-    );
-    expect(ctx.toPagePoint(10, 20)).toEqual({ x: 0, y: 0 }); // top-left → origin
-    expect(ctx.toPagePoint(110, 170)).toEqual({ x: 50, y: 75 }); // center → size/2/scale
+  it('toPagePoint = transform.viewToPage(client − rect top-left), scale 2', () => {
+    const t = pageTransform({
+      pageSize: { width: 100, height: 200 },
+      rotation: 0,
+      scale: 2,
+      dpr: 1,
+    });
+    const ctx = makePageContext('d', 1, 0, NO_FRAME, t, rectAt(10, 20, t.viewWidth, t.viewHeight));
+    expect(ctx.toPagePoint(10, 20)).toEqual({ x: 0, y: 0 }); // box top-left → page origin
+    expect(ctx.toPagePoint(110, 220)).toEqual({ x: 50, y: 100 }); // (100,200) view px ÷ scale 2
   });
 
-  it('90°, scale 2: inverts the wrapper rotation (content top-left ⇒ box top-right)', () => {
-    // content 200×300 screen px; rotated 90° the wrapper's AABB is 300×200.
-    // Center it at (160, 220): AABB left=10, top=120.
-    const ctx = makePageContext(
-      'd',
-      1,
-      0,
-      2,
-      { width: 200, height: 300 },
-      rectAt(10, 120, 300, 200),
-      90,
-    );
-    // content (0,0) appears at the box top-right; round-trips back to (0,0)
-    const back = ctx.toPagePoint(310, 120); // box top-right corner on screen
+  it('inverts a 90° rotation through the transform', () => {
+    const t = pageTransform({
+      pageSize: { width: 100, height: 200 },
+      rotation: 90,
+      scale: 1,
+      dpr: 1,
+    });
+    // footprint is 200×100; content top-left sits at the box top-RIGHT (x = 200)
+    const ctx = makePageContext('d', 1, 0, NO_FRAME, t, rectAt(0, 0, t.viewWidth, t.viewHeight));
+    const back = ctx.toPagePoint(200, 0);
     expect(back.x).toBeCloseTo(0, 4);
     expect(back.y).toBeCloseTo(0, 4);
   });
 
-  it('carries the chrome frame for the pageChrome slot to size bands', () => {
+  it('carries transform + frame through', () => {
     const frame = { top: 0, right: 0, bottom: 16, left: 0 };
-    const ctx = makePageContext(
-      'd',
-      1,
-      0,
-      1,
-      { width: 110, height: 150 },
-      rectAt(0, 0, 110, 150),
-      0,
-      frame,
-    );
+    const t = pageTransform({ pageSize: { width: 10, height: 10 }, rotation: 0, scale: 1, dpr: 1 });
+    const ctx = makePageContext('d', 1, 0, frame, t, rectAt(0, 0, 10, 10));
     expect(ctx.frame).toEqual(frame);
-    // defaults to no frame when omitted
-    expect(
-      makePageContext('d', 1, 0, 1, { width: 1, height: 1 }, rectAt(0, 0, 1, 1)).frame,
-    ).toEqual({
-      top: 0,
-      right: 0,
-      bottom: 0,
-      left: 0,
-    });
+    expect(ctx.transform).toBe(t);
   });
 });

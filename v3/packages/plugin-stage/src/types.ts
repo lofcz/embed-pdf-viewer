@@ -1,5 +1,6 @@
 import { createCapabilityToken } from '@embedpdf-x/kernel';
 import type { PageObjectNumber } from '@embedpdf-x/kernel';
+import type { PageTransform } from '@embedpdf-x/geometry';
 import type {
   Alignment,
   Anchor,
@@ -110,16 +111,49 @@ export interface StageSettings {
   zoom: ZoomSpec;
   /** Default behaviour for goToPage/next/prev. */
   scrollBehavior: ScrollBehaviorKind;
+  /**
+   * View pixels per PDF point — the platform's physical unit factor, folded into
+   * the layout so 100% (zoom 1) is physically accurate. Web = 96/72 (1 pt = 1/72",
+   * 1 CSS px = 1/96"); a native platform injects its own (iOS pt, Android dp). It
+   * scales every page's world size (and thus `contentScale`), so the camera math,
+   * `gap`/`padding`/`pageFrame` (world units), and absolute-px zoom modes
+   * (`pageWidth`) are all unaffected — only the pages themselves resize.
+   */
+  viewUnitsPerPoint: number;
 }
 
-/** A laid-out page handed to the shell: geometry (PageBox) + durable identity (pon). */
+/**
+ * A laid-out page handed to the shell.
+ *  - PageBox + `pon`: LAYOUT truth (world coords + identity) — the shell uses
+ *    `x/y/width/height` only to POSITION the page container.
+ *  - `transform`: PRESENTATION truth — the single bridge between PDF points,
+ *    view px, and device px for this page. Plugins do ALL coordinate work
+ *    through it (`pageToView` / `viewToPage` / `deviceWidth` / `cssMatrix`),
+ *    never by re-deriving `x * scale` / `* dpr`. Page-local, so it's
+ *    camera/pan-invariant.
+ */
 export interface VisiblePage extends PageBox {
   pon: PageObjectNumber;
+  /**
+   * The page's DISPLAY-box (footprint) top-left in screen px, camera-resolved and
+   * snapped to the device grid. The shell positions the page container at this —
+   * snapping here (not in the adapter) keeps a CSS-rotated page on the pixel grid
+   * for every framework, with no hand-rounding.
+   */
+  screenX: number;
+  screenY: number;
+  transform: PageTransform;
 }
 
 export interface StageState extends StageSettings {
   camera: Camera;
   vp: Size;
+  /**
+   * Device pixels per view pixel (web: `window.devicePixelRatio`). Reported by
+   * the shell like the viewport; feeds each page's transform so bitmaps render
+   * crisp (exact device px) and boxes land on the device grid. Defaults to 1.
+   */
+  dpr: number;
   /**
    * The current page — transient like `camera` (NOT a setting), valid in BOTH flows.
    * Navigation sets it; in continuous flow scrolling syncs it from the camera; in
@@ -132,6 +166,7 @@ export interface StageState extends StageSettings {
 export type StageAction =
   | { type: 'CAMERA'; camera: Camera }
   | { type: 'VP'; vp: Size }
+  | { type: 'DPR'; dpr: number }
   | { type: 'CURSOR'; cursor: number }
   | { type: 'PATCH'; patch: Partial<StageSettings> };
 
@@ -219,6 +254,10 @@ export interface StageCapability {
 
   // ── intents ──
   setViewport(vp: Size): void;
+  /** Report the device pixel ratio (web: `devicePixelRatio`). The shell calls
+   *  this once on mount and whenever it changes (e.g. dragging between monitors)
+   *  so page transforms render crisp. */
+  setDevicePixelRatio(dpr: number): void;
   setCamera(c: Camera): void;
   panBy(dxScreen: number, dyScreen: number): void;
   zoomAround(screenPt: Point, factor: number): void;

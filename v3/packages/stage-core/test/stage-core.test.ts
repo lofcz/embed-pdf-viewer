@@ -314,7 +314,6 @@ describe('sizing: uniform (cross-axis equalize)', () => {
     expect(scene.items[2].pages[0].contentScale).toBeCloseTo(1, 6); // tallest → factor 1
     expect(scene.items[0].pages[0].contentScale).toBeCloseTo(900 / 800, 6);
   });
-
   it('intrinsic keeps true sizes (contentScale 1)', () => {
     const scene = S.linearLayout(mixed, S.groupPages(3, 'none'), {
       axis: 'y',
@@ -323,6 +322,38 @@ describe('sizing: uniform (cross-axis equalize)', () => {
     });
     expect(scene.items.map((it) => it.width)).toEqual([600, 1000, 500]);
     expect(scene.items.every((it) => it.pages[0].contentScale === 1)).toBe(true);
+  });
+});
+
+describe('viewUnitsPerPoint: physical unit factor folds into the layout', () => {
+  const f = 96 / 72;
+  const page = [{ width: 612, height: 792 }]; // US Letter (points)
+
+  it('intrinsic: world size = points × factor, contentScale = factor', () => {
+    const scene = S.linearLayout(page, S.groupPages(1, 'none'), { viewUnitsPerPoint: f });
+    expect(scene.items[0].pages[0].contentScale).toBeCloseTo(f, 6);
+    expect(scene.items[0].width).toBeCloseTo(612 * f, 4); // 816 CSS px
+    expect(scene.items[0].height).toBeCloseTo(792 * f, 4);
+  });
+
+  it('defaults to 1 (neutral): world = points', () => {
+    const scene = S.linearLayout(page, S.groupPages(1, 'none'));
+    expect(scene.items[0].pages[0].contentScale).toBeCloseTo(1, 6);
+    expect(scene.items[0].width).toBeCloseTo(612, 4);
+  });
+
+  it('uniform: factor composes with cross-equalize', () => {
+    const mixed = [
+      { width: 600, height: 800 },
+      { width: 1000, height: 700 },
+    ];
+    const scene = S.linearLayout(mixed, S.groupPages(2, 'none'), {
+      sizing: 'uniform',
+      viewUnitsPerPoint: f,
+    });
+    // every item equalized to the widest (1000pt) × factor
+    expect(scene.items.every((it) => Math.abs(it.width - 1000 * f) < 1e-4)).toBe(true);
+    expect(scene.items[0].pages[0].contentScale).toBeCloseTo((1000 / 600) * f, 6);
   });
 });
 

@@ -30,27 +30,32 @@ export function MarkerLayer() {
         marker.add(page.pon, pt);
       }}
     >
-      {list.map((m) => (
-        <div
-          key={m.id}
-          onClick={(e) => {
-            e.stopPropagation();
-            marker.select(m.id);
-          }}
-          title={`marker ${m.id}`}
-          style={{
-            position: 'absolute',
-            left: m.x * page.scale - 7,
-            top: m.y * page.scale - 7,
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            background: selected === m.id ? '#ff3b30' : '#1e88e5',
-            boxShadow: '0 0 0 2px #fff',
-            cursor: 'pointer',
-          }}
-        />
-      ))}
+      {list.map((m) => {
+        // content-space px — this layer rides the page's CSS rotation, so place in
+        // un-rotated content coordinates (no rotation applied here).
+        const v = page.transform.pageToContent({ x: m.x, y: m.y });
+        return (
+          <div
+            key={m.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              marker.select(m.id);
+            }}
+            title={`marker ${m.id}`}
+            style={{
+              position: 'absolute',
+              left: v.x - 7,
+              top: v.y - 7,
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: selected === m.id ? '#ff3b30' : '#1e88e5',
+              boxShadow: '0 0 0 2px #fff',
+              cursor: 'pointer',
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

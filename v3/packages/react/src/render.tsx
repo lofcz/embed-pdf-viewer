@@ -19,8 +19,14 @@ export function RenderLayer() {
     let revoke: (() => void) | undefined;
     (async () => {
       try {
-        const dpr = window.devicePixelRatio || 1;
-        const image = await render.renderPage(page.pon, page.scale * dpr, controller.signal);
+        // Render at the transform's exact device scale — width pinned, height the
+        // engine's derived value — so the bitmap matches its box 1:1 (no blur), with
+        // dpr already folded in. No `* dpr` guesswork in the adapter.
+        const image = await render.renderPage(
+          page.pon,
+          page.transform.renderScale,
+          controller.signal,
+        );
         const obj = await image.objectUrl(controller.signal);
         if (controller.signal.aborted) {
           obj.revoke();
@@ -36,7 +42,7 @@ export function RenderLayer() {
       controller.abort();
       revoke?.();
     };
-  }, [render, page.pon, page.scale, page.size.width, page.size.height]);
+  }, [render, page.pon, page.transform.renderScale]);
   return (
     <img
       ref={ref}

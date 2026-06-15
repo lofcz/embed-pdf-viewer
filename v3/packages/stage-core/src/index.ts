@@ -479,10 +479,17 @@ function placePages(item: SceneItem, local: LocalBox[], contentScale: number): P
   }));
 }
 
-/** Per-item world scale: 1 for intrinsic, else the factor that makes the item's
- *  cross dimension equal to `refCross` (uniform sizing). */
-const itemScale = (crossIntrinsic: number, refCross: number, sizing: SizingMode): number =>
-  sizing === 'uniform' && crossIntrinsic > 0 ? refCross / crossIntrinsic : 1;
+/** Per-item world scale = sizing factor (1 intrinsic, else cross-equalize for
+ *  uniform) × `viewUnitsPerPoint` (the platform's points→view-px factor). The
+ *  result becomes the page's `contentScale`, so world units are view px and 100%
+ *  is physically accurate. `viewUnitsPerPoint` defaults to 1 (neutral). */
+const itemScale = (
+  crossIntrinsic: number,
+  refCross: number,
+  sizing: SizingMode,
+  viewUnitsPerPoint = 1,
+): number =>
+  (sizing === 'uniform' && crossIntrinsic > 0 ? refCross / crossIntrinsic : 1) * viewUnitsPerPoint;
 
 // ── Layout strategies ─────────────────────────────────────────────────────────
 export interface LinearOptions {
@@ -493,6 +500,8 @@ export interface LinearOptions {
   direction?: Direction;
   /** Reserved chrome space around each PAGE (world units; constant, never scaled). */
   pageFrame?: PageFrame;
+  /** Points→view-px factor folded into each page's scale (default 1). */
+  viewUnitsPerPoint?: number;
 }
 export function linearLayout(
   pages: readonly PageGeom[],
@@ -527,7 +536,7 @@ export function linearLayout(
   let maxH = 0;
 
   for (let i = 0; i < grouping.length; i++) {
-    const s = itemScale(crossOf(measures[i]), refCross, sizing);
+    const s = itemScale(crossOf(measures[i]), refCross, sizing, opts.viewUnitsPerPoint);
     const packed = packScaledItem(pages, grouping[i], s, gap, frame, direction);
     const { width, height } = packed;
     scales[i] = s;
@@ -618,6 +627,8 @@ export interface GridOptions {
   direction?: Direction;
   /** Reserved chrome space around each PAGE (world units; constant, never scaled). */
   pageFrame?: PageFrame;
+  /** Points→view-px factor folded into each page's scale (default 1). */
+  viewUnitsPerPoint?: number;
 }
 export function gridLayout(
   pages: readonly PageGeom[],
@@ -643,7 +654,7 @@ export function gridLayout(
   let cellW = 1;
   let cellH = 1;
   for (let i = 0; i < n; i++) {
-    const s = itemScale(measures[i].width, refW, sizing);
+    const s = itemScale(measures[i].width, refW, sizing, opts.viewUnitsPerPoint);
     const packed = packScaledItem(pages, grouping[i], s, gap, frame, direction);
     scales[i] = s;
     locals[i] = packed.local;

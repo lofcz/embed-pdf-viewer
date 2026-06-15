@@ -1,5 +1,5 @@
 import * as S from '@embedpdf-x/stage-core';
-import { displaySize, rotateInBox } from '@embedpdf-x/geometry';
+import { displaySize, pageTransform, rotateInBox, snapToDevice } from '@embedpdf-x/geometry';
 import type { PluginContext } from '@embedpdf-x/kernel';
 import { SETTINGS_EFFECT, SETTING_KEYS } from './settings';
 import type { SettingEffect } from './settings';
@@ -55,6 +55,7 @@ export function createStageCapability(
 
   const cam = () => ctx.getState().camera;
   const vp = () => ctx.getState().vp;
+  const dpr = () => ctx.getState().dpr;
   const pad = () => ctx.getState().padding;
   const paged = () => ctx.getState().flow === 'paged';
   const isFitAll = () => {
@@ -132,12 +133,14 @@ export function createStageCapability(
     const pages = ctx.document()?.pages ?? [];
     const pageFrame = worldPageFrame();
     const gap = worldGap();
+    const vupp = st.viewUnitsPerPoint;
     if (st.layout === 'grid') {
       return S.gridLayout(pages, groups, {
         gap,
         sizing: st.sizing,
         direction: st.direction,
         pageFrame,
+        viewUnitsPerPoint: vupp,
         columns: typeof st.columns === 'number' ? st.columns : undefined,
         lineWidth: st.columns === 'auto' ? wrapLineWidth() : undefined,
       });
@@ -149,6 +152,7 @@ export function createStageCapability(
           sizing: st.sizing,
           direction: st.direction,
           pageFrame,
+          viewUnitsPerPoint: vupp,
         })
       : S.linearLayout(pages, groups, {
           axis: 'y',
@@ -156,6 +160,7 @@ export function createStageCapability(
           sizing: st.sizing,
           direction: st.direction,
           pageFrame,
+          viewUnitsPerPoint: vupp,
         });
   };
 
@@ -448,6 +453,40 @@ export function createStageCapability(
   const ponForIndex = (index: number): number =>
     ctx.document()?.pages[index]?.pageObjectNumber ?? index + 1;
 
+  // Fallback un-rotated point size from a laid-out box, when the registry entry is
+  // momentarily absent. `displaySize` is its own inverse (display box → content
+  // box); ÷ contentScale recovers points.
+  const unrotatedPoints = (box: S.PageBox): S.Size => {
+    const content = displaySize({ width: box.width, height: box.height }, box.rotation);
+    return { width: content.width / box.contentScale, height: content.height / box.contentScale };
+  };
+
+  // Attach durable identity + the per-page transform (PDF points → view px →
+  // device px). `scale` is view px per point = contentScale (world per point) ×
+  // zoom (view px per world); `pageSize` is the page's UN-rotated points from the
+  // registry. Camera-invariant (only zoom/rotation/contentScale/dpr), so the same
+  // box always yields the same transform regardless of pan.
+  const withTransform = (box: S.PageBox): VisiblePage => {
+    const reg = ctx.document()?.pages[box.pageIndex];
+    const pageSize = reg ? { width: reg.width, height: reg.height } : unrotatedPoints(box);
+    const c = cam();
+    const ratio = dpr();
+    return {
+      ...box,
+      pon: ponForIndex(box.pageIndex),
+      // device-snapped footprint top-left (camera-resolved) — keeps a rotated page
+      // on the device grid; the adapter just consumes it.
+      screenX: snapToDevice((box.x - c.x) * c.zoom, ratio),
+      screenY: snapToDevice((box.y - c.y) * c.zoom, ratio),
+      transform: pageTransform({
+        pageSize,
+        rotation: box.rotation,
+        scale: box.contentScale * c.zoom,
+        dpr: ratio,
+      }),
+    };
+  };
+
   // Memoized visiblePages -> stable reference (no useSyncExternalStore tearing loop).
   // Paged renders ONLY the slice's item; continuous renders the camera's query window.
   let visSig = '';
@@ -457,12 +496,10 @@ export function createStageCapability(
     const v = vp();
     const sc = buildScene();
     const items = paged() ? sc.items.slice(0, 1) : sc.query(S.cameraWorldRect(c, v));
-    const sig = `${sceneCache!.key}|${ctx.getState().flow}|${c.x},${c.y},${c.zoom}|${v.width}x${v.height}`;
+    const sig = `${sceneCache!.key}|${ctx.getState().flow}|${c.x},${c.y},${c.zoom}|${v.width}x${v.height}|${dpr()}`;
     if (sig === visSig) return vis;
     visSig = sig;
-    vis = items
-      .flatMap((it) => it.pages)
-      .map((box) => ({ ...box, pon: ponForIndex(box.pageIndex) }));
+    vis = items.flatMap((it) => it.pages).map(withTransform);
     return vis;
   };
 
@@ -504,7 +541,7 @@ export function createStageCapability(
       const sc = buildScene();
       if (!sc.itemCount) return null;
       const box = sc.items[sc.itemOfPage(index)].pages.find((p) => p.pageIndex === index);
-      return box ? { ...box, pon } : null;
+      return box ? withTransform(box) : null;
     },
     pageToWorld: (pon, pt) => {
       const pr = api.pageRect(pon);
@@ -569,6 +606,12 @@ export function createStageCapability(
       const anchor = currentAnchor(); // measured against the OLD viewport
       ctx.dispatch({ type: 'VP', vp: v }); // new viewport
       reapply(anchor);
+    },
+    setDevicePixelRatio: (ratio) => {
+      // Pure device-resolution change: it only affects each page transform's
+      // device px (crispness) + sub-pixel box snapping, never the layout or
+      // camera — so no re-place, just store it; visiblePages re-keys on dpr.
+      if (ratio > 0 && ratio !== dpr()) ctx.dispatch({ type: 'DPR', dpr: ratio });
     },
     setCamera: (c) => {
       cancelAnim();

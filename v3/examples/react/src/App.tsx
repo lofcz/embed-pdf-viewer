@@ -134,7 +134,7 @@ function WatermarkLayer() {
       <div
         style={{
           transform: 'rotate(-28deg)',
-          fontSize: page.size.width * 0.13,
+          fontSize: page.transform.contentWidth * 0.13,
           fontWeight: 800,
           color: 'rgba(220,0,0,0.10)',
         }}

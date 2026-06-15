@@ -27,7 +27,9 @@ function harness(
     boxes: {},
   }));
   const meta = { id: 'doc', name: 'doc', pageCount: pages.length, pages, revision: 0 };
-  let state = initialStageState(config);
+  // Test layout at 1:1 (world units = points) so absolute-size assertions read
+  // cleanly; the 96/72 physical factor is exercised in the stage-core layout test.
+  let state = initialStageState({ viewUnitsPerPoint: 1, ...config });
   const ctx = {
     id: 'stage',
     documentId: 'doc',
