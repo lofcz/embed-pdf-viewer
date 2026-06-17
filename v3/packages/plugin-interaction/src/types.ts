@@ -27,15 +27,16 @@ export interface Tool {
 export type Phase = 'down' | 'move' | 'up';
 
 /**
- * One normalized pointer event. `point` is the PAGE point (content space, y-down,
- * PDF units) the adapter produced via `PageContext.toPagePoint` — the same space
- * markers/selection/annotations live in. The hub is page-scoped: every sample is
- * over exactly one page (`pon`).
+ * One normalized pointer event. `viewport` is the source container's px (the pan
+ * handler uses the delta). `page` is the resolved page hit — its `pon` + content
+ * point (y-down, PDF units, via the page's transform) — present when the pointer
+ * is over a page, absent over gaps. A viewport source (Stage) resolves `page` per
+ * event (so a drag can cross pages); a per-page source (PageView) always sets it.
  */
 export interface PointerSample {
   phase: Phase;
-  pon: PageObjectNumber;
-  point: Point;
+  viewport: Point;
+  page?: { pon: PageObjectNumber; point: Point };
   modifiers: Modifiers;
 }
 

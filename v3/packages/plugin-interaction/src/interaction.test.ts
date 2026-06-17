@@ -24,8 +24,8 @@ function harness(defaultTool = 'pointer') {
 
 const sample = (phase: 'down' | 'move' | 'up'): PointerSample => ({
   phase,
-  pon: 1,
-  point: { x: 0, y: 0 },
+  viewport: { x: 0, y: 0 },
+  page: { pon: 1, point: { x: 0, y: 0 } },
   modifiers: { shift: false, alt: false, ctrl: false, meta: false },
 });
 

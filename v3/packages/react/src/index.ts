@@ -1,7 +1,6 @@
 export * from './runtime';
 export * from './stage';
 export * from './render';
-export * from './marker';
 export * from './interaction';
 export * from './selection';
 export * from './views';

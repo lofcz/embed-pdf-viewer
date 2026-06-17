@@ -15,6 +15,8 @@ import type { CapabilityToken } from '@embedpdf-x/kernel';
  *  token to drive an additional lens (e.g. a wrapped thumbnail sidebar). */
 export type StageTokenProp = CapabilityToken<StageCapability>;
 import { NO_FRAME, pageTransform, type PageFrame } from '@embedpdf-x/geometry';
+import { InteractionToken } from '@embedpdf-x/plugin-interaction';
+import type { PointerSample } from '@embedpdf-x/plugin-interaction';
 import {
   DocumentScope,
   makePageContext,
@@ -23,6 +25,8 @@ import {
   useCapability,
   useDocumentId,
   useKernel,
+  useKernelValue,
+  useOptionalCapability,
   useSelector,
 } from './runtime';
 import type { PageContextValue } from './runtime';
@@ -127,6 +131,13 @@ export interface StageProps {
   pageChrome?: (page: PageContextValue) => React.ReactNode;
   /** Viewport-space UI (menus, controls) rendered above the pages. */
   overlay?: React.ReactNode;
+  /**
+   * Route this Stage's pointer events to the interaction hub (page-resolved via
+   * `pageAt`) instead of the built-in drag-to-pan. Pan then becomes the `pan`
+   * tool's job and dragging in `pointer` mode selects text (incl. across pages).
+   * Pair with `stagePlugin({ interaction: true })`. Default false (built-in pan).
+   */
+  interaction?: boolean;
   /** The stage lens to drive (default: the main StageToken). */
   token?: StageTokenProp;
   className?: string;
@@ -137,11 +148,16 @@ export function Stage({
   children,
   pageChrome,
   overlay,
+  interaction = false,
   token = StageToken,
   className,
   style,
 }: StageProps) {
   const stage = useCapability(token);
+  const ix = useOptionalCapability(InteractionToken);
+  const useHub = interaction && !!ix;
+  // The hub's resolved cursor (text/grab/…), applied to the viewport when driving.
+  const hubCursor = useKernelValue(() => ix?.cursor() ?? 'default');
   const ref = useRef<HTMLDivElement>(null);
   const docId = useDocumentId();
   // visiblePages already folds in the camera (each page carries its device-snapped
@@ -178,6 +194,7 @@ export function Stage({
     };
     reportDpr();
 
+    // Wheel is ambient navigation in BOTH modes: ctrl/meta zooms, else scrolls.
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const r = el.getBoundingClientRect();
@@ -192,43 +209,98 @@ export function Stage({
         stage.panBy(-dx, -dy);
       }
     };
-    let dragging = false;
-    let lx = 0;
-    let ly = 0;
-    const down = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      dragging = true;
-      lx = e.clientX;
-      ly = e.clientY;
-    };
-    const move = (e: PointerEvent) => {
-      if (!dragging) return;
-      stage.panBy(e.clientX - lx, e.clientY - ly);
-      lx = e.clientX;
-      ly = e.clientY;
-    };
-    const up = () => {
-      dragging = false;
-    };
     el.addEventListener('wheel', onWheel, { passive: false });
-    el.addEventListener('pointerdown', down);
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
+
+    const cleanups: Array<() => void> = [];
+    if (useHub && ix) {
+      // Forward to the hub: pan/select/etc. become tool-gated handlers. `pageAt`
+      // resolves the page per event, so a drag can cross pages (text selection).
+      const forward = (phase: PointerSample['phase'], e: PointerEvent) => {
+        const r = el.getBoundingClientRect();
+        const vpt = { x: e.clientX - r.left, y: e.clientY - r.top };
+        ix.dispatch({
+          phase,
+          viewport: vpt,
+          page: stage.pageAt(vpt) ?? undefined,
+          modifiers: { shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey, meta: e.metaKey },
+        });
+      };
+      let dragging = false;
+      const down = (e: PointerEvent) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        forward('down', e);
+      };
+      const hover = (e: PointerEvent) => {
+        if (!dragging) forward('move', e); // cursor feedback, no gesture
+      };
+      const winMove = (e: PointerEvent) => {
+        if (dragging) forward('move', e);
+      };
+      const up = (e: PointerEvent) => {
+        if (!dragging) return;
+        dragging = false;
+        forward('up', e);
+      };
+      el.addEventListener('pointerdown', down);
+      el.addEventListener('pointermove', hover);
+      window.addEventListener('pointermove', winMove);
+      window.addEventListener('pointerup', up);
+      cleanups.push(() => {
+        el.removeEventListener('pointerdown', down);
+        el.removeEventListener('pointermove', hover);
+        window.removeEventListener('pointermove', winMove);
+        window.removeEventListener('pointerup', up);
+      });
+    } else {
+      // Built-in drag-to-pan (no interaction hub) — unchanged behaviour.
+      let dragging = false;
+      let lx = 0;
+      let ly = 0;
+      const down = (e: PointerEvent) => {
+        if (e.button !== 0) return;
+        dragging = true;
+        lx = e.clientX;
+        ly = e.clientY;
+      };
+      const move = (e: PointerEvent) => {
+        if (!dragging) return;
+        stage.panBy(e.clientX - lx, e.clientY - ly);
+        lx = e.clientX;
+        ly = e.clientY;
+      };
+      const up = () => {
+        dragging = false;
+      };
+      el.addEventListener('pointerdown', down);
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      cleanups.push(() => {
+        el.removeEventListener('pointerdown', down);
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+      });
+    }
+
     return () => {
       ro.disconnect();
       mq?.removeEventListener('change', reportDpr);
       el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('pointerdown', down);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
+      cleanups.forEach((fn) => fn());
     };
-  }, [stage]);
+  }, [stage, ix, useHub]);
 
   return (
     <div
       ref={ref}
       className={className}
-      style={{ position: 'relative', overflow: 'hidden', touchAction: 'none', ...style }}
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        touchAction: 'none',
+        ...(useHub ? { cursor: hubCursor } : null),
+        ...style,
+      }}
     >
       {pages.map((p) => (
         <PageSurface

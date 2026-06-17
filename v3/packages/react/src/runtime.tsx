@@ -81,6 +81,22 @@ export function useCapability<T>(token: CapabilityToken<T>): T {
   return useMemo(() => kernel.capability(token, docId), [kernel, token, docId]);
 }
 
+/** Like `useCapability`, but returns null when no plugin provides the token. */
+export function useOptionalCapability<T>(token: CapabilityToken<T>): T | null {
+  const kernel = useKernel();
+  const scoped = useContext(DocumentScopeCtx);
+  const active = useActiveDocumentId();
+  return useMemo(() => {
+    try {
+      const docId =
+        kernel.scopeOf(token) === 'document' ? (scoped ?? active ?? undefined) : undefined;
+      return kernel.capability(token, docId);
+    } catch {
+      return null;
+    }
+  }, [kernel, token, scoped, active]);
+}
+
 /** Subscribe to a selector over a (document-resolved) capability. */
 export function useSelector<C, R>(
   token: CapabilityToken<C>,

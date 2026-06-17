@@ -223,6 +223,13 @@ export interface StageCapability {
   /** The laid-out box for a page by its durable pon. */
   pageRect(pon: PageObjectNumber): VisiblePage | null;
   /**
+   * Screen point (this Stage's container px) → the page under it + its content
+   * point, or null over a gap. The viewport-level hit-test the interaction hub
+   * needs so a single pointer source can drive page-aware features (text
+   * selection, annotations) AND cross-page drags.
+   */
+  pageAt(screen: Point): { pon: PageObjectNumber; point: Point } | null;
+  /**
    * Page space (intrinsic PDF points) → world space. Applies the page's placed
    * origin and contentScale — the transform sizing policies introduce. Compose
    * with toScreen for viewport-space overlays anchored to page content.

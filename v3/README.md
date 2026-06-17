@@ -11,21 +11,22 @@ engine            async PDF boundary (local-wasm | cloud-http). Here: engine-fak
 kernel            pure runtime: store · typed capabilities · plugin lifecycle. No DOM.
   ├─ stage-core   pure spatial model: Scene · Camera · Anchor · framing. The future Rust core.
   ├─ stage        the coordinate plugin (scroll+viewport+zoom+pan+spread collapse here)
-  └─ plugin-*     feature plugins (marker = sample). Pure; talk to Stage via intents.
+  └─ plugin-*     feature plugins (interaction · selection · …). Pure; talk to the hub/Stage via intents.
   ↓ (sync, one adapter per framework)
 react             generic reactive binding + <Viewer>/<Stage>/<PageView> + headless layers
 ```
 
 ## Packages
 
-| Package                     | What                                                               |
-| --------------------------- | ------------------------------------------------------------------ |
-| `@embedpdf-x/kernel`        | store, `createCapabilityToken`, `definePlugin`, document lifecycle |
-| `@embedpdf-x/stage-core`    | Camera / Scene / Anchor math (DOM-free, serializable)              |
-| `@embedpdf-x/plugin-stage`  | the Stage plugin: intents (`goToPage`, `zoomTo`…) + selectors      |
-| `@embedpdf-x/plugin-marker` | example feature plugin (a tiny annotation)                         |
-| `@embedpdf-x/engine-fake`   | stand-in engine; swap for `@embedpdf/engine`                       |
-| `@embedpdf-x/react`         | the React adapter — the entire framework surface                   |
+| Package                          | What                                                               |
+| -------------------------------- | ------------------------------------------------------------------ |
+| `@embedpdf-x/kernel`             | store, `createCapabilityToken`, `definePlugin`, document lifecycle |
+| `@embedpdf-x/stage-core`         | Camera / Scene / Anchor math (DOM-free, serializable)              |
+| `@embedpdf-x/plugin-stage`       | the Stage plugin: intents (`goToPage`, `zoomTo`…) + selectors      |
+| `@embedpdf-x/plugin-interaction` | the pointer/tool/cursor hub — features register handlers           |
+| `@embedpdf-x/plugin-selection`   | text selection over the engine's geometry (cross-page)             |
+| `@embedpdf-x/engine-fake`        | stand-in engine; swap for `@embedpdf/engine`                       |
+| `@embedpdf-x/react`              | the React adapter — the entire framework surface                   |
 
 ## Dev experience
 

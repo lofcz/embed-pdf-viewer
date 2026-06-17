@@ -15,7 +15,6 @@
     "@embedpdf/engine-core": "workspace:*",
     "@embedpdf/pdf-runtime": "workspace:*",
     "@embedpdf-x/kernel": "workspace:*",
-    "@embedpdf-x/plugin-marker": "workspace:*",
     "@embedpdf-x/plugin-interaction": "workspace:*",
     "@embedpdf-x/plugin-selection": "workspace:*",
     "@embedpdf-x/plugin-page-edit": "workspace:*",

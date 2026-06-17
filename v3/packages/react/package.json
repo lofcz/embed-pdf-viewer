@@ -41,7 +41,6 @@
     "@embedpdf-x/plugin-page-edit": "workspace:*",
     "@embedpdf-x/plugin-metadata": "workspace:*",
     "@embedpdf-x/stage-core": "workspace:*",
-    "@embedpdf-x/plugin-marker": "workspace:*",
     "@embedpdf-x/plugin-interaction": "workspace:*",
     "@embedpdf-x/plugin-selection": "workspace:*",
     "@embedpdf-x/plugin-view-manager": "workspace:*"

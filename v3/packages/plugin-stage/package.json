@@ -36,6 +36,7 @@
   "dependencies": {
     "@embedpdf-x/geometry": "workspace:*",
     "@embedpdf-x/kernel": "workspace:*",
+    "@embedpdf-x/plugin-interaction": "workspace:*",
     "@embedpdf-x/stage-core": "workspace:*"
   },
   "devDependencies": {

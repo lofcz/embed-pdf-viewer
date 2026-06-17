@@ -19,15 +19,19 @@ export function createTextSelectHandler(
     priority: 60,
     enabledFor: (tool) => tool.enables.has('text-select'),
     onDown: (s) => {
+      if (!s.page) return false; // over a gap — let a lower handler (e.g. scroll) try
       selection.clear();
-      selection.beginAt(s.pon, s.point);
+      selection.beginAt(s.page.pon, s.page.point);
       return true; // capture the drag
     },
-    onMove: (s) => selection.extendTo(s.pon, s.point),
+    onMove: (s) => {
+      if (s.page) selection.extendTo(s.page.pon, s.page.point);
+    },
     onUp: () => selection.end(),
     onHover: (s) => {
+      if (!s.page) return;
       // Warm geometry on first hover, and show the text cursor over the page.
-      selection.ensurePage(s.pon);
+      selection.ensurePage(s.page.pon);
       interaction.setCursor('selection-text', 'text', 10);
     },
   };

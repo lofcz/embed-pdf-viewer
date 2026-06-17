@@ -18,7 +18,6 @@ export default defineConfig({
       '@embedpdf-x/geometry': src('geometry'),
       '@embedpdf-x/stage-core': src('stage-core'),
       '@embedpdf-x/plugin-stage': src('plugin-stage'),
-      '@embedpdf-x/plugin-marker': src('plugin-marker'),
       '@embedpdf-x/plugin-interaction': src('plugin-interaction'),
       '@embedpdf-x/plugin-selection': src('plugin-selection'),
       '@embedpdf-x/plugin-persist': src('plugin-persist'),

@@ -29,12 +29,15 @@ export function PagePointerSource() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const sample = (phase: PointerSample['phase'], e: PointerEvent): PointerSample => ({
-      phase,
-      pon: page.pon,
-      point: page.toPagePoint(e.clientX, e.clientY),
-      modifiers: mods(e),
-    });
+    const sample = (phase: PointerSample['phase'], e: PointerEvent): PointerSample => {
+      const r = el.getBoundingClientRect();
+      return {
+        phase,
+        viewport: { x: e.clientX - r.left, y: e.clientY - r.top },
+        page: { pon: page.pon, point: page.toPagePoint(e.clientX, e.clientY) },
+        modifiers: mods(e),
+      };
+    };
     let dragging = false;
 
     const down = (e: PointerEvent) => {

@@ -12,7 +12,8 @@ import type {
   StageCapability,
   StageSettings,
 } from '@embedpdf-x/plugin-stage';
-import { markerPlugin } from '@embedpdf-x/plugin-marker';
+import { interactionPlugin } from '@embedpdf-x/plugin-interaction';
+import { selectionPlugin } from '@embedpdf-x/plugin-selection';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
 import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
@@ -24,9 +25,9 @@ import {
   Stage,
   DocumentScope,
   RenderLayer,
-  MarkerLayer,
-  MarkerMenu,
+  SelectionLayer,
   usePage,
+  useTool,
   useZoom,
   usePages,
   useLayout,
@@ -49,7 +50,7 @@ const ThumbsStageToken = createCapabilityToken<StageCapability>('stage-thumbs');
 // Plugins are plain, pure values — engine-agnostic. The engine is chosen in
 // ./engine and injected at the root; nothing here knows local vs cloud vs fake.
 const plugins = [
-  stagePlugin({ layout: 'vertical' }), // the main lens; everything tunable at runtime
+  stagePlugin({ layout: 'vertical', interaction: true }), // main lens; drives the interaction hub (pan/select)
   stagePlugin({
     id: 'stage-thumbs',
     token: ThumbsStageToken,
@@ -66,7 +67,8 @@ const plugins = [
   renderPlugin(), // document-scoped: renders pages through the engine handle
   pageEditPlugin(), // document-scoped: PON-addressed rotate/move/delete over the handle
   metadataPlugin(), // document-scoped: reactive Info-dict metadata (own + remote SSE edits)
-  markerPlugin(),
+  interactionPlugin({ defaultTool: 'pointer' }), // the pointer/tool/cursor hub
+  selectionPlugin(), // text selection (requires the interaction hub)
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
   // workspace plugin: partitions open documents into reorderable panes (each pane
@@ -152,6 +154,7 @@ function WatermarkLayer() {
 function Toolbar() {
   const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, fitAll, automatic } = useZoom();
   const { currentPage, pageCount, next, prev } = usePages();
+  const { activeToolId, activate } = useTool();
   const {
     flow,
     setFlow,
@@ -192,6 +195,24 @@ function Toolbar() {
       <button onClick={() => next()} title="next page/spread">
         ▶
       </button>
+      <span style={{ width: 1, height: 18, background: '#ddd' }} />
+      {/* Tool: pointer selects text (drag, incl. across pages); pan drags the camera. */}
+      <div style={{ display: 'flex', gap: 2 }}>
+        <button
+          onClick={() => activate('pointer')}
+          title="select text"
+          style={toolBtn(activeToolId === 'pointer')}
+        >
+          ↖ select
+        </button>
+        <button
+          onClick={() => activate('pan')}
+          title="pan (hand)"
+          style={toolBtn(activeToolId === 'pan')}
+        >
+          ✋ pan
+        </button>
+      </div>
       <span style={{ width: 1, height: 18, background: '#ddd' }} />
       <select value={flow} onChange={(e) => setFlow(e.target.value as FlowMode)} title="flow">
         <option value="continuous">scroll</option>
@@ -710,33 +731,12 @@ function Pane({
             <ThumbnailSidebar />
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               <Toolbar />
-              <Stage
-                style={{ flex: 1, background: '#0d1117' }}
-                overlay={
-                  <MarkerMenu>
-                    {({ remove }) => (
-                      <button
-                        onClick={remove}
-                        style={{
-                          background: '#ff3b30',
-                          color: '#fff',
-                          border: 0,
-                          borderRadius: 6,
-                          padding: '4px 10px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        🗑 delete
-                      </button>
-                    )}
-                  </MarkerMenu>
-                }
-              >
+              <Stage interaction style={{ flex: 1, background: '#0d1117' }}>
                 {() => (
                   <>
                     <RenderLayer />
                     <WatermarkLayer />
-                    <MarkerLayer />
+                    <SelectionLayer />
                   </>
                 )}
               </Stage>
@@ -1031,6 +1031,14 @@ const fileBtn: React.CSSProperties = {
   background: '#fff',
   cursor: 'pointer',
 };
+const toolBtn = (on: boolean): React.CSSProperties => ({
+  padding: '2px 8px',
+  borderRadius: 4,
+  border: `1px solid ${on ? '#3858e9' : '#ccc'}`,
+  background: on ? '#3858e9' : '#fff',
+  color: on ? '#fff' : '#333',
+  cursor: 'pointer',
+});
 const menuPanel: React.CSSProperties = {
   position: 'absolute',
   top: '100%',

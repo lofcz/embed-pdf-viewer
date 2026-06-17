@@ -554,6 +554,19 @@ export function createStageCapability(
       const box = sc.items[sc.itemOfPage(index)].pages.find((p) => p.pageIndex === index);
       return box ? withTransform(box) : null;
     },
+    pageAt: (screen) => {
+      // Find the visible page whose device-snapped display box contains the
+      // point, then invert that page's transform — same `viewToPage` the
+      // per-page PageContext.toPagePoint uses, so the two never drift.
+      for (const p of visiblePages()) {
+        const lx = screen.x - p.screenX;
+        const ly = screen.y - p.screenY;
+        if (lx >= 0 && ly >= 0 && lx <= p.transform.viewWidth && ly <= p.transform.viewHeight) {
+          return { pon: p.pon, point: p.transform.viewToPage({ x: lx, y: ly }) };
+        }
+      }
+      return null;
+    },
     pageToWorld: (pon, pt) => {
       const pr = api.pageRect(pon);
       if (!pr) return null;

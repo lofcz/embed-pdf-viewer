@@ -1,6 +1,8 @@
 import { definePlugin } from '@embedpdf-x/kernel';
 import type { CapabilityToken } from '@embedpdf-x/kernel';
+import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import { createStageCapability } from './capability';
+import { createScrollHandler } from './scroll-handler';
 import { registerStageEffects } from './effects';
 import { initialStageState, stageReducer } from './reducer';
 import { StageToken } from './types';
@@ -25,6 +27,13 @@ import type { StageAction, StageCapability, StageConfig, StageState } from './ty
 export interface StagePluginOptions extends StageConfig {
   id?: string;
   token?: CapabilityToken<StageCapability>;
+  /**
+   * Opt this lens into the interaction hub: register a tool-gated `scroll`
+   * handler (so dragging pans only in `pan` mode). Pair with `<Stage interaction>`
+   * on the React side, which forwards pointer events to the hub. Default false —
+   * secondary lenses (thumbnails) stay click-to-navigate.
+   */
+  interaction?: boolean;
 }
 
 /**
@@ -33,14 +42,23 @@ export interface StagePluginOptions extends StageConfig {
  * sibling files.
  */
 export const stagePlugin = (options: StagePluginOptions = {}) => {
-  const { id = 'stage', token = StageToken, ...config } = options;
+  const { id = 'stage', token = StageToken, interaction = false, ...config } = options;
   return definePlugin<StageState, StageAction, StageCapability>({
     id,
     token,
     scope: 'document', // one instance of THIS lens per open document
+    // When this lens drives interaction, it contributes the pan-scroll handler to
+    // the hub (optional dep — the hub may not be present in a headless setup).
+    optional: interaction ? [InteractionToken] : undefined,
     initialState: () => initialStageState(config),
     reduce: stageReducer,
     capability: (ctx) => createStageCapability(ctx, config),
+    init: interaction
+      ? (ctx) => {
+          const ix = ctx.tryGet(InteractionToken);
+          if (ix) ix.registerHandler(createScrollHandler(ctx.get(token)));
+        }
+      : undefined,
     // INITIAL placement is deliberately NOT an effect: it's LEVEL-triggered
     // inside the capability's setViewport (place when the stage first learns a
     // real size), so it cannot race effect registration. Other plugins only
