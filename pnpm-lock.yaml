@@ -2769,6 +2769,34 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
+  v3/examples/annotation-spike:
+    dependencies:
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.28)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.0
+        version: 4.7.0(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
   v3/examples/react:
     dependencies:
       '@cloudpdf/engine':
@@ -2780,6 +2808,9 @@ importers:
       '@embedpdf-x/plugin-marker':
         specifier: workspace:*
         version: link:../../packages/plugin-marker
+      '@embedpdf-x/plugin-metadata':
+        specifier: workspace:*
+        version: link:../../packages/plugin-metadata
       '@embedpdf-x/plugin-page-edit':
         specifier: workspace:*
         version: link:../../packages/plugin-page-edit
