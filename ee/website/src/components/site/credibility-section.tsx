@@ -33,7 +33,7 @@ export function CredibilitySection() {
       <div className="cp-dots-fine pointer-events-none absolute left-[clamp(16px,3vw,64px)] top-[clamp(96px,11vw,150px)] z-[1] h-24 w-[120px] text-[#C2D6F7] max-[1180px]:hidden" />
       <div className="cp-dots-fine pointer-events-none absolute right-[clamp(16px,3vw,64px)] top-[clamp(220px,24vw,300px)] z-[1] h-24 w-[120px] text-[#C2D6F7] [mask-image:linear-gradient(255deg,#000_30%,transparent_92%)] max-[1180px]:hidden" />
 
-      <div className="relative z-[2] mx-auto w-full max-w-[1080px] px-[clamp(20px,4vw,78px)]">
+      <div className="relative z-[2] mx-auto w-full max-w-[1440px] px-[clamp(20px,4vw,78px)]">
         {/* heading */}
         <div className="text-center">
           <span className="font-display mb-[22px] inline-block rounded-full bg-[#7A5AF8]/10 px-4 py-[9px] text-[12px] font-extrabold uppercase leading-none tracking-[0.12em] text-[#7A5AF8]">
@@ -260,8 +260,8 @@ export function CredibilitySection() {
               className={`${CARD} ${CARD_PAD} grid grid-cols-[1fr_auto] items-center gap-4 max-[460px]:grid-cols-1 min-[881px]:min-h-[200px]`}
             >
               <div className="relative z-[2] min-w-0">
-                <div className="font-display text-cp-navy text-[24px] font-extrabold leading-[1.18] tracking-[-0.016em]">
-                  Built on <em className="text-cp-blue block not-italic">PDFium</em>
+                <div className="font-display text-cp-navy text-[26px] font-extrabold leading-[1.15] tracking-[-0.018em]">
+                  Built on <em className="text-cp-blue not-italic">PDFium</em>
                 </div>
                 <p className="text-cp-ink mt-[13px] font-sans text-[14.5px] leading-[1.55]">
                   Powered by the Chromium PDF engine for speed, fidelity, and compatibility.
@@ -271,7 +271,7 @@ export function CredibilitySection() {
               <img
                 src="/credibility-section/pdfium.svg"
                 alt=""
-                className="relative z-[1] h-auto w-[132px] select-none self-center [pointer-events:none] max-[460px]:hidden"
+                className="relative z-[1] h-auto w-[clamp(150px,11vw,184px)] select-none self-center [pointer-events:none] max-[460px]:hidden"
               />
             </article>
           </div>
@@ -281,13 +281,11 @@ export function CredibilitySection() {
             className={`${CARD} grid grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)] items-center gap-[clamp(24px,3vw,44px)] p-[clamp(28px,3vw,40px)_clamp(28px,3.4vw,46px)] max-[760px]:grid-cols-1`}
           >
             <div>
-              <div className="font-display text-cp-navy text-[26px] font-extrabold leading-[1.12] tracking-[-0.018em]">
-                Deploy
-                <br />
-                <em className="text-cp-blue not-italic">SaaS</em> or{' '}
+              <div className="font-display text-cp-navy text-[clamp(26px,2.4vw,32px)] font-extrabold leading-[1.12] tracking-[-0.018em]">
+                Deploy <em className="text-cp-blue not-italic">SaaS</em> or{' '}
                 <em className="text-cp-blue not-italic">self-hosted</em>
               </div>
-              <p className="text-cp-ink mt-[13px] max-w-[300px] font-sans text-[14.5px] leading-[1.55]">
+              <p className="text-cp-ink mt-[13px] max-w-[340px] font-sans text-[clamp(14.5px,1.1vw,16px)] leading-[1.55]">
                 Use our managed SaaS or deploy anywhere with full control.
               </p>
             </div>
@@ -295,7 +293,7 @@ export function CredibilitySection() {
               <img
                 src="/credibility-section/deploy-flow.svg"
                 alt="Managed SaaS connects through CloudPDF to your self-hosted deployment"
-                className="block h-auto w-full max-w-[560px]"
+                className="block h-auto w-full max-w-[660px]"
               />
             </div>
           </article>

@@ -1,3 +1,5 @@
+import { CloudBanner } from './cloud-banner';
+
 type ProblemCard = {
   title: string;
   body: string;
@@ -75,6 +77,11 @@ export function ProblemSection() {
       <div className="cp-dots-fine pointer-events-none absolute right-[clamp(24px,6vw,96px)] top-[clamp(72px,8vw,116px)] z-[1] h-24 w-[150px] text-[#BBD3FB] [mask-image:linear-gradient(255deg,#000_30%,transparent_92%)] max-[1080px]:hidden" />
 
       <div className="relative z-[2] mx-auto w-full max-w-[1440px] px-[clamp(20px,4vw,78px)]">
+        <div className="text-center">
+          <span className="font-display mb-[22px] inline-block whitespace-nowrap rounded-full bg-[#7A5AF8]/10 px-4 py-[9px] text-[12px] font-extrabold uppercase leading-none tracking-[0.12em] text-[#7A5AF8]">
+            The problem
+          </span>
+        </div>
         <h2 className="font-display text-cp-navy m-0 text-balance text-center text-[clamp(34px,4.2vw,54px)] font-extrabold leading-[1.05] tracking-[-0.02em]">
           A viewer is <em className="text-cp-blue not-italic">just the beginning.</em>
         </h2>
@@ -103,11 +110,11 @@ export function ProblemSection() {
               <p className="text-cp-muted m-0 mt-[12px] flex-1 text-pretty text-center font-sans text-[15px] leading-[1.55]">
                 {card.body}
               </p>
-              <div className="bg-cp-blue/[0.065] mt-[20px] flex items-start gap-2.5 rounded-[12px] border border-[rgba(22,119,255,0.14)] p-[13px_14px]">
-                <span className="text-cp-blue mt-px inline-flex flex-shrink-0">
+              <div className="mt-[20px] flex items-start gap-2.5 rounded-[12px] border border-[rgba(122,90,248,0.16)] bg-[#7A5AF8]/[0.07] p-[13px_14px]">
+                <span className="mt-px inline-flex flex-shrink-0 text-[#7A5AF8]">
                   <InfoIcon />
                 </span>
-                <span className="text-cp-blue600 font-sans text-[13px] font-semibold leading-[1.42]">
+                <span className="font-sans text-[13px] font-semibold leading-[1.42] text-[#6A4AF0]">
                   {card.callout}
                 </span>
               </div>
@@ -115,28 +122,10 @@ export function ProblemSection() {
           ))}
         </div>
 
-        <div className="border-cp-border mx-auto mt-[clamp(40px,4.5vw,60px)] flex w-fit max-w-[760px] items-center gap-[22px] rounded-full border bg-white p-[18px_36px_18px_22px] shadow-[0_20px_44px_-24px_rgba(10,26,77,0.26),0_2px_6px_rgba(10,26,77,0.05)] max-[560px]:flex-col max-[560px]:gap-4 max-[560px]:rounded-[28px] max-[560px]:p-[24px_28px] max-[560px]:text-center">
-          <span className="border-cp-border inline-flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full border bg-white shadow-[0_6px_16px_-8px_rgba(22,119,255,0.4)]">
-            <svg width={38} height={25} viewBox="0 0 160 107" fill="none">
-              <path
-                d="M71.1094 71.1094H142.224C142.224 51.474 126.302 35.5573 106.667 35.5573C106.667 15.9167 90.75 0 71.1094 0C51.474 0 35.5573 15.9167 35.5573 35.5573C15.9167 35.5573 0 51.474 0 71.1094C0 90.75 15.9167 106.667 35.5573 106.667C55.1927 106.667 71.1094 90.75 71.1094 71.1094Z"
-                fill="#23278A"
-              />
-              <path
-                d="M142.225 71.1094C142.225 90.75 126.303 106.667 106.668 106.667H124.444C144.085 106.667 160.001 90.75 160.001 71.1094H142.225Z"
-                fill="#2CADF4"
-              />
-              <path
-                d="M142.225 71.1094H71.1107C71.1107 90.75 55.194 106.667 35.5586 106.667H106.668C126.303 106.667 142.225 90.75 142.225 71.1094Z"
-                fill="#1189FA"
-              />
-            </svg>
-          </span>
-          <p className="font-display text-cp-navy m-0 text-balance text-[clamp(18px,1.6vw,22px)] font-semibold leading-[1.4] tracking-[-0.01em]">
-            CloudPDF gives you the <em className="text-cp-blue not-italic">workflow layer</em>, not
-            just the viewer.
-          </p>
-        </div>
+        <CloudBanner className="mx-auto mt-[clamp(40px,4.5vw,60px)] w-fit max-w-[760px]">
+          CloudPDF gives you the <em className="text-cp-blue not-italic">workflow layer</em>, not
+          just the viewer.
+        </CloudBanner>
       </div>
     </section>
   );

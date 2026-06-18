@@ -4,9 +4,9 @@ import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import { BuildSection } from '@/components/site/build-section';
 import { CpButton } from '@/components/site/button';
 import { CredibilitySection } from '@/components/site/credibility-section';
+import { GuideSection } from '@/components/site/guide-section';
 import { HeroScene } from '@/components/site/hero-scene';
 import { ArrowRight, PlayIcon } from '@/components/site/icons';
-import { PlanSection } from '@/components/site/plan-section';
 import { ProblemSection } from '@/components/site/problem-section';
 
 const TRUST: { label: string; icon: IconSvgElement }[] = [
@@ -73,7 +73,7 @@ export default function HomePage() {
 
       <ProblemSection />
       <BuildSection />
-      <PlanSection />
+      <GuideSection />
       <CredibilitySection />
     </main>
   );
