@@ -1,5 +1,12 @@
 'use client';
 
+import {
+  GlobalIcon,
+  Link01Icon,
+  Notebook01Icon,
+  UserShield01Icon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import { useEffect, useRef, useState } from 'react';
 
 import { CopyIcon, ReactLogo, SvelteLogo, VueLogo } from './icons';
@@ -52,7 +59,12 @@ const TABS: { id: Tab; label: string; logo: typeof ReactLogo }[] = [
   { id: 'vue', label: 'Vue', logo: VueLogo },
 ];
 
-const ACCESS_ITEMS = ['Signed URLs', 'Role-based access', 'Domain restrictions', 'Audit logging'];
+const ACCESS_ITEMS: { label: string; icon: IconSvgElement }[] = [
+  { label: 'Signed URLs', icon: Link01Icon },
+  { label: 'Role-based access', icon: UserShield01Icon },
+  { label: 'Domain restrictions', icon: GlobalIcon },
+  { label: 'Audit logging', icon: Notebook01Icon },
+];
 
 export function HeroScene() {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -173,25 +185,13 @@ export function HeroScene() {
             Access Control
           </div>
           <ul className="border-cp-borderSoft mt-3 flex list-none flex-col gap-0.5 border-t pt-2">
-            {ACCESS_ITEMS.map((label) => (
+            {ACCESS_ITEMS.map(({ label, icon }) => (
               <li
                 key={label}
                 className="text-cp-navy flex items-center gap-2.5 rounded-[9px] px-1.5 py-1.5 font-sans text-[12.5px] font-semibold transition-colors hover:bg-[rgba(22,119,255,0.06)]"
               >
                 <span className="text-cp-blue inline-flex h-[26px] w-[26px] flex-shrink-0 items-center justify-center rounded-lg bg-[rgba(22,119,255,0.10)]">
-                  <svg
-                    viewBox="0 0 24 24"
-                    width={15}
-                    height={15}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
+                  <HugeiconsIcon icon={icon} size={15} strokeWidth={2} />
                 </span>
                 <span className="flex-1">{label}</span>
                 <span className="bg-cp-blue relative h-[15px] w-[26px] flex-shrink-0 rounded-full after:absolute after:right-0.5 after:top-0.5 after:h-[11px] after:w-[11px] after:rounded-full after:bg-white after:shadow-[0_1px_2px_rgba(10,26,77,0.3)] after:content-['']" />

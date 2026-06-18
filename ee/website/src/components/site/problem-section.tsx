@@ -8,8 +8,8 @@ type ProblemCard = {
 
 const CARDS: ProblemCard[] = [
   {
-    title: 'Annotations and comments',
-    body: 'Users need to highlight, comment, and collaborate inside documents.',
+    title: 'Annotations and collaboration',
+    body: 'Teams need to highlight, comment, and collaborate inside documents.',
     callout: 'Without it, workflows break outside your product.',
     image: '/problem-section/annotations-comments.svg',
     imageAlt: 'Document with highlights and a comment bubble',

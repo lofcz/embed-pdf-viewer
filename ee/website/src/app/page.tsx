@@ -1,3 +1,7 @@
+import { ChartIncreaseIcon, SecurityCheckIcon, SourceCodeIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+
+import { BuildSection } from '@/components/site/build-section';
 import { CpButton } from '@/components/site/button';
 import { CredibilitySection } from '@/components/site/credibility-section';
 import { HeroScene } from '@/components/site/hero-scene';
@@ -5,34 +9,10 @@ import { ArrowRight, PlayIcon } from '@/components/site/icons';
 import { PlanSection } from '@/components/site/plan-section';
 import { ProblemSection } from '@/components/site/problem-section';
 
-const TRUST = [
-  {
-    label: 'Developer first',
-    path: (
-      <>
-        <path d="m8 8-4 4 4 4" />
-        <path d="m16 8 4 4-4 4" />
-      </>
-    ),
-  },
-  {
-    label: 'Built for scale',
-    path: (
-      <>
-        <path d="M2 17l6.5-6.5 5 5L22 7" />
-        <path d="M16 7h6v6" />
-      </>
-    ),
-  },
-  {
-    label: 'Secure by design',
-    path: (
-      <>
-        <path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6z" />
-        <path d="m9 12 2 2 4-4" />
-      </>
-    ),
-  },
+const TRUST: { label: string; icon: IconSvgElement }[] = [
+  { label: 'Developer first', icon: SourceCodeIcon },
+  { label: 'Built for scale', icon: ChartIncreaseIcon },
+  { label: 'Secure by design', icon: SecurityCheckIcon },
 ];
 
 export default function HomePage() {
@@ -43,13 +23,14 @@ export default function HomePage() {
           {/* LEFT */}
           <div className="flex min-w-0 flex-col">
             <h1 className="font-display text-cp-navy text-[clamp(38px,4.4vw,56px)] font-extrabold leading-[1.06] tracking-[-0.02em]">
-              Add <em className="text-cp-blue not-italic">enterprise PDF workflows</em> to your
+              <em className="text-cp-blue not-italic">Production-grade PDF,</em> built into your
               product.
             </h1>
             <div className="bg-cp-blue mt-7 h-[7px] w-[60px] rounded-[10px]" />
             <p className="text-cp-ink mt-[26px] max-w-[480px] font-sans text-[18px] leading-[1.6]">
-              CloudPDF is developer-first infrastructure for secure PDF viewing and workflows—built
-              to integrate seamlessly inside your app.
+              Viewing is the easy part. CloudPDF adds annotations and collaboration, permissions,
+              signed URLs, and scale that production demands — as a drop-in viewer or headless
+              components, hosted or self-hosted.
             </p>
             <div className="mt-[34px] flex flex-wrap gap-4">
               <CpButton href="#" variant="primary">
@@ -69,19 +50,12 @@ export default function HomePage() {
                     <span className="bg-cp-border mr-4 hidden h-4 w-px min-[481px]:block" />
                   )}
                   <span className="text-cp-navy inline-flex items-center gap-2 whitespace-nowrap font-sans text-[13px] font-semibold">
-                    <svg
-                      width={15}
-                      height={15}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    <HugeiconsIcon
+                      icon={item.icon}
+                      size={15}
+                      strokeWidth={2.2}
                       className="text-cp-blue flex-shrink-0"
-                    >
-                      {item.path}
-                    </svg>
+                    />
                     {item.label}
                   </span>
                 </span>
@@ -98,6 +72,7 @@ export default function HomePage() {
       </div>
 
       <ProblemSection />
+      <BuildSection />
       <PlanSection />
       <CredibilitySection />
     </main>
