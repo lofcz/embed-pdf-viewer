@@ -1,6 +1,10 @@
 import { flatten, type WireFlat } from './flatten';
-import { encodeRenderToken } from './tokens';
+import { encodeAnnotationAppearancesRenderToken, encodeRenderToken } from './tokens';
 import type { PageImageOptions, PageRenderOptions } from '../dto/PageRender';
+import type {
+  AnnotationAppearanceImageOptions,
+  AnnotationAppearanceRenderOptions,
+} from '../dto/AnnotationRender';
 
 export interface RenderVersions {
   contentVersion: number;
@@ -62,5 +66,55 @@ export function pageRenderOptionsFromImageOptions(
     ...(options.rotation !== undefined ? { rotation: options.rotation } : {}),
     ...(options.background !== undefined ? { background: options.background } : {}),
     includeAnnotations,
+  };
+}
+
+/**
+ * Cache version for the appearance render token. Appearances depend only on
+ * the annotation `/AP` stream, so `annotationVersion` is the sole key —
+ * deliberately NOT `contentVersion`.
+ */
+export interface AnnotationRenderVersion {
+  annotationVersion: number;
+}
+
+/**
+ * Project annotation-appearance image options plus the annotation version
+ * into the flat wire shape the appearance render token encoder consumes.
+ * Mirrors {@link renderImageOptionsToWire}.
+ */
+export function annotationAppearancesImageOptionsToWire(
+  options: AnnotationAppearanceImageOptions,
+  versions: AnnotationRenderVersion,
+): WireFlat {
+  return flatten({
+    ...options,
+    annotationVersion: versions.annotationVersion,
+  });
+}
+
+/** Convenience: build the full encoded appearance render token in one call. */
+export function annotationAppearancesImageOptionsToToken(
+  options: AnnotationAppearanceImageOptions,
+  versions: AnnotationRenderVersion,
+): string {
+  return encodeAnnotationAppearancesRenderToken(
+    annotationAppearancesImageOptionsToWire(options, versions),
+  );
+}
+
+/**
+ * Strip image-encoding fields, leaving the worker-side
+ * `AnnotationAppearanceRenderOptions`. Pure shape transform consumed by the
+ * server route after `AnnotationAppearancesQuerySchema` produces the
+ * SDK-shaped options.
+ */
+export function annotationRenderOptionsFromImageOptions(
+  options: AnnotationAppearanceImageOptions,
+): AnnotationAppearanceRenderOptions {
+  return {
+    ...(options.scale !== undefined ? { scale: options.scale } : {}),
+    ...(options.rotation !== undefined ? { rotation: options.rotation } : {}),
+    ...(options.modes ? { modes: options.modes } : {}),
   };
 }

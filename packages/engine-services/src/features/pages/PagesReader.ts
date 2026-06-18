@@ -4,6 +4,7 @@ import type {
   PageListSnapshot,
   PdfRect,
 } from '@embedpdf/engine-core/runtime';
+import { normalizePdfRect } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 
 import type { DocumentSession } from '../../document-session/DocumentSession';
@@ -84,13 +85,9 @@ function readBox(
   rectPtr: Ptr,
 ): PdfRect | null {
   if (!fn.EPDF_GetPageBoxByIndex(docPtr, index, boxType, rectPtr)) return null;
-  const { left, top, right, bottom } = readRectF(mem, rectPtr);
-  return {
-    left: Math.min(left, right),
-    bottom: Math.min(top, bottom),
-    right: Math.max(left, right),
-    top: Math.max(top, bottom),
-  };
+  // FS_RECTF → y-up `PdfRect`, normalized so the lower-left/upper-right invariant
+  // holds regardless of how the PDF ordered the corners.
+  return normalizePdfRect(readRectF(mem, rectPtr));
 }
 
 function readBoxes(

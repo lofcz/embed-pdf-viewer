@@ -5,7 +5,7 @@ import type {
   PageObjectNumber,
   PdfRect,
 } from '@embedpdf/engine-core/runtime';
-import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
+import { EngineError, EngineErrorCode, normalizePdfRect } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 
 import type { DocumentSession } from '../../document-session/DocumentSession';
@@ -133,7 +133,7 @@ export class PageGeometryReader {
 
       // Loose box is already PDF user space (y-up). Normalize edges only.
       const glyph: GlyphInfo = {
-        looseBox: normalizeRect(left, bottom, right, top),
+        looseBox: normalizePdfRect({ left, bottom, right, top }),
       };
 
       if (
@@ -143,7 +143,12 @@ export class PageGeometryReader {
         const tRight = Number(mem.peek(tRightPtr, 'f64'));
         const tBottom = Number(mem.peek(tBottomPtr, 'f64'));
         const tTop = Number(mem.peek(tTopPtr, 'f64'));
-        glyph.tightBox = normalizeRect(tLeft, tBottom, tRight, tTop);
+        glyph.tightBox = normalizePdfRect({
+          left: tLeft,
+          bottom: tBottom,
+          right: tRight,
+          top: tTop,
+        });
       }
 
       glyph.isSpace = fn.FPDFText_GetUnicode(textPagePtr, charIndex) === 32;
@@ -152,16 +157,6 @@ export class PageGeometryReader {
       for (const ptr of ptrs) mem.free(ptr);
     }
   }
-}
-
-/** Build a normalized y-up `PdfRect` from raw edge values. */
-function normalizeRect(left: number, bottom: number, right: number, top: number): PdfRect {
-  return {
-    left: Math.min(left, right),
-    bottom: Math.min(bottom, top),
-    right: Math.max(left, right),
-    top: Math.max(bottom, top),
-  };
 }
 
 function emptyGlyph(): GlyphInfo {

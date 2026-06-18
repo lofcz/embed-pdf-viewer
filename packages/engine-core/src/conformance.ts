@@ -15,6 +15,11 @@ export type {
   AnnotationMutationConformanceFixture,
   AnnotationMutationConformanceOptions,
 } from './conformance/runAnnotationMutationConformance';
+export { runAnnotationAppearanceConformance } from './conformance/runAnnotationAppearanceConformance';
+export type {
+  AnnotationAppearanceConformanceFixture,
+  AnnotationAppearanceConformanceOptions,
+} from './conformance/runAnnotationAppearanceConformance';
 export { runPageReorderConformance } from './conformance/runPageReorderConformance';
 export type {
   PageReorderConformanceFixture,

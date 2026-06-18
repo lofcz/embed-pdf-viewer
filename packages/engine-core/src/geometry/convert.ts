@@ -17,6 +17,23 @@ export interface PdfOriginSize {
   height: number;
 }
 
+/**
+ * Normalize a `PdfRect` to the y-up invariant (`left <= right`, `bottom <= top`),
+ * regardless of how the PDF ordered the corners (a `/Rect` array or `FS_RECTF`
+ * may carry them in any order). THE enforcement point for the "PdfRect is always
+ * normalized" rule: every producer that reads a raw box from PDFium passes it
+ * through here, so the invariant holds once, centrally — downstream `width =
+ * right - left` is never negative.
+ */
+export function normalizePdfRect(r: PdfRect): PdfRect {
+  return {
+    left: Math.min(r.left, r.right),
+    right: Math.max(r.left, r.right),
+    bottom: Math.min(r.top, r.bottom),
+    top: Math.max(r.top, r.bottom),
+  };
+}
+
 export function pdfRectWidth(r: PdfRect): number {
   return r.right - r.left;
 }

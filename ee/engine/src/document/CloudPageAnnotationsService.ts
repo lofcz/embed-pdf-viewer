@@ -2,7 +2,13 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  createPageImageHandle,
   encodeStableIdKey,
+  type AnnotationAppearanceImage,
+  type AnnotationAppearanceImageOptions,
+  type AnnotationAppearanceImagesResult,
+  type AnnotationAppearanceRenderOptions,
+  type AnnotationAppearancesResult,
   type AnnotationDraft,
   type AnnotationListPageSnapshot,
   type AnnotationPatch,
@@ -14,14 +20,18 @@ import {
   type DocumentEventInit,
   type MutationMeta,
   type PageAnnotationsService,
+  type PageImageResult,
+  type PageNetworkRenderFormat,
   type PageObjectNumber,
 } from '@embedpdf/engine-core/runtime';
 import {
   AnnotationCreateResultSchema,
   AnnotationDeleteResultSchema,
   AnnotationListPageSnapshotSchema,
+  AnnotationAppearanceManifestSchema,
   AnnotationMoveResultSchema,
   AnnotationUpdateResultSchema,
+  annotationAppearancesImageOptionsToWire,
   wirePaths,
 } from '@embedpdf/engine-core/wire';
 import type { SessionEventPublisher } from '@embedpdf/engine-services';
@@ -79,6 +89,60 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         },
         signal,
       );
+    });
+  }
+
+  renderAppearances(
+    _options?: AnnotationAppearanceRenderOptions,
+  ): AbortablePromise<AnnotationAppearancesResult> {
+    return AbortablePromise.rejectReason(
+      new EngineError(
+        EngineErrorCode.NotImplemented,
+        'annotations.renderAppearances() raw rasters are not available in the cloud engine; use renderAppearanceImages()',
+      ),
+    );
+  }
+
+  renderAppearanceImages(
+    options: AnnotationAppearanceImageOptions = {},
+  ): AbortablePromise<AnnotationAppearanceImagesResult> {
+    if (this.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document ${this.docId} is closed`),
+      );
+    }
+    return AbortablePromise.run<AnnotationAppearanceImagesResult>(async (signal) => {
+      // The cloud appearance endpoint is always content-addressed, so the URL
+      // must carry an explicit network format (PNG/WebP). Default to WebP when
+      // the caller omits it, matching render.image().
+      const format: PageNetworkRenderFormat = options.format ?? 'webp';
+      const buildPath = async (s: AbortSignal): Promise<string> => {
+        const manifest = await this.manifest.get(s);
+        const page = manifest.pages.find((p) => p.state.pageObjectNumber === this.pageObjectNumber);
+        if (!page) {
+          throw new EngineError(
+            EngineErrorCode.NotFound,
+            `no page with object number ${this.pageObjectNumber} in document ${this.docId}`,
+          );
+        }
+        return wirePaths.layerPageAnnotationAppearances(
+          this.docId,
+          this.layerName,
+          this.pageObjectNumber,
+          annotationAppearancesImageOptionsToWire(
+            { ...options, format },
+            { annotationVersion: page.cache.annotationVersion },
+          ),
+        );
+      };
+      const form = await this.http.getFormDataWithRefresh(
+        buildPath,
+        async (s) => {
+          await this.manifest.refresh(s);
+        },
+        signal,
+      );
+      return parseAppearanceForm(form);
     });
   }
 
@@ -255,6 +319,67 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
     } as unknown as DocumentEventInit);
     return result;
   }
+}
+
+/**
+ * Parse the appearance `multipart/form-data` response into the same
+ * `AnnotationAppearanceImagesResult` shape the local engine produces. The
+ * `manifest` part is validated against the wire schema; each image part is
+ * wrapped in a `PageImageHandle` backed by the in-memory blob we already
+ * downloaded.
+ */
+async function parseAppearanceForm(form: FormData): Promise<AnnotationAppearanceImagesResult> {
+  const manifestRaw = form.get('manifest');
+  if (typeof manifestRaw !== 'string') {
+    throw new EngineError(
+      EngineErrorCode.WireFormat,
+      'appearance response missing JSON manifest part',
+    );
+  }
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(manifestRaw);
+  } catch (err) {
+    throw new EngineError(
+      EngineErrorCode.WireFormat,
+      `appearance manifest is not valid JSON: ${(err as Error)?.message ?? err}`,
+    );
+  }
+  const manifest = AnnotationAppearanceManifestSchema.parse(parsedJson);
+
+  const appearances: AnnotationAppearanceImage[] = await Promise.all(
+    manifest.appearances.map(async (entry) => {
+      const partValue = form.get(entry.part);
+      if (partValue === null || typeof partValue === 'string') {
+        throw new EngineError(
+          EngineErrorCode.WireFormat,
+          `appearance response missing image part "${entry.part}"`,
+        );
+      }
+      const blob = partValue as Blob;
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      const result: PageImageResult = {
+        width: entry.width,
+        height: entry.height,
+        format: entry.format,
+        contentType: entry.contentType,
+        source: { kind: 'bytes', bytes },
+      };
+      const image = createPageImageHandle(result, {
+        async blob() {
+          return blob;
+        },
+      });
+      return {
+        ref: entry.ref,
+        mode: entry.mode,
+        rect: entry.rect,
+        image,
+      };
+    }),
+  );
+
+  return { pageState: manifest.pageState, appearances };
 }
 
 /**

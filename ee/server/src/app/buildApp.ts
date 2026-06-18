@@ -414,6 +414,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         layerService,
         pool,
         revisionBridge: cloudRevisionBridge,
+        imageEncoder: new SharpImageEncoder(),
         weakAnnotationSessions,
       });
     }

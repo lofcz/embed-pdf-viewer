@@ -52,3 +52,16 @@ export const RenderTokenSchema = {
   ],
   maxLength: 512,
 } as const satisfies TokenSchema;
+
+/**
+ * Token for the batch annotation-appearance render endpoint. Narrower than
+ * the page render token: appearance bitmaps are sized per annotation `/Rect`
+ * so there is no target/viewport — only a uniform `scale` and page
+ * `rotation`. Keyed by `annotationVersion` only (appearances do not depend on
+ * page base content). The cloud endpoint renders the Normal appearance only,
+ * so `modes` is intentionally absent here (it is a worker/local-only option).
+ */
+export const AnnotationAppearancesRenderTokenSchema = {
+  fields: ['annotationVersion', 'format', 'quality', 'rotation', 'scale'],
+  maxLength: 256,
+} as const satisfies TokenSchema;

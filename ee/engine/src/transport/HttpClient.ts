@@ -196,6 +196,42 @@ export class HttpClient {
     }
   }
 
+  /**
+   * GET a `multipart/form-data` body and parse it with the platform's
+   * `Response.formData()` (works in browsers and undici). Text parts come
+   * back as strings, parts with a filename as `Blob`s.
+   */
+  async getFormData(path: string, signal: AbortSignal): Promise<FormData> {
+    const res = await this.request(path, {
+      method: 'GET',
+      headers: new Headers({ Accept: 'multipart/form-data' }),
+      signal,
+    });
+    if (!res.ok) await this.throwFromBody(res);
+    return await res.formData();
+  }
+
+  /**
+   * `getFormData` with the same single-retry stale-version recovery as
+   * {@link getJsonWithRefresh}: a 404 on a versioned URL triggers
+   * `onStaleVersion` (a manifest refresh) and one re-resolve + retry.
+   */
+  async getFormDataWithRefresh(
+    buildPath: (signal: AbortSignal) => Promise<string>,
+    onStaleVersion: (signal: AbortSignal) => Promise<void>,
+    signal: AbortSignal,
+  ): Promise<FormData> {
+    const initialPath = await buildPath(signal);
+    try {
+      return await this.getFormData(initialPath, signal);
+    } catch (err) {
+      if (!EngineError.is(err, EngineErrorCode.NotFound)) throw err;
+      await onStaleVersion(signal);
+      const retryPath = await buildPath(signal);
+      return await this.getFormData(retryPath, signal);
+    }
+  }
+
   async postMultipartJson<T>(
     path: string,
     body: FormData,

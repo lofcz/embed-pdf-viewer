@@ -9,6 +9,10 @@ import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { PageRaster, PageRenderOptions } from '../dto/PageRender';
+import type {
+  AnnotationAppearanceRenderOptions,
+  AnnotationAppearancesResult,
+} from '../dto/AnnotationRender';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
@@ -124,6 +128,21 @@ export interface AnnotationsListFullPageWorkerRequest {
   docId: string;
   layerName?: string;
   pageObjectNumber: PageObjectNumber;
+}
+
+/**
+ * Batch-render every annotation appearance stream on a page. Acquires a
+ * `pagePtr`, iterates `/Annots`, and renders each annotation's `/AP` via
+ * `EPDF_RenderAnnotBitmap` into its own raster. Read-only; gated on the
+ * render capability like `pages.render`.
+ */
+export interface AnnotationsRenderAppearancesWorkerRequest {
+  kind: 'annotations.renderAppearances';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumber: PageObjectNumber;
+  options?: AnnotationAppearanceRenderOptions;
 }
 
 export interface AnnotationsCreateWorkerRequest {
@@ -338,6 +357,7 @@ export type WorkerRequest =
   | AnnotationsListRawAllWorkerRequest
   | AnnotationsListRawPageWorkerRequest
   | AnnotationsListFullPageWorkerRequest
+  | AnnotationsRenderAppearancesWorkerRequest
   | AnnotationsCreateWorkerRequest
   | AnnotationsUpdateWorkerRequest
   | AnnotationsDeleteWorkerRequest
@@ -370,6 +390,7 @@ export type WorkerResultPayload =
   | { tag: 'annotations.listRawAll'; snapshot: AnnotationListSnapshotAllPages }
   | { tag: 'annotations.listRawPage'; snapshot: AnnotationListPageSnapshot }
   | { tag: 'annotations.listFullPage'; snapshot: AnnotationListPageSnapshot }
+  | { tag: 'annotations.renderAppearances'; result: AnnotationAppearancesResult }
   | {
       tag: 'annotations.create';
       result: AnnotationCreateResult;

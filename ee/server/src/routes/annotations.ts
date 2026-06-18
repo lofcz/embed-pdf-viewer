@@ -1,22 +1,31 @@
-import type { FastifyInstance } from 'fastify';
+import { randomBytes } from 'node:crypto';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import {
   EngineError,
   EngineErrorCode,
   checkSetGroup,
   wirePack,
   type AnnotationActor,
+  type AnnotationAppearanceImageOptions,
+  type AnnotationAppearanceManifest,
+  type AnnotationAppearanceManifestEntry,
   type AnnotationDraft,
   type AnnotationPatch,
   type AnnotationRef,
   type CollabTarget,
+  type PageNetworkRenderFormat,
   type PdfBits,
   type WorkerJobId,
 } from '@embedpdf/engine-core/runtime';
 import {
+  AnnotationAppearancesQuerySchema,
   AnnotationDraftSchema,
   AnnotationPatchSchema,
   AnnotationRefSchema,
+  annotationRenderOptionsFromImageOptions,
+  decodeAnnotationAppearancesRenderToken,
   decodeAnnotationToken,
+  PageNetworkRenderFormatSchema,
   WeakAnnotationSessionPagesRequestSchema,
   type ManifestPage,
 } from '@embedpdf/engine-core/wire';
@@ -28,6 +37,7 @@ import {
   type RequestJwtContext,
 } from '../app/jwt-plugin';
 import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
+import { SharpImageEncoder } from '../render/SharpImageEncoder';
 import type { CloudRevisionBridge } from '../services/CloudRevisionBridge';
 import type { DocumentService, OpenContext } from '../services/DocumentService';
 import type { LayerService } from '../services/LayerService';
@@ -49,6 +59,7 @@ interface AnnotationRouteDeps {
   layerService: LayerService;
   pool: WorkerThreadPool;
   revisionBridge: CloudRevisionBridge;
+  imageEncoder: SharpImageEncoder;
   weakAnnotationSessions?: WeakAnnotationSessionService;
 }
 
@@ -60,7 +71,14 @@ export async function registerAnnotationRoutes(
   app: FastifyInstance,
   deps: AnnotationRouteDeps,
 ): Promise<void> {
-  const { documentService, layerService, pool, revisionBridge, weakAnnotationSessions } = deps;
+  const {
+    documentService,
+    layerService,
+    pool,
+    revisionBridge,
+    imageEncoder,
+    weakAnnotationSessions,
+  } = deps;
 
   // Annotations are layer-scoped only in paths v2. The doc-level
   // (no-layer) variant from v1 is removed; callers use layerName
@@ -114,6 +132,68 @@ export async function registerAnnotationRoutes(
       pageObjectNumber: parsePageObjectNumber(pon),
     });
   });
+
+  // Batch-rendered annotation appearance bitmaps for a page, returned as a
+  // `multipart/form-data` body (one image part per annotation + a JSON
+  // manifest). Sibling of `items` under the same `annotations-read` resource,
+  // so it shares the `doc.annotate.read` gate and the CDN coverage — reading
+  // an annotation lets you see its rendered appearance. `compress: false`
+  // keeps the binary multipart body un-gzipped end to end.
+  app.get(
+    '/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/appearances@:token',
+    { config: { compress: false } },
+    async (req, reply) => {
+      const { docId, layerName, pon, token } = req.params as {
+        docId: string;
+        layerName: string;
+        pon: string;
+        token: string;
+      };
+      const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+      const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+      const ctx = requireLayerResource(req, docId, layerName, 'annotations-read', pdfBits);
+      return renderAnnotationAppearances({
+        documentService,
+        pool,
+        imageEncoder,
+        reply,
+        signal: abortSignalFromRequest(req),
+        scope: { kind: 'layer', ctx, docId, layerName },
+        pageObjectNumber: parsePageObjectNumber(pon),
+        tokenQuery: parseTokenOrInvalidArg(
+          decodeAnnotationAppearancesRenderToken,
+          token,
+          'appearance render token',
+        ),
+        query: req.query,
+      });
+    },
+  );
+
+  app.get(
+    '/v1/docs/:docId/layers/:layerName/annotations/pages/:pon/appearances',
+    { config: { compress: false } },
+    async (req, reply) => {
+      const { docId, layerName, pon } = req.params as {
+        docId: string;
+        layerName: string;
+        pon: string;
+      };
+      const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+      const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+      const ctx = requireLayerResource(req, docId, layerName, 'annotations-read', pdfBits);
+      return renderAnnotationAppearances({
+        documentService,
+        pool,
+        imageEncoder,
+        reply,
+        signal: abortSignalFromRequest(req),
+        scope: { kind: 'layer', ctx, docId, layerName },
+        pageObjectNumber: parsePageObjectNumber(pon),
+        query: req.query,
+      });
+    },
+  );
 
   app.post('/v1/docs/:docId/layers/:layerName/weak-annotation-sessions', async (req, reply) => {
     const { docId, layerName } = req.params as { docId: string; layerName: string };
@@ -504,6 +584,189 @@ function buildUpdateActor(
     ...(isReassigningGroup ? { groupId: patchedGroupId } : {}),
   };
   return actor.userId || actor.groupId || actor.displayName ? actor : undefined;
+}
+
+async function renderAnnotationAppearances(input: {
+  documentService: DocumentService;
+  pool: WorkerThreadPool;
+  imageEncoder: SharpImageEncoder;
+  reply: FastifyReply;
+  signal: AbortSignal;
+  scope: ReadScope;
+  pageObjectNumber: number;
+  tokenQuery?: Record<string, string>;
+  query: unknown;
+}) {
+  const page = await resolvePageForRead(input);
+  if (input.tokenQuery !== undefined) rejectQueryParamsOnTokenUrl(input.query);
+
+  // Token (versioned) and query (unversioned) both arrive as flat string maps.
+  // The appearance query schema has no nested keys, so no `unflatten` is needed
+  // — z.coerce handles the string→number/enum coercions.
+  const flatInput = (input.tokenQuery ?? input.query) as Record<string, unknown>;
+  const parsedQuery = parseOrInvalidArg(
+    AnnotationAppearancesQuerySchema,
+    flatInput,
+    input.tokenQuery === undefined ? 'appearance render query' : 'appearance render token',
+  );
+  const imageOptions: AnnotationAppearanceImageOptions = parsedQuery.options;
+  const requestedAnnotationVersion = parsedQuery.annotationVersion;
+  // Format lives in the token (versioned) or query (unversioned). The schema
+  // requires it on versioned requests; the unversioned alias defaults to webp.
+  const format: PageNetworkRenderFormat = parseOrInvalidArg(
+    PageNetworkRenderFormatSchema,
+    imageOptions.format ?? 'webp',
+    'render format',
+  );
+
+  if (
+    requestedAnnotationVersion !== undefined &&
+    requestedAnnotationVersion !== page.cache.annotationVersion
+  ) {
+    setNoStore(input.reply);
+    throw new EngineError(
+      EngineErrorCode.NotFound,
+      `appearance annotationVersion ${requestedAnnotationVersion} no longer current (current=${page.cache.annotationVersion}) for page ${input.pageObjectNumber}`,
+    );
+  }
+
+  if (input.scope.kind === 'layer') {
+    await input.documentService.ensureLayerOnPool(
+      input.scope.ctx,
+      input.scope.docId,
+      input.scope.layerName,
+    );
+  }
+
+  const renderOptions = annotationRenderOptionsFromImageOptions(imageOptions);
+  const build = (jobId: WorkerJobId) =>
+    wirePack({
+      kind: 'annotations.renderAppearances' as const,
+      jobId,
+      docId: input.scope.docId,
+      ...(input.scope.kind === 'layer' ? { layerName: input.scope.layerName } : {}),
+      pageObjectNumber: input.pageObjectNumber,
+      options: renderOptions,
+    });
+  const payload = await input.pool.run(input.scope.docId, build, input.signal);
+  if (payload.tag !== 'annotations.renderAppearances') {
+    throw new EngineError(
+      EngineErrorCode.WireFormat,
+      `unexpected annotations.renderAppearances payload: ${payload.tag}`,
+    );
+  }
+  // The worker payload nests the render result under `.result`
+  // (`{ tag, result: { pageState, appearances } }`), unlike the flat
+  // `pages.render` payload — unwrap it before consuming.
+  const result = payload.result;
+
+  // Encode each appearance to the requested format. Every annotation with an
+  // appearance stream is emitted — including weak (index-only) ones: the client
+  // addresses the image by `part` name and identifies the annotation by `ref`.
+  const entries: AnnotationAppearanceManifestEntry[] = [];
+  const parts: MultipartPart[] = [];
+  let i = 0;
+  for (const appearance of result.appearances) {
+    const encoded = input.imageEncoder.encode(appearance.raster, {
+      format,
+      ...(imageOptions.quality !== undefined ? { quality: imageOptions.quality } : {}),
+    });
+    const body = await encoded.stream.toBuffer();
+    const partName = `appearance-${i++}`;
+    const ext = format === 'webp' ? 'webp' : 'png';
+    entries.push({
+      part: partName,
+      ref: appearance.ref,
+      mode: appearance.mode,
+      rect: appearance.rect,
+      width: appearance.raster.width,
+      height: appearance.raster.height,
+      format,
+      contentType: encoded.contentType,
+    });
+    parts.push({
+      name: partName,
+      filename: `${partName}.${ext}`,
+      contentType: encoded.contentType,
+      body,
+    });
+  }
+
+  const manifest: AnnotationAppearanceManifest = {
+    pageState: result.pageState,
+    appearances: entries,
+  };
+
+  requestedAnnotationVersion === undefined
+    ? setNoStore(input.reply)
+    : setImmutableCache(input.reply);
+
+  const { contentType, body } = buildMultipart(manifest, parts);
+  input.reply.type(contentType);
+  input.reply.header('X-EmbedPDF-Appearance-Count', String(entries.length));
+  return input.reply.send(body);
+}
+
+interface MultipartPart {
+  name: string;
+  filename: string;
+  contentType: string;
+  body: Buffer;
+}
+
+/**
+ * Assemble a `multipart/form-data` body by hand. The first part is the JSON
+ * manifest (`name="manifest"`); the rest are the encoded appearance images.
+ * Fetch's `Response.formData()` parses this on the client — text parts (no
+ * filename) come back as strings, image parts (with filename) as `Blob`s.
+ */
+function buildMultipart(
+  manifest: AnnotationAppearanceManifest,
+  parts: MultipartPart[],
+): { contentType: string; body: Buffer } {
+  const boundary = `cloudpdf-${randomBytes(16).toString('hex')}`;
+  const CRLF = '\r\n';
+  const chunks: Buffer[] = [];
+
+  const manifestJson = Buffer.from(JSON.stringify(manifest), 'utf8');
+  chunks.push(
+    Buffer.from(
+      `--${boundary}${CRLF}` +
+        `Content-Disposition: form-data; name="manifest"${CRLF}` +
+        `Content-Type: application/json${CRLF}${CRLF}`,
+      'utf8',
+    ),
+  );
+  chunks.push(manifestJson);
+  chunks.push(Buffer.from(CRLF, 'utf8'));
+
+  for (const part of parts) {
+    chunks.push(
+      Buffer.from(
+        `--${boundary}${CRLF}` +
+          `Content-Disposition: form-data; name="${part.name}"; filename="${part.filename}"${CRLF}` +
+          `Content-Type: ${part.contentType}${CRLF}${CRLF}`,
+        'utf8',
+      ),
+    );
+    chunks.push(part.body);
+    chunks.push(Buffer.from(CRLF, 'utf8'));
+  }
+
+  chunks.push(Buffer.from(`--${boundary}--${CRLF}`, 'utf8'));
+  return {
+    contentType: `multipart/form-data; boundary=${boundary}`,
+    body: Buffer.concat(chunks),
+  };
+}
+
+function rejectQueryParamsOnTokenUrl(query: unknown): void {
+  if (query && typeof query === 'object' && Object.keys(query).length > 0) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      'versioned appearance URLs must encode options in the path token, not query params',
+    );
+  }
 }
 
 async function readAnnotations(input: {

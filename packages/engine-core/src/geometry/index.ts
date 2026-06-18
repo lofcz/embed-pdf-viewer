@@ -9,6 +9,7 @@
 export type { PdfPoint, PdfRect, PdfSize, PdfQuad, PdfRotation } from './primitives';
 export type { PdfOriginSize, PdfQuadCorners } from './convert';
 export {
+  normalizePdfRect,
   pdfRectWidth,
   pdfRectHeight,
   pdfRectSize,

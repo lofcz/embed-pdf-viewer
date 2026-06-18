@@ -33,6 +33,7 @@ export type {
   PdfQuadCorners,
 } from './geometry';
 export {
+  normalizePdfRect,
   pdfRectWidth,
   pdfRectHeight,
   pdfRectSize,
@@ -66,6 +67,18 @@ export type {
   PageRenderViewport,
 } from './dto/PageRender';
 export { createPageImageHandle } from './dto/PageRender';
+export type {
+  AnnotationAppearanceMode,
+  AnnotationAppearanceRenderOptions,
+  AnnotationAppearanceImageOptions,
+  AnnotationAppearancesQuery,
+  AnnotationAppearanceRaster,
+  AnnotationAppearancesResult,
+  AnnotationAppearanceImage,
+  AnnotationAppearanceImagesResult,
+  AnnotationAppearanceManifestEntry,
+  AnnotationAppearanceManifest,
+} from './dto/AnnotationRender';
 export type { CachePins } from './dto/CachePins';
 export { DEFAULT_PDF_SAVE_MODE } from './dto/PdfSaveMode';
 export type { PdfSaveMode } from './dto/PdfSaveMode';

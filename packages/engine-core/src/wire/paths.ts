@@ -36,6 +36,7 @@
  * collection; `items/{key}` is one annotation inside it.
  */
 import {
+  encodeAnnotationAppearancesRenderToken,
   encodeAnnotationToken,
   encodeContentToken,
   encodeDocToken,
@@ -195,6 +196,33 @@ export const wirePaths = {
 
   layerPageAnnotationsCurrent: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items`,
+
+  /**
+   * GET: batch-rendered annotation appearance bitmaps for a single page as a
+   * `multipart/form-data` body. Sibling collection of `items` under the same
+   * `annotations/pages/{N}/` resource, so it shares the `annotations-read`
+   * gate (`doc.annotate.read`) and CDN coverage — reading an annotation lets
+   * you see its rendered appearance, the same boundary Adobe uses.
+   *
+   * Content-addressed via the appearance render token (`annotationVersion`
+   * plus render options like scale/format); CDN may cache forever. Appearance
+   * pixels depend only on the annotation `/AP` stream, so `contentVersion` is
+   * deliberately NOT part of the key.
+   */
+  layerPageAnnotationAppearances: (
+    docId: string,
+    layerName: string,
+    pageObjectNumber: number,
+    token: TokenInput,
+  ) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/appearances@${encodeAnnotationAppearancesRenderToken(token)}`,
+
+  layerPageAnnotationAppearancesCurrent: (
+    docId: string,
+    layerName: string,
+    pageObjectNumber: number,
+  ) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/appearances`,
 
   layerPageAnnotationsCreate: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items`,

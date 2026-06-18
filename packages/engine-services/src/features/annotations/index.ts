@@ -1,4 +1,5 @@
 export { AnnotationReader } from './AnnotationReader';
+export { AnnotationAppearanceReader } from './AnnotationAppearanceReader';
 export { RawAnnotationReader } from './RawAnnotationReader';
 export { AnnotationMutator } from './AnnotationMutator';
 export { computeMutationImpact } from './internal/mutations/computeMutationImpact';

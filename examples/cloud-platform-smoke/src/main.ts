@@ -1,5 +1,6 @@
 import { createCloudEngine } from '@cloudpdf/engine';
 import type {
+  AnnotationAppearanceImagesResult,
   AnnotationDraft,
   AnnotationListPageSnapshot,
   AnnotationRef,
@@ -320,6 +321,21 @@ app.innerHTML = `
           <figcaption id="renderMeta">No render yet.</figcaption>
         </figure>
 
+        <div class="appearance-tools">
+          <label>Appearance Format
+            <select id="appearanceFormat">
+              <option value="png">PNG (transparent)</option>
+              <option value="webp">WebP</option>
+            </select>
+          </label>
+          <label>Scale <input id="appearanceScale" inputmode="decimal" value="2" /></label>
+          <button id="renderAppearances" type="button">Render Annotation Appearances</button>
+        </div>
+
+        <div id="appearanceGallery" class="appearance-gallery">
+          <p class="appearance-empty">No appearances rendered yet.</p>
+        </div>
+
         <pre id="output"></pre>
       </section>
     </section>
@@ -446,6 +462,10 @@ const els = {
   renderPreview: must<HTMLElement>('renderPreview'),
   renderImage: must<HTMLImageElement>('renderImage'),
   renderMeta: must<HTMLElement>('renderMeta'),
+  appearanceFormat: must<HTMLSelectElement>('appearanceFormat'),
+  appearanceScale: must<HTMLInputElement>('appearanceScale'),
+  renderAppearances: must<HTMLButtonElement>('renderAppearances'),
+  appearanceGallery: must<HTMLDivElement>('appearanceGallery'),
   createHighlight: must<HTMLButtonElement>('createHighlight'),
   beginWeakEdit: must<HTMLButtonElement>('beginWeakEdit'),
   heartbeatWeakEdit: must<HTMLButtonElement>('heartbeatWeakEdit'),
@@ -480,6 +500,7 @@ let pages: PageListSnapshot | null = null;
 let annotations: AnnotationListPageSnapshot | null = null;
 let weakSession: WeakAnnotationEditSession | null = null;
 let renderObjectUrl: string | null = null;
+let appearanceObjectUrls: string[] = [];
 let lastAccess: AccessResponse | null = null;
 
 void boot();
@@ -508,6 +529,7 @@ els.listAnnots.addEventListener('click', () => void run(listAnnotations));
 els.readMetadata.addEventListener('click', () => void run(readMetadata));
 els.updateMetadata.addEventListener('click', () => void run(updateMetadata));
 els.renderPage.addEventListener('click', () => void run(renderPage));
+els.renderAppearances.addEventListener('click', () => void run(renderAppearances));
 els.createHighlight.addEventListener('click', () => void run(createHighlight));
 els.beginWeakEdit.addEventListener('click', () => void run(beginWeakEdit));
 els.heartbeatWeakEdit.addEventListener('click', () => void run(heartbeatWeakEdit));
@@ -585,6 +607,7 @@ async function openToken(): Promise<void> {
   pages = null;
   annotations = null;
   clearRenderPreview();
+  resetAppearanceGallery();
   const engine = createCloudEngine({ baseUrl: config.engineBaseUrl });
   doc = await engine.open({ kind: 'token', token });
   renderClaims(token);
@@ -677,6 +700,85 @@ async function renderPage(): Promise<void> {
 async function listAnnotations(): Promise<void> {
   annotations = await requireDoc().page(selectedPage()).annotations.list();
   setOutput(annotations);
+}
+
+/**
+ * Batch-render every annotation appearance (`/AP`) stream on the page through
+ * the cloud's `multipart/form-data` endpoint. Each annotation comes back as
+ * its own image cropped to its `/Rect`, which we show in a gallery. This is
+ * the same `renderAppearanceImages()` call a `LocalDocumentHandle` exposes —
+ * only the transport differs.
+ */
+async function renderAppearances(): Promise<void> {
+  const page = requireDoc().page(selectedPage());
+  const result = await page.annotations.renderAppearanceImages({
+    format: appearanceFormat(),
+    scale: appearanceScale(),
+  });
+  await showAppearanceImages(result);
+}
+
+async function showAppearanceImages(result: AnnotationAppearanceImagesResult): Promise<void> {
+  resetAppearanceGallery();
+  els.appearanceGallery.innerHTML = '';
+
+  if (result.appearances.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'appearance-empty';
+    empty.textContent = 'This page has no annotation appearance streams to render.';
+    els.appearanceGallery.append(empty);
+  } else {
+    for (const appearance of result.appearances) {
+      const objectUrl = await appearance.image.objectUrl();
+      appearanceObjectUrls.push(objectUrl.url);
+
+      const figure = document.createElement('figure');
+      figure.className = 'appearance-card';
+      const img = document.createElement('img');
+      img.src = objectUrl.url;
+      img.alt = `Appearance ${describeRef(appearance.ref)}`;
+      const caption = document.createElement('figcaption');
+      const size =
+        appearance.image.width && appearance.image.height
+          ? `${appearance.image.width}x${appearance.image.height}`
+          : '';
+      caption.innerHTML =
+        `<strong>${escapeHtml(describeRef(appearance.ref))}</strong>` +
+        `<span>${escapeHtml(appearance.mode)} · ${appearance.image.format.toUpperCase()} ${size}</span>`;
+      figure.append(img, caption);
+      els.appearanceGallery.append(figure);
+    }
+  }
+
+  setOutput({
+    pageState: result.pageState,
+    count: result.appearances.length,
+    appearances: result.appearances.map((a) => ({
+      ref: a.ref,
+      mode: a.mode,
+      rect: a.rect,
+      format: a.image.format,
+      width: a.image.width,
+      height: a.image.height,
+    })),
+  });
+}
+
+function resetAppearanceGallery(): void {
+  for (const url of appearanceObjectUrls) URL.revokeObjectURL(url);
+  appearanceObjectUrls = [];
+  els.appearanceGallery.innerHTML = '<p class="appearance-empty">No appearances rendered yet.</p>';
+}
+
+function describeRef(ref: AnnotationAppearanceImagesResult['appearances'][number]['ref']): string {
+  switch (ref.kind) {
+    case 'objectNumber':
+      return `obj ${ref.annotObjectNumber}`;
+    case 'nm':
+      return `nm ${ref.nm}`;
+    case 'index':
+      return `index ${ref.index} (weak)`;
+  }
 }
 
 async function readMetadata(): Promise<void> {
@@ -908,6 +1010,21 @@ function renderBackground(): 'white' | 'transparent' {
     return els.renderBackground.value;
   }
   throw new Error('Render background must be white or transparent.');
+}
+
+function appearanceFormat(): 'png' | 'webp' {
+  if (els.appearanceFormat.value === 'png' || els.appearanceFormat.value === 'webp') {
+    return els.appearanceFormat.value;
+  }
+  throw new Error('Appearance format must be PNG or WebP.');
+}
+
+function appearanceScale(): number {
+  const value = Number(els.appearanceScale.value);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error('Appearance scale must be a positive number.');
+  }
+  return value;
 }
 
 function downloadMode(): PdfSaveMode {

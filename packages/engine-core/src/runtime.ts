@@ -75,6 +75,7 @@ export type {
   AnnotationsListRawAllWorkerRequest,
   AnnotationsListRawPageWorkerRequest,
   AnnotationsListFullPageWorkerRequest,
+  AnnotationsRenderAppearancesWorkerRequest,
   AnnotationsCreateWorkerRequest,
   AnnotationsUpdateWorkerRequest,
   AnnotationsDeleteWorkerRequest,

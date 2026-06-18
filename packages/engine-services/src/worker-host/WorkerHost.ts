@@ -14,6 +14,7 @@ import {
   type AnnotationsListFullPageWorkerRequest,
   type AnnotationsListRawAllWorkerRequest,
   type AnnotationsListRawPageWorkerRequest,
+  type AnnotationsRenderAppearancesWorkerRequest,
   type AnnotationsMoveWorkerRequest,
   type AnnotationsUpdateWorkerRequest,
   type CloseWorkerRequest,
@@ -43,7 +44,12 @@ import {
   openFatMemoryDocument,
   openLayerDocument,
 } from '../document-session/lifecycle/PdfDocumentOpener';
-import { AnnotationReader, AnnotationMutator, RawAnnotationReader } from '../features/annotations';
+import {
+  AnnotationReader,
+  AnnotationAppearanceReader,
+  AnnotationMutator,
+  RawAnnotationReader,
+} from '../features/annotations';
 import { PageGeometryReader } from '../features/geometry';
 import { MetadataMutator, MetadataReader } from '../features/metadata';
 import { PagesMutator, PagesReader } from '../features/pages';
@@ -121,6 +127,9 @@ export class WorkerHost {
           break;
         case 'annotations.listFullPage':
           resultPack = this.handleAnnotationsListFullPage(msg, ctrl.signal);
+          break;
+        case 'annotations.renderAppearances':
+          resultPack = this.handleAnnotationsRenderAppearances(msg, ctrl.signal);
           break;
         case 'annotations.create':
           resultPack = this.handleAnnotationsCreate(msg, ctrl.signal);
@@ -284,6 +293,18 @@ export class WorkerHost {
     const reader = new AnnotationReader(this.runtime, session);
     const snapshot = reader.list(req.pageObjectNumber, signal);
     return wirePack({ tag: 'annotations.listFullPage', snapshot });
+  }
+
+  private handleAnnotationsRenderAppearances(
+    req: AnnotationsRenderAppearancesWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const reader = new AnnotationAppearanceReader(this.runtime, session);
+    const result = reader.render(req.pageObjectNumber, req.options ?? {}, signal);
+    // Transfer every appearance raster buffer back zero-copy, like pages.render.
+    const transfer = result.appearances.map((a) => a.raster.data);
+    return wirePack({ tag: 'annotations.renderAppearances', result }, transfer);
   }
 
   private handleAnnotationsCreate(

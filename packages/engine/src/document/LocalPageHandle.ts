@@ -38,6 +38,7 @@ export class LocalPageHandle implements PageHandle {
       pageObjectNumber,
       queue,
       view,
+      imageEncoder,
       guard,
       publisher,
     );

@@ -3,6 +3,12 @@ import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
 import type { AnnotationListPageSnapshot } from '../annotation/AnnotationListSnapshot';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type {
+  AnnotationAppearanceImageOptions,
+  AnnotationAppearanceImagesResult,
+  AnnotationAppearanceRenderOptions,
+  AnnotationAppearancesResult,
+} from '../dto/AnnotationRender';
+import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
   AnnotationMoveResult,
@@ -23,6 +29,27 @@ import type {
  */
 export interface PageAnnotationsService {
   list(): AbortablePromise<AnnotationListPageSnapshot>;
+  /**
+   * Batch-render every annotation appearance (`/AP`) stream on the page into
+   * its own raw RGBA raster, sized to the annotation's `/Rect`. Read-only and
+   * gated by `doc.annotate.read` — reading an annotation implies you may see
+   * its rendered appearance (the Adobe boundary).
+   *
+   * Cloud engines do not expose the raw rasters (the HTTP surface ships
+   * encoded images); use {@link renderAppearanceImages} there instead.
+   */
+  renderAppearances(
+    options?: AnnotationAppearanceRenderOptions,
+  ): AbortablePromise<AnnotationAppearancesResult>;
+  /**
+   * Encoded counterpart of {@link renderAppearances}: each raster is run
+   * through the engine's image encoder (local) or fetched as a
+   * `multipart/form-data` body (cloud) and returned as a lazily-resolved
+   * `PageImageHandle`. This is the cross-engine portable surface.
+   */
+  renderAppearanceImages(
+    options?: AnnotationAppearanceImageOptions,
+  ): AbortablePromise<AnnotationAppearanceImagesResult>;
   create(draft: AnnotationDraft): AbortablePromise<AnnotationCreateResult>;
   update(ref: AnnotationRef, patch: AnnotationPatch): AbortablePromise<AnnotationUpdateResult>;
   delete(ref: AnnotationRef): AbortablePromise<AnnotationDeleteResult>;

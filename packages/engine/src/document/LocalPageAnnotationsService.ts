@@ -2,7 +2,13 @@ import {
   AbortablePromise,
   EngineError,
   EngineErrorCode,
+  createPageImageHandle,
   wirePack,
+  type AnnotationAppearanceImage,
+  type AnnotationAppearanceImageOptions,
+  type AnnotationAppearanceImagesResult,
+  type AnnotationAppearanceRenderOptions,
+  type AnnotationAppearancesResult,
   type AnnotationDraft,
   type AnnotationListPageSnapshot,
   type AnnotationPatch,
@@ -19,6 +25,7 @@ import type { SessionEventPublisher } from '@embedpdf/engine-services';
 import type { WorkerQueue } from '../worker/WorkerQueue';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
 import type { ScopeGuard } from '../scope';
 
 interface DocClosedView {
@@ -41,6 +48,7 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
     private readonly pageObjectNumber: PageObjectNumber,
     private readonly queue: WorkerQueue,
     private readonly view: DocClosedView,
+    private readonly encoder: LocalImageEncoder,
     private readonly guard: ScopeGuard,
     private readonly publisher: SessionEventPublisher,
   ) {}
@@ -81,6 +89,92 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
         throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
       }
       return payload.snapshot;
+    });
+  }
+
+  renderAppearances(
+    options?: AnnotationAppearanceRenderOptions,
+  ): AbortablePromise<AnnotationAppearancesResult> {
+    if (this.view.isClosed()) {
+      return AbortablePromise.rejectReason(
+        new EngineError(EngineErrorCode.DocNotOpen, `document not open: ${this.docId}`),
+      );
+    }
+    // Rendering an appearance reveals the annotation's `/AP` stream, so it
+    // gates on the same `doc.annotate.read` capability as `list()` — reading
+    // an annotation implies you may see how it draws.
+    try {
+      this.guard.assertCapability('doc.annotate.read');
+    } catch (err) {
+      return AbortablePromise.rejectReason(err);
+    }
+    const docId = this.docId;
+    const pon = this.pageObjectNumber;
+    const submission = this.queue.enqueue<WorkerResultPayload>(
+      {
+        buildPack: (jobId: JobId) =>
+          wirePack({
+            kind: 'annotations.renderAppearances',
+            jobId,
+            docId,
+            pageObjectNumber: pon,
+            ...(options ? { options } : {}),
+          }),
+      },
+      { priority: Priority.MEDIUM },
+    );
+    return AbortablePromise.run<AnnotationAppearancesResult>(async (signal) => {
+      const onAbort = () => submission.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const payload = await submission;
+      if (payload.tag !== 'annotations.renderAppearances') {
+        throw new EngineError(EngineErrorCode.WireFormat, `unexpected payload tag: ${payload.tag}`);
+      }
+      return payload.result;
+    });
+  }
+
+  renderAppearanceImages(
+    options: AnnotationAppearanceImageOptions = {},
+  ): AbortablePromise<AnnotationAppearanceImagesResult> {
+    return AbortablePromise.run<AnnotationAppearanceImagesResult>(async (signal) => {
+      const raw = this.renderAppearances(options);
+      const onAbort = () => raw.abort(signal.reason);
+      if (signal.aborted) onAbort();
+      else signal.addEventListener('abort', onAbort, { once: true });
+      const result = await raw;
+      if (signal.aborted)
+        throw new EngineError(EngineErrorCode.Aborted, 'annotation appearance render aborted');
+
+      // Encode each raster sequentially. `encoder.encode` transfers the
+      // raster's backing buffer into a worker, so we never touch
+      // `appearance.raster.data` again after this point.
+      const appearances: AnnotationAppearanceImage[] = [];
+      for (const appearance of result.appearances) {
+        if (signal.aborted)
+          throw new EngineError(EngineErrorCode.Aborted, 'annotation appearance render aborted');
+        const encoded = await this.encoder.encode(appearance.raster, options, signal);
+        if (encoded.source.kind !== 'bytes') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            'local appearance image handle expected a byte source',
+          );
+        }
+        const bytes = encoded.source.bytes;
+        const image = createPageImageHandle(encoded, {
+          async blob() {
+            return new Blob([copyToExactArrayBuffer(bytes)], { type: encoded.contentType });
+          },
+        });
+        appearances.push({
+          ref: appearance.ref,
+          mode: appearance.mode,
+          rect: appearance.rect,
+          image,
+        });
+      }
+      return { pageState: result.pageState, appearances };
     });
   }
 
@@ -325,4 +419,10 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       ...(match.groupId !== undefined ? { groupId: match.groupId } : {}),
     };
   }
+}
+
+function copyToExactArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const body = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(body).set(bytes);
+  return body;
 }

@@ -28,6 +28,8 @@ export {
   PageGeometrySnapshotSchema,
   PageNetworkRenderFormatSchema,
   PageRenderQuerySchema,
+  AnnotationAppearancesQuerySchema,
+  AnnotationAppearanceManifestSchema,
   RefetchReasonSchema,
   AnnotationListMutationMetaSchema,
   AnnotationCreateResultSchema,
@@ -86,6 +88,7 @@ export type {
 export { decodeToken, encodeToken } from './wire/token';
 export type { TokenInput, TokenQuery, TokenScalar, TokenSchema } from './wire/token';
 export {
+  AnnotationAppearancesRenderTokenSchema,
   AnnotationTokenSchema,
   ContentTokenSchema,
   DocTokenSchema,
@@ -94,6 +97,7 @@ export {
   RenderTokenSchema,
 } from './wire/tokenSchemas';
 export {
+  decodeAnnotationAppearancesRenderToken,
   decodeAnnotationToken,
   decodeContentToken,
   decodeDocToken,
@@ -101,6 +105,7 @@ export {
   decodeLayoutToken,
   decodeMetadataToken,
   decodeRenderToken,
+  encodeAnnotationAppearancesRenderToken,
   encodeAnnotationToken,
   encodeContentToken,
   encodeDocToken,
@@ -113,11 +118,14 @@ export type { DownloadToken } from './wire/tokens';
 export { flatten, unflatten } from './wire/flatten';
 export type { WireFlat, WireScalar } from './wire/flatten';
 export {
+  annotationAppearancesImageOptionsToToken,
+  annotationAppearancesImageOptionsToWire,
+  annotationRenderOptionsFromImageOptions,
   pageRenderOptionsFromImageOptions,
   renderImageOptionsToToken,
   renderImageOptionsToWire,
 } from './wire/renderOptionsCodec';
-export type { RenderVersions } from './wire/renderOptionsCodec';
+export type { AnnotationRenderVersion, RenderVersions } from './wire/renderOptionsCodec';
 
 // Canonical PDF-document geometry schemas (zod). Exported from `wire` ONLY.
 export {

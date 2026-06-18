@@ -2,6 +2,7 @@ import { decodeToken, encodeToken, type TokenInput, type TokenQuery } from './to
 
 export type { TokenInput } from './token';
 import {
+  AnnotationAppearancesRenderTokenSchema,
   AnnotationTokenSchema,
   ContentTokenSchema,
   DocTokenSchema,
@@ -72,6 +73,19 @@ export const encodeRenderToken = (input: TokenInput): string =>
  * recover the nested SDK shape with full coercion + validation.
  */
 export const decodeRenderToken = (raw: string): TokenQuery => decodeToken(RenderTokenSchema, raw);
+
+/**
+ * Encode an annotation-appearance render token from a flat wire-shape input
+ * (the `flatten(...)` of an `AnnotationAppearanceImageOptions`-shaped object
+ * plus cache versions). Semantic validation lives in
+ * `AnnotationAppearancesQuerySchema`.
+ */
+export const encodeAnnotationAppearancesRenderToken = (input: TokenInput): string =>
+  encodeToken(AnnotationAppearancesRenderTokenSchema, input);
+
+/** Decode an annotation-appearance render token to a flat field map. */
+export const decodeAnnotationAppearancesRenderToken = (raw: string): TokenQuery =>
+  decodeToken(AnnotationAppearancesRenderTokenSchema, raw);
 
 function decodePositiveInteger(raw: string | undefined, field: string): number {
   if (raw === undefined || !/^\d+$/.test(raw)) {

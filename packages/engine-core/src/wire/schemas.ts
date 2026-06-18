@@ -4,7 +4,11 @@ import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
 } from '../annotation/AnnotationListSnapshot';
-import { AnnotationStableIdSchema, RevisionTokenSchema } from '../annotation/base.schema';
+import {
+  AnnotationRefSchema,
+  AnnotationStableIdSchema,
+  RevisionTokenSchema,
+} from '../annotation/base.schema';
 import { AnnotationDTOSchema } from '../annotation/kinds';
 import { PdfRectSchema, PdfRotationSchema, PdfSizeSchema } from '../geometry/schemas';
 import type { CachePins } from '../dto/CachePins';
@@ -15,6 +19,11 @@ import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageBoxes, PageLayout } from '../dto/PageLayout';
 import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
+import type {
+  AnnotationAppearanceImageOptions,
+  AnnotationAppearanceManifest,
+  AnnotationAppearancesQuery,
+} from '../dto/AnnotationRender';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { DocumentSecurityState, PdfPermissionInfo } from '../engine/DocumentSecurityService';
@@ -514,6 +523,70 @@ export const PageRenderQuerySchema = z
       ...(v.annotationVersion !== undefined ? { annotationVersion: v.annotationVersion } : {}),
     };
   }) as unknown as z.ZodType<PageRenderQuery>;
+
+/**
+ * Query/token schema for the batch annotation-appearance render endpoint.
+ * Mirrors `PageRenderQuerySchema` but without page target/viewport/background
+ * or `includeAnnotations` (appearances are always annotation-derived), and
+ * keyed by `annotationVersion` only — appearance bitmaps do not depend on
+ * page base content, so `contentVersion` is not part of the cache key. The
+ * endpoint renders the Normal appearance only.
+ */
+export const AnnotationAppearancesQuerySchema = z
+  .object({
+    annotationVersion: z.coerce.number().int().positive().optional(),
+    format: PageNetworkRenderFormatSchema.optional(),
+    rotation: RenderRotationSchema.optional(),
+    scale: z.coerce.number().positive().finite().optional(),
+    quality: RenderQualitySchema.optional(),
+  })
+  .strict()
+  .superRefine((v, ctx) => {
+    // A versioned (cacheable) request pins the annotation version and must
+    // declare the encoded format so the cached URL is unambiguous.
+    if (v.annotationVersion !== undefined && v.format === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['format'],
+        message: 'versioned appearance render requires format',
+      });
+    }
+  })
+  .transform((v) => {
+    const options: AnnotationAppearanceImageOptions = {
+      ...(v.rotation !== undefined ? { rotation: v.rotation } : {}),
+      ...(v.scale !== undefined ? { scale: v.scale } : {}),
+      ...(v.quality !== undefined ? { quality: v.quality } : {}),
+      ...(v.format !== undefined ? { format: v.format } : {}),
+    };
+    return {
+      options,
+      ...(v.annotationVersion !== undefined ? { annotationVersion: v.annotationVersion } : {}),
+    };
+  }) as unknown as z.ZodType<AnnotationAppearancesQuery>;
+
+/**
+ * The JSON manifest part of the appearance `multipart/form-data` response.
+ * Wire-stable; the cloud client validates the parsed `manifest` part against
+ * this before reconstructing image handles from the binary parts.
+ */
+export const AnnotationAppearanceManifestSchema: z.ZodType<AnnotationAppearanceManifest> = z.object(
+  {
+    pageState: PageStateSchema,
+    appearances: z.array(
+      z.object({
+        part: z.string().min(1),
+        ref: AnnotationRefSchema,
+        mode: z.enum(['normal', 'rollover', 'down']),
+        rect: PdfRectSchema,
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
+        format: PageNetworkRenderFormatSchema,
+        contentType: z.string().min(1),
+      }),
+    ),
+  },
+);
 
 /**
  * Reasons a mutation tells the client its old snapshot is stale. Wire-stable;
