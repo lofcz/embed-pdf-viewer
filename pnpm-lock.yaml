@@ -267,6 +267,12 @@ importers:
 
   ee/website:
     dependencies:
+      '@hugeicons/core-free-icons':
+        specifier: ^4.2.0
+        version: 4.2.0
+      '@hugeicons/react':
+        specifier: ^1.1.7
+        version: 1.1.7(react@18.3.1)
       '@theguild/remark-npm2yarn':
         specifier: ^0.3.3
         version: 0.3.3
@@ -2805,9 +2811,9 @@ importers:
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
-      '@embedpdf-x/plugin-marker':
+      '@embedpdf-x/plugin-interaction':
         specifier: workspace:*
-        version: link:../../packages/plugin-marker
+        version: link:../../packages/plugin-interaction
       '@embedpdf-x/plugin-metadata':
         specifier: workspace:*
         version: link:../../packages/plugin-metadata
@@ -2820,6 +2826,9 @@ importers:
       '@embedpdf-x/plugin-render':
         specifier: workspace:*
         version: link:../../packages/plugin-render
+      '@embedpdf-x/plugin-selection':
+        specifier: workspace:*
+        version: link:../../packages/plugin-selection
       '@embedpdf-x/plugin-stage':
         specifier: workspace:*
         version: link:../../packages/plugin-stage
@@ -2878,6 +2887,22 @@ importers:
       '@embedpdf/engine-core':
         specifier: workspace:*
         version: link:../../../packages/engine-core
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
+  v3/packages/plugin-interaction:
+    dependencies:
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
     devDependencies:
       typescript:
         specifier: ^5.0.0
@@ -2945,6 +2970,28 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
+  v3/packages/plugin-selection:
+    dependencies:
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@embedpdf-x/plugin-interaction':
+        specifier: workspace:*
+        version: link:../plugin-interaction
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../../packages/engine-core
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
   v3/packages/plugin-stage:
     dependencies:
       '@embedpdf-x/geometry':
@@ -2953,6 +3000,9 @@ importers:
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@embedpdf-x/plugin-interaction':
+        specifier: workspace:*
+        version: link:../plugin-interaction
       '@embedpdf-x/stage-core':
         specifier: workspace:*
         version: link:../stage-core
@@ -2982,9 +3032,9 @@ importers:
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
-      '@embedpdf-x/plugin-marker':
+      '@embedpdf-x/plugin-interaction':
         specifier: workspace:*
-        version: link:../plugin-marker
+        version: link:../plugin-interaction
       '@embedpdf-x/plugin-metadata':
         specifier: workspace:*
         version: link:../plugin-metadata
@@ -2994,6 +3044,9 @@ importers:
       '@embedpdf-x/plugin-render':
         specifier: workspace:*
         version: link:../plugin-render
+      '@embedpdf-x/plugin-selection':
+        specifier: workspace:*
+        version: link:../plugin-selection
       '@embedpdf-x/plugin-stage':
         specifier: workspace:*
         version: link:../plugin-stage
@@ -5231,6 +5284,14 @@ packages:
     peerDependencies:
       react: ^18 || ^19 || ^19.0.0-rc
       react-dom: ^18 || ^19 || ^19.0.0-rc
+
+  '@hugeicons/core-free-icons@4.2.0':
+    resolution: {integrity: sha512-V1G/Ph9TbmEow+pKnupZRWQjdORR/TGGr3JVRZOWkomdJ/5N6GgLuKPgBDs7G0kZ0//9LL34AGOUzWe3K+umNA==}
+
+  '@hugeicons/react@1.1.7':
+    resolution: {integrity: sha512-0q1gekPJvNtIsfqi6alVdKfqsLz0PGiZWOzxJDxOd55UpFwcgohBFU4CwTcJ7kg4hO3kwXuzxrn/JEj280GX3g==}
+    peerDependencies:
+      react: '>=16.0.0'
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -16317,6 +16378,12 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       use-sync-external-store: 1.6.0(react@18.3.1)
+
+  '@hugeicons/core-free-icons@4.2.0': {}
+
+  '@hugeicons/react@1.1.7(react@18.3.1)':
+    dependencies:
+      react: 18.3.1
 
   '@humanfs/core@0.19.1': {}
 

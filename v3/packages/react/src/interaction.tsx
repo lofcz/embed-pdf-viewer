@@ -20,6 +20,25 @@ const mods = (e: PointerEvent): Modifiers => ({
   meta: e.metaKey,
 });
 
+/**
+ * Robust multi-click counter. `pointerdown.detail` is 0/1 in several browsers, so
+ * we count clicks ourselves from timing + proximity — the standard double/triple
+ * detection. Input normalization belongs in the adapter; the hub/handlers stay pure.
+ */
+export function createClickCounter(maxGapMs = 400, maxDistPx = 6) {
+  let last = 0;
+  let lx = 0;
+  let ly = 0;
+  let count = 0;
+  return (now: number, x: number, y: number): number => {
+    count = now - last <= maxGapMs && Math.hypot(x - lx, y - ly) <= maxDistPx ? count + 1 : 1;
+    last = now;
+    lx = x;
+    ly = y;
+    return count;
+  };
+}
+
 export function PagePointerSource() {
   const page = usePage();
   const interaction = useCapability(InteractionToken);
@@ -29,13 +48,19 @@ export function PagePointerSource() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const sample = (phase: PointerSample['phase'], e: PointerEvent): PointerSample => {
+    const clicks = createClickCounter();
+    const sample = (
+      phase: PointerSample['phase'],
+      e: PointerEvent,
+      clickCount = 1,
+    ): PointerSample => {
       const r = el.getBoundingClientRect();
       return {
         phase,
         viewport: { x: e.clientX - r.left, y: e.clientY - r.top },
         page: { pon: page.pon, point: page.toPagePoint(e.clientX, e.clientY) },
         modifiers: mods(e),
+        clickCount,
       };
     };
     let dragging = false;
@@ -43,7 +68,7 @@ export function PagePointerSource() {
     const down = (e: PointerEvent) => {
       if (e.button !== 0) return;
       dragging = true;
-      interaction.dispatch(sample('down', e));
+      interaction.dispatch(sample('down', e, clicks(Date.now(), e.clientX, e.clientY)));
     };
     // hover (no gesture): drive cursor feedback only — fires from the element
     const hover = (e: PointerEvent) => {

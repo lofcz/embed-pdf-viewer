@@ -17,6 +17,7 @@ export type StageTokenProp = CapabilityToken<StageCapability>;
 import { NO_FRAME, pageTransform, type PageFrame } from '@embedpdf-x/geometry';
 import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import type { PointerSample } from '@embedpdf-x/plugin-interaction';
+import { createClickCounter } from './interaction';
 import {
   DocumentScope,
   makePageContext,
@@ -100,6 +101,10 @@ function PageSurface({
             height: t.contentHeight,
             background: '#fff',
             transform: rotation ? `rotate(${rotation}deg)` : undefined,
+            // We render our own selection highlights — suppress native text/image
+            // selection (and the double-click image grab) on the whole page subtree.
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         >
           {render(ctx)}
@@ -215,7 +220,8 @@ export function Stage({
     if (useHub && ix) {
       // Forward to the hub: pan/select/etc. become tool-gated handlers. `pageAt`
       // resolves the page per event, so a drag can cross pages (text selection).
-      const forward = (phase: PointerSample['phase'], e: PointerEvent) => {
+      const clicks = createClickCounter();
+      const forward = (phase: PointerSample['phase'], e: PointerEvent, clickCount = 1) => {
         const r = el.getBoundingClientRect();
         const vpt = { x: e.clientX - r.left, y: e.clientY - r.top };
         ix.dispatch({
@@ -223,13 +229,14 @@ export function Stage({
           viewport: vpt,
           page: stage.pageAt(vpt) ?? undefined,
           modifiers: { shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey, meta: e.metaKey },
+          clickCount,
         });
       };
       let dragging = false;
       const down = (e: PointerEvent) => {
         if (e.button !== 0) return;
         dragging = true;
-        forward('down', e);
+        forward('down', e, clicks(Date.now(), e.clientX, e.clientY));
       };
       const hover = (e: PointerEvent) => {
         if (!dragging) forward('move', e); // cursor feedback, no gesture
@@ -405,6 +412,8 @@ export function PageView({
               height: t.contentHeight,
               background: '#fff',
               transform: rotation ? `rotate(${rotation}deg)` : undefined,
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
             }}
           >
             {children}

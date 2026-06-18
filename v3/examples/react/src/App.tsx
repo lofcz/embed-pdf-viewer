@@ -151,6 +151,52 @@ function WatermarkLayer() {
   );
 }
 
+// Compact toolbar primitives — small font, tight controls, micro-labels.
+const tbRow: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: 6,
+  padding: '4px 10px',
+  fontSize: 11,
+};
+const tbSelect: React.CSSProperties = {
+  fontSize: 11,
+  padding: '1px 4px',
+  border: '1px solid #ccc',
+  borderRadius: 4,
+  background: '#fff',
+};
+const tbBtn: React.CSSProperties = {
+  fontSize: 11,
+  padding: '2px 7px',
+  border: '1px solid #ccc',
+  borderRadius: 4,
+  background: '#fff',
+  cursor: 'pointer',
+};
+const tbNum: React.CSSProperties = { ...tbSelect, width: 44 };
+const Divider = () => (
+  <span style={{ width: 1, height: 16, background: '#ddd', margin: '0 2px' }} />
+);
+/** A compact labelled control: a muted micro-label + the input, inline. */
+function Field({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label title={title} style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#666' }}>
+      <span style={{ color: '#aaa' }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
 function Toolbar() {
   const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, fitAll, automatic } = useZoom();
   const { currentPage, pageCount, next, prev } = usePages();
@@ -175,175 +221,210 @@ function Toolbar() {
     else if (m === 'fit-all') fitAll();
   };
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 6,
-        alignItems: 'center',
-        padding: '6px 10px',
-        borderBottom: '1px solid #eee',
-        background: '#fafafa',
-        fontSize: 12,
-      }}
-    >
-      <button onClick={() => prev()} title="previous page/spread">
-        ◀
-      </button>
-      <span>
-        p <b>{currentPage + 1}</b>/{pageCount}
-      </span>
-      <button onClick={() => next()} title="next page/spread">
-        ▶
-      </button>
-      <span style={{ width: 1, height: 18, background: '#ddd' }} />
-      {/* Tool: pointer selects text (drag, incl. across pages); pan drags the camera. */}
-      <div style={{ display: 'flex', gap: 2 }}>
-        <button
-          onClick={() => activate('pointer')}
-          title="select text"
-          style={toolBtn(activeToolId === 'pointer')}
-        >
-          ↖ select
+    <div style={{ borderBottom: '1px solid #eee', background: '#fafafa' }}>
+      {/* Row 1 — navigate, zoom, presets */}
+      <div style={{ ...tbRow, borderBottom: '1px solid #f0f0f0' }}>
+        <button onClick={() => prev()} title="previous page/spread" style={tbBtn}>
+          ◀
         </button>
-        <button
-          onClick={() => activate('pan')}
-          title="pan (hand)"
-          style={toolBtn(activeToolId === 'pan')}
+        <span>
+          p <b>{currentPage + 1}</b>/{pageCount}
+        </span>
+        <button onClick={() => next()} title="next page/spread" style={tbBtn}>
+          ▶
+        </button>
+        <Divider />
+        <button onClick={zoomOut} style={tbBtn}>
+          −
+        </button>
+        <span style={{ minWidth: 34, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+        <button onClick={zoomIn} style={tbBtn}>
+          +
+        </button>
+        <select
+          value={mode}
+          onChange={(e) => applyZoomMode(e.target.value)}
+          title="zoom mode"
+          style={tbSelect}
         >
-          ✋ pan
+          <option value="automatic">auto</option>
+          <option value="fit-page">fit page</option>
+          <option value="fit-width">fit width</option>
+          <option value="fit-all">fit all</option>
+          <option value="custom" disabled>
+            custom
+          </option>
+        </select>
+        <span style={{ marginLeft: 'auto' }} />
+        {Object.keys(PRESETS).map((name) => (
+          <button
+            key={name}
+            onClick={() => update(PRESETS[name])}
+            title={`apply the ${name} preset`}
+            style={tbBtn}
+          >
+            {name}
+          </button>
+        ))}
+        <button onClick={reset} title="reset to home" style={tbBtn}>
+          ⟲
         </button>
       </div>
-      <span style={{ width: 1, height: 18, background: '#ddd' }} />
-      <select value={flow} onChange={(e) => setFlow(e.target.value as FlowMode)} title="flow">
-        <option value="continuous">scroll</option>
-        <option value="paged">paged</option>
-      </select>
-      <button onClick={zoomOut}>−</button>
-      <span style={{ minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-      <button onClick={zoomIn}>+</button>
-      <select value={mode} onChange={(e) => applyZoomMode(e.target.value)} title="zoom mode">
-        <option value="automatic">automatic</option>
-        <option value="fit-page">fit page</option>
-        <option value="fit-width">fit width</option>
-        <option value="fit-all">fit all</option>
-        <option value="custom" disabled>
-          custom
-        </option>
-      </select>
-      <span style={{ width: 1, height: 18, background: '#ddd' }} />
-      <select
-        value={layout}
-        onChange={(e) => setLayout(e.target.value as LayoutKind)}
-        title="layout"
-      >
-        <option value="vertical">vertical</option>
-        <option value="horizontal">horizontal</option>
-        <option value="grid">grid</option>
-      </select>
-      <select
-        value={String(settings.columns)}
-        onChange={(e) => {
-          const v = e.target.value;
-          update({ columns: (v === 'square' || v === 'auto' ? v : Number(v)) as GridColumns });
-        }}
-        title="grid columns: square (≈√n), auto (WRAPPED — re-wraps with viewport width and zoom), or a fixed count"
-      >
-        <option value="square">▦ square</option>
-        <option value="auto">▦ wrapped</option>
-        <option value="1">▦ 1 col</option>
-        <option value="2">▦ 2 cols</option>
-        <option value="3">▦ 3 cols</option>
-        <option value="4">▦ 4 cols</option>
-      </select>
-      <select
-        value={settings.direction}
-        onChange={(e) => update({ direction: e.target.value as Direction })}
-        title="reading direction: RTL flips horizontal order, spread binding, grid fill, and logical alignment"
-      >
-        <option value="ltr">ltr</option>
-        <option value="rtl">rtl</option>
-      </select>
-      <select
-        value={spread}
-        onChange={(e) => setSpread(e.target.value as SpreadMode)}
-        title="spread"
-      >
-        <option value="none">single</option>
-        <option value="odd">spread</option>
-        <option value="even">spread (cover)</option>
-      </select>
-      <select
-        value={sizing}
-        onChange={(e) => setSizing(e.target.value as SizingMode)}
-        title="page sizing: true sizes, or equalize the cross axis so pages sit flush"
-      >
-        <option value="intrinsic">true size</option>
-        <option value="uniform">uniform</option>
-      </select>
-      <label
-        style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}
-        title="clamp the camera to the content (off = free infinite pan, for plans/CAD)"
-      >
-        <input type="checkbox" checked={bounded} onChange={(e) => setBounded(e.target.checked)} />
-        bounded{bounded ? '' : ' ∞'}
-      </label>
-      <label
-        style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}
-        title="breathing room (px) around the content — fit inset, arrival gutter, clamp slack"
-      >
-        pad
-        <input
-          type="number"
-          min={0}
-          max={200}
-          step={4}
-          value={settings.padding}
-          onChange={(e) => update({ padding: Math.max(0, Number(e.target.value) || 0) })}
-          style={{ width: 48 }}
-        />
-      </label>
-      <label
-        style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#555' }}
-        title="space between pages (world units; scales with zoom) — one value for every layout"
-      >
-        gap
-        <input
-          type="number"
-          min={0}
-          max={200}
-          step={4}
-          value={typeof settings.gap === 'number' ? settings.gap : settings.gap.px}
-          onChange={(e) => update({ gap: Math.max(0, Number(e.target.value) || 0) })}
-          style={{ width: 48 }}
-        />
-      </label>
-      <select
-        value={
-          Object.keys(ALIGNMENTS).find(
-            (k) =>
-              ALIGNMENTS[k].x === settings.overflowAlign.x &&
-              ALIGNMENTS[k].y === settings.overflowAlign.y,
-          ) ?? 'reading start'
-        }
-        onChange={(e) => update({ overflowAlign: ALIGNMENTS[e.target.value] })}
-        title="overflowAlign: where you LAND when the page overflows — logical: 'reading start' follows the direction (top-left in LTR, top-right in RTL); center for drawings"
-      >
-        {Object.keys(ALIGNMENTS).map((k) => (
-          <option key={k} value={k}>
-            {k}
-          </option>
-        ))}
-      </select>
-      {/* App-defined presets — just objects passed to update(). Not the plugin's concern. */}
-      <span style={{ marginLeft: 'auto', width: 1, height: 18, background: '#ddd' }} />
-      {Object.keys(PRESETS).map((name) => (
-        <button key={name} onClick={() => update(PRESETS[name])} title={`apply the ${name} preset`}>
-          {name}
-        </button>
-      ))}
-      <button onClick={reset} title="reset to home">
-        ⟲
-      </button>
+
+      {/* Row 2 — tool + layout settings (compact) */}
+      <div style={tbRow}>
+        {/* Tool: pointer selects text (drag, incl. across pages); pan drags the camera. */}
+        <div style={{ display: 'flex', gap: 2 }}>
+          <button
+            onClick={() => activate('pointer')}
+            title="select text"
+            style={toolBtn(activeToolId === 'pointer')}
+          >
+            ↖ select
+          </button>
+          <button
+            onClick={() => activate('pan')}
+            title="pan (hand)"
+            style={toolBtn(activeToolId === 'pan')}
+          >
+            ✋ pan
+          </button>
+        </div>
+        <Divider />
+        <Field label="flow" title="flow">
+          <select
+            value={flow}
+            onChange={(e) => setFlow(e.target.value as FlowMode)}
+            style={tbSelect}
+          >
+            <option value="continuous">scroll</option>
+            <option value="paged">paged</option>
+          </select>
+        </Field>
+        <Field label="layout" title="layout">
+          <select
+            value={layout}
+            onChange={(e) => setLayout(e.target.value as LayoutKind)}
+            style={tbSelect}
+          >
+            <option value="vertical">vertical</option>
+            <option value="horizontal">horizontal</option>
+            <option value="grid">grid</option>
+          </select>
+        </Field>
+        <Field
+          label="cols"
+          title="grid columns: square (≈√n), wrapped (re-wraps with viewport width and zoom), or a fixed count"
+        >
+          <select
+            value={String(settings.columns)}
+            onChange={(e) => {
+              const v = e.target.value;
+              update({ columns: (v === 'square' || v === 'auto' ? v : Number(v)) as GridColumns });
+            }}
+            style={tbSelect}
+          >
+            <option value="square">square</option>
+            <option value="auto">wrapped</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </Field>
+        <Field
+          label="dir"
+          title="reading direction: RTL flips horizontal order, spread binding, grid fill, and logical alignment"
+        >
+          <select
+            value={settings.direction}
+            onChange={(e) => update({ direction: e.target.value as Direction })}
+            style={tbSelect}
+          >
+            <option value="ltr">ltr</option>
+            <option value="rtl">rtl</option>
+          </select>
+        </Field>
+        <Field label="spread" title="spread">
+          <select
+            value={spread}
+            onChange={(e) => setSpread(e.target.value as SpreadMode)}
+            style={tbSelect}
+          >
+            <option value="none">single</option>
+            <option value="odd">spread</option>
+            <option value="even">cover</option>
+          </select>
+        </Field>
+        <Field
+          label="size"
+          title="page sizing: true sizes, or equalize the cross axis so pages sit flush"
+        >
+          <select
+            value={sizing}
+            onChange={(e) => setSizing(e.target.value as SizingMode)}
+            style={tbSelect}
+          >
+            <option value="intrinsic">true</option>
+            <option value="uniform">uniform</option>
+          </select>
+        </Field>
+        <Field
+          label="align"
+          title="overflowAlign: where you LAND when the page overflows — 'reading start' follows direction; center for drawings"
+        >
+          <select
+            value={
+              Object.keys(ALIGNMENTS).find(
+                (k) =>
+                  ALIGNMENTS[k].x === settings.overflowAlign.x &&
+                  ALIGNMENTS[k].y === settings.overflowAlign.y,
+              ) ?? 'reading start'
+            }
+            onChange={(e) => update({ overflowAlign: ALIGNMENTS[e.target.value] })}
+            style={tbSelect}
+          >
+            {Object.keys(ALIGNMENTS).map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Divider />
+        <Field
+          label="pad"
+          title="breathing room (px) around the content — fit inset, arrival gutter, clamp slack"
+        >
+          <input
+            type="number"
+            min={0}
+            max={200}
+            step={4}
+            value={settings.padding}
+            onChange={(e) => update({ padding: Math.max(0, Number(e.target.value) || 0) })}
+            style={tbNum}
+          />
+        </Field>
+        <Field label="gap" title="space between pages (world units; scales with zoom)">
+          <input
+            type="number"
+            min={0}
+            max={200}
+            step={4}
+            value={typeof settings.gap === 'number' ? settings.gap : settings.gap.px}
+            onChange={(e) => update({ gap: Math.max(0, Number(e.target.value) || 0) })}
+            style={tbNum}
+          />
+        </Field>
+        <label
+          title="clamp the camera to the content (off = free infinite pan, for plans/CAD)"
+          style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#666' }}
+        >
+          <input type="checkbox" checked={bounded} onChange={(e) => setBounded(e.target.checked)} />
+          bounded{bounded ? '' : ' ∞'}
+        </label>
+      </div>
     </div>
   );
 }

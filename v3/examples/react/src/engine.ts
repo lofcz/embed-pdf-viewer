@@ -38,6 +38,7 @@ export async function createEngine(): Promise<Engine> {
 // by id/token instead of carrying bytes.
 export const SAMPLES: ReadonlyArray<{ id: string; name: string; url: string }> = [
   { id: 'ebook', name: 'Ebook', url: '/ebook.pdf' },
+  { id: 'ebook1', name: 'Ebook Annotated', url: '/ebook-annotated.pdf' },
   { id: 'ebook2', name: 'Ebook Rotated', url: '/ebook-rotated.pdf' },
   { id: 'mixed sizes', name: 'Mixed Sizes', url: '/mixed_page_sizes_test.pdf' },
   { id: 'report', name: 'Whitepaper', url: '/report.pdf' },

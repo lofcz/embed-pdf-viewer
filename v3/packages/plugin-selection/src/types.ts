@@ -30,9 +30,15 @@ export interface SelectionCapability {
   /** Warm a page's text geometry (idempotent). Layers call this when a page mounts. */
   ensurePage(pon: PageObjectNumber): void;
   isLoaded(pon: PageObjectNumber): boolean;
-  /** Begin a selection at a page point (content space). */
-  beginAt(pon: PageObjectNumber, point: Point): void;
-  /** Extend the current selection to a page point. */
+  /** Is a content-space point on (or near) text? Drives the I-beam vs pointer cursor. */
+  isOverText(pon: PageObjectNumber, point: Point): boolean;
+  /** Begin a caret selection at a page point. Returns false if not near any text. */
+  beginAt(pon: PageObjectNumber, point: Point): boolean;
+  /** Double-click: select the word around the point. */
+  selectWord(pon: PageObjectNumber, point: Point): void;
+  /** Triple-click: select the whole visual line around the point. */
+  selectLine(pon: PageObjectNumber, point: Point): void;
+  /** Extend the current selection to a page point (drag). */
   extendTo(pon: PageObjectNumber, point: Point): void;
   end(): void;
   clear(): void;

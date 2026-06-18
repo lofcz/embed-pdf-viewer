@@ -38,6 +38,12 @@ export interface PointerSample {
   viewport: Point;
   page?: { pon: PageObjectNumber; point: Point };
   modifiers: Modifiers;
+  /**
+   * Click count for a `down` (1 = single, 2 = double, 3 = triple), from the
+   * browser's native multi-click detection (`MouseEvent.detail`). Lets handlers
+   * do word/line selection without re-implementing timing. Defaults to 1.
+   */
+  clickCount?: number;
 }
 
 /**

@@ -9,8 +9,8 @@ export { selectionPlugin } from './selection.plugin';
 export { createSelectionCapability } from './capability';
 export { createTextSelectHandler } from './handler';
 export { initialSelectionState, selectionReducer } from './reducer';
-export { buildGlyphs, glyphAt, rectsForRange } from './geometry';
-export type { GlyphInfo } from './geometry';
+export { buildPageText, glyphAt, rectsForRange, expandToWord, expandToLine } from './geometry';
+export type { GlyphInfo, RunInfo, PageText } from './geometry';
 export { SelectionToken } from './types';
 export type {
   GlyphPointer,

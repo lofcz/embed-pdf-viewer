@@ -1,6 +1,13 @@
 import type { PageObjectNumber, PluginContext } from '@embedpdf-x/kernel';
 import type { Point, Rect } from '@embedpdf-x/geometry';
-import { buildGlyphs, glyphAt, rectsForRange, type GlyphInfo } from './geometry';
+import {
+  buildPageText,
+  expandToLine,
+  expandToWord,
+  glyphAt,
+  rectsForRange,
+  type PageText,
+} from './geometry';
 import type {
   GlyphPointer,
   SelectionAction,
@@ -14,17 +21,17 @@ const EMPTY: Rect[] = [];
 /**
  * The selection capability. The reducer state holds the selection range, the
  * derived content-space rects (per page), and per-page loaded flags; the (large,
- * non-serializable) per-page glyph geometry is cached HERE in the closure.
+ * non-serializable) per-page text geometry is cached HERE in the closure.
  *
  * Selection is cross-page: glyphs are ordered globally by (pageIndex, glyph), so
  * a drag from page 2 into page 4 selects the tail of 2, all of 3, and the head of
- * 4. `recompute` rebuilds the rects for every loaded page in the span and is
- * re-run whenever a mid-span page finishes loading.
+ * 4. `recompute` rebuilds the merged line rects for every loaded page in the span
+ * and re-runs whenever a mid-span page finishes loading.
  */
 export function createSelectionCapability(
   ctx: PluginContext<SelectionState, SelectionAction>,
 ): SelectionCapability {
-  const cache = new Map<number, GlyphInfo[]>();
+  const cache = new Map<number, PageText>();
   const pending = new Set<number>();
 
   const pageIndexOf = (pon: PageObjectNumber): number =>
@@ -56,7 +63,7 @@ export function createSelectionCapability(
           pending.delete(pon);
           cache.set(
             pon,
-            buildGlyphs(snapshot, layout.boxes.crop, layout.rotation, layout.userUnit),
+            buildPageText(snapshot, layout.boxes.crop, layout.rotation, layout.userUnit),
           );
           ctx.dispatch({ type: 'PAGE_LOADED', pon });
           if (ctx.getState().selection) recompute(); // a mid-span page arrived → fill its rects
@@ -67,7 +74,7 @@ export function createSelectionCapability(
       );
   }
 
-  // Rebuild rects for every loaded page in the selection's span; ensure the rest.
+  // Rebuild merged line rects for every loaded page in the span; ensure the rest.
   function recompute(sel: SelectionRange | null = ctx.getState().selection): void {
     if (!sel) return;
     const { start, end } = orderedEnds(sel);
@@ -78,16 +85,26 @@ export function createSelectionCapability(
     for (let i = si; i <= ei; i++) {
       const pon = ponAtIndex(i);
       if (pon == null) continue;
-      const glyphs = cache.get(pon);
-      if (!glyphs) {
+      const text = cache.get(pon);
+      if (!text) {
         ensurePage(pon); // not loaded yet — it'll recompute when ready
         continue;
       }
       const from = i === si ? start.glyph : 0;
-      const to = i === ei ? end.glyph : glyphs.length - 1;
-      rects[pon] = rectsForRange(glyphs, from, to);
+      const to = i === ei ? end.glyph : text.glyphs.length - 1;
+      rects[pon] = rectsForRange(text, from, to);
     }
     ctx.dispatch({ type: 'SET', selection: sel, rects });
+  }
+
+  // Set the selection to a flat [from,to] glyph span on one page (word/line).
+  function selectSpan(pon: PageObjectNumber, point: Point, expand: 'word' | 'line'): void {
+    const text = cache.get(pon);
+    if (!text) return;
+    const i = glyphAt(text, point);
+    if (i == null) return;
+    const [from, to] = expand === 'word' ? expandToWord(text, i) : expandToLine(text, i);
+    recompute({ anchor: { pon, glyph: from }, focus: { pon, glyph: to } });
   }
 
   return {
@@ -95,24 +112,33 @@ export function createSelectionCapability(
 
     isLoaded: (pon) => !!ctx.getState().loaded[pon],
 
-    beginAt: (pon, point: Point) => {
-      const glyphs = cache.get(pon);
-      if (!glyphs) return;
-      const i = glyphAt(glyphs, point);
-      if (i == null) return;
-      recompute({ anchor: { pon, glyph: i }, focus: { pon, glyph: i } });
+    isOverText: (pon, point: Point) => {
+      const text = cache.get(pon);
+      return text ? glyphAt(text, point) != null : false;
     },
+
+    beginAt: (pon, point: Point) => {
+      const text = cache.get(pon);
+      if (!text) return false;
+      const i = glyphAt(text, point);
+      if (i == null) return false; // not near text — caller deselects, doesn't capture
+      recompute({ anchor: { pon, glyph: i }, focus: { pon, glyph: i } });
+      return true;
+    },
+
+    selectWord: (pon, point: Point) => selectSpan(pon, point, 'word'),
+    selectLine: (pon, point: Point) => selectSpan(pon, point, 'line'),
 
     extendTo: (pon, point: Point) => {
       const cur = ctx.getState().selection;
       if (!cur) return;
-      const glyphs = cache.get(pon);
-      if (!glyphs) {
+      const text = cache.get(pon);
+      if (!text) {
         ensurePage(pon); // dragged onto a not-yet-loaded page — warm it, recompute on load
         return;
       }
-      const i = glyphAt(glyphs, point);
-      if (i == null) return;
+      const i = glyphAt(text, point);
+      if (i == null) return; // off-text — keep the last focus
       recompute({ anchor: cur.anchor, focus: { pon, glyph: i } });
     },
 
