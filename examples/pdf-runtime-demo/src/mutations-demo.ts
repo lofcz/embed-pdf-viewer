@@ -25,6 +25,9 @@ export interface MutationsDemoResult {
   createdB: AnnotationCreateResult;
   createdCircle: AnnotationCreateResult;
   createdSquare: AnnotationCreateResult;
+  createdPolygon: AnnotationCreateResult;
+  createdPolyline: AnnotationCreateResult;
+  createdLine: AnnotationCreateResult;
   updated: AnnotationUpdateResult | null;
   movedSingle: AnnotationMoveResult;
   movedBatch: AnnotationMoveResult;
@@ -125,6 +128,54 @@ export async function runMutationsDemo(
       opacity: 1,
     });
 
+    // 2c) Create a polygon, polyline, and line. These carry explicit
+    //     geometry (/Vertices or /L) plus the bounding /Rect the plugin
+    //     owns; the engine writes them verbatim and bakes the /AP. The
+    //     polyline/line also carry /LE line endings.
+    const createdPolygon = await page.annotations.create({
+      subtype: 'polygon',
+      contents: 'mutation demo: polygon',
+      rect: { left: 60, bottom: 450, right: 180, top: 550 },
+      vertices: [
+        { x: 70, y: 460 },
+        { x: 170, y: 460 },
+        { x: 120, y: 540 },
+      ],
+      interiorColor: { r: 255, g: 215, b: 0 },
+      strokeColor: { r: 0, g: 0, b: 139 },
+      strokeWidth: 2,
+      borderStyle: 'solid',
+      opacity: 0.7,
+    });
+    const createdPolyline = await page.annotations.create({
+      subtype: 'polyline',
+      contents: 'mutation demo: polyline',
+      rect: { left: 220, bottom: 450, right: 360, top: 550 },
+      vertices: [
+        { x: 230, y: 460 },
+        { x: 290, y: 540 },
+        { x: 350, y: 460 },
+      ],
+      interiorColor: null,
+      strokeColor: { r: 220, g: 20, b: 60 },
+      strokeWidth: 2,
+      borderStyle: 'solid',
+      opacity: 1,
+      lineEndings: { start: 'open-arrow', end: 'closed-arrow' },
+    });
+    const createdLine = await page.annotations.create({
+      subtype: 'line',
+      contents: 'mutation demo: line',
+      rect: { left: 400, bottom: 450, right: 520, top: 550 },
+      linePoints: { start: { x: 410, y: 460 }, end: { x: 510, y: 540 } },
+      interiorColor: null,
+      strokeColor: { r: 0, g: 128, b: 128 },
+      strokeWidth: 2,
+      borderStyle: 'solid',
+      opacity: 1,
+      lineEndings: { start: 'none', end: 'open-arrow' },
+    });
+
     // 3) Single-annotation move: move B to position 0. This exercises
     //    `move([ref], toIndex)` as the single-as-batch case. Move is
     //    index-shifting, so this DOES bump the per-page revision.
@@ -143,6 +194,9 @@ export async function runMutationsDemo(
     // Clean up the shapes too so the fixture is left as we found it.
     await page.annotations.delete(createdCircle.created.ref);
     await page.annotations.delete(createdSquare.created.ref);
+    await page.annotations.delete(createdPolygon.created.ref);
+    await page.annotations.delete(createdPolyline.created.ref);
+    await page.annotations.delete(createdLine.created.ref);
 
     const after = await page.annotations.list();
 
@@ -155,6 +209,9 @@ export async function runMutationsDemo(
       createdB,
       createdCircle,
       createdSquare,
+      createdPolygon,
+      createdPolyline,
+      createdLine,
       updated,
       movedSingle,
       movedBatch,
@@ -213,6 +270,24 @@ export function summarizeMutations(result: MutationsDemoResult) {
       subtype: result.createdSquare.created.subtype,
       identityQuality: result.createdSquare.created.identityQuality,
       meta: metaSummary(result.createdSquare.meta),
+    },
+    createPolygon: {
+      ref: refSummary(result.createdPolygon.created.ref),
+      subtype: result.createdPolygon.created.subtype,
+      identityQuality: result.createdPolygon.created.identityQuality,
+      meta: metaSummary(result.createdPolygon.meta),
+    },
+    createPolyline: {
+      ref: refSummary(result.createdPolyline.created.ref),
+      subtype: result.createdPolyline.created.subtype,
+      identityQuality: result.createdPolyline.created.identityQuality,
+      meta: metaSummary(result.createdPolyline.meta),
+    },
+    createLine: {
+      ref: refSummary(result.createdLine.created.ref),
+      subtype: result.createdLine.created.subtype,
+      identityQuality: result.createdLine.created.identityQuality,
+      meta: metaSummary(result.createdLine.meta),
     },
     moveSingle: {
       moved: result.movedSingle.moved.map((d) => refSummary(d.ref)),

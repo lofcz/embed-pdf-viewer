@@ -52,6 +52,15 @@ export type LineEnding =
   | 'slash';
 
 /**
+ * The `/LE` pair carried by line and polyline annotations: the ending
+ * drawn at the start point and the ending drawn at the end point.
+ */
+export interface LineEndings {
+  start: LineEnding;
+  end: LineEnding;
+}
+
+/**
  * Border/line style for shape annotations — the `/BS /S` (border style)
  * subset PDFium can author. Maps onto the ISO 32000 §8.4.3.3 border style
  * names. Cloudy borders are a SEPARATE concern (`/BE` border effect),

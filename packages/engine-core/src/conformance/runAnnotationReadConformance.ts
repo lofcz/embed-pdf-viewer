@@ -3,17 +3,17 @@ import type {
   ConformanceFixture,
   ConformanceOptions,
 } from './runMetadataConformance';
+import type { AnnotationListPageSnapshot } from '../annotation/AnnotationListSnapshot';
+import { AnnotationDTOSchema } from '../annotation/kinds';
+import type { AnnotationDTO } from '../annotation/kinds';
 import type { Engine } from '../engine/Engine';
-import { AbortError } from '../promise/AbortError';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
-import { AnnotationDTOSchema } from '../annotation/kinds';
+import { AbortError } from '../promise/AbortError';
 import {
   AnnotationListPageSnapshotSchema,
   AnnotationListSnapshotAllPagesSchema,
 } from '../wire/schemas';
-import type { AnnotationListPageSnapshot } from '../annotation/AnnotationListSnapshot';
-import type { AnnotationDTO } from '../annotation/kinds';
 
 /**
  * Expected per-fixture annotation knowledge. The harness asserts against
@@ -33,6 +33,12 @@ export interface AnnotationReadConformanceFixture extends ConformanceFixture {
   minCircleCount?: number;
   /** At least this many `'square'` annotations on the page. Defaults to 0. */
   minSquareCount?: number;
+  /** At least this many `'polygon'` annotations on the page. Defaults to 0. */
+  minPolygonCount?: number;
+  /** At least this many `'polyline'` annotations on the page. Defaults to 0. */
+  minPolylineCount?: number;
+  /** At least this many `'line'` annotations on the page. Defaults to 0. */
+  minLineCount?: number;
   /**
    * `true` if the fixture has at least one weak annotation (no /NM, direct
    * object). Drives the weak-ref + revision tests.
@@ -91,23 +97,51 @@ export function runAnnotationReadConformance(
         expect(circles.length >= (opts.fixture.minCircleCount ?? 0)).toBe(true);
         const squares = snap.annotations.filter((a) => a.subtype === 'square');
         expect(squares.length >= (opts.fixture.minSquareCount ?? 0)).toBe(true);
+        const polygons = snap.annotations.filter((a) => a.subtype === 'polygon');
+        expect(polygons.length >= (opts.fixture.minPolygonCount ?? 0)).toBe(true);
+        const polylines = snap.annotations.filter((a) => a.subtype === 'polyline');
+        expect(polylines.length >= (opts.fixture.minPolylineCount ?? 0)).toBe(true);
+        const lines = snap.annotations.filter((a) => a.subtype === 'line');
+        expect(lines.length >= (opts.fixture.minLineCount ?? 0)).toBe(true);
       } finally {
         await doc.close();
       }
     });
 
-    test('shape annotations expose their family fields', async () => {
+    test('shape/vertex/line annotations expose their family fields', async () => {
       const doc = await openFixture(engine, opts);
       try {
         const snap = await doc.annotations.listRaw(opts.fixture.pageObjectNumber);
         for (const a of snap.annotations) {
-          if (a.subtype !== 'circle' && a.subtype !== 'square') continue;
+          // Every stroke/fill family member shares this styling surface.
+          const isStrokeFill =
+            a.subtype === 'circle' ||
+            a.subtype === 'square' ||
+            a.subtype === 'polygon' ||
+            a.subtype === 'polyline' ||
+            a.subtype === 'line';
+          if (!isStrokeFill) continue;
           // interiorColor is Color | null; strokeColor is always present.
           expect(a.strokeColor !== undefined && a.strokeColor !== null).toBe(true);
           expect(typeof a.strokeWidth).toBe('number');
           expect(typeof a.borderStyle).toBe('string');
           expect(typeof a.opacity).toBe('number');
           expect('interiorColor' in a).toBe(true);
+
+          if (a.subtype === 'polygon' || a.subtype === 'polyline') {
+            expect(Array.isArray(a.vertices)).toBe(true);
+            expect(a.vertices.length >= 2).toBe(true);
+          }
+          if (a.subtype === 'polyline') {
+            expect(typeof a.lineEndings.start).toBe('string');
+            expect(typeof a.lineEndings.end).toBe('string');
+          }
+          if (a.subtype === 'line') {
+            expect(typeof a.linePoints.start.x).toBe('number');
+            expect(typeof a.linePoints.end.y).toBe('number');
+            expect(typeof a.lineEndings.start).toBe('string');
+            expect(typeof a.lineEndings.end).toBe('string');
+          }
         }
       } finally {
         await doc.close();

@@ -2,13 +2,17 @@ import {
   EngineError,
   EngineErrorCode,
   type Color,
+  type LineEndings,
+  type LinePoints,
+  type PdfPoint,
   type PdfRect,
   type PdfRectDifferences,
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
-import { F32_BYTES, RECTF_BYTES } from '../../../../runtime/memory/structs';
+import { F32_BYTES, POINTF_BYTES, RECTF_BYTES } from '../../../../runtime/memory/structs';
 import { FPDFANNOT_COLORTYPE } from '../colorType';
+import { lineEndingToCode } from '../lineEnding';
 
 /**
  * Write-side twin of `annotationReadPrimitives.ts`. Every annotation
@@ -169,4 +173,74 @@ export function setRectangleDifferences(
  */
 export function clearRectangleDifferences(fn: PdfFunctions, annotPtr: Ptr): void {
   fn.EPDFAnnot_ClearRectangleDifferences(annotPtr);
+}
+
+/**
+ * Replace the `/Vertices` point list of a polygon/polyline annotation via
+ * the EmbedPDF `EPDFAnnot_SetVertices` extension. Writes the points into a
+ * contiguous `count * FS_POINTF` buffer.
+ */
+export function setVertices(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  vertices: PdfPoint[],
+): void {
+  const buf = mem.alloc(vertices.length * POINTF_BYTES);
+  try {
+    for (let i = 0; i < vertices.length; i++) {
+      const off = i * POINTF_BYTES;
+      mem.poke(buf, 'f32', vertices[i]!.x, off);
+      mem.poke(buf, 'f32', vertices[i]!.y, off + 4);
+    }
+    if (!fn.EPDFAnnot_SetVertices(annotPtr, buf, vertices.length)) {
+      throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetVertices returned false');
+    }
+  } finally {
+    mem.free(buf);
+  }
+}
+
+/**
+ * Write the `/L` endpoints of a line annotation via the EmbedPDF
+ * `EPDFAnnot_SetLine` extension. Uses one 16-byte buffer holding two
+ * `FS_POINTF` structs (start at offset 0, end at offset 8).
+ */
+export function setLine(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  line: LinePoints,
+): void {
+  const start = mem.alloc(POINTF_BYTES);
+  const end = mem.alloc(POINTF_BYTES);
+  try {
+    mem.poke(start, 'f32', line.start.x, 0);
+    mem.poke(start, 'f32', line.start.y, 4);
+    mem.poke(end, 'f32', line.end.x, 0);
+    mem.poke(end, 'f32', line.end.y, 4);
+    if (!fn.EPDFAnnot_SetLine(annotPtr, start, end)) {
+      throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetLine returned false');
+    }
+  } finally {
+    mem.free(start);
+    mem.free(end);
+  }
+}
+
+/**
+ * Write the `/LE` line endings of a line/polyline annotation via the
+ * EmbedPDF `EPDFAnnot_SetLineEndings` extension. The string<->code mapping
+ * lives in `lineEnding.ts` so engine-core stays PDFium-free.
+ */
+export function setLineEndings(fn: PdfFunctions, annotPtr: Ptr, endings: LineEndings): void {
+  if (
+    !fn.EPDFAnnot_SetLineEndings(
+      annotPtr,
+      lineEndingToCode(endings.start),
+      lineEndingToCode(endings.end),
+    )
+  ) {
+    throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetLineEndings returned false');
+  }
 }

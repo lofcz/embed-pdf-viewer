@@ -6,13 +6,16 @@
  * Layout:
  *   1 0 obj  Catalog -> Pages
  *   2 0 obj  Pages tree (Kids [3 0 R], Count 1)
- *   3 0 obj  Page with /Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R <<direct>>]
+ *   3 0 obj  Page with /Annots [4..12 0 R <<direct>>]
  *   4 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
  *   5 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
  *   6 0 obj  Ink       (indirect)                 -> subtype = unsupported
  *   7 0 obj  Highlight (indirect, with /NM)       -> ref.kind = objectNumber, nm != null
  *   8 0 obj  Circle    (indirect, /IC + /C + /BS) -> subtype = circle
  *   9 0 obj  Square    (indirect, /C + dashed /BS)-> subtype = square
+ *  10 0 obj  Polygon   (indirect, /Vertices + /IC)-> subtype = polygon
+ *  11 0 obj  Polyline  (indirect, /Vertices + /LE)-> subtype = polyline
+ *  12 0 obj  Line      (indirect, /L + /LE)       -> subtype = line
  *   direct   Highlight (direct dict in /Annots)   -> ref.kind = index, identity = weak
  *
  * The direct-object annotation is the only way to get an
@@ -46,7 +49,7 @@ const directAnnot = `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [100 100 200 1
 
 addObject(
   3,
-  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R ${directAnnot}]\n>>`,
+  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ${directAnnot}]\n>>`,
 );
 
 addObject(
@@ -79,6 +82,24 @@ addObject(
 addObject(
   9,
   `<<\n/Type /Annot\n/Subtype /Square\n/Rect [200 300 320 380]\n/C [0 0.5 0]\n/CA 1\n/BS << /W 3 /S /D /D [3 2] >>\n/F 4\n/Contents (square 1)\n>>`,
+);
+
+// Polygon: yellow interior fill, blue solid 2pt border, triangle /Vertices.
+addObject(
+  10,
+  `<<\n/Type /Annot\n/Subtype /Polygon\n/Rect [50 450 150 540]\n/Vertices [60 460 140 460 100 530]\n/IC [1 1 0]\n/C [0 0 1]\n/CA 1\n/BS << /W 2 /S /S >>\n/F 4\n/Contents (polygon 1)\n>>`,
+);
+
+// Polyline: red 2pt stroke, open->closed arrow endings, 3-point /Vertices.
+addObject(
+  11,
+  `<<\n/Type /Annot\n/Subtype /PolyLine\n/Rect [200 450 320 540]\n/Vertices [210 460 260 530 310 460]\n/C [1 0 0]\n/CA 1\n/BS << /W 2 /S /S >>\n/LE [/OpenArrow /ClosedArrow]\n/F 4\n/Contents (polyline 1)\n>>`,
+);
+
+// Line: teal 2pt stroke, none->open arrow endings, /L diagonal.
+addObject(
+  12,
+  `<<\n/Type /Annot\n/Subtype /Line\n/Rect [400 450 520 540]\n/L [410 460 510 530]\n/C [0 0.5 0.5]\n/CA 1\n/BS << /W 2 /S /S >>\n/LE [/None /OpenArrow]\n/F 4\n/Contents (line 1)\n>>`,
 );
 
 const buf = [];

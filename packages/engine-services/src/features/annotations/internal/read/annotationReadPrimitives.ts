@@ -1,24 +1,34 @@
 import type {
   AnnotationFlags,
   Color,
+  LineEndings,
+  LinePoints,
+  PdfPoint,
   PdfQuad,
   PdfRect,
   PdfRectDifferences,
 } from '@embedpdf/engine-core/runtime';
 import { NO_ANNOTATION_FLAGS } from '@embedpdf/engine-core/runtime';
-import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
+import {
+  NULL_PTR,
+  type PdfFunctions,
+  type PdfRuntimeMemory,
+  type Ptr,
+} from '@embedpdf/pdf-runtime';
 
 import { withScratch, withScratchN } from '../../../../runtime/memory/scratch';
 import { readUtf16String } from '../../../../runtime/memory/strings';
 import {
   F32_BYTES,
   I32_BYTES,
+  POINTF_BYTES,
   QUADPOINTSF_BYTES,
   RECTF_BYTES,
   readF32,
   readI32,
   readRectF,
 } from '../../../../runtime/memory/structs';
+import { lineEndingFromCode } from '../lineEnding';
 
 /**
  * Reads a UTF-16 string entry from an annotation dictionary. Returns
@@ -201,6 +211,68 @@ export function readRectangleDifferences(
       };
     },
   );
+}
+
+/**
+ * Read the `/Vertices` point list of a polygon/polyline annotation via
+ * the two-call `FPDFAnnot_GetVertices` pattern (probe for the count with
+ * a NULL buffer, then read into a `count * FS_POINTF` buffer). Returns an
+ * empty array when the annotation has no vertices.
+ */
+export function readVertices(fn: PdfFunctions, mem: PdfRuntimeMemory, annotPtr: Ptr): PdfPoint[] {
+  const count = fn.FPDFAnnot_GetVertices(annotPtr, NULL_PTR, 0);
+  if (count <= 0) return [];
+  return withScratch(mem, count * POINTF_BYTES, (buf) => {
+    const got = fn.FPDFAnnot_GetVertices(annotPtr, buf, count);
+    if (got <= 0) return [];
+    const out: PdfPoint[] = [];
+    for (let i = 0; i < got; i++) {
+      const off = i * POINTF_BYTES;
+      out.push({ x: readF32(mem, buf, off), y: readF32(mem, buf, off + 4) });
+    }
+    return out;
+  });
+}
+
+/**
+ * Read the `/L` endpoints of a line annotation via `FPDFAnnot_GetLine`
+ * (two `FS_POINTF` out-params). Returns `null` when the annotation is not
+ * a line or has no `/L` entry.
+ */
+export function readLine(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): LinePoints | null {
+  return withScratchN(mem, [POINTF_BYTES, POINTF_BYTES], ([start, end]) => {
+    if (!fn.FPDFAnnot_GetLine(annotPtr, start, end)) return null;
+    return {
+      start: { x: readF32(mem, start, 0), y: readF32(mem, start, 4) },
+      end: { x: readF32(mem, end, 0), y: readF32(mem, end, 4) },
+    };
+  });
+}
+
+/**
+ * Read the `/LE` line endings of a line/polyline annotation via the
+ * EmbedPDF `EPDFAnnot_GetLineEndings` extension (two int out-params).
+ * Returns `{ start: 'none', end: 'none' }` when the annotation has no
+ * `/LE` entry, so callers always get a well-formed pair.
+ */
+export function readLineEndings(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): LineEndings {
+  return withScratchN(mem, [I32_BYTES, I32_BYTES], ([start, end]) => {
+    if (!fn.EPDFAnnot_GetLineEndings(annotPtr, start, end)) {
+      return { start: 'none', end: 'none' };
+    }
+    return {
+      start: lineEndingFromCode(readI32(mem, start)),
+      end: lineEndingFromCode(readI32(mem, end)),
+    };
+  });
 }
 
 /**

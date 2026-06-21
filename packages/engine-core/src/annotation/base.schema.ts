@@ -1,15 +1,17 @@
 import { z } from 'zod';
+
+import type { AnnotationBase } from './base';
 import type {
   AnnotationBorderStyle,
   AnnotationFlags,
   Color,
   LineEnding,
+  LineEndings,
   PdfRectDifferences,
 } from './primitives';
-import type { AnnotationBase } from './base';
 import { PdfPointSchema, PdfRectSchema, PdfQuadSchema } from '../geometry/schemas';
-import type { AnnotationStableId } from '../identity/AnnotationStableId';
 import type { AnnotationRef } from '../identity/AnnotationRef';
+import type { AnnotationStableId } from '../identity/AnnotationStableId';
 import type { RevisionToken } from '../revision/RevisionToken';
 
 /** @deprecated Use `PdfPointSchema` from `../geometry/schemas`. */
@@ -50,6 +52,11 @@ export const LineEndingSchema: z.ZodType<LineEnding> = z.enum([
   'r-closed-arrow',
   'slash',
 ]);
+
+export const LineEndingsSchema: z.ZodType<LineEndings> = z.object({
+  start: LineEndingSchema,
+  end: LineEndingSchema,
+});
 
 export const AnnotationFlagsSchema: z.ZodType<AnnotationFlags> = z.object({
   invisible: z.boolean(),

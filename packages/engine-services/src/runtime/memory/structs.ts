@@ -10,6 +10,8 @@ export const F32_BYTES = 4;
 export const I32_BYTES = 4;
 /** `FS_QUADPOINTSF` — 8 floats → 32 bytes. */
 export const QUADPOINTSF_BYTES = 32;
+/** `FS_POINTF { float x, y }` → 8 bytes. */
+export const POINTF_BYTES = 8;
 
 export interface RectF {
   left: number;

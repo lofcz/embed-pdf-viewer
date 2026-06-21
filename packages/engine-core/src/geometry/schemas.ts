@@ -4,11 +4,17 @@
  */
 
 import { z } from 'zod';
-import type { PdfPoint, PdfQuad, PdfRect, PdfRotation, PdfSize } from './primitives';
+
+import type { LinePoints, PdfPoint, PdfQuad, PdfRect, PdfRotation, PdfSize } from './primitives';
 
 export const PdfPointSchema: z.ZodType<PdfPoint> = z.object({
   x: z.number(),
   y: z.number(),
+});
+
+export const LinePointsSchema: z.ZodType<LinePoints> = z.object({
+  start: PdfPointSchema,
+  end: PdfPointSchema,
 });
 
 export const PdfRectSchema: z.ZodType<PdfRect> = z.object({

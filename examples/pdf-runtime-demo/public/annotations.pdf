@@ -19,7 +19,7 @@ endobj
 /Parent 2 0 R
 /MediaBox [0 0 612 792]
 /Resources <<>>
-/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R <<
+/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R <<
 /Type /Annot
 /Subtype /Highlight
 /Rect [100 100 200 120]
@@ -104,23 +104,68 @@ endobj
 /Contents (square 1)
 >>
 endobj
+10 0 obj
+<<
+/Type /Annot
+/Subtype /Polygon
+/Rect [50 450 150 540]
+/Vertices [60 460 140 460 100 530]
+/IC [1 1 0]
+/C [0 0 1]
+/CA 1
+/BS << /W 2 /S /S >>
+/F 4
+/Contents (polygon 1)
+>>
+endobj
+11 0 obj
+<<
+/Type /Annot
+/Subtype /PolyLine
+/Rect [200 450 320 540]
+/Vertices [210 460 260 530 310 460]
+/C [1 0 0]
+/CA 1
+/BS << /W 2 /S /S >>
+/LE [/OpenArrow /ClosedArrow]
+/F 4
+/Contents (polyline 1)
+>>
+endobj
+12 0 obj
+<<
+/Type /Annot
+/Subtype /Line
+/Rect [400 450 520 540]
+/L [410 460 510 530]
+/C [0 0.5 0.5]
+/CA 1
+/BS << /W 2 /S /S >>
+/LE [/None /OpenArrow]
+/F 4
+/Contents (line 1)
+>>
+endobj
 xref
-0 10
+0 13
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
 0000000121 00000 n 
-0000000406 00000 n 
-0000000603 00000 n 
-0000000777 00000 n 
-0000000918 00000 n 
-0000001082 00000 n 
-0000001232 00000 n 
+0000000427 00000 n 
+0000000624 00000 n 
+0000000798 00000 n 
+0000000939 00000 n 
+0000001103 00000 n 
+0000001253 00000 n 
+0000001403 00000 n 
+0000001591 00000 n 
+0000001801 00000 n 
 trailer
 <<
-/Size 10
+/Size 13
 /Root 1 0 R
 >>
 startxref
-1382
+1985
 %%EOF

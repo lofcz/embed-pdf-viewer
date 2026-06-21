@@ -4,8 +4,24 @@ import {
   type AnnotationDraft,
   type AnnotationPatch,
 } from '@embedpdf/engine-core/runtime';
+import type {
+  LineDraft,
+  LinePatch,
+  PolygonDraft,
+  PolygonPatch,
+  PolylineDraft,
+  PolylinePatch,
+} from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
+import { applyLineDraft, applyLinePatch, isLineSubtype } from './writeLineAnnotation';
+import {
+  applyShapeDraft,
+  applyShapePatch,
+  isShapeSubtype,
+  type ShapeDraft,
+  type ShapePatch,
+} from './writeShapeAnnotation';
 import {
   applyTextMarkupDraft,
   applyTextMarkupPatch,
@@ -14,12 +30,12 @@ import {
   type TextMarkupPatch,
 } from './writeTextMarkupAnnotation';
 import {
-  applyShapeDraft,
-  applyShapePatch,
-  isShapeSubtype,
-  type ShapeDraft,
-  type ShapePatch,
-} from './writeShapeAnnotation';
+  applyPolygonDraft,
+  applyPolygonPatch,
+  applyPolylineDraft,
+  applyPolylinePatch,
+  isVertexSubtype,
+} from './writeVertexAnnotation';
 
 /**
  * Per-subtype write dispatch, mirroring the read-side registry. Adding a
@@ -42,6 +58,18 @@ export function applyDraft(
   }
   if (isShapeSubtype(draft.subtype)) {
     applyShapeDraft(fn, mem, annotPtr, draft as ShapeDraft);
+    return;
+  }
+  if (isVertexSubtype(draft.subtype)) {
+    if (draft.subtype === 'polygon') {
+      applyPolygonDraft(fn, mem, annotPtr, draft as PolygonDraft);
+    } else {
+      applyPolylineDraft(fn, mem, annotPtr, draft as PolylineDraft);
+    }
+    return;
+  }
+  if (isLineSubtype(draft.subtype)) {
+    applyLineDraft(fn, mem, annotPtr, draft as LineDraft);
     return;
   }
   // Should be unreachable: AnnotationDraft is the closed union of writable
@@ -67,6 +95,18 @@ export function applyPatch(
   }
   if (isShapeSubtype(patch.subtype)) {
     applyShapePatch(fn, mem, annotPtr, patch as ShapePatch);
+    return;
+  }
+  if (isVertexSubtype(patch.subtype)) {
+    if (patch.subtype === 'polygon') {
+      applyPolygonPatch(fn, mem, annotPtr, patch as PolygonPatch);
+    } else {
+      applyPolylinePatch(fn, mem, annotPtr, patch as PolylinePatch);
+    }
+    return;
+  }
+  if (isLineSubtype(patch.subtype)) {
+    applyLinePatch(fn, mem, annotPtr, patch as LinePatch);
     return;
   }
   throw new EngineError(

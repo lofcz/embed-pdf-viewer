@@ -134,6 +134,7 @@ export {
   PdfSizeSchema,
   PdfQuadSchema,
   PdfRotationSchema,
+  LinePointsSchema,
 } from './geometry/schemas';
 
 export {
@@ -145,6 +146,7 @@ export {
   PointSchema,
   RectSchema,
   LineEndingSchema,
+  LineEndingsSchema,
   AnnotationBorderStyleSchema,
   PdfRectDifferencesSchema,
   AnnotationBaseShape,
@@ -176,6 +178,15 @@ export {
   SquareDTOSchema,
   SquareDraftSchema,
   SquarePatchSchema,
+  PolygonDTOSchema,
+  PolygonDraftSchema,
+  PolygonPatchSchema,
+  PolylineDTOSchema,
+  PolylineDraftSchema,
+  PolylinePatchSchema,
+  LineDTOSchema,
+  LineDraftSchema,
+  LinePatchSchema,
   UnsupportedDTOSchema,
   UnsupportedDraftSchema,
   UnsupportedPatchSchema,

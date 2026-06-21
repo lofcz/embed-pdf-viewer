@@ -41,6 +41,15 @@ export interface PdfSize {
 }
 
 /**
+ * The two endpoints of a line annotation's `/L` entry, in PDF user space
+ * (y-up). `start` is `[x1 y1]` and `end` is `[x2 y2]`.
+ */
+export interface LinePoints {
+  start: PdfPoint;
+  end: PdfPoint;
+}
+
+/**
  * A /QuadPoints quad. The four points are POSITIONAL, in PDFium
  * `FS_QUADPOINTSF` order (PDF 32000 §12.5.6.10): `p1 p2 p3 p4`. Coordinates
  * are PDF user space, y-up.

@@ -3,27 +3,30 @@ import type {
   ConformanceFixture,
   ConformanceOptions,
 } from './runMetadataConformance';
-import type { Engine } from '../engine/Engine';
+import type {
+  AnnotationDraft,
+  AnnotationPatch,
+  CircleDraft,
+  HighlightDraft,
+  LineDraft,
+  PolygonDraft,
+  PolylineDraft,
+  SquareDraft,
+} from '../annotation/kinds';
+import type { WeakAnnotationEditSession } from '../engine/DocumentAnnotationsService';
 import type { DocumentHandle } from '../engine/DocumentHandle';
-import { AbortError } from '../promise/AbortError';
+import type { Engine } from '../engine/Engine';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
+import type { LinePoints, PdfPoint, PdfRect } from '../geometry/primitives';
+import type { AnnotationRef } from '../identity/AnnotationRef';
+import { AbortError } from '../promise/AbortError';
 import {
   AnnotationCreateResultSchema,
   AnnotationDeleteResultSchema,
   AnnotationMoveResultSchema,
   AnnotationUpdateResultSchema,
 } from '../wire/schemas';
-import type {
-  AnnotationDraft,
-  AnnotationPatch,
-  CircleDraft,
-  HighlightDraft,
-  SquareDraft,
-} from '../annotation/kinds';
-import type { PdfRect } from '../geometry/primitives';
-import type { AnnotationRef } from '../identity/AnnotationRef';
-import type { WeakAnnotationEditSession } from '../engine/DocumentAnnotationsService';
 
 /**
  * Per-fixture knowledge the mutation harness needs. The shared fixture
@@ -48,6 +51,17 @@ export interface AnnotationMutationConformanceFixture extends ConformanceFixture
    * space; pick a small box that fits anywhere on the fixture page.
    */
   createShapeRect?: PdfRect;
+  /**
+   * `/Vertices` to use for the polygon/polyline create tests. PDF user
+   * space; must fit inside `createShapeRect` (the rect the engine bakes
+   * the appearance into). Defaults to a small triangle.
+   */
+  createVertices?: PdfPoint[];
+  /**
+   * `/L` endpoints to use for the line create test. PDF user space; must
+   * fit inside `createShapeRect`. Defaults to the rect's diagonal.
+   */
+  createLinePoints?: LinePoints;
 }
 
 export interface AnnotationMutationConformanceOptions extends Omit<ConformanceOptions, 'fixture'> {
@@ -72,6 +86,19 @@ const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
 ];
 
 const DEFAULT_SHAPE_RECT: PdfRect = { left: 60, bottom: 60, right: 160, top: 140 };
+
+/** A small triangle inside DEFAULT_SHAPE_RECT (valid for polygon: >=3). */
+const DEFAULT_VERTICES: PdfPoint[] = [
+  { x: 70, y: 70 },
+  { x: 150, y: 70 },
+  { x: 110, y: 130 },
+];
+
+/** A line along the diagonal of DEFAULT_SHAPE_RECT. */
+const DEFAULT_LINE_POINTS: LinePoints = {
+  start: { x: 70, y: 70 },
+  end: { x: 150, y: 130 },
+};
 
 /**
  * Mutation conformance suite. Mirrors the read suite: tests are written
@@ -102,6 +129,8 @@ export function runAnnotationMutationConformance(
   const fix = opts.fixture;
   const quad = fix.createQuad ?? DEFAULT_QUAD;
   const shapeRect = fix.createShapeRect ?? DEFAULT_SHAPE_RECT;
+  const vertices = fix.createVertices ?? DEFAULT_VERTICES;
+  const linePoints = fix.createLinePoints ?? DEFAULT_LINE_POINTS;
 
   describe(`annotation mutation conformance: ${opts.label}`, () => {
     let engine: Engine;
@@ -221,6 +250,128 @@ export function runAnnotationMutationConformance(
         const subtypes = after.annotations.map((a) => a.subtype);
         expect(subtypes.includes('circle')).toBe(true);
         expect(subtypes.includes('square')).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('create vertex + line annotations (polygon/polyline/line) round-trip geometry', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+
+        const polygonDraft: PolygonDraft = {
+          subtype: 'polygon',
+          contents: 'mutation conformance: polygon',
+          rect: shapeRect,
+          vertices,
+          interiorColor: { r: 255, g: 200, b: 0 },
+          strokeColor: { r: 0, g: 0, b: 255 },
+          strokeWidth: 2,
+          borderStyle: 'solid',
+          opacity: 0.8,
+        };
+        const polygon = await page.annotations.create(polygonDraft);
+        expect(AnnotationCreateResultSchema.safeParse(polygon).success).toBe(true);
+        expect(polygon.created.subtype).toBe('polygon');
+        if (polygon.created.subtype === 'polygon') {
+          expect(polygon.created.vertices.length).toBe(vertices.length);
+          expect(polygon.created.strokeColor).toMatchObject({ r: 0, g: 0, b: 255 });
+          expect(polygon.created.interiorColor).toMatchObject({ r: 255, g: 200, b: 0 });
+        }
+
+        const polylineDraft: PolylineDraft = {
+          subtype: 'polyline',
+          contents: 'mutation conformance: polyline',
+          rect: shapeRect,
+          vertices,
+          interiorColor: null,
+          strokeColor: { r: 200, g: 0, b: 0 },
+          strokeWidth: 2,
+          borderStyle: 'solid',
+          opacity: 1,
+          lineEndings: { start: 'open-arrow', end: 'closed-arrow' },
+        };
+        const polyline = await page.annotations.create(polylineDraft);
+        expect(AnnotationCreateResultSchema.safeParse(polyline).success).toBe(true);
+        expect(polyline.created.subtype).toBe('polyline');
+        if (polyline.created.subtype === 'polyline') {
+          expect(polyline.created.vertices.length).toBe(vertices.length);
+          expect(polyline.created.lineEndings.start).toBe('open-arrow');
+          expect(polyline.created.lineEndings.end).toBe('closed-arrow');
+        }
+
+        const lineDraft: LineDraft = {
+          subtype: 'line',
+          contents: 'mutation conformance: line',
+          rect: shapeRect,
+          linePoints,
+          interiorColor: null,
+          strokeColor: { r: 0, g: 128, b: 128 },
+          strokeWidth: 2,
+          borderStyle: 'solid',
+          opacity: 1,
+          lineEndings: { start: 'none', end: 'open-arrow' },
+        };
+        const line = await page.annotations.create(lineDraft);
+        expect(AnnotationCreateResultSchema.safeParse(line).success).toBe(true);
+        expect(line.created.subtype).toBe('line');
+        if (line.created.subtype === 'line') {
+          // /L stored as f32 — compare rounded to absorb float drift.
+          expect(Math.round(line.created.linePoints.start.x)).toBe(Math.round(linePoints.start.x));
+          expect(Math.round(line.created.linePoints.end.y)).toBe(Math.round(linePoints.end.y));
+          expect(line.created.lineEndings.end).toBe('open-arrow');
+        }
+
+        const after = await page.annotations.list();
+        const subtypes = after.annotations.map((a) => a.subtype);
+        expect(subtypes.includes('polygon')).toBe(true);
+        expect(subtypes.includes('polyline')).toBe(true);
+        expect(subtypes.includes('line')).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('update a polyline patches vertices + line endings and is non-structural', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const created = await page.annotations.create({
+          subtype: 'polyline',
+          contents: 'polyline-update-base',
+          rect: shapeRect,
+          vertices,
+          interiorColor: null,
+          strokeColor: { r: 0, g: 0, b: 0 },
+          strokeWidth: 1,
+          borderStyle: 'solid',
+          opacity: 1,
+          lineEndings: { start: 'none', end: 'none' },
+        } satisfies PolylineDraft);
+        const before = await page.annotations.list();
+
+        const newVertices: PdfPoint[] = [
+          ...vertices,
+          { x: vertices[0]!.x + 5, y: vertices[0]!.y + 5 },
+        ];
+        const result = await page.annotations.update(created.created.ref, {
+          subtype: 'polyline',
+          vertices: newVertices,
+          lineEndings: { start: 'circle', end: 'diamond' },
+        });
+        expect(AnnotationUpdateResultSchema.safeParse(result).success).toBe(true);
+        expect(result.updated.subtype).toBe('polyline');
+        if (result.updated.subtype === 'polyline') {
+          expect(result.updated.vertices.length).toBe(newVertices.length);
+          expect(result.updated.lineEndings.start).toBe('circle');
+          expect(result.updated.lineEndings.end).toBe('diamond');
+        }
+        // Update never bumps the revision.
+        expect(result.meta.affectedPages[0].revision.generation).toBe(
+          before.pageState.revision.generation,
+        );
+        expect(result.meta.weakRefsInvalidated).toBe(false);
       } finally {
         await doc.close();
       }
@@ -886,6 +1037,9 @@ function subtypeAwarePatch(subtype: string, newContents: string): AnnotationPatc
     case 'strikeout':
     case 'circle':
     case 'square':
+    case 'polygon':
+    case 'polyline':
+    case 'line':
       return {
         subtype: subtype as AnnotationPatch['subtype'],
         contents: newContents,

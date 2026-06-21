@@ -6,14 +6,16 @@ import type {
 import { subtypeFromCode } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
+import { readLine } from './readLineAnnotation';
+import { readCircle, readSquare } from './readShapeAnnotation';
 import {
   readHighlight,
   readSquiggly,
   readStrikeout,
   readUnderline,
 } from './readTextMarkupAnnotation';
-import { readCircle, readSquare } from './readShapeAnnotation';
 import { readUnsupported } from './readUnsupportedAnnotation';
+import { readPolygon, readPolyline } from './readVertexAnnotation';
 
 /**
  * One reader per `AnnotationSubtype`. Each reader produces the DTO type
@@ -40,6 +42,9 @@ const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationSubtypeRead
   strikeout: readStrikeout,
   circle: readCircle,
   square: readSquare,
+  polygon: readPolygon,
+  polyline: readPolyline,
+  line: readLine,
   unsupported: readUnsupported,
 };
 
