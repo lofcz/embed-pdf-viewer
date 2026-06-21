@@ -12,6 +12,7 @@ import {
   readStrikeout,
   readUnderline,
 } from './readTextMarkupAnnotation';
+import { readCircle, readSquare } from './readShapeAnnotation';
 import { readUnsupported } from './readUnsupportedAnnotation';
 
 /**
@@ -37,6 +38,8 @@ const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationSubtypeRead
   underline: readUnderline,
   squiggly: readSquiggly,
   strikeout: readStrikeout,
+  circle: readCircle,
+  square: readSquare,
   unsupported: readUnsupported,
 };
 

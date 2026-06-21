@@ -23,6 +23,8 @@ export interface MutationsDemoResult {
   before: AnnotationListPageSnapshot;
   createdA: AnnotationCreateResult;
   createdB: AnnotationCreateResult;
+  createdCircle: AnnotationCreateResult;
+  createdSquare: AnnotationCreateResult;
   updated: AnnotationUpdateResult | null;
   movedSingle: AnnotationMoveResult;
   movedBatch: AnnotationMoveResult;
@@ -85,7 +87,6 @@ export async function runMutationsDemo(
     const createdA = await page.annotations.create({
       subtype: 'highlight',
       contents: 'mutation demo: A',
-      author: 'mutations-demo',
       color: { r: 30, g: 144, b: 255 },
       opacity: 0.4,
       quadPoints: QUAD,
@@ -93,10 +94,35 @@ export async function runMutationsDemo(
     const createdB = await page.annotations.create({
       subtype: 'highlight',
       contents: 'mutation demo: B',
-      author: 'mutations-demo',
       color: { r: 255, g: 99, b: 71 },
       opacity: 0.4,
       quadPoints: QUAD,
+    });
+
+    // 2b) Create a circle and a square. Shapes are /Rect-based (not quad
+    //     based) and carry interior/stroke colour + border style. The
+    //     mutator bakes an /AP appearance stream for them on create, so
+    //     they render in any compliant viewer without a separate overlay.
+    const createdCircle = await page.annotations.create({
+      subtype: 'circle',
+      contents: 'mutation demo: circle',
+      rect: { left: 60, bottom: 300, right: 180, top: 400 },
+      interiorColor: { r: 30, g: 144, b: 255 },
+      strokeColor: { r: 0, g: 0, b: 139 },
+      strokeWidth: 2,
+      borderStyle: 'solid',
+      opacity: 0.5,
+    });
+    const createdSquare = await page.annotations.create({
+      subtype: 'square',
+      contents: 'mutation demo: square',
+      rect: { left: 220, bottom: 300, right: 360, top: 400 },
+      interiorColor: null,
+      strokeColor: { r: 220, g: 20, b: 60 },
+      strokeWidth: 3,
+      borderStyle: 'dashed',
+      dashArray: [4, 2],
+      opacity: 1,
     });
 
     // 3) Single-annotation move: move B to position 0. This exercises
@@ -114,6 +140,9 @@ export async function runMutationsDemo(
     //    arbitrary moves; that's the whole point of stable identity).
     const deletedA = await page.annotations.delete(createdA.created.ref);
     const deletedB = await page.annotations.delete(createdB.created.ref);
+    // Clean up the shapes too so the fixture is left as we found it.
+    await page.annotations.delete(createdCircle.created.ref);
+    await page.annotations.delete(createdSquare.created.ref);
 
     const after = await page.annotations.list();
 
@@ -124,6 +153,8 @@ export async function runMutationsDemo(
       before,
       createdA,
       createdB,
+      createdCircle,
+      createdSquare,
       updated,
       movedSingle,
       movedBatch,
@@ -170,6 +201,18 @@ export function summarizeMutations(result: MutationsDemoResult) {
       ref: refSummary(result.createdB.created.ref),
       identityQuality: result.createdB.created.identityQuality,
       meta: metaSummary(result.createdB.meta),
+    },
+    createCircle: {
+      ref: refSummary(result.createdCircle.created.ref),
+      subtype: result.createdCircle.created.subtype,
+      identityQuality: result.createdCircle.created.identityQuality,
+      meta: metaSummary(result.createdCircle.meta),
+    },
+    createSquare: {
+      ref: refSummary(result.createdSquare.created.ref),
+      subtype: result.createdSquare.created.subtype,
+      identityQuality: result.createdSquare.created.identityQuality,
+      meta: metaSummary(result.createdSquare.meta),
     },
     moveSingle: {
       moved: result.movedSingle.moved.map((d) => refSummary(d.ref)),

@@ -6,11 +6,13 @@
  * Layout:
  *   1 0 obj  Catalog -> Pages
  *   2 0 obj  Pages tree (Kids [3 0 R], Count 1)
- *   3 0 obj  Page with /Annots [4 0 R 5 0 R 6 0 R 7 0 R <<direct>>]
+ *   3 0 obj  Page with /Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R <<direct>>]
  *   4 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
  *   5 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
  *   6 0 obj  Ink       (indirect)                 -> subtype = unsupported
  *   7 0 obj  Highlight (indirect, with /NM)       -> ref.kind = objectNumber, nm != null
+ *   8 0 obj  Circle    (indirect, /IC + /C + /BS) -> subtype = circle
+ *   9 0 obj  Square    (indirect, /C + dashed /BS)-> subtype = square
  *   direct   Highlight (direct dict in /Annots)   -> ref.kind = index, identity = weak
  *
  * The direct-object annotation is the only way to get an
@@ -44,7 +46,7 @@ const directAnnot = `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [100 100 200 1
 
 addObject(
   3,
-  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R ${directAnnot}]\n>>`,
+  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R ${directAnnot}]\n>>`,
 );
 
 addObject(
@@ -65,6 +67,18 @@ addObject(
 addObject(
   7,
   `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [400 50 500 70]\n/QuadPoints [400 70 500 70 400 50 500 50]\n/C [0 1 0]\n/CA 1\n/F 4\n/NM (named-highlight-1)\n>>`,
+);
+
+// Circle: red interior fill, blue solid 2pt border.
+addObject(
+  8,
+  `<<\n/Type /Annot\n/Subtype /Circle\n/Rect [50 300 150 380]\n/IC [1 0 0]\n/C [0 0 1]\n/CA 1\n/BS << /W 2 /S /S >>\n/F 4\n/Contents (circle 1)\n>>`,
+);
+
+// Square: no interior fill, green dashed 3pt border (/BS dash array [3 2]).
+addObject(
+  9,
+  `<<\n/Type /Annot\n/Subtype /Square\n/Rect [200 300 320 380]\n/C [0 0.5 0]\n/CA 1\n/BS << /W 3 /S /D /D [3 2] >>\n/F 4\n/Contents (square 1)\n>>`,
 );
 
 const buf = [];

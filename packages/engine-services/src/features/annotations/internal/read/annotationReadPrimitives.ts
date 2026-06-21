@@ -1,4 +1,10 @@
-import type { AnnotationFlags, Color, PdfQuad, PdfRect } from '@embedpdf/engine-core/runtime';
+import type {
+  AnnotationFlags,
+  Color,
+  PdfQuad,
+  PdfRect,
+  PdfRectDifferences,
+} from '@embedpdf/engine-core/runtime';
 import { NO_ANNOTATION_FLAGS } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
@@ -76,11 +82,14 @@ export function readAnnotFlags(fn: PdfFunctions, annotPtr: Ptr): AnnotationFlags
 }
 
 /**
- * /Color via FPDFAnnot_GetColor. PDF colors come back as 0..255 ints
- * for each channel. Alpha is reported by PDFium as the same channel.
+ * Read an annotation color via the EmbedPDF `EPDFAnnot_GetColor`
+ * extension. The `type` arg (FPDFANNOT_COLORTYPE) selects which color to
+ * read — `0` (default) is the stroke/fill `/C`, `1` is the interior `/IC`
+ * of square/circle/polygon annotations. Unlike the stock
+ * `FPDFAnnot_GetColor`, the extension exposes interior color. Returns RGB
+ * only — annotation opacity lives in `/CA`, not a per-color alpha.
  *
- * Returns `null` if the annotation has no /C entry. Opacity is read
- * separately via FPDFAnnot_GetNumberValue('CA').
+ * Returns `null` when the requested color entry is absent.
  */
 export function readAnnotColor(
   fn: PdfFunctions,
@@ -88,31 +97,110 @@ export function readAnnotColor(
   annotPtr: Ptr,
   type: number = 0, // FPDFANNOT_COLORTYPE_Color
 ): Color | null {
-  return withScratchN(mem, [I32_BYTES, I32_BYTES, I32_BYTES, I32_BYTES], ([r, g, b, a]) => {
-    if (!fn.FPDFAnnot_GetColor(annotPtr, type, r, g, b, a)) return null;
+  return withScratchN(mem, [I32_BYTES, I32_BYTES, I32_BYTES], ([r, g, b]) => {
+    if (!fn.EPDFAnnot_GetColor(annotPtr, type, r, g, b)) return null;
     return {
       r: readI32(mem, r) & 0xff,
       g: readI32(mem, g) & 0xff,
       b: readI32(mem, b) & 0xff,
-      a: (readI32(mem, a) & 0xff) / 255,
     };
   });
 }
 
 /**
- * Read a numeric value from an annotation dict (e.g. /CA opacity).
- * Returns `null` when the key is absent or not a number.
+ * Read annotation opacity via the EmbedPDF `EPDFAnnot_GetOpacity`
+ * extension. Returns a 0..1 value (the native alpha is 0..255). Returns
+ * `null` when the annotation has no opacity entry. This is the path that
+ * stays consistent across native `EPDFAnnot_GenerateAppearance`, unlike a
+ * raw `/CA` number read.
  */
-export function readAnnotNumber(
+export function readAnnotOpacity(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
-  key: string,
+): number | null {
+  return withScratch(mem, I32_BYTES, (buf) => {
+    if (!fn.EPDFAnnot_GetOpacity(annotPtr, buf)) return null;
+    return (readI32(mem, buf) & 0xff) / 255;
+  });
+}
+
+/**
+ * Read the `/BS /S` border style code and `/BS /W` border width via
+ * `EPDFAnnot_GetBorderStyle`. The return value is the raw
+ * `FPDF_ANNOT_BORDER_STYLE` enum code; the width is written into the
+ * scratch out-parameter. Style/width string mapping lives in the shape
+ * reader (engine-core stays PDFium-free).
+ */
+export function readBorderStyle(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): { styleCode: number; width: number } {
+  return withScratch(mem, F32_BYTES, (buf) => {
+    const styleCode = fn.EPDFAnnot_GetBorderStyle(annotPtr, buf);
+    return { styleCode, width: readF32(mem, buf) };
+  });
+}
+
+/**
+ * Read the dash pattern of a dashed border. Returns an empty array when
+ * the border is not dashed or has no `/BS /D` entry.
+ */
+export function readBorderDashPattern(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): number[] {
+  const count = fn.EPDFAnnot_GetBorderDashPatternCount(annotPtr);
+  if (count <= 0) return [];
+  return withScratch(mem, count * F32_BYTES, (buf) => {
+    if (!fn.EPDFAnnot_GetBorderDashPattern(annotPtr, buf, count)) return [];
+    const out: number[] = [];
+    for (let i = 0; i < count; i++) out.push(readF32(mem, buf, i * F32_BYTES));
+    return out;
+  });
+}
+
+/**
+ * Read the `/BE` cloudy border intensity. Returns `null` when the
+ * annotation has no cloudy border effect.
+ */
+export function readBorderEffect(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
 ): number | null {
   return withScratch(mem, F32_BYTES, (buf) => {
-    if (!fn.FPDFAnnot_GetNumberValue(annotPtr, key, buf)) return null;
+    if (!fn.EPDFAnnot_GetBorderEffect(annotPtr, buf)) return null;
     return readF32(mem, buf);
   });
+}
+
+/**
+ * Read the `/RD` rectangle differences. Returns `null` when the
+ * annotation has no `/RD` entry. PDFium reports `/RD` in
+ * `[left, bottom, right, top]` order; we surface the wire-stable
+ * `{ left, top, right, bottom }` shape.
+ */
+export function readRectangleDifferences(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): PdfRectDifferences | null {
+  return withScratchN(
+    mem,
+    [F32_BYTES, F32_BYTES, F32_BYTES, F32_BYTES],
+    ([left, bottom, right, top]) => {
+      if (!fn.EPDFAnnot_GetRectangleDifferences(annotPtr, left, bottom, right, top)) return null;
+      return {
+        left: readF32(mem, left),
+        bottom: readF32(mem, bottom),
+        right: readF32(mem, right),
+        top: readF32(mem, top),
+      };
+    },
+  );
 }
 
 /**

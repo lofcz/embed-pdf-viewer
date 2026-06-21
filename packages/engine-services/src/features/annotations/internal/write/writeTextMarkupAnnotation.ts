@@ -14,9 +14,8 @@ import {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
+import { setAnnotColor, setAnnotOpacity, setAnnotRect } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
-
-const FPDFANNOT_COLORTYPE_Color = 0;
 
 /**
  * Default opacity when a draft omits `opacity`. PDFium's /CA defaults to
@@ -66,8 +65,8 @@ export function applyTextMarkupDraft(
 
   const fallback =
     draft.subtype === 'highlight' ? DEFAULT_HIGHLIGHT_COLOR : DEFAULT_TEXT_MARKUP_COLOR;
-  setColor(fn, annotPtr, draft.color ?? fallback);
-  setOpacity(fn, annotPtr, draft.opacity ?? DEFAULT_OPACITY);
+  setAnnotColor(fn, annotPtr, draft.color ?? fallback);
+  setAnnotOpacity(fn, annotPtr, draft.opacity ?? DEFAULT_OPACITY);
 }
 
 /**
@@ -92,10 +91,10 @@ export function applyTextMarkupPatch(
   applyAnnotationBasePatch(fn, mem, annotPtr, patch);
 
   if (patch.color !== undefined) {
-    setColor(fn, annotPtr, patch.color);
+    setAnnotColor(fn, annotPtr, patch.color);
   }
   if (patch.opacity !== undefined) {
-    setOpacity(fn, annotPtr, patch.opacity);
+    setAnnotOpacity(fn, annotPtr, patch.opacity);
   }
   if (patch.quadPoints !== undefined) {
     if (patch.quadPoints.length === 0) {
@@ -230,38 +229,6 @@ function setRectFromQuadPoints(
     }
   }
 
-  const buf = mem.alloc(16);
-  try {
-    // FS_RECTF layout: { left, top, right, bottom } (top > bottom in PDF coords).
-    mem.poke(buf, 'f32', minX, 0);
-    mem.poke(buf, 'f32', maxY, 4);
-    mem.poke(buf, 'f32', maxX, 8);
-    mem.poke(buf, 'f32', minY, 12);
-    fn.FPDFAnnot_SetRect(annotPtr, buf);
-  } finally {
-    mem.free(buf);
-  }
-}
-
-function setColor(fn: PdfFunctions, annotPtr: Ptr, color: Color): void {
-  const a = Math.max(0, Math.min(255, Math.round((color.a ?? 1) * 255)));
-  const ok = fn.FPDFAnnot_SetColor(
-    annotPtr,
-    FPDFANNOT_COLORTYPE_Color,
-    color.r & 0xff,
-    color.g & 0xff,
-    color.b & 0xff,
-    a,
-  );
-  if (!ok) {
-    throw new EngineError(EngineErrorCode.Unknown, 'FPDFAnnot_SetColor returned false');
-  }
-}
-
-function setOpacity(fn: PdfFunctions, annotPtr: Ptr, opacity: number): void {
-  const clamped = Math.max(0, Math.min(1, opacity));
-  const ok = fn.EPDFAnnot_SetNumberValue(annotPtr, 'CA', clamped);
-  if (!ok) {
-    throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetNumberValue(/CA) returned false');
-  }
+  // /Rect must be the smallest box enclosing every quad.
+  setAnnotRect(fn, mem, annotPtr, { left: minX, top: maxY, right: maxX, bottom: minY });
 }

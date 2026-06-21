@@ -111,6 +111,8 @@ export type {
   Rotation,
   LineEnding,
   AnnotationFlags,
+  AnnotationBorderStyle,
+  PdfRectDifferences,
 } from './annotation/primitives';
 export { NO_ANNOTATION_FLAGS } from './annotation/primitives';
 
@@ -150,6 +152,15 @@ export type {
   StrikeoutAnnotationDTO,
   StrikeoutDraft,
   StrikeoutPatch,
+  CircleAnnotationDTO,
+  CircleDraft,
+  CirclePatch,
+  SquareAnnotationDTO,
+  SquareDraft,
+  SquarePatch,
+  ShapeAnnotationFields,
+  ShapeDraftFields,
+  ShapePatchFields,
   UnsupportedAnnotationDTO,
   UnsupportedDraft,
   UnsupportedPatch,

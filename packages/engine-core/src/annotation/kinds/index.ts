@@ -4,14 +4,19 @@ import { HighlightKind } from './highlight';
 import { UnderlineKind } from './underline';
 import { SquigglyKind } from './squiggly';
 import { StrikeoutKind } from './strikeout';
+import { CircleKind } from './circle';
+import { SquareKind } from './square';
 import { UnsupportedKind } from './unsupported';
 
 export * from './highlight';
 export * from './underline';
 export * from './squiggly';
 export * from './strikeout';
+export * from './circle';
+export * from './square';
 export * from './unsupported';
 export * from './text-markup.shared';
+export * from './shape.shared';
 
 /**
  * The closed-world catalog of currently-implemented annotation kinds.
@@ -32,6 +37,8 @@ export const ANNOTATION_KINDS = [
   UnderlineKind,
   SquigglyKind,
   StrikeoutKind,
+  CircleKind,
+  SquareKind,
   UnsupportedKind,
 ] as const;
 
@@ -82,6 +89,8 @@ export const AnnotationDTOSchema: z.ZodType<AnnotationDTO> = z.discriminatedUnio
   UnderlineKind.dtoSchema,
   SquigglyKind.dtoSchema,
   StrikeoutKind.dtoSchema,
+  CircleKind.dtoSchema,
+  SquareKind.dtoSchema,
   UnsupportedKind.dtoSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
@@ -93,6 +102,8 @@ export const AnnotationDraftSchema: z.ZodType<AnnotationDraft> = z.discriminated
   UnderlineKind.draftSchema,
   SquigglyKind.draftSchema,
   StrikeoutKind.draftSchema,
+  CircleKind.draftSchema,
+  SquareKind.draftSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
   ...z.ZodDiscriminatedUnionOption<'subtype'>[],
@@ -103,6 +114,8 @@ export const AnnotationPatchSchema: z.ZodType<AnnotationPatch> = z.discriminated
   UnderlineKind.patchSchema,
   SquigglyKind.patchSchema,
   StrikeoutKind.patchSchema,
+  CircleKind.patchSchema,
+  SquareKind.patchSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
   ...z.ZodDiscriminatedUnionOption<'subtype'>[],

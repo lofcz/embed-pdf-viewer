@@ -29,6 +29,10 @@ export interface AnnotationReadConformanceFixture extends ConformanceFixture {
   minHighlightCount: number;
   /** At least this many `'unsupported'` annotations on the page. */
   minUnsupportedCount: number;
+  /** At least this many `'circle'` annotations on the page. Defaults to 0. */
+  minCircleCount?: number;
+  /** At least this many `'square'` annotations on the page. Defaults to 0. */
+  minSquareCount?: number;
   /**
    * `true` if the fixture has at least one weak annotation (no /NM, direct
    * object). Drives the weak-ref + revision tests.
@@ -83,6 +87,28 @@ export function runAnnotationReadConformance(
         expect(highlights.length >= opts.fixture.minHighlightCount).toBe(true);
         const unsupported = snap.annotations.filter((a) => a.subtype === 'unsupported');
         expect(unsupported.length >= opts.fixture.minUnsupportedCount).toBe(true);
+        const circles = snap.annotations.filter((a) => a.subtype === 'circle');
+        expect(circles.length >= (opts.fixture.minCircleCount ?? 0)).toBe(true);
+        const squares = snap.annotations.filter((a) => a.subtype === 'square');
+        expect(squares.length >= (opts.fixture.minSquareCount ?? 0)).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('shape annotations expose their family fields', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const snap = await doc.annotations.listRaw(opts.fixture.pageObjectNumber);
+        for (const a of snap.annotations) {
+          if (a.subtype !== 'circle' && a.subtype !== 'square') continue;
+          // interiorColor is Color | null; strokeColor is always present.
+          expect(a.strokeColor !== undefined && a.strokeColor !== null).toBe(true);
+          expect(typeof a.strokeWidth).toBe('number');
+          expect(typeof a.borderStyle).toBe('string');
+          expect(typeof a.opacity).toBe('number');
+          expect('interiorColor' in a).toBe(true);
+        }
       } finally {
         await doc.close();
       }

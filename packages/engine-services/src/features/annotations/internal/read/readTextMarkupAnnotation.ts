@@ -9,7 +9,7 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
-import { readAnnotColor, readAnnotNumber, readQuadPoints } from './annotationReadPrimitives';
+import { readAnnotColor, readAnnotOpacity, readQuadPoints } from './annotationReadPrimitives';
 
 const DEFAULT_HIGHLIGHT_COLOR: Color = { r: 255, g: 255, b: 0 };
 const DEFAULT_TEXT_MARKUP_COLOR: Color = { r: 0, g: 0, b: 0 };
@@ -30,7 +30,7 @@ export function readTextMarkupExtras(
   quadPoints: PdfQuad[];
 } {
   const color = readAnnotColor(fn, mem, annotPtr) ?? { ...fallbackColor };
-  const ca = readAnnotNumber(fn, mem, annotPtr, 'CA');
+  const ca = readAnnotOpacity(fn, mem, annotPtr);
   const opacity = ca == null ? 1 : Math.max(0, Math.min(1, ca));
   const quadPoints = readQuadPoints(fn, mem, annotPtr);
   return { color, opacity, quadPoints };

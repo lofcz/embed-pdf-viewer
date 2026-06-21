@@ -13,6 +13,13 @@ import {
   type TextMarkupDraft,
   type TextMarkupPatch,
 } from './writeTextMarkupAnnotation';
+import {
+  applyShapeDraft,
+  applyShapePatch,
+  isShapeSubtype,
+  type ShapeDraft,
+  type ShapePatch,
+} from './writeShapeAnnotation';
 
 /**
  * Per-subtype write dispatch, mirroring the read-side registry. Adding a
@@ -31,6 +38,10 @@ export function applyDraft(
 ): void {
   if (isTextMarkupSubtype(draft.subtype)) {
     applyTextMarkupDraft(fn, mem, annotPtr, draft as TextMarkupDraft);
+    return;
+  }
+  if (isShapeSubtype(draft.subtype)) {
+    applyShapeDraft(fn, mem, annotPtr, draft as ShapeDraft);
     return;
   }
   // Should be unreachable: AnnotationDraft is the closed union of writable
@@ -52,6 +63,10 @@ export function applyPatch(
 ): void {
   if (isTextMarkupSubtype(patch.subtype)) {
     applyTextMarkupPatch(fn, mem, annotPtr, patch as TextMarkupPatch);
+    return;
+  }
+  if (isShapeSubtype(patch.subtype)) {
+    applyShapePatch(fn, mem, annotPtr, patch as ShapePatch);
     return;
   }
   throw new EngineError(

@@ -116,6 +116,10 @@ export class AnnotationMutator {
         }
         writeAnnotationModified(fn, mem, annotPtr);
         applyEmbedMetadataOnCreate(fn, mem, annotPtr, actor);
+        // Bake the /AP appearance stream now that every visual field is
+        // written, so the new annotation ships with a standard-compliant
+        // appearance (matches the v2 engine).
+        this.regenerateAppearance(annotPtr, pagePtr);
         throwIfAborted(signal);
 
         newObjNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);
@@ -192,6 +196,9 @@ export class AnnotationMutator {
       // UserID/GroupID/CreatedBy are preserved across updates.
       writeAnnotationModified(fn, mem, annotPtr);
       applyEmbedMetadataOnUpdate(fn, mem, annotPtr, actor);
+      // Re-bake the /AP appearance stream from the patched properties so
+      // the rendered appearance stays in sync with the dictionary.
+      this.regenerateAppearance(annotPtr, pagePtr);
       throwIfAborted(signal);
 
       // Read back. Update is non-structural, so the index does NOT move
@@ -528,6 +535,25 @@ export class AnnotationMutator {
    * already-durable annotations are NEVER touched. Caller owns the
    * lifecycle of `annotPtr`.
    */
+  /**
+   * Bake (or re-bake) an annotation's `/AP` normal appearance stream from
+   * its current dictionary properties using PDFium's native AP generator,
+   * then flush the page content so the result is persisted into the
+   * page/object tree. Same path the v2 engine used after every
+   * create/update; runs for every writable subtype (shapes + text-markup).
+   *
+   * Best-effort: `EPDFAnnot_GenerateAppearance` returns false for subtypes
+   * PDFium has no generator for (e.g. widgets), in which case the
+   * annotation simply ships without a baked `/AP` and viewers synthesize
+   * one — so a false return is not a hard error. This step is
+   * non-structural: it never shifts annotation indices or bumps revisions.
+   */
+  private regenerateAppearance(annotPtr: Ptr, pagePtr: Ptr): void {
+    const { fn } = this.runtime;
+    fn.EPDFAnnot_GenerateAppearance(annotPtr);
+    fn.FPDFPage_GenerateContent(pagePtr);
+  }
+
   private captureOrStampStableId(annotPtr: Ptr): AnnotationStableId {
     const { fn, mem } = this.runtime;
     const objNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);

@@ -19,7 +19,7 @@ endobj
 /Parent 2 0 R
 /MediaBox [0 0 612 792]
 /Resources <<>>
-/Annots [4 0 R 5 0 R 6 0 R 7 0 R <<
+/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R <<
 /Type /Annot
 /Subtype /Highlight
 /Rect [100 100 200 120]
@@ -79,21 +79,48 @@ endobj
 /NM (named-highlight-1)
 >>
 endobj
+8 0 obj
+<<
+/Type /Annot
+/Subtype /Circle
+/Rect [50 300 150 380]
+/IC [1 0 0]
+/C [0 0 1]
+/CA 1
+/BS << /W 2 /S /S >>
+/F 4
+/Contents (circle 1)
+>>
+endobj
+9 0 obj
+<<
+/Type /Annot
+/Subtype /Square
+/Rect [200 300 320 380]
+/C [0 0.5 0]
+/CA 1
+/BS << /W 3 /S /D /D [3 2] >>
+/F 4
+/Contents (square 1)
+>>
+endobj
 xref
-0 8
+0 10
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
 0000000121 00000 n 
-0000000394 00000 n 
-0000000591 00000 n 
-0000000765 00000 n 
-0000000906 00000 n 
+0000000406 00000 n 
+0000000603 00000 n 
+0000000777 00000 n 
+0000000918 00000 n 
+0000001082 00000 n 
+0000001232 00000 n 
 trailer
 <<
-/Size 8
+/Size 10
 /Root 1 0 R
 >>
 startxref
-1070
+1382
 %%EOF

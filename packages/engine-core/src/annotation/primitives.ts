@@ -52,6 +52,31 @@ export type LineEnding =
   | 'slash';
 
 /**
+ * Border/line style for shape annotations — the `/BS /S` (border style)
+ * subset PDFium can author. Maps onto the ISO 32000 §8.4.3.3 border style
+ * names. Cloudy borders are a SEPARATE concern (`/BE` border effect),
+ * surfaced as `cloudyIntensity` on the shape DTO, not as a border style.
+ *
+ * kebab-/lower-case so the wire format is stable across language ports;
+ * the engine maps these onto PDFium's integer codes at write time.
+ */
+export type AnnotationBorderStyle = 'solid' | 'dashed' | 'beveled' | 'inset';
+
+/**
+ * `/RD` (rectangle differences) for shape annotations — the four margins,
+ * in PDF points, between the annotation `/Rect` and the geometry actually
+ * drawn inside it. Used so a thick/cloudy border has room to render
+ * without being clipped by the `/Rect`. y-up PDF user space, so each value
+ * is a non-negative inset from the corresponding `/Rect` edge.
+ */
+export interface PdfRectDifferences {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/**
  * Bitset wrapper for the `/F` (Annotation Flags) PDF entry. We expose each
  * bit as its own boolean so callers don't have to know the bit positions.
  */

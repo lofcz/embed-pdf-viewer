@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import type { AnnotationFlags, Color, LineEnding } from './primitives';
+import type {
+  AnnotationBorderStyle,
+  AnnotationFlags,
+  Color,
+  LineEnding,
+  PdfRectDifferences,
+} from './primitives';
 import type { AnnotationBase } from './base';
 import { PdfPointSchema, PdfRectSchema, PdfQuadSchema } from '../geometry/schemas';
 import type { AnnotationStableId } from '../identity/AnnotationStableId';
@@ -16,6 +22,20 @@ export const ColorSchema: z.ZodType<Color> = z.object({
   g: z.number().int().min(0).max(255),
   b: z.number().int().min(0).max(255),
   a: z.number().min(0).max(1).optional(),
+});
+
+export const AnnotationBorderStyleSchema: z.ZodType<AnnotationBorderStyle> = z.enum([
+  'solid',
+  'dashed',
+  'beveled',
+  'inset',
+]);
+
+export const PdfRectDifferencesSchema: z.ZodType<PdfRectDifferences> = z.object({
+  left: z.number().nonnegative(),
+  top: z.number().nonnegative(),
+  right: z.number().nonnegative(),
+  bottom: z.number().nonnegative(),
 });
 
 export const LineEndingSchema: z.ZodType<LineEnding> = z.enum([

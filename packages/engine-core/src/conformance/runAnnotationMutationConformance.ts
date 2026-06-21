@@ -14,7 +14,14 @@ import {
   AnnotationMoveResultSchema,
   AnnotationUpdateResultSchema,
 } from '../wire/schemas';
-import type { AnnotationDraft, AnnotationPatch, HighlightDraft } from '../annotation/kinds';
+import type {
+  AnnotationDraft,
+  AnnotationPatch,
+  CircleDraft,
+  HighlightDraft,
+  SquareDraft,
+} from '../annotation/kinds';
+import type { PdfRect } from '../geometry/primitives';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { WeakAnnotationEditSession } from '../engine/DocumentAnnotationsService';
 
@@ -36,10 +43,23 @@ export interface AnnotationMutationConformanceFixture extends ConformanceFixture
    * fixture page so we don't flake on different page sizes.
    */
   createQuad?: HighlightDraft['quadPoints'];
+  /**
+   * `/Rect` to use for the shape (circle/square) create tests. PDF user
+   * space; pick a small box that fits anywhere on the fixture page.
+   */
+  createShapeRect?: PdfRect;
 }
 
 export interface AnnotationMutationConformanceOptions extends Omit<ConformanceOptions, 'fixture'> {
   fixture: AnnotationMutationConformanceFixture;
+  /**
+   * `true` for engines that expose the raw RGBA appearance rasters
+   * (`renderAppearances`). When set, the shape-create test additionally
+   * asserts that creating a shape produces a baked `/AP` the appearance
+   * reader can rasterize. The cloud engine ships encoded images instead
+   * and leaves this `false`.
+   */
+  supportsAppearanceRasters?: boolean;
 }
 
 const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
@@ -50,6 +70,8 @@ const DEFAULT_QUAD: HighlightDraft['quadPoints'] = [
     p4: { x: 150, y: 80 },
   },
 ];
+
+const DEFAULT_SHAPE_RECT: PdfRect = { left: 60, bottom: 60, right: 160, top: 140 };
 
 /**
  * Mutation conformance suite. Mirrors the read suite: tests are written
@@ -79,6 +101,7 @@ export function runAnnotationMutationConformance(
   const { describe, test, beforeAll, afterAll, expect } = runner;
   const fix = opts.fixture;
   const quad = fix.createQuad ?? DEFAULT_QUAD;
+  const shapeRect = fix.createShapeRect ?? DEFAULT_SHAPE_RECT;
 
   describe(`annotation mutation conformance: ${opts.label}`, () => {
     let engine: Engine;
@@ -136,6 +159,145 @@ export function runAnnotationMutationConformance(
         await doc.close();
       }
     });
+
+    test('create shape annotations (circle + square) round-trip shape fields', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+
+        const circleDraft: CircleDraft = {
+          subtype: 'circle',
+          contents: 'mutation conformance: circle',
+          rect: shapeRect,
+          interiorColor: { r: 255, g: 0, b: 0 },
+          strokeColor: { r: 0, g: 0, b: 255 },
+          strokeWidth: 3,
+          borderStyle: 'solid',
+          opacity: 0.6,
+        };
+        const circle = await page.annotations.create(circleDraft);
+        expect(AnnotationCreateResultSchema.safeParse(circle).success).toBe(true);
+        expect(circle.created.subtype).toBe('circle');
+        expect(circle.created.identityQuality).toBe('durable');
+        expect(circle.created.ref.kind).toBe('objectNumber');
+        if (circle.created.subtype === 'circle') {
+          expect(circle.created.interiorColor).toMatchObject({ r: 255, g: 0, b: 0 });
+          expect(circle.created.strokeColor).toMatchObject({ r: 0, g: 0, b: 255 });
+          expect(circle.created.strokeWidth).toBe(3);
+          expect(circle.created.borderStyle).toBe('solid');
+          // /CA stored as f32 — compare at 2dp to absorb float drift.
+          expect(Math.round(circle.created.opacity * 100) / 100).toBe(0.6);
+          // /Rect round-trips. The chosen bounds are small integers that
+          // are exactly representable in f32, so an exact compare is safe.
+          expect(circle.created.rect.left).toBe(shapeRect.left);
+          expect(circle.created.rect.right).toBe(shapeRect.right);
+          expect(circle.created.rect.bottom).toBe(shapeRect.bottom);
+          expect(circle.created.rect.top).toBe(shapeRect.top);
+        }
+
+        const squareDraft: SquareDraft = {
+          subtype: 'square',
+          contents: 'mutation conformance: square',
+          rect: shapeRect,
+          interiorColor: null,
+          strokeColor: { r: 0, g: 128, b: 0 },
+          strokeWidth: 2,
+          borderStyle: 'dashed',
+          dashArray: [3, 2],
+          opacity: 1,
+        };
+        const square = await page.annotations.create(squareDraft);
+        expect(AnnotationCreateResultSchema.safeParse(square).success).toBe(true);
+        expect(square.created.subtype).toBe('square');
+        if (square.created.subtype === 'square') {
+          // interiorColor omitted/null => no fill.
+          expect(square.created.interiorColor).toBe(null);
+          expect(square.created.strokeColor).toMatchObject({ r: 0, g: 128, b: 0 });
+          expect(square.created.borderStyle).toBe('dashed');
+          expect(square.created.dashArray).toEqual([3, 2]);
+        }
+
+        const after = await page.annotations.list();
+        const subtypes = after.annotations.map((a) => a.subtype);
+        expect(subtypes.includes('circle')).toBe(true);
+        expect(subtypes.includes('square')).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('update a shape annotation patches color and is non-structural', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const created = await page.annotations.create({
+          subtype: 'circle',
+          contents: 'shape-update-base',
+          rect: shapeRect,
+          interiorColor: { r: 10, g: 20, b: 30 },
+          strokeColor: { r: 0, g: 0, b: 0 },
+          strokeWidth: 1,
+          borderStyle: 'solid',
+          opacity: 1,
+        } satisfies CircleDraft);
+        const before = await page.annotations.list();
+
+        const result = await page.annotations.update(created.created.ref, {
+          subtype: 'circle',
+          interiorColor: { r: 200, g: 100, b: 50 },
+          strokeWidth: 4,
+        });
+        expect(AnnotationUpdateResultSchema.safeParse(result).success).toBe(true);
+        expect(result.updated.subtype).toBe('circle');
+        if (result.updated.subtype === 'circle') {
+          expect(result.updated.interiorColor).toMatchObject({ r: 200, g: 100, b: 50 });
+          expect(result.updated.strokeWidth).toBe(4);
+          // Unpatched fields are preserved.
+          expect(result.updated.borderStyle).toBe('solid');
+        }
+        // Update never bumps the revision.
+        expect(result.meta.affectedPages[0].revision.generation).toBe(
+          before.pageState.revision.generation,
+        );
+        expect(result.meta.weakRefsInvalidated).toBe(false);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    if (opts.supportsAppearanceRasters) {
+      test('creating a shape bakes an /AP appearance the reader can rasterize', async () => {
+        const doc = await openFixture(engine, opts);
+        try {
+          const page = doc.page(fix.pageObjectNumber);
+          const created = await page.annotations.create({
+            subtype: 'circle',
+            contents: 'appearance-gen',
+            rect: shapeRect,
+            interiorColor: { r: 255, g: 0, b: 0 },
+            strokeColor: { r: 0, g: 0, b: 0 },
+            strokeWidth: 2,
+            borderStyle: 'solid',
+            opacity: 1,
+          } satisfies CircleDraft);
+
+          const appearances = await page.annotations.renderAppearances({ scale: 1 });
+          const match = appearances.appearances.find(
+            (a) =>
+              a.ref.kind === 'objectNumber' &&
+              created.created.ref.kind === 'objectNumber' &&
+              a.ref.annotObjectNumber === created.created.ref.annotObjectNumber,
+          );
+          // The freshly created shape must carry a baked /AP (generated by
+          // the mutator), so the appearance reader emits a non-empty raster.
+          expect(match !== undefined).toBe(true);
+          expect((match?.raster.width ?? 0) > 0).toBeTruthy();
+          expect((match?.raster.height ?? 0) > 0).toBeTruthy();
+        } finally {
+          await doc.close();
+        }
+      });
+    }
 
     test('update on a durable annotation is non-structural and never touches /NM', async () => {
       const doc = await openFixture(engine, opts);
@@ -722,6 +884,8 @@ function subtypeAwarePatch(subtype: string, newContents: string): AnnotationPatc
     case 'underline':
     case 'squiggly':
     case 'strikeout':
+    case 'circle':
+    case 'square':
       return {
         subtype: subtype as AnnotationPatch['subtype'],
         contents: newContents,
