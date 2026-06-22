@@ -26,7 +26,10 @@ const PREVIEW_ID = '__markup_preview__';
  * tight bounds, so their 8 resize handles stay exactly on the box corners.
  */
 function outlineBounds(g: Geom, strokeWidth: number): Rect {
-  return g.t === 'line' || (g.t === 'poly' && !g.closed)
+  // Centerline geometries (line / open polyline / ink) have no box the user drew —
+  // their stroke straddles the path — so the outline expands by the stroke to wrap
+  // it. Shapes / closed polygons keep tight bounds (handles sit on the box).
+  return g.t === 'line' || g.t === 'ink' || (g.t === 'poly' && !g.closed)
     ? geomVisualBounds(g, strokeWidth)
     : geomBounds(g);
 }
@@ -64,18 +67,26 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
     });
   }
   const d = m.draft;
-  if ((d?.g === 'create-rect' || d?.g === 'create-line') && d.pon === pon) {
+  if (
+    (d?.g === 'create-rect' || d?.g === 'create-line' || d?.g === 'create-ink') &&
+    d.pon === pon
+  ) {
+    // Preview with the tool's RESOLVED defaults (base + per-subtype override), so the
+    // ghost is a faithful WYSIWYG of what will commit — not the bare base style.
+    const def = defaultsFor(m, d.subtype);
     const geom: Geom =
       d.g === 'create-rect'
         ? { t: 'rect', rect: rectFromPoints(d.from, d.to), ellipse: d.ellipse }
-        : { t: 'line', a: d.from, b: d.to };
+        : d.g === 'create-line'
+          ? { t: 'line', a: d.from, b: d.to, ends: def.endings }
+          : { t: 'ink', strokes: d.strokes };
     items.push({
       id: DRAFT_ID,
       ref: null,
       subtype: d.subtype,
       geom,
-      box: geomVisualBounds(geom, m.style.strokeWidth),
-      style: m.style,
+      box: geomVisualBounds(geom, def.style.strokeWidth),
+      style: def.style,
       source: 'ghost',
       selected: false,
     });

@@ -28,6 +28,7 @@ export type Subtype =
   | 'line'
   | 'polygon'
   | 'polyline'
+  | 'ink'
   | (string & {});
 
 /**
@@ -39,7 +40,8 @@ export type Geom =
   | { t: 'rect'; rect: Rect; ellipse: boolean } // square / circle
   | { t: 'line'; a: Vec; b: Vec; ends?: LineEndings } // line (optional /LE endings)
   | { t: 'poly'; points: Vec[]; closed: boolean; ends?: LineEndings } // polygon (closed) / polyline (open, /LE endings)
-  | { t: 'quads'; quads: Quad[] }; // highlight / underline / squiggly / strikeout
+  | { t: 'quads'; quads: Quad[] } // highlight / underline / squiggly / strikeout
+  | { t: 'ink'; strokes: Vec[][] }; // freehand ink (one or more pen strokes)
 
 /**
  * How a shape's outline is stroked. A discriminated union so illegal combinations
@@ -110,6 +112,7 @@ export type Draft =
       ellipse: boolean;
     }
   | { g: 'create-line'; subtype: Subtype; pon: PageObjectNumber; from: Vec; to: Vec }
+  | { g: 'create-ink'; subtype: Subtype; pon: PageObjectNumber; strokes: Vec[][] }
   | { g: 'move'; ids: Id[]; start: Vec; delta: Vec }
   | { g: 'handle'; id: Id; handle: string; base: Geom; cur: Geom }
   | { g: 'marquee'; pon: PageObjectNumber; from: Vec; to: Vec };
@@ -210,6 +213,7 @@ export interface Paint {
   opacity?: number;
   dash?: number[]; // stroke dash (content units)
   blend?: 'multiply'; // mix-blend-mode (text-highlight)
+  cap?: 'round'; // stroke-linecap; omitted = the default butt. Round for freehand ink.
 }
 
 /**

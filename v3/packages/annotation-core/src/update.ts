@@ -13,6 +13,7 @@ import {
   geomTranslate,
   rectFromPoints,
   rectsIntersect,
+  unionRect,
 } from './geometry';
 import type {
   Annot,
@@ -176,27 +177,35 @@ function createPointer(
     const draft: Draft | null =
       subtype === 'line'
         ? { g: 'create-line', subtype, pon: input.pon, from: input.point, to: input.point }
-        : subtype === 'square' || subtype === 'circle'
-          ? {
-              g: 'create-rect',
-              subtype,
-              pon: input.pon,
-              from: input.point,
-              to: input.point,
-              ellipse: subtype === 'circle',
-            }
-          : null;
+        : subtype === 'ink'
+          ? { g: 'create-ink', subtype, pon: input.pon, strokes: [[input.point]] }
+          : subtype === 'square' || subtype === 'circle'
+            ? {
+                g: 'create-rect',
+                subtype,
+                pon: input.pon,
+                from: input.point,
+                to: input.point,
+                ellipse: subtype === 'circle',
+              }
+            : null;
     return draft ? [{ ...m, selected: [], draft }, []] : [m, []];
   }
   if (phase === 'move') {
     if (m.draft?.g === 'create-rect' || m.draft?.g === 'create-line') {
       return [{ ...m, draft: { ...m.draft, to: input.point } }, []];
     }
+    if (m.draft?.g === 'create-ink') {
+      // append to the active (last) stroke as the pen moves
+      const strokes = m.draft.strokes.slice();
+      strokes[strokes.length - 1] = [...strokes[strokes.length - 1], input.point];
+      return [{ ...m, draft: { ...m.draft, strokes } }, []];
+    }
     return [m, []];
   }
   // up
   const d = m.draft;
-  if (d?.g !== 'create-rect' && d?.g !== 'create-line') return [m, []];
+  if (d?.g !== 'create-rect' && d?.g !== 'create-line' && d?.g !== 'create-ink') return [m, []];
 
   const def = defaultsFor(m, d.subtype);
   let geom: Geom | null = null;
@@ -204,9 +213,14 @@ function createPointer(
     const rect = rectFromPoints(d.from, d.to);
     if (rect.width >= MIN_DRAG || rect.height >= MIN_DRAG)
       geom = { t: 'rect', rect, ellipse: d.ellipse };
-  } else {
+  } else if (d.g === 'create-line') {
     if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG)
       geom = { t: 'line', a: d.from, b: d.to, ends: def.endings };
+  } else {
+    // create-ink: keep it only if the pen actually travelled (not a stray click)
+    const b = unionRect(d.strokes.flat());
+    if (d.strokes.some((s) => s.length >= 2) && Math.max(b.width, b.height) >= MIN_DRAG)
+      geom = { t: 'ink', strokes: d.strokes };
   }
   if (!geom) return [{ ...m, draft: null }, []];
 
@@ -299,15 +313,18 @@ function setMarkupPreview(
 }
 
 function setStyle(m: Model, patch: Partial<Style>): [Model, Effect[]] {
-  const style = { ...m.style, ...patch };
-  if (!m.selected.length) return [{ ...m, style }, []];
+  // No selection → set the base style new annotations inherit (the "current style").
+  if (!m.selected.length) return [{ ...m, style: { ...m.style, ...patch } }, []];
+  // With a selection → restyle ONLY those annotations. Crucially, leave the base
+  // style untouched: editing existing annotations must not change what the next
+  // drawn annotation looks like (the base is the fallback under every tool default).
   const byId = { ...m.byId };
   const fx: Effect[] = [];
   for (const id of m.selected) {
     byId[id] = touch({ ...byId[id], style: { ...byId[id].style, ...patch } });
     fx.push({ fx: 'patch', id });
   }
-  return [{ ...m, style, byId }, fx];
+  return [{ ...m, byId }, fx];
 }
 
 function setEndings(m: Model, patch: Partial<LineEndings>): [Model, Effect[]] {

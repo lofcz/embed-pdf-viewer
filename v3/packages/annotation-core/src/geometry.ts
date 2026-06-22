@@ -184,6 +184,7 @@ function endingSegs(g: Geom): EndingSeg[] {
 export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
   if (g.t === 'rect') return g.rect;
   if (g.t === 'quads') return expandRect(unionRect(g.quads.flat()), strokeWidth / 2);
+  if (g.t === 'ink') return expandRect(unionRect(g.strokes.flat()), strokeWidth / 2);
   const pts: Vec[] = g.t === 'line' ? [g.a, g.b] : [...g.points];
   for (const seg of endingSegs(g))
     pts.push(...endingPoints(seg.tip, seg.angle, seg.ending, strokeWidth));
@@ -228,6 +229,7 @@ export function geomBounds(g: Geom): Rect {
   if (g.t === 'rect') return g.rect;
   if (g.t === 'line') return rectFromPoints(g.a, g.b);
   if (g.t === 'poly') return unionRect(g.points);
+  if (g.t === 'ink') return unionRect(g.strokes.flat());
   return unionRect(g.quads.flat());
 }
 
@@ -296,6 +298,13 @@ export function geomHit(
     if (g.closed && n > 2 && segDist(p, pts[n - 1], pts[0]) <= tol) return true;
     return endingHit(g, p, tol, strokeWidth);
   }
+  if (g.t === 'ink') {
+    // near any segment of any stroke (ink is stroke-only, never filled)
+    for (const stroke of g.strokes)
+      for (let i = 0; i < stroke.length - 1; i++)
+        if (segDist(p, stroke[i], stroke[i + 1]) <= tol) return true;
+    return false;
+  }
   // quads (markup): axis-aligned per-line rects — hit anywhere inside any quad.
   // (Use the quad's bbox: robust to the PDF /QuadPoints corner order, which is
   // UL,UR,LL,LR — a self-intersecting ring for a generic point-in-poly test.)
@@ -327,6 +336,7 @@ export function geomTranslate(g: Geom, d: Vec): Geom {
   if (g.t === 'rect') return { ...g, rect: { ...g.rect, x: g.rect.x + d.x, y: g.rect.y + d.y } };
   if (g.t === 'line') return { ...g, a: mv(g.a), b: mv(g.b) };
   if (g.t === 'poly') return { ...g, points: g.points.map(mv) };
+  if (g.t === 'ink') return { ...g, strokes: g.strokes.map((s) => s.map(mv)) };
   return { ...g, quads: g.quads.map((q) => q.map(mv) as Quad) };
 }
 
@@ -366,6 +376,10 @@ export function geomScene(g: Geom, strokeWidth = 0, border?: Border): RenderNode
     for (const seg of endingSegs(g))
       nodes.push(...endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth));
     return nodes;
+  }
+  if (g.t === 'ink') {
+    // each pen stroke is an open polyline (stroke-only; `scene` paints it)
+    return g.strokes.map((stroke) => ({ kind: 'poly', points: stroke, closed: false }));
   }
   // markup fallback: a closed ring per quad. Reorder UL,UR,LL,LR → UL,UR,LR,LL so
   // it's a simple (non-self-intersecting) rectangle. (The framework markup layer

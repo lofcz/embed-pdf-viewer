@@ -11,7 +11,18 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { AnnotationToken, refKey } from '@embedpdf-x/plugin-annotation';
-import { scene, type Paint, type Rect, type RenderItem } from '@embedpdf-x/annotation-core';
+import {
+  scene,
+  type Border,
+  type LineEndings,
+  type Paint,
+  type Rect,
+  type RenderItem,
+  type Style,
+} from '@embedpdf-x/annotation-core';
+
+/** A tool's resolved defaults, as returned by `currentDefaults`. */
+type ToolDefaultsResolved = { style: Style; endings: LineEndings };
 
 export type {
   RenderItem,
@@ -49,6 +60,7 @@ function paintAttrs(p: Paint) {
     strokeWidth: p.width,
     opacity: p.opacity,
     strokeLinejoin: 'round' as const,
+    strokeLinecap: p.cap, // undefined → SVG default (butt); 'round' only for ink
     strokeDasharray: p.dash ? p.dash.join(' ') : undefined,
     ...(p.blend ? { style: { mixBlendMode: p.blend } } : {}),
   };
@@ -249,4 +261,36 @@ export function useAnnotationSelection() {
 
 export function useAnnotationSelectedItems() {
   return useSelector(AnnotationToken, (c) => c.selectedItems(), shallowArray);
+}
+
+/** Structural equality for a tool's resolved defaults (style + endings) — keeps the
+ *  subscription from re-rendering on unrelated dispatches, since `currentDefaults`
+ *  returns a fresh object each call. */
+function sameDefaults(a: ToolDefaultsResolved, b: ToolDefaultsResolved): boolean {
+  const x = a.style;
+  const y = b.style;
+  return (
+    x.strokeColor === y.strokeColor &&
+    x.fillColor === y.fillColor &&
+    x.strokeWidth === y.strokeWidth &&
+    x.opacity === y.opacity &&
+    x.border.kind === y.border.kind &&
+    (x.border.kind === 'cloudy'
+      ? x.border.intensity === (y.border as Extract<Border, { kind: 'cloudy' }>).intensity
+      : x.border.kind === 'dashed'
+        ? x.border.dash.join() === (y.border as Extract<Border, { kind: 'dashed' }>).dash.join()
+        : true) &&
+    a.endings.start === b.endings.start &&
+    a.endings.end === b.endings.end
+  );
+}
+
+/**
+ * A tool's RESOLVED defaults (base style + per-subtype override), subscribed so a
+ * `setDefaults` re-renders the consumer. Use this — not the imperative
+ * `useAnnotation().currentDefaults(id)` — to drive default-editing controls, so they
+ * reflect changes live.
+ */
+export function useAnnotationDefaults(toolId: string): ToolDefaultsResolved {
+  return useSelector(AnnotationToken, (c) => c.currentDefaults(toolId), sameDefaults);
 }

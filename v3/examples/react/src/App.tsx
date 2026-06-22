@@ -31,6 +31,7 @@ import {
   useAnnotation,
   useAnnotationSelection,
   useAnnotationSelectedItems,
+  useAnnotationDefaults,
   usePage,
   useTool,
   useZoom,
@@ -228,7 +229,7 @@ const LINE_ENDINGS: { v: LineEndingName; label: string }[] = [
   { v: 'butt', label: 'butt' },
   { v: 'slash', label: 'slash' },
 ];
-const DRAW_TOOLS = new Set(['square', 'circle', 'line']);
+const DRAW_TOOLS = new Set(['square', 'circle', 'line', 'ink']);
 
 // Border styles a square/circle can take. The model is a discriminated union, so
 // each option just constructs the variant it means — no enum + intensity to keep
@@ -249,6 +250,7 @@ const TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'square', label: '▭ square', title: 'draw a square' },
   { id: 'circle', label: '◯ circle', title: 'draw a circle' },
   { id: 'line', label: '╱ line', title: 'draw a line' },
+  { id: 'ink', label: '✎ ink', title: 'draw freehand' },
 ];
 // Markup tools create from a TEXT SELECTION (select text with the tool active).
 const MARKUP_TOOLS: { id: string; label: string; title: string }[] = [
@@ -352,6 +354,9 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
   const { activeToolId } = useTool();
   const annoSelected = useAnnotationSelection();
   const selItems = useAnnotationSelectedItems();
+  // SUBSCRIBED defaults (not an imperative read) — so editing a tool default
+  // re-renders these controls live. See useAnnotationDefaults.
+  const toolDefaults = useAnnotationDefaults(activeToolId);
 
   const hasSel = annoSelected.length > 0;
   const isDrawTool = DRAW_TOOLS.has(activeToolId);
@@ -383,7 +388,6 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
       </aside>
     );
 
-  const toolDefaults = annotation.currentDefaults(activeToolId);
   const first = selItems[0];
 
   // Text markup: anchored to text — a single colour + opacity, no stroke/fill/box.
@@ -470,6 +474,8 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
       ? annotation.setStyle({ fillColor: c })
       : annotation.setDefaults(activeToolId, { style: { fillColor: c } });
 
+  // Ink is stroke-only (freehand) — no fill / border / endings controls.
+  const isInk = hasSel ? first?.geom.t === 'ink' : activeToolId === 'ink';
   // Border style applies to the shapes (square/circle); cloudy is shape-only.
   const isShape = hasSel
     ? first?.geom.t === 'rect'
@@ -488,7 +494,7 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
   const ends =
     lineSel && (lineSel.geom.t === 'line' || lineSel.geom.t === 'poly')
       ? (lineSel.geom.ends ?? NO_ENDS)
-      : annotation.currentDefaults('line').endings;
+      : toolDefaults.endings; // line tool active → these are the line defaults' endings
   const setEnding = (side: 'start' | 'end', v: LineEndingName) => {
     const endings = side === 'start' ? { start: v } : { end: v };
     if (hasSel) annotation.setEndings(endings);
@@ -507,29 +513,31 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
             style={{ width: 36, height: 24, padding: 0, border: '1px solid #ccc', borderRadius: 4 }}
           />
         </SideField>
-        <SideField label="fill" title="fill colour (separate from stroke)">
-          <input
-            type="checkbox"
-            checked={fillColor != null}
-            onChange={(e) => setFill(e.target.checked ? (fillColor ?? strokeColor) : null)}
-            title="toggle fill"
-            style={{ margin: 0 }}
-          />
-          <input
-            type="color"
-            value={fillColor ?? '#ffffff'}
-            disabled={fillColor == null}
-            onChange={(e) => setFill(e.target.value)}
-            style={{
-              width: 36,
-              height: 24,
-              padding: 0,
-              border: '1px solid #ccc',
-              borderRadius: 4,
-              opacity: fillColor == null ? 0.4 : 1,
-            }}
-          />
-        </SideField>
+        {!isInk && (
+          <SideField label="fill" title="fill colour (separate from stroke)">
+            <input
+              type="checkbox"
+              checked={fillColor != null}
+              onChange={(e) => setFill(e.target.checked ? (fillColor ?? strokeColor) : null)}
+              title="toggle fill"
+              style={{ margin: 0 }}
+            />
+            <input
+              type="color"
+              value={fillColor ?? '#ffffff'}
+              disabled={fillColor == null}
+              onChange={(e) => setFill(e.target.value)}
+              style={{
+                width: 36,
+                height: 24,
+                padding: 0,
+                border: '1px solid #ccc',
+                borderRadius: 4,
+                opacity: fillColor == null ? 0.4 : 1,
+              }}
+            />
+          </SideField>
+        )}
         <SideField label="stroke width" title="stroke width">
           <input
             type="number"

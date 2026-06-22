@@ -12,21 +12,18 @@
 import { geomScene } from './geometry';
 import type { Paint, Quad, RenderItem, SceneNode, Style, Subtype } from './types';
 
-const GHOST_DASH = [6, 4];
 const num = (n: number): number => Number(n.toFixed(3));
 
-/** Uniform paint for a shape/line/poly node. Fill only lands on closed nodes; an
- *  unsaved ghost hints with a dash unless the border already dashes. */
-function shapePaint(item: RenderItem, closed: boolean): Paint {
-  const s = item.style;
-  const dash =
-    s.border.kind === 'dashed' ? s.border.dash : item.source === 'ghost' ? GHOST_DASH : undefined;
+/** Uniform paint for a shape/line/poly node. Fill only lands on closed nodes; the
+ *  dash comes solely from the border style — so a live draft (ghost) previews
+ *  exactly how the committed annotation will look, not as a dashed hint. */
+function shapePaint(style: Style, closed: boolean): Paint {
   return {
-    fill: closed ? (s.fillColor ?? undefined) : undefined,
-    stroke: s.strokeColor,
-    width: s.strokeWidth,
-    opacity: s.opacity,
-    dash,
+    fill: closed ? (style.fillColor ?? undefined) : undefined,
+    stroke: style.strokeColor,
+    width: style.strokeWidth,
+    opacity: style.opacity,
+    dash: style.border.kind === 'dashed' ? style.border.dash : undefined,
   };
 }
 
@@ -92,12 +89,14 @@ function markupScene(subtype: Subtype, quads: Quad[], style: Style): SceneNode[]
 /** The full painted scene for one annotation. */
 export function scene(item: RenderItem): SceneNode[] {
   if (item.geom.t === 'quads') return markupScene(item.subtype, item.geom.quads, item.style);
+  const ink = item.geom.t === 'ink'; // freehand: round the pen-stroke ends (caps)
   return geomScene(item.geom, item.style.strokeWidth, item.style.border).map((n) => {
     const closed =
       n.kind === 'rect' ||
       n.kind === 'ellipse' ||
       n.kind === 'path' ||
       (n.kind === 'poly' && n.closed);
-    return { ...n, paint: shapePaint(item, closed) } as SceneNode;
+    const paint = shapePaint(item.style, closed);
+    return { ...n, paint: ink ? { ...paint, cap: 'round' } : paint } as SceneNode;
   });
 }

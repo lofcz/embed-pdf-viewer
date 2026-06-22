@@ -26,13 +26,16 @@ export const annotationPlugin = () =>
     init: (ctx) => {
       const interaction = ctx.get(InteractionToken);
       const annotation = ctx.get(AnnotationToken);
-      for (const id of ['square', 'circle', 'line']) {
+      // Pointer-drawn kinds: square/circle/line (drag) and ink (freehand). They all
+      // share the draw handler, which dispatches createPointer(activeTool.id, …).
+      for (const id of ['square', 'circle', 'line', 'ink']) {
         interaction.registerTool({
           id,
           cursor: 'crosshair',
           enables: new Set(['annotation-draw', 'annotation-edit']),
         });
       }
+      annotation.setDefaults('ink', { style: { strokeColor: '#1d4ed8', strokeWidth: 3 } });
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
 

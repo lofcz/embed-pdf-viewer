@@ -401,6 +401,92 @@ describe('annotation-core', () => {
       kind: 'rect',
       paint: { fill: '#eeeeee', stroke: '#000000', width: 3 },
     });
+    expect(scene(item)[0].paint.cap).toBeUndefined(); // shapes stay sharp (only ink rounds)
+  });
+
+  it('freehand creates an ink annotation from a pointer drag; scene paints it stroke-only', () => {
+    const ink = (phase: 'down' | 'move' | 'up', x: number, y: number): Msg => ({
+      t: 'createPointer',
+      phase,
+      subtype: 'ink',
+      in: { pon: PON, point: { x, y }, shift: false },
+    });
+    const m = run(initialModel, [
+      ink('down', 10, 10),
+      ink('move', 25, 20),
+      ink('move', 40, 30),
+      ink('up', 40, 30),
+    ]);
+    const a = m.byId[m.order[0]];
+    expect(a.geom).toMatchObject({ t: 'ink' });
+    expect(a.geom.t === 'ink' && a.geom.strokes[0].length).toBe(3);
+    expect(a.source).toBe('vector');
+    // a short tap (no travel) is discarded, not committed
+    const tap = run(initialModel, [ink('down', 5, 5), ink('up', 5, 5)]);
+    expect(tap.order).toHaveLength(0);
+    // scene: each stroke is a stroke-only open polyline, with ROUND caps (pen ends)
+    const node = scene(pageItems(m, PON)[0])[0];
+    expect(node.kind).toBe('poly');
+    expect(node.paint.fill).toBeUndefined();
+    expect(node.paint.stroke).toBe(a.style.strokeColor);
+    expect(node.paint.cap).toBe('round');
+  });
+
+  it('a selected ink wraps its stroke: the outline expands by the stroke, not tight to the centerline', () => {
+    const ink: Annot = {
+      id: 'I1',
+      ref: null,
+      pon: PON,
+      subtype: 'ink',
+      geom: {
+        t: 'ink',
+        strokes: [
+          [
+            { x: 20, y: 20 },
+            { x: 80, y: 60 },
+          ],
+        ],
+      },
+      style: {
+        strokeColor: '#1d4ed8',
+        fillColor: null,
+        strokeWidth: 10,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      locked: false,
+      source: 'vector',
+    };
+    let m = update(initialModel, { t: 'loaded', annots: [ink] })[0];
+    m = update(m, editPtr('down', 50, 40))[0]; // click on the stroke → selects it
+    const outline = chrome(m, PON).find((n) => n.kind === 'outline');
+    // tight centerline bounds are 60×40; the stroke (width 10) expands them by 5/side → 70×50
+    expect(outline?.kind === 'outline' && outline.rect.width).toBe(70);
+    expect(outline?.kind === 'outline' && outline.rect.height).toBe(50);
+  });
+
+  it('the draft ghost previews the tool defaults, not the bare base style', () => {
+    let m = update(initialModel, {
+      t: 'setDefaults',
+      subtype: 'square',
+      patch: { style: { strokeColor: '#123456' } },
+    })[0];
+    // mid-draw (down + move, no up yet) → the ghost is live
+    m = run(m, [createPtr('square', 'down', 10, 10), createPtr('square', 'move', 60, 60)]);
+    const ghost = pageItems(m, PON).find((i) => i.source === 'ghost');
+    expect(ghost?.style.strokeColor).toBe('#123456'); // tool default, not initialStyle red
+  });
+
+  it('restyling a selection updates the annotation but never the base default', () => {
+    let m = run(initialModel, [
+      createPtr('square', 'down', 10, 10),
+      createPtr('square', 'move', 60, 60),
+      createPtr('square', 'up', 60, 60),
+    ]);
+    const baseBefore = m.style.strokeColor;
+    m = update(m, { t: 'setStyle', patch: { strokeColor: '#00ff00' } })[0];
+    expect(m.byId[m.order[0]].style.strokeColor).toBe('#00ff00'); // the selected square changed
+    expect(m.style.strokeColor).toBe(baseBefore); // …the base/default is untouched
   });
 
   it('markup is selectable but anchored: it selects, shows a bare outline (no handles), and will not move', () => {

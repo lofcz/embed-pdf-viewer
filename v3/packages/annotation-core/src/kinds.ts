@@ -136,6 +136,13 @@ export const KINDS: Record<string, AnnotationKind> = {
       hasEndings: true,
     }),
   },
+  // Ink: freehand strokes. Selectable + movable as a whole; no resize/vertex
+  // handles in v1 (the strokes are the geometry). Created by a freehand drag.
+  ink: {
+    subtype: 'ink',
+    variant: 'ink',
+    caps: caps({ selectable: true, movable: true, commentable: true }),
+  },
   // Text markup: selectable + anchored (bound to text — recolor/delete, never
   // move/resize). Created from a text selection, not a drag (see the markup tool).
   highlight: {
