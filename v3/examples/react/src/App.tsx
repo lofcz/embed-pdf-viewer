@@ -14,6 +14,7 @@ import type {
 } from '@embedpdf-x/plugin-stage';
 import { interactionPlugin } from '@embedpdf-x/plugin-interaction';
 import { selectionPlugin } from '@embedpdf-x/plugin-selection';
+import { annotationPlugin } from '@embedpdf-x/plugin-annotation';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
 import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
@@ -26,6 +27,10 @@ import {
   DocumentScope,
   RenderLayer,
   SelectionLayer,
+  AnnotationLayer,
+  useAnnotation,
+  useAnnotationSelection,
+  useAnnotationSelectedItems,
   usePage,
   useTool,
   useZoom,
@@ -38,6 +43,7 @@ import {
   useMetadata,
   useSelector,
 } from '@embedpdf-x/react';
+import type { Border } from '@embedpdf-x/react';
 import type { DocumentMetadata, MetadataPatch, OpenInput, PdfSaveMode } from '@embedpdf-x/kernel';
 import { bootstrap, engineMode, newDocument, SAMPLES, fetchBytes } from './engine';
 import type { Boot } from './engine';
@@ -69,6 +75,7 @@ const plugins = [
   metadataPlugin(), // document-scoped: reactive Info-dict metadata (own + remote SSE edits)
   interactionPlugin({ defaultTool: 'pointer' }), // the pointer/tool/cursor hub
   selectionPlugin(), // text selection (requires the interaction hub)
+  annotationPlugin(), // shapes: create/edit/delete (ambient editing + draw tools)
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
   // workspace plugin: partitions open documents into reorderable panes (each pane
@@ -197,10 +204,321 @@ function Field({
   );
 }
 
+// The /LE line endings the demo can set on a line / polyline (engine wire names).
+type LineEndingName =
+  | 'none'
+  | 'open-arrow'
+  | 'closed-arrow'
+  | 'r-open-arrow'
+  | 'r-closed-arrow'
+  | 'circle'
+  | 'square'
+  | 'diamond'
+  | 'butt'
+  | 'slash';
+const LINE_ENDINGS: { v: LineEndingName; label: string }[] = [
+  { v: 'none', label: 'none' },
+  { v: 'open-arrow', label: 'open arrow' },
+  { v: 'closed-arrow', label: 'closed arrow' },
+  { v: 'r-open-arrow', label: 'r open arrow' },
+  { v: 'r-closed-arrow', label: 'r closed arrow' },
+  { v: 'circle', label: 'circle' },
+  { v: 'square', label: 'square' },
+  { v: 'diamond', label: 'diamond' },
+  { v: 'butt', label: 'butt' },
+  { v: 'slash', label: 'slash' },
+];
+const DRAW_TOOLS = new Set(['square', 'circle', 'line']);
+
+// Border styles a square/circle can take. The model is a discriminated union, so
+// each option just constructs the variant it means — no enum + intensity to keep
+// in sync. Cloudy bulges its scallops back out to the box edge (see plugin-render).
+const BORDER_OPTS: { key: string; label: string; make: () => Border }[] = [
+  { key: 'solid', label: '▭ solid', make: () => ({ kind: 'solid' }) },
+  { key: 'dashed', label: '┄ dashed', make: () => ({ kind: 'dashed', dash: [6, 3] }) },
+  { key: 'cloudy1', label: '◌ cloud 1', make: () => ({ kind: 'cloudy', intensity: 1 }) },
+  { key: 'cloudy2', label: '◌ cloud 2', make: () => ({ kind: 'cloudy', intensity: 2 }) },
+];
+const borderKey = (b: Border): string =>
+  b.kind === 'cloudy' ? `cloudy${b.intensity >= 2 ? 2 : 1}` : b.kind;
+const NO_ENDS = { start: 'none', end: 'none' } as const;
+
+const TOOLS: { id: string; label: string; title: string }[] = [
+  { id: 'pointer', label: '↖ select', title: 'select text' },
+  { id: 'pan', label: '✋ pan', title: 'pan (hand)' },
+  { id: 'square', label: '▭ square', title: 'draw a square' },
+  { id: 'circle', label: '◯ circle', title: 'draw a circle' },
+  { id: 'line', label: '╱ line', title: 'draw a line' },
+];
+
+/**
+ * The tool band: the interaction hub's single active tool, switched in one place
+ * (select / pan + the draw tools). The "styles" button opens the property sidebar —
+ * it's opt-in, so the canvas stays full-width until you actually want to edit.
+ */
+function AnnotationBar({
+  stylesOpen,
+  onToggleStyles,
+}: {
+  stylesOpen: boolean;
+  onToggleStyles: () => void;
+}) {
+  const { activeToolId, activate } = useTool();
+  const annotation = useAnnotation();
+  // Seed the line tool with an arrow default (Adobe's "line arrow"), demonstrating
+  // per-tool configurable defaults — the sidebar lets you change it live. The fill
+  // default makes a CLOSED ending (closed arrow / circle / square) solid out of the
+  // box; stroke and fill stay independently editable.
+  useEffect(() => {
+    annotation.setDefaults('line', {
+      style: { fillColor: '#e5484d' },
+      endings: { start: 'none', end: 'open-arrow' },
+    });
+  }, [annotation]);
+  return (
+    <div style={{ ...tbRow, background: '#fff', borderBottom: '1px solid #eee' }}>
+      <div style={{ display: 'flex', gap: 2 }}>
+        {TOOLS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => activate(t.id)}
+            title={t.title}
+            style={toolBtn(activeToolId === t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <span style={{ marginLeft: 'auto' }} />
+      <button onClick={onToggleStyles} title="edit annotation styles" style={toolBtn(stylesOpen)}>
+        ⚙ styles
+      </button>
+    </div>
+  );
+}
+
+/** A vertical labelled control for the sidebar: a micro-label stacked over the input. */
+function SideField({
+  label,
+  title,
+  children,
+}: {
+  label: string;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label title={title} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={{ fontSize: 10, letterSpacing: 0.4, textTransform: 'uppercase', color: '#999' }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>{children}</div>
+    </label>
+  );
+}
+
+/**
+ * The annotation style inspector — a right-docked sidebar, opened from the tool band.
+ * With a selection it edits the selected annotations; with none it edits the ACTIVE
+ * TOOL's defaults (so the next drawn annotation inherits them). Line endings show for
+ * a selected line/polyline or the line tool, and changing one re-derives the engine
+ * /Rect (the plugin recomputes visual bounds), so the baked appearance is never
+ * clipped. It reads its own state from hooks — no prop-drilling from the toolbar.
+ */
+function AnnotationSidebar({ onClose }: { onClose: () => void }) {
+  const annotation = useAnnotation();
+  const { activeToolId } = useTool();
+  const annoSelected = useAnnotationSelection();
+  const selItems = useAnnotationSelectedItems();
+
+  const hasSel = annoSelected.length > 0;
+  const isDrawTool = DRAW_TOOLS.has(activeToolId);
+  const editing = hasSel || isDrawTool;
+
+  const head = (
+    <header style={annoSidebarHead}>
+      <span>
+        {!editing
+          ? 'Styles'
+          : hasSel
+            ? `${annoSelected.length} selected`
+            : `${activeToolId} defaults`}
+      </span>
+      <button onClick={onClose} title="close" style={annoSidebarClose}>
+        ✕
+      </button>
+    </header>
+  );
+
+  if (!editing)
+    return (
+      <aside style={annoSidebar}>
+        {head}
+        <p style={annoSidebarEmpty}>
+          Pick a draw tool or select an annotation to edit its appearance.
+        </p>
+      </aside>
+    );
+
+  const toolDefaults = annotation.currentDefaults(activeToolId);
+  const first = selItems[0];
+  const strokeColor =
+    (hasSel ? first?.style.strokeColor : undefined) ?? toolDefaults.style.strokeColor;
+  const strokeWidth =
+    (hasSel ? first?.style.strokeWidth : undefined) ?? toolDefaults.style.strokeWidth;
+  const setColor = (c: string) =>
+    hasSel
+      ? annotation.setStyle({ strokeColor: c })
+      : annotation.setDefaults(activeToolId, { style: { strokeColor: c } });
+  const setWidth = (w: number) =>
+    hasSel
+      ? annotation.setStyle({ strokeWidth: w })
+      : annotation.setDefaults(activeToolId, { style: { strokeWidth: w } });
+
+  const fillColor =
+    (hasSel ? first?.style.fillColor : undefined) ?? toolDefaults.style.fillColor ?? null;
+  const setFill = (c: string | null) =>
+    hasSel
+      ? annotation.setStyle({ fillColor: c })
+      : annotation.setDefaults(activeToolId, { style: { fillColor: c } });
+
+  // Border style applies to the shapes (square/circle); cloudy is shape-only.
+  const isShape = hasSel
+    ? first?.geom.t === 'rect'
+    : activeToolId === 'square' || activeToolId === 'circle';
+  const border: Border = (hasSel ? first?.style.border : undefined) ??
+    toolDefaults.style.border ?? { kind: 'solid' };
+  const setBorder = (b: Border) =>
+    hasSel
+      ? annotation.setStyle({ border: b })
+      : annotation.setDefaults(activeToolId, { style: { border: b } });
+
+  const lineSel = selItems.find(
+    (it) => it.geom.t === 'line' || (it.geom.t === 'poly' && !it.geom.closed),
+  );
+  const showEndings = hasSel ? !!lineSel : activeToolId === 'line';
+  const ends =
+    lineSel && (lineSel.geom.t === 'line' || lineSel.geom.t === 'poly')
+      ? (lineSel.geom.ends ?? NO_ENDS)
+      : annotation.currentDefaults('line').endings;
+  const setEnding = (side: 'start' | 'end', v: LineEndingName) => {
+    const endings = side === 'start' ? { start: v } : { end: v };
+    if (hasSel) annotation.setEndings(endings);
+    else annotation.setDefaults('line', { endings });
+  };
+
+  return (
+    <aside style={annoSidebar}>
+      {head}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 12 }}>
+        <SideField label="stroke" title="stroke colour">
+          <input
+            type="color"
+            value={strokeColor}
+            onChange={(e) => setColor(e.target.value)}
+            style={{ width: 36, height: 24, padding: 0, border: '1px solid #ccc', borderRadius: 4 }}
+          />
+        </SideField>
+        <SideField label="fill" title="fill colour (separate from stroke)">
+          <input
+            type="checkbox"
+            checked={fillColor != null}
+            onChange={(e) => setFill(e.target.checked ? (fillColor ?? strokeColor) : null)}
+            title="toggle fill"
+            style={{ margin: 0 }}
+          />
+          <input
+            type="color"
+            value={fillColor ?? '#ffffff'}
+            disabled={fillColor == null}
+            onChange={(e) => setFill(e.target.value)}
+            style={{
+              width: 36,
+              height: 24,
+              padding: 0,
+              border: '1px solid #ccc',
+              borderRadius: 4,
+              opacity: fillColor == null ? 0.4 : 1,
+            }}
+          />
+        </SideField>
+        <SideField label="stroke width" title="stroke width">
+          <input
+            type="number"
+            min={0}
+            max={40}
+            step={0.5}
+            value={strokeWidth}
+            onChange={(e) => setWidth(Number(e.target.value))}
+            style={{ ...tbSelect, width: '100%' }}
+          />
+        </SideField>
+        {isShape && (
+          <SideField
+            label="border"
+            title="outline style — cloudy scallops bulge out to the box edge"
+          >
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, width: '100%' }}>
+              {BORDER_OPTS.map((o) => (
+                <button
+                  key={o.key}
+                  onClick={() => setBorder(o.make())}
+                  title={o.label}
+                  style={toolBtn(borderKey(border) === o.key)}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </SideField>
+        )}
+        {showEndings && (
+          <>
+            <SideField label="line start" title="line start ending">
+              <select
+                value={ends.start}
+                onChange={(e) => setEnding('start', e.target.value as LineEndingName)}
+                style={{ ...tbSelect, width: '100%' }}
+              >
+                {LINE_ENDINGS.map((o) => (
+                  <option key={o.v} value={o.v}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </SideField>
+            <SideField label="line end" title="line end ending">
+              <select
+                value={ends.end}
+                onChange={(e) => setEnding('end', e.target.value as LineEndingName)}
+                style={{ ...tbSelect, width: '100%' }}
+              >
+                {LINE_ENDINGS.map((o) => (
+                  <option key={o.v} value={o.v}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </SideField>
+          </>
+        )}
+        {hasSel && (
+          <button
+            onClick={() => annotation.deleteSelection()}
+            title="delete selected"
+            style={{ ...tbBtn, color: '#c0322b', borderColor: '#e3b3b0' }}
+          >
+            🗑 Delete selection
+          </button>
+        )}
+      </div>
+    </aside>
+  );
+}
+
 function Toolbar() {
   const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, fitAll, automatic } = useZoom();
   const { currentPage, pageCount, next, prev } = usePages();
-  const { activeToolId, activate } = useTool();
   const {
     flow,
     setFlow,
@@ -271,26 +589,8 @@ function Toolbar() {
         </button>
       </div>
 
-      {/* Row 2 — tool + layout settings (compact) */}
+      {/* Row 2 — layout settings (compact) */}
       <div style={tbRow}>
-        {/* Tool: pointer selects text (drag, incl. across pages); pan drags the camera. */}
-        <div style={{ display: 'flex', gap: 2 }}>
-          <button
-            onClick={() => activate('pointer')}
-            title="select text"
-            style={toolBtn(activeToolId === 'pointer')}
-          >
-            ↖ select
-          </button>
-          <button
-            onClick={() => activate('pan')}
-            title="pan (hand)"
-            style={toolBtn(activeToolId === 'pan')}
-          >
-            ✋ pan
-          </button>
-        </div>
-        <Divider />
         <Field label="flow" title="flow">
           <select
             value={flow}
@@ -424,6 +724,33 @@ function Toolbar() {
           <input type="checkbox" checked={bounded} onChange={(e) => setBounded(e.target.checked)} />
           bounded{bounded ? '' : ' ∞'}
         </label>
+      </div>
+    </div>
+  );
+}
+
+// The per-document main column: the view toolbar, the tool band, and the canvas
+// with an opt-in style inspector docked on the right. Each pane owns its own
+// `stylesOpen`, so toggling the inspector in one pane never affects another.
+function DocumentView() {
+  const [stylesOpen, setStylesOpen] = useState(false);
+  return (
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <Toolbar />
+      <AnnotationBar stylesOpen={stylesOpen} onToggleStyles={() => setStylesOpen((o) => !o)} />
+      <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+        <Stage interaction style={{ flex: 1, background: '#0d1117' }}>
+          {() => (
+            <>
+              {/* the overlay owns annotation rendering, so the page bitmap excludes them */}
+              <RenderLayer annotations={false} />
+              <WatermarkLayer />
+              <SelectionLayer />
+              <AnnotationLayer />
+            </>
+          )}
+        </Stage>
+        {stylesOpen && <AnnotationSidebar onClose={() => setStylesOpen(false)} />}
       </div>
     </div>
   );
@@ -810,18 +1137,7 @@ function Pane({
         {view.activeDocumentId ? (
           <DocumentScope id={view.activeDocumentId}>
             <ThumbnailSidebar />
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <Toolbar />
-              <Stage interaction style={{ flex: 1, background: '#0d1117' }}>
-                {() => (
-                  <>
-                    <RenderLayer />
-                    <WatermarkLayer />
-                    <SelectionLayer />
-                  </>
-                )}
-              </Stage>
-            </div>
+            <DocumentView />
           </DocumentScope>
         ) : (
           <div
@@ -1120,6 +1436,41 @@ const toolBtn = (on: boolean): React.CSSProperties => ({
   color: on ? '#fff' : '#333',
   cursor: 'pointer',
 });
+const annoSidebar: React.CSSProperties = {
+  width: 224,
+  flexShrink: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  borderLeft: '1px solid #e2e2e2',
+  background: '#fafafa',
+  fontSize: 11,
+  overflowY: 'auto',
+};
+const annoSidebarHead: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '7px 10px',
+  borderBottom: '1px solid #eee',
+  fontWeight: 700,
+  color: '#444',
+  textTransform: 'capitalize',
+};
+const annoSidebarClose: React.CSSProperties = {
+  border: 0,
+  background: 'transparent',
+  cursor: 'pointer',
+  color: '#999',
+  fontSize: 12,
+  lineHeight: 1,
+  padding: 0,
+};
+const annoSidebarEmpty: React.CSSProperties = {
+  margin: 0,
+  padding: 14,
+  color: '#999',
+  lineHeight: 1.5,
+};
 const menuPanel: React.CSSProperties = {
   position: 'absolute',
   top: '100%',

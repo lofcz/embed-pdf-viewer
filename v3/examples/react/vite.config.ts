@@ -20,6 +20,8 @@ export default defineConfig({
       '@embedpdf-x/plugin-stage': src('plugin-stage'),
       '@embedpdf-x/plugin-interaction': src('plugin-interaction'),
       '@embedpdf-x/plugin-selection': src('plugin-selection'),
+      '@embedpdf-x/annotation-core': src('annotation-core'),
+      '@embedpdf-x/plugin-annotation': src('plugin-annotation'),
       '@embedpdf-x/plugin-persist': src('plugin-persist'),
       '@embedpdf-x/plugin-render': src('plugin-render'),
       '@embedpdf-x/plugin-page-edit': src('plugin-page-edit'),

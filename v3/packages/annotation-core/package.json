@@ -1,8 +1,8 @@
 {
-  "name": "@embedpdf-x/react",
+  "name": "@embedpdf-x/annotation-core",
   "version": "0.0.0",
   "private": true,
-  "description": "React adapter for EmbedPDF v3: one generic reactive binding + structural components (Viewer, Stage, PageView) + headless layers & hooks. The whole framework surface.",
+  "description": "The pure annotation brain: model · update(msg)→[model,effects] · view. Content-space geometry per family, hit-testing, tools. No DOM, no engine, no framework — ports to Rust/Crux.",
   "type": "module",
   "main": "./src/index.ts",
   "module": "./src/index.ts",
@@ -36,22 +36,9 @@
   "dependencies": {
     "@embedpdf-x/geometry": "workspace:*",
     "@embedpdf-x/kernel": "workspace:*",
-    "@embedpdf-x/plugin-stage": "workspace:*",
-    "@embedpdf-x/plugin-render": "workspace:*",
-    "@embedpdf-x/plugin-page-edit": "workspace:*",
-    "@embedpdf-x/plugin-metadata": "workspace:*",
-    "@embedpdf-x/stage-core": "workspace:*",
-    "@embedpdf-x/plugin-interaction": "workspace:*",
-    "@embedpdf-x/plugin-selection": "workspace:*",
-    "@embedpdf-x/annotation-core": "workspace:*",
-    "@embedpdf-x/plugin-annotation": "workspace:*",
-    "@embedpdf-x/plugin-view-manager": "workspace:*"
-  },
-  "peerDependencies": {
-    "react": ">=18"
+    "@embedpdf/engine-core": "workspace:*"
   },
   "devDependencies": {
-    "@types/react": "^18.3.0",
     "typescript": "^5.0.0",
     "vitest": "^2.1.9"
   },

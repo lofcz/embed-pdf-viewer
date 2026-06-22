@@ -10,7 +10,15 @@ import { useEffect, useRef } from 'react';
 import { RenderToken } from '@embedpdf-x/plugin-render';
 import { useCapability, usePage } from './runtime';
 
-export function RenderLayer() {
+export interface RenderLayerProps {
+  /**
+   * Bake annotations into the page bitmap (default true). Pass false when an
+   * <AnnotationLayer> owns annotation rendering, so they aren't drawn twice.
+   */
+  annotations?: boolean;
+}
+
+export function RenderLayer({ annotations = true }: RenderLayerProps = {}) {
   const page = usePage();
   const render = useCapability(RenderToken);
   const ref = useRef<HTMLImageElement>(null);
@@ -22,11 +30,11 @@ export function RenderLayer() {
         // Render at the transform's exact device scale — width pinned, height the
         // engine's derived value — so the bitmap matches its box 1:1 (no blur), with
         // dpr already folded in. No `* dpr` guesswork in the adapter.
-        const image = await render.renderPage(
-          page.pon,
-          page.transform.renderScale,
-          controller.signal,
-        );
+        const image = await render.renderPage(page.pon, {
+          scale: page.transform.renderScale,
+          includeAnnotations: annotations,
+          signal: controller.signal,
+        });
         const obj = await image.objectUrl(controller.signal);
         if (controller.signal.aborted) {
           obj.revoke();
@@ -42,7 +50,7 @@ export function RenderLayer() {
       controller.abort();
       revoke?.();
     };
-  }, [render, page.pon, page.transform.renderScale]);
+  }, [render, page.pon, page.transform.renderScale, annotations]);
   return (
     <img
       ref={ref}

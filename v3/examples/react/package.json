@@ -17,6 +17,8 @@
     "@embedpdf-x/kernel": "workspace:*",
     "@embedpdf-x/plugin-interaction": "workspace:*",
     "@embedpdf-x/plugin-selection": "workspace:*",
+    "@embedpdf-x/annotation-core": "workspace:*",
+    "@embedpdf-x/plugin-annotation": "workspace:*",
     "@embedpdf-x/plugin-page-edit": "workspace:*",
     "@embedpdf-x/plugin-metadata": "workspace:*",
     "@embedpdf-x/plugin-persist": "workspace:*",

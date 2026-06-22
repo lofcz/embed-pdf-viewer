@@ -7,10 +7,12 @@ import type { RenderCapability } from './types';
  */
 export function createRenderCapability(ctx: PluginContext<unknown>): RenderCapability {
   return {
-    renderPage(pon, scale, signal) {
+    renderPage(pon, { scale, includeAnnotations, signal }) {
       const doc = ctx.doc;
       if (!doc) return Promise.reject(new Error('render: no document bound'));
-      const task = doc.page(pon).render.image({ viewport: { kind: 'scale', scale } });
+      const task = doc
+        .page(pon)
+        .render.image({ viewport: { kind: 'scale', scale }, includeAnnotations });
       if (signal) {
         if (signal.aborted) task.abort(signal.reason);
         else signal.addEventListener('abort', () => task.abort(signal.reason), { once: true });

@@ -3,6 +3,7 @@ export * from './stage';
 export * from './render';
 export * from './interaction';
 export * from './selection';
+export * from './annotation';
 export * from './views';
 export * from './page-edit';
 export * from './metadata';

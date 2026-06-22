@@ -431,6 +431,17 @@ export interface PageGeometry {
 }
 
 /**
+ * PDF user space (y-up, origin = crop bottom-left) → content space (y-down,
+ * origin = crop top-left, unscaled points). THE single encoding of the engine→
+ * content y-flip + crop offset: `pageGeometry` composes its `pdfToContent` from
+ * this, and pure annotation geometry (content-space editing) reuses it too, so
+ * the rule can never be hand-written twice and drift.
+ */
+export function pdfToContentMatrix(crop: { left: number; top: number }): Mat2D<'pdf', 'content'> {
+  return [1, 0, 0, -1, -crop.left, crop.top] as Mat2D<'pdf', 'content'>;
+}
+
+/**
  * Build a page's space matrices from its crop box, rotation, and `userUnit` plus
  * the viewer `zoom`. This is the ONE function that knows the y-flip, crop origin,
  * `userUnit`, and rotation; everything else composes from its output. The engine
@@ -442,7 +453,7 @@ export function pageGeometry(input: PageGeometryInput, zoom: number): PageGeomet
   const s = zoom * userUnit; // view px per PDF point — userUnit folded in HERE, once
 
   // PDF user space (y-up, origin = crop bottom-left) → content (y-down, origin = crop top-left).
-  const pdfToContent = [1, 0, 0, -1, -crop.left, crop.top] as Mat2D<'pdf', 'content'>;
+  const pdfToContent = pdfToContentMatrix(crop);
 
   // Content → view: scale + integer quarter-turn, from the shared builder (the
   // one quarter-turn encoding). `Wc`/`Hc` are the unrotated content's view-px

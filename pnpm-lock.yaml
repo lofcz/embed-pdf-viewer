@@ -2808,9 +2808,15 @@ importers:
       '@cloudpdf/engine':
         specifier: workspace:*
         version: link:../../../ee/engine
+      '@embedpdf-x/annotation-core':
+        specifier: workspace:*
+        version: link:../../packages/annotation-core
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@embedpdf-x/plugin-annotation':
+        specifier: workspace:*
+        version: link:../../packages/plugin-annotation
       '@embedpdf-x/plugin-interaction':
         specifier: workspace:*
         version: link:../../packages/plugin-interaction
@@ -2873,6 +2879,25 @@ importers:
         specifier: ^6.0.0
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  v3/packages/annotation-core:
+    dependencies:
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../../packages/engine-core
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
   v3/packages/geometry:
     devDependencies:
       typescript:
@@ -2884,6 +2909,28 @@ importers:
 
   v3/packages/kernel:
     dependencies:
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../../packages/engine-core
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
+  v3/packages/plugin-annotation:
+    dependencies:
+      '@embedpdf-x/annotation-core':
+        specifier: workspace:*
+        version: link:../annotation-core
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@embedpdf-x/plugin-interaction':
+        specifier: workspace:*
+        version: link:../plugin-interaction
       '@embedpdf/engine-core':
         specifier: workspace:*
         version: link:../../../packages/engine-core
@@ -2910,16 +2957,6 @@ importers:
       vitest:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
-
-  v3/packages/plugin-marker:
-    dependencies:
-      '@embedpdf-x/kernel':
-        specifier: workspace:*
-        version: link:../kernel
-    devDependencies:
-      typescript:
-        specifier: ^5.0.0
-        version: 5.9.3
 
   v3/packages/plugin-metadata:
     dependencies:
@@ -3026,12 +3063,18 @@ importers:
 
   v3/packages/react:
     dependencies:
+      '@embedpdf-x/annotation-core':
+        specifier: workspace:*
+        version: link:../annotation-core
       '@embedpdf-x/geometry':
         specifier: workspace:*
         version: link:../geometry
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel
+      '@embedpdf-x/plugin-annotation':
+        specifier: workspace:*
+        version: link:../plugin-annotation
       '@embedpdf-x/plugin-interaction':
         specifier: workspace:*
         version: link:../plugin-interaction
