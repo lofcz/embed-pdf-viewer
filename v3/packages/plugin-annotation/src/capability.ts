@@ -149,6 +149,9 @@ export function createAnnotationCapability(
       apply({ t: 'editPointer', phase, in: { pon, point, shift } }),
     createPointer: (subtype, phase, pon, point) =>
       apply({ t: 'createPointer', phase, subtype, in: { pon, point, shift: false } }),
+    createMarkup: (subtype, pon, rects) => apply({ t: 'createMarkup', subtype, pon, rects }),
+    previewMarkup: (subtype, rectsByPage) => apply({ t: 'setMarkupPreview', subtype, rectsByPage }),
+    clearMarkupPreview: () => apply({ t: 'clearMarkupPreview' }),
     setStyle: (patch) => apply({ t: 'setStyle', patch }),
     setEndings: (patch) => apply({ t: 'setEndings', patch }),
     setDefaults: (subtype, patch) => apply({ t: 'setDefaults', subtype, patch }),

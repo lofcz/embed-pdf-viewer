@@ -33,6 +33,12 @@ export function createSelectionCapability(
 ): SelectionCapability {
   const cache = new Map<number, PageText>();
   const pending = new Set<number>();
+  // Consumers (e.g. text-markup) observe the selection without selection knowing
+  // about them: `change` fires whenever the rects change, `commit` when a gesture
+  // ends (pointer-up). One typed callback each — not an event bus.
+  const changeCbs = new Set<() => void>();
+  const commitCbs = new Set<() => void>();
+  const fireChange = (): void => changeCbs.forEach((cb) => cb());
 
   const pageIndexOf = (pon: PageObjectNumber): number =>
     ctx.document()?.pages.findIndex((p) => p.pageObjectNumber === pon) ?? -1;
@@ -95,6 +101,7 @@ export function createSelectionCapability(
       rects[pon] = rectsForRange(text, from, to);
     }
     ctx.dispatch({ type: 'SET', selection: sel, rects });
+    fireChange();
   }
 
   // Set the selection to a flat [from,to] glyph span on one page (word/line).
@@ -142,14 +149,35 @@ export function createSelectionCapability(
       recompute({ anchor: cur.anchor, focus: { pon, glyph: i } });
     },
 
-    end: () => {
-      /* selection persists after the drag; nothing to finalize in v1 */
-    },
+    end: () => commitCbs.forEach((cb) => cb()), // the gesture ended (pointer-up) → notify consumers
 
-    clear: () => ctx.dispatch({ type: 'CLEAR' }),
+    clear: () => {
+      ctx.dispatch({ type: 'CLEAR' });
+      fireChange();
+    },
 
     rectsForPage: (pon) => ctx.getState().rects[pon] ?? EMPTY,
 
     hasSelection: () => ctx.getState().selection != null,
+
+    selectedPages: () => {
+      const { rects } = ctx.getState();
+      return Object.keys(rects)
+        .map(Number)
+        .filter((pon) => (rects[pon]?.length ?? 0) > 0) as PageObjectNumber[];
+    },
+
+    onChange: (cb) => {
+      changeCbs.add(cb);
+      return () => changeCbs.delete(cb);
+    },
+    onCommit: (cb) => {
+      commitCbs.add(cb);
+      return () => commitCbs.delete(cb);
+    },
+
+    setHighlightVisible: (visible) =>
+      ctx.dispatch({ type: 'SET_HIGHLIGHT_HIDDEN', hidden: !visible }),
+    highlightVisible: () => !ctx.getState().highlightHidden,
   };
 }

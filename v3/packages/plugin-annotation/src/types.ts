@@ -66,6 +66,13 @@ export interface AnnotationCapability {
     pon: PageObjectNumber,
     point: Vec,
   ): void;
+  /** Create one text-markup annotation on a page from the selected text's per-line
+   *  rects (content space) — the `text-selection` create gesture. */
+  createMarkup(subtype: Subtype, pon: PageObjectNumber, rects: Rect[]): void;
+  /** Set the live markup preview from the selection's per-page rects (renders a
+   *  ghost that looks like the markup it will become). */
+  previewMarkup(subtype: Subtype, rectsByPage: Record<number, Rect[]>): void;
+  clearMarkupPreview(): void;
   setStyle(patch: Partial<Style>): void;
   /** Set the start/end line endings of the selected line / polyline annotations. */
   setEndings(patch: Partial<LineEndings>): void;

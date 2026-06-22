@@ -11,12 +11,7 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { AnnotationToken, refKey } from '@embedpdf-x/plugin-annotation';
-import {
-  geomScene,
-  type Rect,
-  type RenderItem,
-  type RenderNode,
-} from '@embedpdf-x/annotation-core';
+import { scene, type Paint, type Rect, type RenderItem } from '@embedpdf-x/annotation-core';
 
 export type {
   RenderItem,
@@ -45,27 +40,30 @@ function boxOf(r: Rect, page: PageContextValue) {
   return { left: tl.x, top: tl.y, width: br.x - tl.x, height: br.y - tl.y };
 }
 
-/**
- * A dumb painter. The pure core already computed `item.box` (geometry + stroke +
- * line endings); we size the <svg> to it and set a content-space `viewBox`, so
- * every node draws at its own content coordinates and the stroke width scales with
- * the viewBox — no per-point scaling, no bounds math, no overflow guesswork. A
- * CLOSED node fills with the annotation's fill colour; an open one is stroke-only.
- */
-function VectorShape({ item, page }: { item: RenderItem; page: PageContextValue }) {
-  const { left, top, width, height } = boxOf(item.box, page);
-  const ghost = item.source === 'ghost';
-  const border = item.style.border;
-  const fill = item.style.fillColor ?? 'none';
-  const stroke = {
-    stroke: item.style.strokeColor,
-    strokeWidth: item.style.strokeWidth,
-    opacity: item.style.opacity,
-    // dashed borders carry their own pattern; a ghost (live draft) hints with a dash
-    strokeDasharray: border.kind === 'dashed' ? border.dash.join(' ') : ghost ? '6 4' : undefined,
+/** Map a core `Paint` to SVG presentation attributes — the whole framework-facing
+ *  surface. Everything else about appearance is decided in the core's `scene`. */
+function paintAttrs(p: Paint) {
+  return {
+    fill: p.fill ?? 'none',
+    stroke: p.stroke ?? 'none',
+    strokeWidth: p.width,
+    opacity: p.opacity,
+    strokeLinejoin: 'round' as const,
+    strokeDasharray: p.dash ? p.dash.join(' ') : undefined,
+    ...(p.blend ? { style: { mixBlendMode: p.blend } } : {}),
   };
-  const vb = `${item.box.x} ${item.box.y} ${Math.max(1e-3, item.box.width)} ${Math.max(1e-3, item.box.height)}`;
+}
 
+/**
+ * The dumb painter. The pure core computed `item.box` and the painted `scene`; we
+ * size the <svg> to the box with a content-space `viewBox` and map each SceneNode
+ * to one element, applying its `paint`. No per-kind logic, no bounds math — so
+ * shapes, cloudy borders and every text-markup type all render here, and a Vue /
+ * Svelte painter is the same ~10-line loop.
+ */
+function Shape({ item, page }: { item: RenderItem; page: PageContextValue }) {
+  const { left, top, width, height } = boxOf(item.box, page);
+  const vb = `${item.box.x} ${item.box.y} ${Math.max(1e-3, item.box.width)} ${Math.max(1e-3, item.box.height)}`;
   return (
     <svg
       viewBox={vb}
@@ -79,8 +77,9 @@ function VectorShape({ item, page }: { item: RenderItem; page: PageContextValue 
         pointerEvents: 'none',
       }}
     >
-      {geomScene(item.geom, item.style.strokeWidth, border).map((n: RenderNode, i) => {
-        if (n.kind === 'rect') {
+      {scene(item).map((n, i) => {
+        const a = paintAttrs(n.paint);
+        if (n.kind === 'rect')
           return (
             <rect
               key={i}
@@ -88,12 +87,10 @@ function VectorShape({ item, page }: { item: RenderItem; page: PageContextValue 
               y={n.rect.y}
               width={n.rect.width}
               height={n.rect.height}
-              fill={fill}
-              {...stroke}
+              {...a}
             />
           );
-        }
-        if (n.kind === 'ellipse') {
+        if (n.kind === 'ellipse')
           return (
             <ellipse
               key={i}
@@ -101,24 +98,17 @@ function VectorShape({ item, page }: { item: RenderItem; page: PageContextValue 
               cy={n.rect.y + n.rect.height / 2}
               rx={n.rect.width / 2}
               ry={n.rect.height / 2}
-              fill={fill}
-              {...stroke}
+              {...a}
             />
           );
-        }
-        if (n.kind === 'path') {
-          return <path key={i} d={n.d} fill={fill} strokeLinejoin="round" {...stroke} />;
-        }
-        if (n.kind === 'line') {
-          return (
-            <line key={i} x1={n.a.x} y1={n.a.y} x2={n.b.x} y2={n.b.y} fill="none" {...stroke} />
-          );
-        }
+        if (n.kind === 'line')
+          return <line key={i} x1={n.a.x} y1={n.a.y} x2={n.b.x} y2={n.b.y} {...a} />;
+        if (n.kind === 'path') return <path key={i} d={n.d} {...a} />;
         const pts = n.points.map((p) => `${p.x},${p.y}`).join(' ');
         return n.closed ? (
-          <polygon key={i} points={pts} fill={fill} {...stroke} />
+          <polygon key={i} points={pts} {...a} />
         ) : (
-          <polyline key={i} points={pts} fill="none" {...stroke} />
+          <polyline key={i} points={pts} {...a} />
         );
       })}
     </svg>
@@ -239,7 +229,7 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
           const baked = urls[item.id];
           native = baked ? <BakedImage box={baked.box} url={baked.url} page={page} /> : null;
         } else {
-          native = <VectorShape item={item} page={page} />;
+          native = <Shape item={item} page={page} />; // shapes, cloudy, markup — all painted via scene()
         }
         const out = customRenderer?.({ annotation: item, nativeComponent: native }) ?? native;
         return <React.Fragment key={item.id}>{out}</React.Fragment>;

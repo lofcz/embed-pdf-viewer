@@ -2931,6 +2931,9 @@ importers:
       '@embedpdf-x/plugin-interaction':
         specifier: workspace:*
         version: link:../plugin-interaction
+      '@embedpdf-x/plugin-selection':
+        specifier: workspace:*
+        version: link:../plugin-selection
       '@embedpdf/engine-core':
         specifier: workspace:*
         version: link:../../../packages/engine-core

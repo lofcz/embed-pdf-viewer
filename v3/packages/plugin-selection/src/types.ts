@@ -19,12 +19,16 @@ export interface SelectionState {
   rects: Record<number, Rect[]>;
   /** Pages whose text geometry has loaded (so the layer re-renders when ready). */
   loaded: Record<number, boolean>;
+  /** When a consumer owns the selection visual (e.g. a markup tool draws its own
+   *  preview), the default highlight rects are suppressed. */
+  highlightHidden: boolean;
 }
 
 export type SelectionAction =
   | { type: 'PAGE_LOADED'; pon: PageObjectNumber }
   | { type: 'SET'; selection: SelectionRange; rects: Record<number, Rect[]> }
-  | { type: 'CLEAR' };
+  | { type: 'CLEAR' }
+  | { type: 'SET_HIGHLIGHT_HIDDEN'; hidden: boolean };
 
 export interface SelectionCapability {
   /** Warm a page's text geometry (idempotent). Layers call this when a page mounts. */
@@ -45,6 +49,16 @@ export interface SelectionCapability {
   /** Highlight rects for a page, in content space — the layer's only input. */
   rectsForPage(pon: PageObjectNumber): Rect[];
   hasSelection(): boolean;
+  /** The pages the current selection covers (those with at least one rect) — so a
+   *  cross-page action (e.g. text-markup creation) can fan out per page. */
+  selectedPages(): PageObjectNumber[];
+  /** Fires whenever the selection rects change (e.g. drag-extend) — for live preview. */
+  onChange(cb: () => void): () => void;
+  /** Fires when a selection gesture ends (pointer-up) — the commit point. */
+  onCommit(cb: () => void): () => void;
+  /** Suppress / restore the default highlight visual (a consumer drawing its own). */
+  setHighlightVisible(visible: boolean): void;
+  highlightVisible(): boolean;
 }
 
 export const SelectionToken = createCapabilityToken<SelectionCapability>('selection');

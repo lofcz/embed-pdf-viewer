@@ -20,12 +20,17 @@ export function SelectionLayer({ color = 'rgba(33, 150, 243, 0.35)' }: Selection
   const page = usePage();
   const selection = useCapability(SelectionToken);
   const rects = useSelector(SelectionToken, (c) => c.rectsForPage(page.pon), shallowArray);
+  // A consumer (e.g. a markup tool drawing its own preview) can take over the
+  // selection visual; when it does, we render nothing so the two never overlap.
+  const visible = useSelector(SelectionToken, (c) => c.highlightVisible());
 
   // Warm this page's text geometry as soon as it's on screen, so the first
   // pointer-down can hit-test without waiting on the engine round-trip.
   useEffect(() => {
     selection.ensurePage(page.pon);
   }, [selection, page.pon]);
+
+  if (!visible) return null;
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>

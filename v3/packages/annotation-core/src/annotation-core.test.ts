@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { initialModel, update } from './update';
 import { chrome, pageItems } from './view';
-import { cursorAt } from './hit';
+import { cursorAt, hitTest } from './hit';
+import { capsFor } from './kinds';
 import {
   geomBounds,
   geomHit,
@@ -13,7 +14,8 @@ import {
   pdfToContentPoint,
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
-import type { Annot, Geom, Model, Msg } from './types';
+import { scene } from './scene';
+import type { Annot, Geom, Model, Msg, RenderItem } from './types';
 
 const PON = 1 as Annot['pon'];
 const editPtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift = false): Msg => ({
@@ -302,5 +304,141 @@ describe('annotation-core', () => {
     expect(cloudyBorderExtent(2, 4, false)).toBeGreaterThan(cloudyBorderExtent(1, 4, false));
     expect(cloudyBorderExtent(1, 10, false)).toBeGreaterThan(cloudyBorderExtent(1, 4, false));
     expect(cloudyBorderExtent(1, 4, true)).toBeGreaterThan(cloudyBorderExtent(1, 4, false));
+  });
+
+  it('capabilities are orthogonal, not one binary: shapes resize, lines vertex-edit, markup neither', () => {
+    expect(capsFor('square')).toMatchObject({
+      selectable: true,
+      movable: true,
+      resizable: true,
+      vertexEditable: false,
+    });
+    expect(capsFor('line')).toMatchObject({
+      selectable: true,
+      movable: true,
+      resizable: false,
+      vertexEditable: true,
+    });
+    expect(capsFor('polygon')).toMatchObject({ selectable: true, vertexEditable: true });
+    // markup is selectable but ANCHORED — recolor/delete, never move/resize.
+    expect(capsFor('highlight')).toMatchObject({
+      selectable: true,
+      anchored: true,
+      movable: false,
+      resizable: false,
+      vertexEditable: false,
+    });
+    expect(capsFor('totally-unknown').selectable).toBe(false); // unknown → read-only
+  });
+
+  it('a markup preview renders as a live ghost via pageItems, and clears', () => {
+    const m = update(initialModel, {
+      t: 'setMarkupPreview',
+      subtype: 'highlight',
+      rectsByPage: { [PON]: [{ x: 10, y: 10, width: 80, height: 12 }] },
+    })[0];
+    const ghost = pageItems(m, PON).find((i) => i.source === 'ghost');
+    expect(ghost?.subtype).toBe('highlight');
+    expect(ghost?.geom.t).toBe('quads');
+    const cleared = update(m, { t: 'clearMarkupPreview' })[0];
+    expect(pageItems(cleared, PON).some((i) => i.source === 'ghost')).toBe(false);
+  });
+
+  it('scene() paints markup per subtype in the core (no framework logic): highlight fills+multiply, squiggly strokes a path', () => {
+    const quads: Geom = {
+      t: 'quads',
+      quads: [
+        [
+          { x: 0, y: 0 },
+          { x: 100, y: 0 },
+          { x: 0, y: 12 },
+          { x: 100, y: 12 },
+        ],
+      ],
+    };
+    const mk = (subtype: string): RenderItem => ({
+      id: 'x',
+      ref: null,
+      subtype,
+      geom: quads,
+      box: { x: 0, y: 0, width: 100, height: 12 },
+      style: {
+        strokeColor: '#ffd400',
+        fillColor: '#ffd400',
+        strokeWidth: 0,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      source: 'vector',
+      selected: false,
+    });
+    const hi = scene(mk('highlight'));
+    expect(hi[0]).toMatchObject({ kind: 'rect', paint: { fill: '#ffd400', blend: 'multiply' } });
+    const sq = scene(mk('squiggly'));
+    expect(sq[0].kind).toBe('path');
+    expect(sq[0].paint.stroke).toBe('#ffd400');
+    expect(sq[0].paint.fill).toBeUndefined(); // stroke-only, no fill
+  });
+
+  it('scene() paints a shape uniformly: a closed node carries fill + stroke + width', () => {
+    const item: RenderItem = {
+      id: 's',
+      ref: null,
+      subtype: 'square',
+      geom: { t: 'rect', rect: { x: 0, y: 0, width: 50, height: 40 }, ellipse: false },
+      box: { x: 0, y: 0, width: 50, height: 40 },
+      style: {
+        strokeColor: '#000000',
+        fillColor: '#eeeeee',
+        strokeWidth: 3,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      source: 'vector',
+      selected: false,
+    };
+    expect(scene(item)[0]).toMatchObject({
+      kind: 'rect',
+      paint: { fill: '#eeeeee', stroke: '#000000', width: 3 },
+    });
+  });
+
+  it('markup is selectable but anchored: it selects, shows a bare outline (no handles), and will not move', () => {
+    const hl: Annot = {
+      id: 'H1',
+      ref: null,
+      pon: PON,
+      subtype: 'highlight',
+      geom: {
+        t: 'quads',
+        quads: [
+          [
+            { x: 10, y: 10 },
+            { x: 90, y: 10 },
+            { x: 10, y: 30 },
+            { x: 90, y: 30 },
+          ],
+        ],
+      },
+      style: {
+        strokeColor: '#ffcc00',
+        fillColor: '#ffcc00',
+        strokeWidth: 0,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      locked: false,
+      source: 'baked',
+    };
+    const m0 = update(initialModel, { t: 'loaded', annots: [hl] })[0];
+    // clicking the markup selects it…
+    expect(hitTest(m0, PON, { x: 50, y: 20 }, 6, 6)).toEqual({ t: 'annot', id: 'H1' });
+    const m1 = update(m0, editPtr('down', 50, 20))[0];
+    expect(m1.selected).toEqual(['H1']);
+    // …but no move gesture is armed (anchored), and chrome is a bare outline.
+    expect(m1.draft).toBeNull();
+    const c = chrome(m1, PON);
+    expect(c.filter((n) => n.kind === 'handle')).toHaveLength(0);
+    expect(c.some((n) => n.kind === 'outline')).toBe(true);
   });
 });

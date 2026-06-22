@@ -37,6 +37,7 @@
     "@embedpdf-x/kernel": "workspace:*",
     "@embedpdf-x/annotation-core": "workspace:*",
     "@embedpdf-x/plugin-interaction": "workspace:*",
+    "@embedpdf-x/plugin-selection": "workspace:*",
     "@embedpdf/engine-core": "workspace:*"
   },
   "devDependencies": {

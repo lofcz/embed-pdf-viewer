@@ -6,7 +6,7 @@
  * math is in geometry.ts. Effects (create/patch/delete) are the only impurities.
  */
 import type { AnnotationRef } from '@embedpdf/engine-core/runtime';
-import { hitTest } from './hit';
+import { canMove, hitTest } from './hit';
 import {
   geomBounds,
   geomDragHandle,
@@ -24,6 +24,8 @@ import type {
   Model,
   Msg,
   PointerInput,
+  Quad,
+  Rect,
   Style,
   Subtype,
   ToolDefaults,
@@ -48,6 +50,7 @@ export const initialModel: Model = {
   order: [],
   selected: [],
   draft: null,
+  preview: null,
   seq: 0,
   style: initialStyle,
   defaults: {},
@@ -73,6 +76,12 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return editPointer(m, msg.phase, msg.in);
     case 'createPointer':
       return createPointer(m, msg.phase, msg.subtype, msg.in);
+    case 'createMarkup':
+      return createMarkup(m, msg.subtype, msg.pon, msg.rects);
+    case 'setMarkupPreview':
+      return setMarkupPreview(m, msg.subtype, msg.rectsByPage);
+    case 'clearMarkupPreview':
+      return m.preview ? [{ ...m, preview: null }, []] : [m, []];
     case 'deselect':
       return m.selected.length ? [{ ...m, selected: [] }, []] : [m, []];
     case 'setStyle':
@@ -119,14 +128,13 @@ function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
       : inSel
         ? m.selected
         : [hit.id];
-    return [
-      {
-        ...m,
-        selected,
-        draft: { g: 'move', ids: selected, start: input.point, delta: { x: 0, y: 0 } },
-      },
-      [],
-    ];
+    // Only arm a move gesture if every selected annotation can move; an anchored
+    // kind (markup/caret) still selects, it just won't drag.
+    const movable = selected.length > 0 && selected.every((id) => canMove(m, id));
+    const draft: Draft | null = movable
+      ? { g: 'move', ids: selected, start: input.point, delta: { x: 0, y: 0 } }
+      : null;
+    return [{ ...m, selected, draft }, []];
   }
   return [{ ...m, selected: [] }, []]; // empty (the handler usually pre-empts via 'deselect')
 }
@@ -224,6 +232,70 @@ function createPointer(
     },
     [{ fx: 'create', id }],
   ];
+}
+
+/** Per-line selection rects → /QuadPoints quads (content space, y-down: UL, UR,
+ *  LL, LR). Shared by markup creation and the live preview. */
+const rectsToQuads = (rects: Rect[]): Quad[] =>
+  rects
+    .filter((r) => r.width > 0 && r.height > 0)
+    .map((r) => [
+      { x: r.x, y: r.y },
+      { x: r.x + r.width, y: r.y },
+      { x: r.x, y: r.y + r.height },
+      { x: r.x + r.width, y: r.y + r.height },
+    ]);
+
+/**
+ * Build a text-markup annotation from the selection's per-line rects. The new
+ * annotation is `vector` (rendered live by the overlay) and selected, mirroring
+ * `createPointer`. One call per page the selection spans. Clears any live preview.
+ */
+function createMarkup(
+  m: Model,
+  subtype: Subtype,
+  pon: Annot['pon'],
+  rects: Rect[],
+): [Model, Effect[]] {
+  const quads = rectsToQuads(rects);
+  if (!quads.length) return [m, []];
+  const id = `tmp:${m.seq + 1}`;
+  const annot: Annot = {
+    id,
+    ref: null,
+    pon,
+    subtype,
+    geom: { t: 'quads', quads },
+    style: defaultsFor(m, subtype).style,
+    locked: false,
+    source: 'vector',
+  };
+  return [
+    {
+      ...m,
+      seq: m.seq + 1,
+      byId: { ...m.byId, [id]: annot },
+      order: [...m.order, id],
+      selected: [id],
+      draft: null,
+      preview: null,
+    },
+    [{ fx: 'create', id }],
+  ];
+}
+
+/** Set / replace the live markup preview from the selection's per-page rects. */
+function setMarkupPreview(
+  m: Model,
+  subtype: Subtype,
+  rectsByPage: Record<number, Rect[]>,
+): [Model, Effect[]] {
+  const byPage: Record<number, Quad[]> = {};
+  for (const k in rectsByPage) {
+    const quads = rectsToQuads(rectsByPage[k]);
+    if (quads.length) byPage[Number(k)] = quads;
+  }
+  return [{ ...m, preview: { subtype, byPage } }, []];
 }
 
 function setStyle(m: Model, patch: Partial<Style>): [Model, Effect[]] {

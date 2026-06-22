@@ -11,10 +11,13 @@ import {
   rectFromPoints,
   unionRect,
 } from './geometry';
-import { isEditable } from './hit';
+import { isSelectable } from './hit';
+import { capsFor } from './kinds';
+import { defaultsFor } from './update';
 import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types';
 
 const DRAFT_ID = '__draft__';
+const PREVIEW_ID = '__markup_preview__';
 
 /**
  * The rectangle the SELECTION outline wraps. A line / open polyline wraps its
@@ -77,6 +80,22 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       selected: false,
     });
   }
+  // Live text-markup preview: the in-progress selection rendered as the markup it
+  // will become (same `scene()` paint as the committed annotation).
+  const quads = m.preview?.byPage[pon];
+  if (m.preview && quads?.length) {
+    const geom: Geom = { t: 'quads', quads };
+    items.push({
+      id: PREVIEW_ID,
+      ref: null,
+      subtype: m.preview.subtype,
+      geom,
+      box: geomVisualBounds(geom, 0),
+      style: defaultsFor(m, m.preview.subtype).style,
+      source: 'ghost',
+      selected: false,
+    });
+  }
   return items;
 }
 
@@ -104,11 +123,17 @@ export function selectedItems(m: Model): RenderItem[] {
 
 export function chrome(m: Model, pon: number): ChromeNode[] {
   const nodes: ChromeNode[] = [];
-  const sel = m.selected.filter((id) => isEditable(m, id) && m.byId[id].pon === pon);
+  const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
   if (sel.length === 1) {
+    const a = m.byId[sel[0]];
     const g = effGeom(m, sel[0]);
-    nodes.push({ kind: 'outline', rect: outlineBounds(g, m.byId[sel[0]].style.strokeWidth) });
-    for (const h of geomHandles(g)) nodes.push({ kind: 'handle', at: h.at, cursor: h.cursor });
+    nodes.push({ kind: 'outline', rect: outlineBounds(g, a.style.strokeWidth) });
+    // handles only for kinds that resize (box) or vertex-edit; anchored/markup show
+    // a bare outline.
+    const caps = capsFor(a.subtype);
+    if (caps.resizable || caps.vertexEditable) {
+      for (const h of geomHandles(g)) nodes.push({ kind: 'handle', at: h.at, cursor: h.cursor });
+    }
   } else if (sel.length > 1) {
     const corners = sel.flatMap((id) =>
       rectCorners(outlineBounds(effGeom(m, id), m.byId[id].style.strokeWidth)),

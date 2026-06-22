@@ -296,8 +296,10 @@ export function geomHit(
     if (g.closed && n > 2 && segDist(p, pts[n - 1], pts[0]) <= tol) return true;
     return endingHit(g, p, tol, strokeWidth);
   }
-  // quads (markup): filled regions — hit anywhere inside any quad
-  return g.quads.some((q) => pointInPoly(p, q));
+  // quads (markup): axis-aligned per-line rects — hit anywhere inside any quad.
+  // (Use the quad's bbox: robust to the PDF /QuadPoints corner order, which is
+  // UL,UR,LL,LR — a self-intersecting ring for a generic point-in-poly test.)
+  return g.quads.some((q) => rectContains(unionRect(q), p));
 }
 
 export function geomHandles(g: Geom): Handle[] {
@@ -365,7 +367,10 @@ export function geomScene(g: Geom, strokeWidth = 0, border?: Border): RenderNode
       nodes.push(...endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth));
     return nodes;
   }
-  return g.quads.map((q) => ({ kind: 'poly', points: q, closed: true }));
+  // markup fallback: a closed ring per quad. Reorder UL,UR,LL,LR → UL,UR,LR,LL so
+  // it's a simple (non-self-intersecting) rectangle. (The framework markup layer
+  // renders these per-subtype; this keeps the generic scene correct regardless.)
+  return g.quads.map((q) => ({ kind: 'poly', points: [q[0], q[1], q[3], q[2]], closed: true }));
 }
 
 /* ── PDF ↔ content bridge ─────────────────────────────────────────────────────

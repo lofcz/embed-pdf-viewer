@@ -8,7 +8,8 @@
  */
 export { update, initialModel, initialStyle, defaultsFor } from './update';
 export { pageItems, chrome, selectedItems } from './view';
-export { hitTest, cursorAt, isEditable, type Target } from './hit';
+export { hitTest, cursorAt, isSelectable, canMove, type Target } from './hit';
+export { KINDS, capsFor, type KindCaps, type AnnotationKind } from './kinds';
 export {
   geomScene,
   geomBounds,
@@ -28,7 +29,7 @@ export {
   type RectHandle,
 } from './geometry';
 export { cloudyPath, cloudyBorderExtent } from './cloudy';
-export { EDITABLE_SUBTYPES } from './types';
+export { scene } from './scene';
 export type {
   Annot,
   Border,
@@ -46,8 +47,10 @@ export type {
   Rect,
   LineEnding,
   LineEndings,
+  Paint,
   RenderItem,
   RenderNode,
+  SceneNode,
   Style,
   Subtype,
   ToolDefaults,

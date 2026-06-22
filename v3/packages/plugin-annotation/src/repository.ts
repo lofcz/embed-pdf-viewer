@@ -174,6 +174,13 @@ const strokeFill = (style: Style) => ({
   ...(style.border.kind === 'dashed' ? { dashArray: style.border.dash } : {}),
 });
 
+/** Text markup carries a single `/C` colour (our model keeps stroke==fill) + `/CA`
+ *  opacity. Geometry is the `/QuadPoints`, set on create and never patched. */
+const markupColor = (style: Style) => ({
+  color: cssToColor(style.fillColor ?? style.strokeColor),
+  opacity: style.opacity,
+});
+
 /**
  * Cloudy-border fields for a shape (/BE intensity + /RD inset). The /Rect we send
  * is the OUTER box, and /RD tells the engine how far to inset the drawn geometry
@@ -212,7 +219,20 @@ function geomFields(a: Annot, crop: PdfRect) {
       rect: geomPdfBounds(g, sw, crop),
     };
   }
-  return null; // quads (markup) — geometry edits not supported in v1
+  return null; // quads (markup) — built separately via quadPointsFor
+}
+
+/** Markup geometry: content-space quads → engine `/QuadPoints` (PDF user space).
+ *  Kept out of `geomFields` so that union stays rect/line/poly and its `'rect' in f`
+ *  narrowing is unaffected. */
+function quadPointsFor(a: Annot, crop: PdfRect) {
+  if (a.geom.t !== 'quads') return null;
+  return a.geom.quads.map((q) => ({
+    p1: contentToPdfPoint(q[0], crop),
+    p2: contentToPdfPoint(q[1], crop),
+    p3: contentToPdfPoint(q[2], crop),
+    p4: contentToPdfPoint(q[3], crop),
+  }));
 }
 
 /** Content Annot → engine create draft (square/circle/line in v1; null otherwise). */
@@ -231,6 +251,9 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       rect: f.rect,
       ...sf,
     };
+  const quads = quadPointsFor(a, crop);
+  if (TEXT_MARKUP.has(a.subtype) && quads)
+    return { subtype: a.subtype, quadPoints: quads, ...markupColor(a.style) } as AnnotationDraft;
   return null;
 }
 
@@ -260,5 +283,8 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
       rect: f.rect,
       ...sf,
     };
+  // markup: recolor / opacity only — /QuadPoints geometry isn't edited after create
+  if (TEXT_MARKUP.has(a.subtype))
+    return { subtype: a.subtype, ...markupColor(a.style) } as AnnotationPatch;
   return null;
 }

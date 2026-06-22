@@ -250,6 +250,14 @@ const TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'circle', label: '◯ circle', title: 'draw a circle' },
   { id: 'line', label: '╱ line', title: 'draw a line' },
 ];
+// Markup tools create from a TEXT SELECTION (select text with the tool active).
+const MARKUP_TOOLS: { id: string; label: string; title: string }[] = [
+  { id: 'highlight', label: '🖍 highlight', title: 'select text to highlight' },
+  { id: 'underline', label: 'U̲ underline', title: 'select text to underline' },
+  { id: 'strikeout', label: 'S̶ strikeout', title: 'select text to strike out' },
+  { id: 'squiggly', label: '∿ squiggly', title: 'select text to squiggly-underline' },
+];
+const MARKUP_SUBTYPES = new Set(['highlight', 'underline', 'squiggly', 'strikeout']);
 
 /**
  * The tool band: the interaction hub's single active tool, switched in one place
@@ -279,6 +287,20 @@ function AnnotationBar({
     <div style={{ ...tbRow, background: '#fff', borderBottom: '1px solid #eee' }}>
       <div style={{ display: 'flex', gap: 2 }}>
         {TOOLS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => activate(t.id)}
+            title={t.title}
+            style={toolBtn(activeToolId === t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <Divider />
+      {/* markup: created by selecting text with the tool active */}
+      <div style={{ display: 'flex', gap: 2 }}>
+        {MARKUP_TOOLS.map((t) => (
           <button
             key={t.id}
             onClick={() => activate(t.id)}
@@ -333,7 +355,8 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
 
   const hasSel = annoSelected.length > 0;
   const isDrawTool = DRAW_TOOLS.has(activeToolId);
-  const editing = hasSel || isDrawTool;
+  const isMarkupTool = MARKUP_SUBTYPES.has(activeToolId);
+  const editing = hasSel || isDrawTool || isMarkupTool;
 
   const head = (
     <header style={annoSidebarHead}>
@@ -362,6 +385,71 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
 
   const toolDefaults = annotation.currentDefaults(activeToolId);
   const first = selItems[0];
+
+  // Text markup: anchored to text — a single colour + opacity, no stroke/fill/box.
+  const isMarkup = hasSel ? first?.geom.t === 'quads' : isMarkupTool;
+  if (isMarkup) {
+    const color =
+      (hasSel ? (first?.style.fillColor ?? first?.style.strokeColor) : undefined) ??
+      toolDefaults.style.fillColor ??
+      toolDefaults.style.strokeColor ??
+      '#ffe16a';
+    const opacity = (hasSel ? first?.style.opacity : undefined) ?? toolDefaults.style.opacity ?? 1;
+    const setMarkupColor = (c: string) =>
+      hasSel
+        ? annotation.setStyle({ strokeColor: c, fillColor: c })
+        : annotation.setDefaults(activeToolId, { style: { strokeColor: c, fillColor: c } });
+    const setMarkupOpacity = (o: number) =>
+      hasSel
+        ? annotation.setStyle({ opacity: o })
+        : annotation.setDefaults(activeToolId, { style: { opacity: o } });
+    return (
+      <aside style={annoSidebar}>
+        {head}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 12 }}>
+          <SideField label="color" title="markup colour">
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setMarkupColor(e.target.value)}
+              style={{
+                width: 36,
+                height: 24,
+                padding: 0,
+                border: '1px solid #ccc',
+                borderRadius: 4,
+              }}
+            />
+          </SideField>
+          <SideField label="opacity" title="opacity (0.1–1)">
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={opacity}
+              onChange={(e) => setMarkupOpacity(Number(e.target.value))}
+              style={{ width: '100%' }}
+            />
+          </SideField>
+          {hasSel ? (
+            <button
+              onClick={() => annotation.deleteSelection()}
+              title="delete selected"
+              style={{ ...tbBtn, color: '#c0322b', borderColor: '#e3b3b0' }}
+            >
+              🗑 Delete selection
+            </button>
+          ) : (
+            <p style={{ margin: 0, color: '#999', fontSize: 11, lineHeight: 1.5 }}>
+              Select text on the page to {activeToolId} it.
+            </p>
+          )}
+        </div>
+      </aside>
+    );
+  }
+
   const strokeColor =
     (hasSel ? first?.style.strokeColor : undefined) ?? toolDefaults.style.strokeColor;
   const strokeWidth =

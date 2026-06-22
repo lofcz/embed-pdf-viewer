@@ -1,14 +1,28 @@
 import { geomBounds, geomHandles, geomHit } from './geometry';
-import { EDITABLE_SUBTYPES, type Annot, type Cursor, type Id, type Model, type Vec } from './types';
+import { capsFor } from './kinds';
+import { type Annot, type Cursor, type Id, type Model, type Vec } from './types';
 
 export type Target =
   | { t: 'handle'; id: Id; handle: string; cursor: Cursor }
   | { t: 'annot'; id: Id }
   | { t: 'empty' };
 
-export const isEditable = (m: Model, id: Id): boolean => {
+/** Can this annotation be clicked to select? (locked overrides all caps.) */
+export const isSelectable = (m: Model, id: Id): boolean => {
   const a = m.byId[id];
-  return !!a && !a.locked && EDITABLE_SUBTYPES.has(a.subtype);
+  return !!a && !a.locked && capsFor(a.subtype).selectable;
+};
+
+/** Can this annotation be dragged by its body to move? */
+export const canMove = (m: Model, id: Id): boolean => {
+  const a = m.byId[id];
+  return !!a && !a.locked && capsFor(a.subtype).movable;
+};
+
+/** Does this kind expose drag handles (box resize OR per-vertex)? */
+const hasHandles = (subtype: string): boolean => {
+  const c = capsFor(subtype);
+  return c.resizable || c.vertexEditable;
 };
 
 const isFilled = (a: Annot): boolean => a.style.fillColor != null || a.geom.t === 'quads';
@@ -32,9 +46,9 @@ export function hitTest(
   handleTol: number,
   strokeMargin: number,
 ): Target {
-  if (m.selected.length === 1 && isEditable(m, m.selected[0])) {
+  if (m.selected.length === 1 && isSelectable(m, m.selected[0])) {
     const a = m.byId[m.selected[0]];
-    if (a.pon === pon) {
+    if (a.pon === pon && hasHandles(a.subtype)) {
       for (const h of geomHandles(a.geom)) {
         if (Math.abs(h.at.x - p.x) <= handleTol && Math.abs(h.at.y - p.y) <= handleTol) {
           return { t: 'handle', id: a.id, handle: h.id, cursor: h.cursor };
@@ -45,10 +59,14 @@ export function hitTest(
   for (let i = m.order.length - 1; i >= 0; i--) {
     const id = m.order[i];
     const a = m.byId[id];
-    if (!a || a.pon !== pon || !isEditable(m, id)) continue;
-    const hit = m.selected.includes(id)
-      ? inBounds(a, p)
-      : geomHit(a.geom, p, strokeMargin, isFilled(a), a.style.strokeWidth);
+    if (!a || a.pon !== pon || !isSelectable(m, id)) continue;
+    // A SELECTED annotation is sticky-grabbable from anywhere in its bounds, but
+    // only if it can actually move; otherwise it's grabbed on its stroke/fill like
+    // an unselected one (so a selectable-but-anchored kind still re-selects cleanly).
+    const hit =
+      m.selected.includes(id) && canMove(m, id)
+        ? inBounds(a, p)
+        : geomHit(a.geom, p, strokeMargin, isFilled(a), a.style.strokeWidth);
     if (hit) return { t: 'annot', id };
   }
   return { t: 'empty' };
@@ -64,6 +82,6 @@ export function cursorAt(
 ): Cursor | null {
   const t = hitTest(m, pon, p, handleTol, strokeMargin);
   if (t.t === 'handle') return t.cursor;
-  if (t.t === 'annot') return m.selected.includes(t.id) ? 'move' : 'pointer';
+  if (t.t === 'annot') return m.selected.includes(t.id) && canMove(m, t.id) ? 'move' : 'pointer';
   return null;
 }

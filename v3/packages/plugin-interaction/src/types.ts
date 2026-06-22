@@ -83,6 +83,9 @@ export interface InteractionCapability {
   tools(): Tool[];
   // ── tool intents ──
   activateTool(id: ToolId): void;
+  /** Fires after the active tool changes — lets a feature react (e.g. a markup
+   *  tool taking over the selection visual). Returns an unsubscribe fn. */
+  onToolChange(cb: () => void): () => void;
   // ── registries (return an unregister fn) ──
   registerTool(tool: Tool): () => void;
   registerHandler(handler: InteractionHandler): () => void;

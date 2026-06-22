@@ -30,15 +30,6 @@ export type Subtype =
   | 'polyline'
   | (string & {});
 
-/** Kinds the v3 plugin can geometry-edit today (the rest render baked, read-only). */
-export const EDITABLE_SUBTYPES: ReadonlySet<string> = new Set([
-  'square',
-  'circle',
-  'line',
-  'polygon',
-  'polyline',
-]);
-
 /**
  * Content-space geometry — the ONE thing hit-testing, editing, and rendering work
  * on. A small closed union covers every kind: shapes (rect/ellipse), line,
@@ -90,6 +81,16 @@ export interface Annot {
   style: Style;
   locked: boolean;
   source: 'baked' | 'vector';
+  /**
+   * Relationship to another annotation. `irt` ("in reply to") links a child to a
+   * parent — a reply in a comment thread, or a caret bound to its strikeout in a
+   * replace-text pair. `group` ties a set into one composite unit (created and,
+   * typically, deleted together). Both are unused until comments / replace-text
+   * land, but the field lives here from the start so select/delete/persistence
+   * never have to be retrofitted around it.
+   */
+  irt?: Id;
+  group?: string;
 }
 
 /** A draggable handle: a resize corner/edge (rect) or a vertex (line/poly). */
@@ -113,11 +114,20 @@ export type Draft =
   | { g: 'handle'; id: Id; handle: string; base: Geom; cur: Geom }
   | { g: 'marquee'; pon: PageObjectNumber; from: Vec; to: Vec };
 
+/** A live text-markup preview (the in-progress selection rendered as the markup it
+ *  will become). Per page, since a selection can span pages. */
+export interface MarkupPreview {
+  subtype: Subtype;
+  byPage: Record<number, Quad[]>;
+}
+
 export interface Model {
   byId: Record<Id, Annot>;
   order: Id[];
   selected: Id[];
   draft: Draft | null;
+  /** Transient ghost of an in-progress markup selection (null when idle). */
+  preview: MarkupPreview | null;
   seq: number;
   /** The base style new annotations inherit (per-tool `defaults` layer on top). */
   style: Style;
@@ -136,6 +146,12 @@ export interface PointerInput {
 export type Msg =
   | { t: 'editPointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
   | { t: 'createPointer'; phase: 'down' | 'move' | 'up'; subtype: Subtype; in: PointerInput }
+  // text markup: build one annotation from the selected text's per-line rects (the
+  // `text-selection` create gesture). One message per page the selection covers.
+  | { t: 'createMarkup'; subtype: Subtype; pon: PageObjectNumber; rects: Rect[] }
+  // live markup preview (the selection rendered as the markup it will become)
+  | { t: 'setMarkupPreview'; subtype: Subtype; rectsByPage: Record<number, Rect[]> }
+  | { t: 'clearMarkupPreview' }
   | { t: 'deselect' }
   | { t: 'setStyle'; patch: Partial<Style> }
   | { t: 'setEndings'; patch: Partial<LineEndings> }
@@ -180,6 +196,34 @@ export type RenderNode =
   | { kind: 'poly'; points: Vec[]; closed: boolean }
   // a precomputed closed path (cloudy border) — `d` is SVG data in content space
   | { kind: 'path'; d: string };
+
+/**
+ * How to paint one node. The pure core fills this in (per kind/subtype), and a
+ * framework renderer applies it verbatim — so ALL appearance logic (markup fill vs
+ * stroke, blend, dash, derived widths) lives once, in the portable core, not in
+ * every framework. Omitted `fill`/`stroke` mean none.
+ */
+export interface Paint {
+  fill?: string;
+  stroke?: string;
+  width?: number; // stroke width (content units)
+  opacity?: number;
+  dash?: number[]; // stroke dash (content units)
+  blend?: 'multiply'; // mix-blend-mode (text-highlight)
+}
+
+/**
+ * A fully-painted draw node: geometry + paint. `scene(item)` returns these and a
+ * per-framework painter maps each to ONE element, applying `paint` — the entire
+ * surface a new framework renderer must implement. Supersedes the geometry-only
+ * `RenderNode` for rendering; `geomScene` stays the internal geometry helper.
+ */
+export type SceneNode =
+  | { kind: 'rect'; rect: Rect; paint: Paint }
+  | { kind: 'ellipse'; rect: Rect; paint: Paint }
+  | { kind: 'line'; a: Vec; b: Vec; paint: Paint }
+  | { kind: 'poly'; points: Vec[]; closed: boolean; paint: Paint }
+  | { kind: 'path'; d: string; paint: Paint };
 
 export type ChromeNode =
   | { kind: 'outline'; rect: Rect }

@@ -30,6 +30,7 @@ export function createInteractionCapability(
   for (const t of builtinTools) tools.set(t.id, t);
   const handlers: InteractionHandler[] = [];
   const claims = new Map<string, Claim>();
+  const toolCbs = new Set<() => void>();
   let owner: InteractionHandler | null = null;
 
   const toolOf = (id: ToolId): Tool =>
@@ -63,6 +64,12 @@ export function createInteractionCapability(
       claims.clear(); // drop the previous tool's hover claims; handlers re-claim on next hover
       ctx.dispatch({ type: 'SET_TOOL', toolId: id });
       syncCursor();
+      toolCbs.forEach((cb) => cb());
+    },
+
+    onToolChange: (cb) => {
+      toolCbs.add(cb);
+      return () => toolCbs.delete(cb);
     },
 
     registerTool: (tool) => {

@@ -1,15 +1,17 @@
 import { definePlugin } from '@embedpdf-x/kernel';
 import { InteractionToken } from '@embedpdf-x/plugin-interaction';
+import { SelectionToken } from '@embedpdf-x/plugin-selection';
 import { createAnnotationCapability } from './capability';
 import { createDrawHandler, createEditHandler } from './handler';
+import { wireMarkup } from './markup';
 import { annotationReducer, initialAnnotationState } from './reducer';
 import { AnnotationToken } from './types';
 import type { AnnotationAction, AnnotationCapability, AnnotationState } from './types';
 
 /**
- * The annotation plugin. Document-scoped, requires the interaction hub. In `init`
- * it registers the draw tools (`square`/`circle`) and two handlers: ambient
- * editing (enabled in pointer + pan) and drawing (enabled by the draw tools).
+ * The annotation plugin. Document-scoped; requires the interaction hub and
+ * OPTIONALLY uses the selection plugin. Shapes/ink work with no selection; text
+ * markup lights up only when a selection plugin is present.
  */
 export const annotationPlugin = () =>
   definePlugin<AnnotationState, AnnotationAction, AnnotationCapability>({
@@ -17,28 +19,25 @@ export const annotationPlugin = () =>
     token: AnnotationToken,
     scope: 'document',
     requires: [InteractionToken],
+    optional: [SelectionToken],
     initialState: initialAnnotationState,
     reduce: annotationReducer,
     capability: createAnnotationCapability,
     init: (ctx) => {
       const interaction = ctx.get(InteractionToken);
       const annotation = ctx.get(AnnotationToken);
-      interaction.registerTool({
-        id: 'square',
-        cursor: 'crosshair',
-        enables: new Set(['annotation-draw', 'annotation-edit']),
-      });
-      interaction.registerTool({
-        id: 'circle',
-        cursor: 'crosshair',
-        enables: new Set(['annotation-draw', 'annotation-edit']),
-      });
-      interaction.registerTool({
-        id: 'line',
-        cursor: 'crosshair',
-        enables: new Set(['annotation-draw', 'annotation-edit']),
-      });
+      for (const id of ['square', 'circle', 'line']) {
+        interaction.registerTool({
+          id,
+          cursor: 'crosshair',
+          enables: new Set(['annotation-draw', 'annotation-edit']),
+        });
+      }
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
+
+      // Markup is opt-in: only when a selection plugin is installed.
+      const selection = ctx.tryGet(SelectionToken);
+      if (selection) wireMarkup(annotation, selection, interaction);
     },
   });
