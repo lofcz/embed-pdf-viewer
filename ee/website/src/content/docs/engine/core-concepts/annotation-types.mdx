@@ -272,6 +272,27 @@ embedding:
   top-aligned in the box.
 </Callout>
 
+## Caret
+
+A `caret` marks a place in the text — typically where something should be inserted or
+where an edit was made. It's the simplest annotation: just a position (`rect`), a color,
+and an opacity.
+
+```ts
+await page.annotations.create({
+  subtype: 'caret',
+  rect: { left: 50, bottom: 700, right: 90, top: 730 },
+  color: { r: 0, g: 0, b: 255 },
+});
+```
+
+| Field | What it is | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `rect` | Where the caret sits | yes | — |
+| `color` | Caret color | no | red |
+| `opacity` | Transparency `0`–`1` | no | `1` |
+| `rectDifferences` | Inset of the drawn caret from `rect` | no | none |
+
 ## Cloudy borders
 
 `square`, `circle`, and `polygon` support a cloudy (scalloped) border instead of a
@@ -298,9 +319,9 @@ Higher values mean bigger scallops. `cloudyIntensity` only affects the outline; 
 
 ## Rectangle differences
 
-`square`, `circle`, and `free-text` accept an optional `rectDifferences` — the gap, in
-points, between the `rect` you pass and where the shape (or text box) is actually drawn.
-It's four non-negative insets, one per edge:
+`square`, `circle`, `free-text`, and `caret` accept an optional `rectDifferences` — the
+gap, in points, between the `rect` you pass and where the shape (or text box) is actually
+drawn. It's four non-negative insets, one per edge:
 
 ```ts
 rectDifferences: { left: 6, top: 6, right: 6, bottom: 6 } // drawn 6pt inside rect on every side

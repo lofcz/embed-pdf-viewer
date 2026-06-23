@@ -6,6 +6,7 @@ import type {
 import type {
   AnnotationDraft,
   AnnotationPatch,
+  CaretDraft,
   CircleDraft,
   FreeTextDraft,
   HighlightDraft,
@@ -536,6 +537,57 @@ export function runAnnotationMutationConformance(
           before.pageState.revision.generation,
         );
         expect(result.meta.weakRefsInvalidated).toBe(false);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('create + update a caret round-trips color/opacity/rect differences', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+
+        const caretDraft: CaretDraft = {
+          subtype: 'caret',
+          contents: 'mutation conformance: caret',
+          rect: shapeRect,
+          color: { r: 0, g: 128, b: 255 },
+          opacity: 0.7,
+          rectDifferences: { left: 2, top: 2, right: 2, bottom: 2 },
+        };
+        const caret = await page.annotations.create(caretDraft);
+        expect(AnnotationCreateResultSchema.safeParse(caret).success).toBe(true);
+        expect(caret.created.subtype).toBe('caret');
+        expect(caret.created.identityQuality).toBe('durable');
+        expect(caret.created.ref.kind).toBe('objectNumber');
+        if (caret.created.subtype === 'caret') {
+          expect(caret.created.color).toMatchObject({ r: 0, g: 128, b: 255 });
+          expect(Math.round(caret.created.opacity * 100) / 100).toBe(0.7);
+          // Caret carries no border or quads.
+          expect('strokeWidth' in caret.created).toBe(false);
+          expect('quadPoints' in caret.created).toBe(false);
+          expect(caret.created.rectDifferences !== undefined).toBe(true);
+        }
+
+        const before = await page.annotations.list();
+        const result = await page.annotations.update(caret.created.ref, {
+          subtype: 'caret',
+          color: { r: 255, g: 0, b: 0 },
+          rectDifferences: { left: 4, top: 4, right: 4, bottom: 4 },
+        });
+        expect(AnnotationUpdateResultSchema.safeParse(result).success).toBe(true);
+        expect(result.updated.subtype).toBe('caret');
+        if (result.updated.subtype === 'caret') {
+          expect(result.updated.color).toMatchObject({ r: 255, g: 0, b: 0 });
+        }
+        // Update never bumps the revision.
+        expect(result.meta.affectedPages[0].revision.generation).toBe(
+          before.pageState.revision.generation,
+        );
+        expect(result.meta.weakRefsInvalidated).toBe(false);
+
+        const after = await page.annotations.list();
+        expect(after.annotations.some((a) => a.subtype === 'caret')).toBe(true);
       } finally {
         await doc.close();
       }
@@ -1294,6 +1346,7 @@ function subtypeAwarePatch(subtype: string, newContents: string): AnnotationPatc
     case 'line':
     case 'ink':
     case 'free-text':
+    case 'caret':
       return {
         subtype: subtype as AnnotationPatch['subtype'],
         contents: newContents,

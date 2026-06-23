@@ -6,6 +6,7 @@ import type {
 import { subtypeFromCode } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
+import { readCaret } from './readCaretAnnotation';
 import { readFreeText } from './readFreeTextAnnotation';
 import { readInk } from './readInkAnnotation';
 import { readLine } from './readLineAnnotation';
@@ -49,6 +50,7 @@ const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationSubtypeRead
   line: readLine,
   ink: readInk,
   'free-text': readFreeText,
+  caret: readCaret,
   unsupported: readUnsupported,
 };
 

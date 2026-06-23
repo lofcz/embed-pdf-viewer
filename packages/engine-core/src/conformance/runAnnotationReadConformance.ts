@@ -43,6 +43,8 @@ export interface AnnotationReadConformanceFixture extends ConformanceFixture {
   minInkCount?: number;
   /** At least this many `'free-text'` annotations on the page. Defaults to 0. */
   minFreeTextCount?: number;
+  /** At least this many `'caret'` annotations on the page. Defaults to 0. */
+  minCaretCount?: number;
   /**
    * `true` if the fixture has at least one weak annotation (no /NM, direct
    * object). Drives the weak-ref + revision tests.
@@ -111,6 +113,8 @@ export function runAnnotationReadConformance(
         expect(inks.length >= (opts.fixture.minInkCount ?? 0)).toBe(true);
         const freeTexts = snap.annotations.filter((a) => a.subtype === 'free-text');
         expect(freeTexts.length >= (opts.fixture.minFreeTextCount ?? 0)).toBe(true);
+        const carets = snap.annotations.filter((a) => a.subtype === 'caret');
+        expect(carets.length >= (opts.fixture.minCaretCount ?? 0)).toBe(true);
       } finally {
         await doc.close();
       }
@@ -146,6 +150,14 @@ export function runAnnotationReadConformance(
             if (a.intent === 'free-text-callout' && a.calloutLine) {
               expect(a.calloutLine.length === 2 || a.calloutLine.length === 3).toBe(true);
             }
+            continue;
+          }
+          // Caret: color-only style (/C, /CA) + optional /RD, no border/quads.
+          if (a.subtype === 'caret') {
+            expect(a.color !== undefined && a.color !== null).toBe(true);
+            expect(typeof a.opacity).toBe('number');
+            expect('strokeWidth' in a).toBe(false);
+            expect('quadPoints' in a).toBe(false);
             continue;
           }
           // Every stroke/fill family member shares this styling surface.

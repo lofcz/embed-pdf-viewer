@@ -6,7 +6,7 @@
  * Layout:
  *   1 0 obj  Catalog -> Pages
  *   2 0 obj  Pages tree (Kids [3 0 R], Count 1)
- *   3 0 obj  Page with /Annots [4..13 0 R <<direct>>]
+ *   3 0 obj  Page with /Annots [4..16 0 R <<direct>>]
  *   4 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
  *   5 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
  *   6 0 obj  Ink       (indirect, /InkList + /C)  -> subtype = ink
@@ -19,6 +19,7 @@
  *  13 0 obj  Screen    (indirect)                 -> subtype = unsupported
  *  14 0 obj  FreeText  (indirect, /DA + /Q + /C)  -> subtype = free-text
  *  15 0 obj  FreeText  (indirect, /IT callout+/CL)-> subtype = free-text (callout)
+ *  16 0 obj  Caret     (indirect, /C + /CA + /RD) -> subtype = caret
  *   direct   Highlight (direct dict in /Annots)   -> ref.kind = index, identity = weak
  *
  * The direct-object annotation is the only way to get an
@@ -52,7 +53,7 @@ const directAnnot = `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [100 100 200 1
 
 addObject(
   3,
-  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R ${directAnnot}]\n>>`,
+  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R 16 0 R ${directAnnot}]\n>>`,
 );
 
 addObject(
@@ -124,6 +125,12 @@ addObject(
 addObject(
   15,
   `<<\n/Type /Annot\n/Subtype /FreeText\n/Rect [280 600 460 660]\n/DA (/Helv 12 Tf 0 0 0 rg)\n/Q 0\n/IT /FreeTextCallout\n/CL [265 605 320 630 280 640]\n/LE [/None /OpenArrow]\n/BS << /W 1 /S /S >>\n/F 4\n/Contents (callout 1)\n>>`,
+);
+
+// Caret: blue /C, full opacity, small /RD inset of the drawn symbol from /Rect.
+addObject(
+  16,
+  `<<\n/Type /Annot\n/Subtype /Caret\n/Rect [50 700 90 730]\n/C [0 0 1]\n/CA 1\n/RD [2 2 2 2]\n/F 4\n/Contents (caret 1)\n>>`,
 );
 
 const buf = [];

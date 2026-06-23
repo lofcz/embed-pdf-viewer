@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { AnnotationKindModule } from '../registry';
+import { CaretKind } from './caret';
 import { CircleKind } from './circle';
 import { FreeTextKind } from './free-text';
 import { HighlightKind } from './highlight';
@@ -25,6 +26,7 @@ export * from './polyline';
 export * from './line';
 export * from './ink';
 export * from './free-text';
+export * from './caret';
 export * from './unsupported';
 export * from './text-markup.shared';
 export * from './shape.shared';
@@ -57,6 +59,7 @@ export const ANNOTATION_KINDS = [
   LineKind,
   InkKind,
   FreeTextKind,
+  CaretKind,
   UnsupportedKind,
 ] as const;
 
@@ -114,6 +117,7 @@ export const AnnotationDTOSchema: z.ZodType<AnnotationDTO> = z.discriminatedUnio
   LineKind.dtoSchema,
   InkKind.dtoSchema,
   FreeTextKind.dtoSchema,
+  CaretKind.dtoSchema,
   UnsupportedKind.dtoSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
@@ -132,6 +136,7 @@ export const AnnotationDraftSchema: z.ZodType<AnnotationDraft> = z.discriminated
   LineKind.draftSchema,
   InkKind.draftSchema,
   FreeTextKind.draftSchema,
+  CaretKind.draftSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
   ...z.ZodDiscriminatedUnionOption<'subtype'>[],
@@ -149,6 +154,7 @@ export const AnnotationPatchSchema: z.ZodType<AnnotationPatch> = z.discriminated
   LineKind.patchSchema,
   InkKind.patchSchema,
   FreeTextKind.patchSchema,
+  CaretKind.patchSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
   ...z.ZodDiscriminatedUnionOption<'subtype'>[],
