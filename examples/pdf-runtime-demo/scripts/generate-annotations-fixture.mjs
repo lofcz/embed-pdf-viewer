@@ -17,6 +17,8 @@
  *  11 0 obj  Polyline  (indirect, /Vertices + /LE)-> subtype = polyline
  *  12 0 obj  Line      (indirect, /L + /LE)       -> subtype = line
  *  13 0 obj  Screen    (indirect)                 -> subtype = unsupported
+ *  14 0 obj  FreeText  (indirect, /DA + /Q + /C)  -> subtype = free-text
+ *  15 0 obj  FreeText  (indirect, /IT callout+/CL)-> subtype = free-text (callout)
  *   direct   Highlight (direct dict in /Annots)   -> ref.kind = index, identity = weak
  *
  * The direct-object annotation is the only way to get an
@@ -50,7 +52,7 @@ const directAnnot = `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [100 100 200 1
 
 addObject(
   3,
-  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R ${directAnnot}]\n>>`,
+  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R ${directAnnot}]\n>>`,
 );
 
 addObject(
@@ -108,6 +110,20 @@ addObject(
 addObject(
   13,
   `<<\n/Type /Annot\n/Subtype /Screen\n/Rect [400 300 500 360]\n/F 4\n/Contents (screen 1)\n>>`,
+);
+
+// FreeText (plain): /DA (Helvetica 14, dark blue text+border), centered (/Q 1),
+// light-yellow /C background, 1pt solid /BS. /IT FreeText.
+addObject(
+  14,
+  `<<\n/Type /Annot\n/Subtype /FreeText\n/Rect [50 600 220 660]\n/DA (/Helv 14 Tf 0.0784 0.1569 0.2353 rg)\n/Q 1\n/IT /FreeText\n/C [0.98 0.98 0.82]\n/CA 1\n/BS << /W 1 /S /S >>\n/F 4\n/Contents (free text 1)\n>>`,
+);
+
+// FreeText (callout): /IT FreeTextCallout, knee-jointed /CL leader, open-arrow
+// /LE ending, transparent (no /C) background, black /DA text+border.
+addObject(
+  15,
+  `<<\n/Type /Annot\n/Subtype /FreeText\n/Rect [280 600 460 660]\n/DA (/Helv 12 Tf 0 0 0 rg)\n/Q 0\n/IT /FreeTextCallout\n/CL [265 605 320 630 280 640]\n/LE [/None /OpenArrow]\n/BS << /W 1 /S /S >>\n/F 4\n/Contents (callout 1)\n>>`,
 );
 
 const buf = [];

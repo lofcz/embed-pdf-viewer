@@ -41,6 +41,8 @@ export interface AnnotationReadConformanceFixture extends ConformanceFixture {
   minLineCount?: number;
   /** At least this many `'ink'` annotations on the page. Defaults to 0. */
   minInkCount?: number;
+  /** At least this many `'free-text'` annotations on the page. Defaults to 0. */
+  minFreeTextCount?: number;
   /**
    * `true` if the fixture has at least one weak annotation (no /NM, direct
    * object). Drives the weak-ref + revision tests.
@@ -107,6 +109,8 @@ export function runAnnotationReadConformance(
         expect(lines.length >= (opts.fixture.minLineCount ?? 0)).toBe(true);
         const inks = snap.annotations.filter((a) => a.subtype === 'ink');
         expect(inks.length >= (opts.fixture.minInkCount ?? 0)).toBe(true);
+        const freeTexts = snap.annotations.filter((a) => a.subtype === 'free-text');
+        expect(freeTexts.length >= (opts.fixture.minFreeTextCount ?? 0)).toBe(true);
       } finally {
         await doc.close();
       }
@@ -129,6 +133,19 @@ export function runAnnotationReadConformance(
             expect(a.inkList.length >= 1).toBe(true);
             expect(Array.isArray(a.inkList[0])).toBe(true);
             expect(a.inkList[0]!.length >= 1).toBe(true);
+            continue;
+          }
+          // Free text: text fields (/DA) + nullable /C background + intent.
+          if (a.subtype === 'free-text') {
+            expect(typeof a.fontFamily).toBe('string');
+            expect(typeof a.fontSize).toBe('number');
+            expect(typeof a.textAlign).toBe('string');
+            expect(a.color !== undefined && a.color !== null).toBe(true);
+            expect('interiorColor' in a).toBe(true);
+            expect(a.intent === 'free-text' || a.intent === 'free-text-callout').toBe(true);
+            if (a.intent === 'free-text-callout' && a.calloutLine) {
+              expect(a.calloutLine.length === 2 || a.calloutLine.length === 3).toBe(true);
+            }
             continue;
           }
           // Every stroke/fill family member shares this styling surface.

@@ -16,6 +16,12 @@ import {
   setBorderStyle,
 } from './annotationWritePrimitives';
 
+/** The `/BS` (border) subset shared by every kind that draws a border. */
+export type BorderDraftFields = Pick<
+  GeometryStyleDraftFields,
+  'strokeWidth' | 'borderStyle' | 'dashArray'
+>;
+
 /**
  * Defaults applied when a draft omits a styling field. Shared by every
  * geometric family (shape/vertex/line/ink) so circle, square, polygon,
@@ -41,6 +47,21 @@ export function applyGeometryStyleDraft(
 ): void {
   setAnnotColor(fn, annotPtr, draft.color ?? DEFAULT_COLOR);
   setAnnotOpacity(fn, annotPtr, draft.opacity ?? DEFAULT_OPACITY);
+  applyBorderDraft(fn, mem, annotPtr, draft);
+}
+
+/**
+ * Write the `/BS` border (style + width, then dash) from a draft. This is
+ * the border-only slice of {@link applyGeometryStyleDraft}, shared with the
+ * free-text box border (which manages `/C` and `/DA` itself). A missing
+ * `borderStyle`/`strokeWidth` falls back to a 1pt solid border.
+ */
+export function applyBorderDraft(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  draft: BorderDraftFields,
+): void {
   setBorderStyle(
     fn,
     annotPtr,
@@ -70,6 +91,22 @@ export function applyGeometryStylePatch(
   if (patch.opacity !== undefined) {
     setAnnotOpacity(fn, annotPtr, patch.opacity);
   }
+  applyBorderPatch(fn, mem, annotPtr, patch);
+}
+
+/**
+ * Write the `/BS` border from a patch, touching only present fields. Border
+ * style + width share the single `EPDFAnnot_SetBorderStyle` call, so when
+ * only one is patched we read the current pair first and preserve the other.
+ * The border-only slice of {@link applyGeometryStylePatch}, shared with the
+ * free-text box border.
+ */
+export function applyBorderPatch(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  patch: BorderDraftFields,
+): void {
   if (patch.borderStyle !== undefined || patch.strokeWidth !== undefined) {
     const current = readBorderStyle(fn, mem, annotPtr);
     const style = patch.borderStyle ?? borderStyleFromCode(current.styleCode);

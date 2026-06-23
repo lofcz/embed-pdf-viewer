@@ -15,6 +15,7 @@ export type {
   LinePoints,
   InkStroke,
   InkList,
+  CalloutLine,
 } from './primitives';
 export type { PdfOriginSize, PdfQuadCorners } from './convert';
 export {

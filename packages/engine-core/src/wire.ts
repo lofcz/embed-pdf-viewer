@@ -136,6 +136,7 @@ export {
   PdfRotationSchema,
   LinePointsSchema,
   InkListSchema,
+  CalloutLineSchema,
 } from './geometry/schemas';
 
 export {
@@ -151,6 +152,9 @@ export {
   LineEndingsSchema,
   AnnotationBorderStyleSchema,
   PdfRectDifferencesSchema,
+  StandardFontSchema,
+  TextAlignmentSchema,
+  FreeTextIntentSchema,
   AnnotationBaseShape,
   AnnotationDraftBaseShape,
   AnnotationPatchBaseShape,
@@ -192,6 +196,9 @@ export {
   InkDTOSchema,
   InkDraftSchema,
   InkPatchSchema,
+  FreeTextDTOSchema,
+  FreeTextDraftSchema,
+  FreeTextPatchSchema,
   UnsupportedDTOSchema,
   UnsupportedDraftSchema,
   UnsupportedPatchSchema,

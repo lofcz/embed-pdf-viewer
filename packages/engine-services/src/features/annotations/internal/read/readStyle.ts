@@ -1,4 +1,9 @@
-import type { Color, FilledStyleFields, GeometryStyleFields } from '@embedpdf/engine-core/runtime';
+import type {
+  AnnotationBorderStyle,
+  Color,
+  FilledStyleFields,
+  GeometryStyleFields,
+} from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
 import { FPDFANNOT_COLORTYPE } from '../colorType';
@@ -16,6 +21,32 @@ import {
  */
 const DEFAULT_COLOR: Color = { r: 255, g: 0, b: 0 };
 
+/** The `/BS` border fields shared by every kind that draws a border. */
+export interface BorderFields {
+  strokeWidth: number;
+  borderStyle: AnnotationBorderStyle;
+  dashArray?: number[];
+}
+
+/**
+ * Shared reader for the `/BS` border (style + width + dash). The border-only
+ * slice of {@link readGeometryStyleExtras}, reused by the free-text box
+ * border (which reads `/C` and `/DA` itself).
+ */
+export function readBorderFields(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): BorderFields {
+  const { styleCode, width } = readBorderStyle(fn, mem, annotPtr);
+  const dashArray = readBorderDashPattern(fn, mem, annotPtr);
+  return {
+    strokeWidth: width,
+    borderStyle: borderStyleFromCode(styleCode),
+    ...(dashArray.length > 0 ? { dashArray } : {}),
+  };
+}
+
 /**
  * Shared reader for the geometry styling (`/C`, `/CA`, `/BS`, dash) — the
  * no-fill layer shared by ink and the filled families. Family readers layer
@@ -32,15 +63,11 @@ export function readGeometryStyleExtras(
   };
   const ca = readAnnotOpacity(fn, mem, annotPtr);
   const opacity = ca == null ? 1 : Math.max(0, Math.min(1, ca));
-  const { styleCode, width } = readBorderStyle(fn, mem, annotPtr);
-  const dashArray = readBorderDashPattern(fn, mem, annotPtr);
 
   return {
     color,
     opacity,
-    strokeWidth: width,
-    borderStyle: borderStyleFromCode(styleCode),
-    ...(dashArray.length > 0 ? { dashArray } : {}),
+    ...readBorderFields(fn, mem, annotPtr),
   };
 }
 

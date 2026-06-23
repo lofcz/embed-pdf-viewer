@@ -6,6 +6,7 @@
 import { z } from 'zod';
 
 import type {
+  CalloutLine,
   InkList,
   LinePoints,
   PdfPoint,
@@ -24,6 +25,12 @@ export const LinePointsSchema: z.ZodType<LinePoints> = z.object({
   start: PdfPointSchema,
   end: PdfPointSchema,
 });
+
+/** `/CL` callout leader line — two points (straight) or three (knee-jointed). */
+export const CalloutLineSchema: z.ZodType<CalloutLine> = z.union([
+  z.tuple([PdfPointSchema, PdfPointSchema]),
+  z.tuple([PdfPointSchema, PdfPointSchema, PdfPointSchema]),
+]);
 
 /** `/InkList` — an array of strokes, each an array of points. */
 export const InkListSchema: z.ZodType<InkList> = z.array(z.array(PdfPointSchema));

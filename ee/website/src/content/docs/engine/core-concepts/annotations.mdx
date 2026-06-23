@@ -112,6 +112,13 @@ await page.annotations.update(note.ref, {
 When you omit a styling field, the engine uses a sensible default: a 1pt solid red
 stroke at full opacity.
 
+<Callout type="info">
+  Free text is the one exception to "`color` = stroke": there `color` is the border **and**
+  the text color, `interiorColor` is the box background, and an optional `fontColor`
+  overrides just the text. See
+  [Free text and callout](/docs/engine/core-concepts/annotation-types#free-text-and-callout).
+</Callout>
+
 ## Flags
 
 Every annotation has the standard PDF flags. Set only the ones you care about — the rest

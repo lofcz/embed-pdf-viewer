@@ -281,6 +281,85 @@ export function readLineEndings(
 }
 
 /**
+ * Read the `/DA` default appearance (font + size + colour) of a free-text
+ * annotation via `EPDFAnnot_GetDefaultAppearance` (font int, size f32, and
+ * r/g/b int out-params). `fontCode` is the raw `FPDF_STANDARD_FONT` enum
+ * value. Returns `null` when the annotation has no `/DA`.
+ */
+export function readDefaultAppearance(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): { fontCode: number; fontSize: number; color: Color } | null {
+  return withScratchN(
+    mem,
+    [I32_BYTES, F32_BYTES, I32_BYTES, I32_BYTES, I32_BYTES],
+    ([font, size, r, g, b]) => {
+      if (!fn.EPDFAnnot_GetDefaultAppearance(annotPtr, font, size, r, g, b)) return null;
+      return {
+        fontCode: readI32(mem, font),
+        fontSize: readF32(mem, size),
+        color: {
+          r: readI32(mem, r) & 0xff,
+          g: readI32(mem, g) & 0xff,
+          b: readI32(mem, b) & 0xff,
+        },
+      };
+    },
+  );
+}
+
+/**
+ * Read the `/Q` text alignment quadding code of a free-text annotation via
+ * `EPDFAnnot_GetTextAlignment`. The code<->string mapping lives in
+ * `textAlignment.ts`; an absent `/Q` reads back as `0` (left).
+ */
+export function readTextAlignment(fn: PdfFunctions, annotPtr: Ptr): number {
+  return fn.EPDFAnnot_GetTextAlignment(annotPtr);
+}
+
+/**
+ * Read the `/IT` intent name via `EPDFAnnot_GetIntent`. Unlike the standard
+ * `FPDFAnnot_GetStringValue` ABI, this getter reports the count of UTF-16
+ * code units (excluding the NUL), so we size the buffer as
+ * `(count + 1) * 2` bytes. Returns `null` when no intent is present.
+ */
+export function readIntent(fn: PdfFunctions, mem: PdfRuntimeMemory, annotPtr: Ptr): string | null {
+  const codeUnits = fn.EPDFAnnot_GetIntent(annotPtr, NULL_PTR, 0);
+  if (codeUnits <= 0) return null;
+  const bytes = (codeUnits + 1) * 2;
+  return withScratch(mem, bytes, (buf) => {
+    fn.EPDFAnnot_GetIntent(annotPtr, buf, bytes);
+    return mem.readU16String(buf);
+  });
+}
+
+/**
+ * Read the `/CL` callout leader line of a free-text callout via
+ * `EPDFAnnot_GetCalloutLineCount` + `EPDFAnnot_GetCalloutLine` (the points
+ * are read into a `count * FS_POINTF` buffer, like {@link readVertices}).
+ * Returns an empty array when there is no callout line.
+ */
+export function readCalloutLine(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+): PdfPoint[] {
+  const count = fn.EPDFAnnot_GetCalloutLineCount(annotPtr);
+  if (count <= 0) return [];
+  return withScratch(mem, count * POINTF_BYTES, (buf) => {
+    const got = fn.EPDFAnnot_GetCalloutLine(annotPtr, buf, count);
+    if (got <= 0) return [];
+    const out: PdfPoint[] = [];
+    for (let i = 0; i < got; i++) {
+      const off = i * POINTF_BYTES;
+      out.push({ x: readF32(mem, buf, off), y: readF32(mem, buf, off + 4) });
+    }
+    return out;
+  });
+}
+
+/**
  * Read attachment points for a text-markup annotation.
  * Each `FS_QUADPOINTSF` is 8 floats = 32 bytes.
  */

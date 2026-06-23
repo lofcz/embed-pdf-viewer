@@ -63,6 +63,39 @@ export interface LineEndings {
 }
 
 /**
+ * The 14 standard PDF fonts a free-text annotation's `/DA` can name. We use
+ * kebab-case so the wire format is stable across language ports; the engine
+ * maps these onto PDFium's `FPDF_STANDARD_FONT` integer codes at write time.
+ */
+export type StandardFont =
+  | 'courier'
+  | 'courier-bold'
+  | 'courier-bold-oblique'
+  | 'courier-oblique'
+  | 'helvetica'
+  | 'helvetica-bold'
+  | 'helvetica-bold-oblique'
+  | 'helvetica-oblique'
+  | 'times-roman'
+  | 'times-bold'
+  | 'times-bold-italic'
+  | 'times-italic'
+  | 'symbol'
+  | 'zapf-dingbats';
+
+/**
+ * Horizontal text alignment (`/Q`) for free-text annotations. Maps onto the
+ * ISO 32000 §12.7.3.3 quadding codes 0/1/2 at write time.
+ */
+export type TextAlignment = 'left' | 'center' | 'right';
+
+/**
+ * Free-text `/IT` intent. `free-text` is a plain text box; `free-text-callout`
+ * adds a `/CL` leader line pointing at the called-out region.
+ */
+export type FreeTextIntent = 'free-text' | 'free-text-callout';
+
+/**
  * Border/line style for shape annotations — the `/BS /S` (border style)
  * subset PDFium can author. Maps onto the ISO 32000 §8.4.3.3 border style
  * names. Cloudy borders are a SEPARATE concern (`/BE` border effect),

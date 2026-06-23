@@ -19,7 +19,7 @@ endobj
 /Parent 2 0 R
 /MediaBox [0 0 612 792]
 /Resources <<>>
-/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R <<
+/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R <<
 /Type /Annot
 /Subtype /Highlight
 /Rect [100 100 200 120]
@@ -155,27 +155,59 @@ endobj
 /Contents (screen 1)
 >>
 endobj
+14 0 obj
+<<
+/Type /Annot
+/Subtype /FreeText
+/Rect [50 600 220 660]
+/DA (/Helv 14 Tf 0.0784 0.1569 0.2353 rg)
+/Q 1
+/IT /FreeText
+/C [0.98 0.98 0.82]
+/CA 1
+/BS << /W 1 /S /S >>
+/F 4
+/Contents (free text 1)
+>>
+endobj
+15 0 obj
+<<
+/Type /Annot
+/Subtype /FreeText
+/Rect [280 600 460 660]
+/DA (/Helv 12 Tf 0 0 0 rg)
+/Q 0
+/IT /FreeTextCallout
+/CL [265 605 320 630 280 640]
+/LE [/None /OpenArrow]
+/BS << /W 1 /S /S >>
+/F 4
+/Contents (callout 1)
+>>
+endobj
 xref
-0 14
+0 16
 0000000000 65535 f 
 0000000015 00000 n 
 0000000064 00000 n 
 0000000121 00000 n 
-0000000434 00000 n 
-0000000631 00000 n 
-0000000805 00000 n 
-0000000946 00000 n 
-0000001110 00000 n 
-0000001260 00000 n 
-0000001410 00000 n 
-0000001598 00000 n 
-0000001808 00000 n 
-0000001992 00000 n 
+0000000448 00000 n 
+0000000645 00000 n 
+0000000819 00000 n 
+0000000960 00000 n 
+0000001124 00000 n 
+0000001274 00000 n 
+0000001424 00000 n 
+0000001612 00000 n 
+0000001822 00000 n 
+0000002006 00000 n 
+0000002108 00000 n 
+0000002322 00000 n 
 trailer
 <<
-/Size 14
+/Size 16
 /Root 1 0 R
 >>
 startxref
-2094
+2554
 %%EOF

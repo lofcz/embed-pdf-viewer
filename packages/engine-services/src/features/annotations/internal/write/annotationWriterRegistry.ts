@@ -5,6 +5,8 @@ import {
   type AnnotationPatch,
 } from '@embedpdf/engine-core/runtime';
 import type {
+  FreeTextDraft,
+  FreeTextPatch,
   InkDraft,
   InkPatch,
   LineDraft,
@@ -16,6 +18,11 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
+import {
+  applyFreeTextDraft,
+  applyFreeTextPatch,
+  isFreeTextSubtype,
+} from './writeFreeTextAnnotation';
 import { applyInkDraft, applyInkPatch, isInkSubtype } from './writeInkAnnotation';
 import { applyLineDraft, applyLinePatch, isLineSubtype } from './writeLineAnnotation';
 import {
@@ -79,6 +86,10 @@ export function applyDraft(
     applyInkDraft(fn, mem, annotPtr, draft as InkDraft);
     return;
   }
+  if (isFreeTextSubtype(draft.subtype)) {
+    applyFreeTextDraft(fn, mem, annotPtr, draft as FreeTextDraft);
+    return;
+  }
   // Should be unreachable: AnnotationDraft is the closed union of writable
   // subtypes (which today is exactly the four text-markup kinds — the
   // unsupported kind has Draft = never). The check is here so a future
@@ -118,6 +129,10 @@ export function applyPatch(
   }
   if (isInkSubtype(patch.subtype)) {
     applyInkPatch(fn, mem, annotPtr, patch as InkPatch);
+    return;
+  }
+  if (isFreeTextSubtype(patch.subtype)) {
+    applyFreeTextPatch(fn, mem, annotPtr, patch as FreeTextPatch);
     return;
   }
   throw new EngineError(

@@ -34,6 +34,7 @@ export type {
   LinePoints,
   InkStroke,
   InkList,
+  CalloutLine,
 } from './geometry';
 export {
   normalizePdfRect,
@@ -117,6 +118,9 @@ export type {
   AnnotationFlags,
   AnnotationBorderStyle,
   PdfRectDifferences,
+  StandardFont,
+  TextAlignment,
+  FreeTextIntent,
 } from './annotation/primitives';
 export { NO_ANNOTATION_FLAGS } from './annotation/primitives';
 
@@ -174,6 +178,9 @@ export type {
   InkAnnotationDTO,
   InkDraft,
   InkPatch,
+  FreeTextAnnotationDTO,
+  FreeTextDraft,
+  FreeTextPatch,
   ShapeAnnotationFields,
   ShapeDraftFields,
   ShapePatchFields,

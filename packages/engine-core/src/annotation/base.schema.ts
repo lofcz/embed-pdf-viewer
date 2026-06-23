@@ -5,9 +5,12 @@ import type {
   AnnotationBorderStyle,
   AnnotationFlags,
   Color,
+  FreeTextIntent,
   LineEnding,
   LineEndings,
   PdfRectDifferences,
+  StandardFont,
+  TextAlignment,
 } from './primitives';
 import { PdfPointSchema, PdfRectSchema, PdfQuadSchema } from '../geometry/schemas';
 import type { AnnotationRef } from '../identity/AnnotationRef';
@@ -56,6 +59,30 @@ export const LineEndingsSchema: z.ZodType<LineEndings> = z.object({
   start: LineEndingSchema,
   end: LineEndingSchema,
 });
+
+export const StandardFontSchema: z.ZodType<StandardFont> = z.enum([
+  'courier',
+  'courier-bold',
+  'courier-bold-oblique',
+  'courier-oblique',
+  'helvetica',
+  'helvetica-bold',
+  'helvetica-bold-oblique',
+  'helvetica-oblique',
+  'times-roman',
+  'times-bold',
+  'times-bold-italic',
+  'times-italic',
+  'symbol',
+  'zapf-dingbats',
+]);
+
+export const TextAlignmentSchema: z.ZodType<TextAlignment> = z.enum(['left', 'center', 'right']);
+
+export const FreeTextIntentSchema: z.ZodType<FreeTextIntent> = z.enum([
+  'free-text',
+  'free-text-callout',
+]);
 
 export const AnnotationFlagsSchema: z.ZodType<AnnotationFlags> = z.object({
   invisible: z.boolean(),

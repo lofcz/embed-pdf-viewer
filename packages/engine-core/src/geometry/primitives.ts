@@ -62,6 +62,15 @@ export type InkStroke = PdfPoint[];
 export type InkList = InkStroke[];
 
 /**
+ * A free-text callout annotation's `/CL` leader line, in PDF user space
+ * (y-up). Two points draw a straight leader (`[knee->end]` collapses to
+ * `[start, end]`); three points draw a knee-jointed leader
+ * (`[start, knee, end]`). The last point is the end that touches the text
+ * box; the first is the point being called out.
+ */
+export type CalloutLine = readonly [PdfPoint, PdfPoint] | readonly [PdfPoint, PdfPoint, PdfPoint];
+
+/**
  * A /QuadPoints quad. The four points are POSITIONAL, in PDFium
  * `FS_QUADPOINTSF` order (PDF 32000 §12.5.6.10): `p1 p2 p3 p4`. Coordinates
  * are PDF user space, y-up.

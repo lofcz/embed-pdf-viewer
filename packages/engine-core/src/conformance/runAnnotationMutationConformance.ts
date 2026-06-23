@@ -7,6 +7,7 @@ import type {
   AnnotationDraft,
   AnnotationPatch,
   CircleDraft,
+  FreeTextDraft,
   HighlightDraft,
   InkDraft,
   LineDraft,
@@ -105,6 +106,16 @@ const DEFAULT_LINE_POINTS: LinePoints = {
   start: { x: 70, y: 70 },
   end: { x: 150, y: 130 },
 };
+
+/**
+ * A knee-jointed callout leader inside DEFAULT_SHAPE_RECT: the called-out
+ * point, a knee, then the point touching the text box.
+ */
+const DEFAULT_CALLOUT_LINE: [PdfPoint, PdfPoint, PdfPoint] = [
+  { x: 65, y: 65 },
+  { x: 90, y: 90 },
+  { x: 110, y: 100 },
+];
 
 /** A single freehand stroke inside DEFAULT_SHAPE_RECT (valid for ink). */
 const DEFAULT_INK_STROKES: InkList = [
@@ -405,6 +416,126 @@ export function runAnnotationMutationConformance(
         expect(subtypes.includes('polyline')).toBe(true);
         expect(subtypes.includes('line')).toBe(true);
         expect(subtypes.includes('ink')).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('create free-text + callout round-trip text/colour/intent fields', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+
+        // Plain free text, no fontColor override => text follows `color`.
+        const freeTextDraft: FreeTextDraft = {
+          subtype: 'free-text',
+          intent: 'free-text',
+          contents: 'mutation conformance: free text',
+          rect: shapeRect,
+          fontFamily: 'helvetica',
+          fontSize: 14,
+          textAlign: 'center',
+          color: { r: 20, g: 40, b: 60 },
+          interiorColor: { r: 250, g: 250, b: 210 },
+          opacity: 1,
+          strokeWidth: 1,
+          borderStyle: 'solid',
+        };
+        const freeText = await page.annotations.create(freeTextDraft);
+        expect(AnnotationCreateResultSchema.safeParse(freeText).success).toBe(true);
+        expect(freeText.created.subtype).toBe('free-text');
+        if (freeText.created.subtype === 'free-text') {
+          expect(freeText.created.intent).toBe('free-text');
+          expect(freeText.created.fontFamily).toBe('helvetica');
+          expect(freeText.created.fontSize).toBe(14);
+          expect(freeText.created.textAlign).toBe('center');
+          expect(freeText.created.color).toMatchObject({ r: 20, g: 40, b: 60 });
+          expect(freeText.created.interiorColor).toMatchObject({ r: 250, g: 250, b: 210 });
+          // No override sent => text follows `color`, so fontColor is omitted.
+          expect(freeText.created.fontColor === undefined).toBe(true);
+        }
+
+        // Callout: intent + /CL leader + /LE ending, explicit fontColor
+        // override, transparent (null) background.
+        const calloutDraft: FreeTextDraft = {
+          subtype: 'free-text',
+          intent: 'free-text-callout',
+          contents: 'mutation conformance: callout',
+          rect: shapeRect,
+          fontFamily: 'times-roman',
+          fontSize: 12,
+          textAlign: 'left',
+          color: { r: 0, g: 0, b: 0 },
+          fontColor: { r: 200, g: 0, b: 0 },
+          interiorColor: null,
+          opacity: 1,
+          strokeWidth: 1,
+          borderStyle: 'solid',
+          calloutLine: DEFAULT_CALLOUT_LINE,
+          lineEnding: 'open-arrow',
+        };
+        const callout = await page.annotations.create(calloutDraft);
+        expect(AnnotationCreateResultSchema.safeParse(callout).success).toBe(true);
+        expect(callout.created.subtype).toBe('free-text');
+        if (callout.created.subtype === 'free-text') {
+          expect(callout.created.intent).toBe('free-text-callout');
+          expect(callout.created.interiorColor).toBe(null);
+          // fontColor differs from color => surfaced as an override.
+          expect(callout.created.fontColor).toMatchObject({ r: 200, g: 0, b: 0 });
+          expect(callout.created.color).toMatchObject({ r: 0, g: 0, b: 0 });
+          expect(callout.created.calloutLine?.length).toBe(DEFAULT_CALLOUT_LINE.length);
+          expect(callout.created.lineEnding).toBe('open-arrow');
+        }
+
+        const after = await page.annotations.list();
+        const freeTexts = after.annotations.filter((a) => a.subtype === 'free-text');
+        expect(freeTexts.length >= 2).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('update a free-text patches alignment + colours and is non-structural', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const created = await page.annotations.create({
+          subtype: 'free-text',
+          intent: 'free-text',
+          contents: 'free-text-update-base',
+          rect: shapeRect,
+          fontFamily: 'helvetica',
+          fontSize: 12,
+          textAlign: 'left',
+          color: { r: 0, g: 0, b: 0 },
+          interiorColor: null,
+          opacity: 1,
+          strokeWidth: 1,
+          borderStyle: 'solid',
+        } satisfies FreeTextDraft);
+        const before = await page.annotations.list();
+
+        const result = await page.annotations.update(created.created.ref, {
+          subtype: 'free-text',
+          textAlign: 'right',
+          fontFamily: 'helvetica',
+          fontSize: 18,
+          color: { r: 0, g: 80, b: 160 },
+          interiorColor: { r: 240, g: 240, b: 240 },
+        });
+        expect(AnnotationUpdateResultSchema.safeParse(result).success).toBe(true);
+        expect(result.updated.subtype).toBe('free-text');
+        if (result.updated.subtype === 'free-text') {
+          expect(result.updated.textAlign).toBe('right');
+          expect(result.updated.fontSize).toBe(18);
+          expect(result.updated.color).toMatchObject({ r: 0, g: 80, b: 160 });
+          expect(result.updated.interiorColor).toMatchObject({ r: 240, g: 240, b: 240 });
+        }
+        // Update never bumps the revision.
+        expect(result.meta.affectedPages[0].revision.generation).toBe(
+          before.pageState.revision.generation,
+        );
+        expect(result.meta.weakRefsInvalidated).toBe(false);
       } finally {
         await doc.close();
       }
@@ -1162,6 +1293,7 @@ function subtypeAwarePatch(subtype: string, newContents: string): AnnotationPatc
     case 'polyline':
     case 'line':
     case 'ink':
+    case 'free-text':
       return {
         subtype: subtype as AnnotationPatch['subtype'],
         contents: newContents,

@@ -298,3 +298,81 @@ export function setLineEndings(fn: PdfFunctions, annotPtr: Ptr, endings: LineEnd
     throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetLineEndings returned false');
   }
 }
+
+/**
+ * Write the `/DA` default appearance (font + size + colour) of a free-text
+ * annotation via `EPDFAnnot_SetDefaultAppearance`. The `/DA` colour paints
+ * the border and the default text colour; a separate `TextColor` entry (see
+ * {@link setAnnotColor}) overrides the text only. `fontCode` is the raw
+ * `FPDF_STANDARD_FONT` enum value — the string<->code mapping lives in
+ * `standardFont.ts` so engine-core stays PDFium-free.
+ */
+export function setDefaultAppearance(
+  fn: PdfFunctions,
+  annotPtr: Ptr,
+  fontCode: number,
+  fontSize: number,
+  color: Color,
+): void {
+  if (
+    !fn.EPDFAnnot_SetDefaultAppearance(
+      annotPtr,
+      fontCode,
+      fontSize,
+      color.r & 0xff,
+      color.g & 0xff,
+      color.b & 0xff,
+    )
+  ) {
+    throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetDefaultAppearance returned false');
+  }
+}
+
+/**
+ * Write the `/Q` text alignment of a free-text annotation via
+ * `EPDFAnnot_SetTextAlignment`. `code` is the raw quadding value — the
+ * string<->code mapping lives in `textAlignment.ts`.
+ */
+export function setTextAlignment(fn: PdfFunctions, annotPtr: Ptr, code: number): void {
+  if (!fn.EPDFAnnot_SetTextAlignment(annotPtr, code)) {
+    throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetTextAlignment returned false');
+  }
+}
+
+/**
+ * Write the `/IT` intent name via `EPDFAnnot_SetIntent` (expects a UTF-8
+ * bytestring without the leading slash, e.g. `'FreeTextCallout'`). The
+ * string<->name mapping lives in `freeTextIntent.ts`.
+ */
+export function setIntent(fn: PdfFunctions, annotPtr: Ptr, name: string): void {
+  if (!fn.EPDFAnnot_SetIntent(annotPtr, name)) {
+    throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetIntent returned false');
+  }
+}
+
+/**
+ * Write the `/CL` callout leader line of a free-text callout via
+ * `EPDFAnnot_SetCalloutLine`. Accepts 2 points (straight leader) or 3
+ * (knee-jointed); writes them into a contiguous `count * FS_POINTF` buffer
+ * (like {@link setVertices}).
+ */
+export function setCalloutLine(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  points: readonly PdfPoint[],
+): void {
+  const buf = mem.alloc(points.length * POINTF_BYTES);
+  try {
+    for (let i = 0; i < points.length; i++) {
+      const off = i * POINTF_BYTES;
+      mem.poke(buf, 'f32', points[i]!.x, off);
+      mem.poke(buf, 'f32', points[i]!.y, off + 4);
+    }
+    if (!fn.EPDFAnnot_SetCalloutLine(annotPtr, buf, points.length)) {
+      throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetCalloutLine returned false');
+    }
+  } finally {
+    mem.free(buf);
+  }
+}
