@@ -8,6 +8,7 @@ import {
   geomHit,
   geomScene,
   geomVisualBounds,
+  selectionBounds,
   shapeRectFor,
   contentToPdfRect,
   pdfToContentRect,
@@ -97,6 +98,40 @@ describe('annotation-core', () => {
     // centre is inside bounds → since it's selected, a drag from the centre moves it
     m = run(m, [editPtr('down', 150, 150), editPtr('move', 180, 170), editPtr('up', 180, 170)]);
     expect(rectGeom(m.byId[id].geom)).toMatchObject({ x: 130, y: 120 });
+  });
+
+  it('a selected arrow is grabbable anywhere inside its outline box, not just on the thin stroke', () => {
+    const arrow: Annot = {
+      id: 'A1',
+      ref: null,
+      pon: PON,
+      subtype: 'line',
+      geom: {
+        t: 'line',
+        a: { x: 100, y: 100 },
+        b: { x: 300, y: 200 },
+        ends: { start: 'none', end: 'closed-arrow' },
+      },
+      style: {
+        strokeColor: '#000000',
+        fillColor: null,
+        strokeWidth: 6,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      locked: false,
+      source: 'vector',
+    };
+    const corner = { x: 290, y: 110 }; // inside the bbox, far from the diagonal stroke
+    let m = update(initialModel, { t: 'loaded', annots: [arrow] })[0];
+    // UNSELECTED → only the painted region (stroke + arrowhead) hits; the corner misses
+    expect(hitTest(m, PON, corner, 6, 6).t).toBe('empty');
+    // select it (click on the stroke at its midpoint)…
+    m = run(m, [editPtr('down', 200, 150), editPtr('up', 200, 150)]);
+    expect(m.selected).toEqual(['A1']);
+    // …now the whole selection outline is grabbable — the grab area == the outline
+    expect(hitTest(m, PON, corner, 6, 6)).toEqual({ t: 'annot', id: 'A1' });
+    expect(selectionBounds(arrow.geom, 6)).toEqual(geomVisualBounds(arrow.geom, 6)); // line: outline == visual bounds
   });
 
   it('deselect clears the selection (click on empty)', () => {

@@ -1,4 +1,4 @@
-import { geomBounds, geomHandles, geomHit } from './geometry';
+import { geomHandles, geomHit, selectionBounds } from './geometry';
 import { capsFor } from './kinds';
 import { type Annot, type Cursor, type Id, type Model, type Vec } from './types';
 
@@ -26,8 +26,11 @@ const hasHandles = (subtype: string): boolean => {
 };
 
 const isFilled = (a: Annot): boolean => a.style.fillColor != null || a.geom.t === 'quads';
+// A SELECTED annotation is grabbable from anywhere inside its SELECTION region — the
+// SAME rect the chrome outlines — so the grab area matches what you see highlighted
+// (a thin/horizontal arrow's whole outline box, arrowhead included; not a sliver).
 const inBounds = (a: Annot, p: Vec): boolean => {
-  const b = geomBounds(a.geom);
+  const b = selectionBounds(a.geom, a.style.strokeWidth);
   return p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
 };
 

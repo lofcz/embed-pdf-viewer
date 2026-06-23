@@ -24,6 +24,7 @@ export {
   pdfToContentPoint,
   contentToPdfPoint,
   rectFromPoints,
+  selectionBounds,
   shapeRectFor,
   unionRect,
   RECT_HANDLES,

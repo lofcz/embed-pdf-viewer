@@ -207,6 +207,20 @@ export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
 }
 
 /**
+ * The rect the SELECTION wraps — and the region a SELECTED annotation can be grabbed
+ * from. Centre-line geometries (line / open polyline / ink) straddle their path, so
+ * this is their VISUAL bounds (stroke + endings); shapes and closed polygons sit
+ * tight on their box (so the 8 handles land on the corners). The chrome outline AND
+ * the selected hit-test both call this, so what you see highlighted is exactly what
+ * you can grab — they can never drift.
+ */
+export function selectionBounds(g: Geom, strokeWidth: number): Rect {
+  return g.t === 'line' || g.t === 'ink' || (g.t === 'poly' && !g.closed)
+    ? geomVisualBounds(g, strokeWidth)
+    : geomBounds(g);
+}
+
+/**
  * Is the content point ON a line/poly's drawn ENDINGS — so an arrowhead is as
  * clickable as the stroke. Uses the SAME ending nodes the renderer draws: a closed
  * shape (closed arrow, circle, square, diamond) hits inside OR near its edge; an

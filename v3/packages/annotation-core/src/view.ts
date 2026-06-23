@@ -4,11 +4,11 @@
  * (handles carry their resize cursor, group box, marquee).
  */
 import {
-  geomBounds,
   geomHandles,
   geomTranslate,
   geomVisualBounds,
   rectFromPoints,
+  selectionBounds,
   shapeRectFor,
   unionRect,
 } from './geometry';
@@ -19,22 +19,6 @@ import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types
 
 const DRAFT_ID = '__draft__';
 const PREVIEW_ID = '__markup_preview__';
-
-/**
- * The rectangle the SELECTION outline wraps. A line / open polyline wraps its
- * stroke + line endings (the same `geomVisualBounds` the renderer and engine
- * `/Rect` use) so arrowheads sit inside the box. Shapes and closed polygons keep
- * tight bounds, so their 8 resize handles stay exactly on the box corners.
- */
-function outlineBounds(g: Geom, strokeWidth: number): Rect {
-  // Centerline geometries (line / open polyline / ink) have no box the user drew —
-  // their stroke straddles the path — so the outline expands by the stroke to wrap
-  // it. Shapes (incl. cloudy, whose scallops sit inside `g.rect`) and closed polygons
-  // keep tight bounds, so the handles stay exactly on the box corners.
-  return g.t === 'line' || g.t === 'ink' || (g.t === 'poly' && !g.closed)
-    ? geomVisualBounds(g, strokeWidth)
-    : geomBounds(g);
-}
 
 const rectCorners = (r: Rect): Vec[] => [
   { x: r.x, y: r.y },
@@ -146,7 +130,7 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
   if (sel.length === 1) {
     const a = m.byId[sel[0]];
     const g = effGeom(m, sel[0]);
-    nodes.push({ kind: 'outline', rect: outlineBounds(g, a.style.strokeWidth) });
+    nodes.push({ kind: 'outline', rect: selectionBounds(g, a.style.strokeWidth) });
     // handles only for kinds that resize (box) or vertex-edit; anchored/markup show
     // a bare outline.
     const caps = capsFor(a.subtype);
@@ -155,7 +139,7 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
     }
   } else if (sel.length > 1) {
     const corners = sel.flatMap((id) =>
-      rectCorners(outlineBounds(effGeom(m, id), m.byId[id].style.strokeWidth)),
+      rectCorners(selectionBounds(effGeom(m, id), m.byId[id].style.strokeWidth)),
     );
     nodes.push({ kind: 'outline', rect: unionRect(corners) });
   }
