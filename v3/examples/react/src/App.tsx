@@ -281,7 +281,7 @@ function AnnotationBar({
   // box; stroke and fill stay independently editable.
   useEffect(() => {
     annotation.setDefaults('line', {
-      style: { fillColor: '#e5484d' },
+      style: { interiorColor: '#e5484d' },
       endings: { start: 'none', end: 'open-arrow' },
     });
   }, [annotation]);
@@ -394,15 +394,12 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
   const isMarkup = hasSel ? first?.geom.t === 'quads' : isMarkupTool;
   if (isMarkup) {
     const color =
-      (hasSel ? (first?.style.fillColor ?? first?.style.strokeColor) : undefined) ??
-      toolDefaults.style.fillColor ??
-      toolDefaults.style.strokeColor ??
-      '#ffe16a';
+      (hasSel ? first?.style.color : undefined) ?? toolDefaults.style.color ?? '#ffe16a';
     const opacity = (hasSel ? first?.style.opacity : undefined) ?? toolDefaults.style.opacity ?? 1;
     const setMarkupColor = (c: string) =>
       hasSel
-        ? annotation.setStyle({ strokeColor: c, fillColor: c })
-        : annotation.setDefaults(activeToolId, { style: { strokeColor: c, fillColor: c } });
+        ? annotation.setStyle({ color: c })
+        : annotation.setDefaults(activeToolId, { style: { color: c } });
     const setMarkupOpacity = (o: number) =>
       hasSel
         ? annotation.setStyle({ opacity: o })
@@ -454,25 +451,24 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
     );
   }
 
-  const strokeColor =
-    (hasSel ? first?.style.strokeColor : undefined) ?? toolDefaults.style.strokeColor;
+  const strokeColor = (hasSel ? first?.style.color : undefined) ?? toolDefaults.style.color;
   const strokeWidth =
     (hasSel ? first?.style.strokeWidth : undefined) ?? toolDefaults.style.strokeWidth;
   const setColor = (c: string) =>
     hasSel
-      ? annotation.setStyle({ strokeColor: c })
-      : annotation.setDefaults(activeToolId, { style: { strokeColor: c } });
+      ? annotation.setStyle({ color: c })
+      : annotation.setDefaults(activeToolId, { style: { color: c } });
   const setWidth = (w: number) =>
     hasSel
       ? annotation.setStyle({ strokeWidth: w })
       : annotation.setDefaults(activeToolId, { style: { strokeWidth: w } });
 
   const fillColor =
-    (hasSel ? first?.style.fillColor : undefined) ?? toolDefaults.style.fillColor ?? null;
+    (hasSel ? first?.style.interiorColor : undefined) ?? toolDefaults.style.interiorColor ?? null;
   const setFill = (c: string | null) =>
     hasSel
-      ? annotation.setStyle({ fillColor: c })
-      : annotation.setDefaults(activeToolId, { style: { fillColor: c } });
+      ? annotation.setStyle({ interiorColor: c })
+      : annotation.setDefaults(activeToolId, { style: { interiorColor: c } });
 
   // Ink is stroke-only (freehand) — no fill / border / endings controls.
   const isInk = hasSel ? first?.geom.t === 'ink' : activeToolId === 'ink';

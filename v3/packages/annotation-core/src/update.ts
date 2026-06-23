@@ -38,8 +38,8 @@ const MIN_DRAG = 3;
 const HANDLE_TOL = 6;
 
 export const initialStyle: Style = {
-  strokeColor: '#e5484d',
-  fillColor: null,
+  color: '#e5484d',
+  interiorColor: null,
   strokeWidth: 2,
   opacity: 1,
   border: { kind: 'solid' },

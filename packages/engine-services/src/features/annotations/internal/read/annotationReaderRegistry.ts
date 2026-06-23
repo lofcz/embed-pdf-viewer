@@ -6,6 +6,7 @@ import type {
 import { subtypeFromCode } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
+import { readInk } from './readInkAnnotation';
 import { readLine } from './readLineAnnotation';
 import { readCircle, readSquare } from './readShapeAnnotation';
 import {
@@ -45,6 +46,7 @@ const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationSubtypeRead
   polygon: readPolygon,
   polyline: readPolyline,
   line: readLine,
+  ink: readInk,
   unsupported: readUnsupported,
 };
 

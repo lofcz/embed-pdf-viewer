@@ -135,6 +135,7 @@ export {
   PdfQuadSchema,
   PdfRotationSchema,
   LinePointsSchema,
+  InkListSchema,
 } from './geometry/schemas';
 
 export {
@@ -187,6 +188,9 @@ export {
   LineDTOSchema,
   LineDraftSchema,
   LinePatchSchema,
+  InkDTOSchema,
+  InkDraftSchema,
+  InkPatchSchema,
   UnsupportedDTOSchema,
   UnsupportedDraftSchema,
   UnsupportedPatchSchema,

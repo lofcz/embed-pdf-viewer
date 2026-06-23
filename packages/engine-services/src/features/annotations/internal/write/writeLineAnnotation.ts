@@ -3,7 +3,7 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 
 import { setAnnotRect, setLine, setLineEndings } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
-import { applyStrokeFillDraft, applyStrokeFillPatch } from './writeStrokeFill';
+import { applyFilledStyleDraft, applyFilledStylePatch } from './writeStyle';
 
 /** Default line endings when a line draft omits them. */
 const DEFAULT_LINE_ENDINGS = { start: 'none', end: 'none' } as const;
@@ -24,7 +24,7 @@ export function applyLineDraft(
 ): void {
   applyAnnotationBaseDraft(fn, mem, annotPtr, draft);
   setAnnotRect(fn, mem, annotPtr, draft.rect);
-  applyStrokeFillDraft(fn, mem, annotPtr, draft);
+  applyFilledStyleDraft(fn, mem, annotPtr, draft);
   setLine(fn, mem, annotPtr, draft.linePoints);
   setLineEndings(fn, annotPtr, draft.lineEndings ?? DEFAULT_LINE_ENDINGS);
 }
@@ -39,7 +39,7 @@ export function applyLinePatch(
   if (patch.rect !== undefined) {
     setAnnotRect(fn, mem, annotPtr, patch.rect);
   }
-  applyStrokeFillPatch(fn, mem, annotPtr, patch);
+  applyFilledStylePatch(fn, mem, annotPtr, patch);
   if (patch.linePoints !== undefined) {
     setLine(fn, mem, annotPtr, patch.linePoints);
   }

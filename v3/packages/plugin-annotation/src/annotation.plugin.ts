@@ -35,7 +35,7 @@ export const annotationPlugin = () =>
           enables: new Set(['annotation-draw', 'annotation-edit']),
         });
       }
-      annotation.setDefaults('ink', { style: { strokeColor: '#1d4ed8', strokeWidth: 3 } });
+      annotation.setDefaults('ink', { style: { color: '#1d4ed8', strokeWidth: 3 } });
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
 

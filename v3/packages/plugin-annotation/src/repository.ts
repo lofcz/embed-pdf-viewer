@@ -9,6 +9,10 @@ import type {
   AnnotationPatch,
   AnnotationRef,
   Color,
+  InkList,
+  LineEndings,
+  LinePoints,
+  PdfPoint,
   PdfRect,
   PdfRectDifferences,
 } from '@embedpdf/engine-core/runtime';
@@ -55,7 +59,9 @@ function cssToColor(css: string): Color {
 }
 
 const TEXT_MARKUP = new Set(['highlight', 'underline', 'squiggly', 'strikeout']);
-const STROKE_KINDS = new Set(['square', 'circle', 'line', 'polygon', 'polyline']);
+// Geometric kinds that carry the `/C` stroke colour + `/BS` border. Ink belongs
+// here too (it has a stroke but no `/IC`, so its interiorColor reads back null).
+const STROKE_KINDS = new Set(['square', 'circle', 'line', 'polygon', 'polyline', 'ink']);
 
 /** Engine DTO → content-space Annot (loaded = baked). */
 export function fromDTO(dto: AnnotationDTO, crop: PdfRect): Annot {
@@ -96,6 +102,11 @@ function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
         points: dto.vertices.map((p) => pdfToContentPoint(p, crop)),
         closed: true,
       };
+    case 'ink':
+      return {
+        t: 'ink',
+        strokes: dto.inkList.map((stroke) => stroke.map((p) => pdfToContentPoint(p, crop))),
+      };
     case 'highlight':
     case 'underline':
     case 'squiggly':
@@ -132,10 +143,10 @@ function borderFromDTO(d: {
 
 function styleFromDTO(dto: AnnotationDTO): Style {
   if (STROKE_KINDS.has(dto.subtype)) {
-    const d = dto as Extract<AnnotationDTO, { strokeColor: Color }>;
+    const d = dto as Extract<AnnotationDTO, { interiorColor: Color | null }>;
     return {
-      strokeColor: colorToCss(d.strokeColor),
-      fillColor: d.interiorColor ? colorToCss(d.interiorColor) : null,
+      color: colorToCss(d.color),
+      interiorColor: d.interiorColor ? colorToCss(d.interiorColor) : null,
       strokeWidth: d.strokeWidth,
       opacity: d.opacity,
       border: borderFromDTO(d),
@@ -143,18 +154,17 @@ function styleFromDTO(dto: AnnotationDTO): Style {
   }
   if (TEXT_MARKUP.has(dto.subtype)) {
     const d = dto as Extract<AnnotationDTO, { color: Color }>;
-    const css = colorToCss(d.color);
     return {
-      strokeColor: css,
-      fillColor: css,
+      color: colorToCss(d.color),
+      interiorColor: null,
       strokeWidth: 0,
       opacity: d.opacity,
       border: { kind: 'solid' },
     };
   }
   return {
-    strokeColor: '#444444',
-    fillColor: null,
+    color: '#444444',
+    interiorColor: null,
     strokeWidth: 1,
     opacity: 1,
     border: { kind: 'solid' },
@@ -163,9 +173,10 @@ function styleFromDTO(dto: AnnotationDTO): Style {
 
 /* ── content Annot → engine draft / patch ─────────────────────────────────── */
 
-const strokeFill = (style: Style) => ({
-  strokeColor: cssToColor(style.strokeColor),
-  interiorColor: style.fillColor ? cssToColor(style.fillColor) : null,
+/** The geometry styling shared by every geometric kind: `/C`, `/CA`, `/BS`
+ *  (no `/IC`). Ink uses exactly this; the filled kinds add `interiorColor`. */
+const geometryStyle = (style: Style) => ({
+  color: cssToColor(style.color),
   strokeWidth: style.strokeWidth,
   opacity: style.opacity,
   // /BS /S + /BS /D — a cloudy border keeps a solid underlying stroke (the
@@ -174,10 +185,15 @@ const strokeFill = (style: Style) => ({
   ...(style.border.kind === 'dashed' ? { dashArray: style.border.dash } : {}),
 });
 
+const strokeFill = (style: Style) => ({
+  ...geometryStyle(style),
+  interiorColor: style.interiorColor ? cssToColor(style.interiorColor) : null,
+});
+
 /** Text markup carries a single `/C` colour (our model keeps stroke==fill) + `/CA`
  *  opacity. Geometry is the `/QuadPoints`, set on create and never patched. */
 const markupColor = (style: Style) => ({
-  color: cssToColor(style.fillColor ?? style.strokeColor),
+  color: cssToColor(style.color),
   opacity: style.opacity,
 });
 
@@ -200,7 +216,13 @@ function shapeExtras(a: Annot): { cloudyIntensity?: number; rectDifferences?: Pd
   return { cloudyIntensity: 0, rectDifferences: undefined };
 }
 
-function geomFields(a: Annot, crop: PdfRect) {
+type GeomFields =
+  | { rect: PdfRect }
+  | { linePoints: LinePoints; lineEndings: LineEndings | undefined; rect: PdfRect }
+  | { vertices: PdfPoint[]; lineEndings: LineEndings | undefined; rect: PdfRect }
+  | { inkList: InkList; rect: PdfRect };
+
+function geomFields(a: Annot, crop: PdfRect): GeomFields | null {
   const g = a.geom;
   const sw = a.style.strokeWidth;
   // /Rect IS `g.rect` (the outer box) for every shape; a cloudy border's geometry is
@@ -218,6 +240,13 @@ function geomFields(a: Annot, crop: PdfRect) {
     return {
       vertices: g.points.map((p) => contentToPdfPoint(p, crop)),
       lineEndings: g.ends,
+      rect: geomPdfBounds(g, sw, crop),
+    };
+  }
+  if (g.t === 'ink') {
+    return {
+      inkList: g.strokes.map((stroke) => stroke.map((p) => contentToPdfPoint(p, crop))),
+      // VISUAL bounds (stroke radius incl.) — the engine clips the baked /AP to /Rect.
       rect: geomPdfBounds(g, sw, crop),
     };
   }
@@ -253,6 +282,8 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       rect: f.rect,
       ...sf,
     };
+  if (a.subtype === 'ink' && f && 'inkList' in f)
+    return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
   const quads = quadPointsFor(a, crop);
   if (TEXT_MARKUP.has(a.subtype) && quads)
     return { subtype: a.subtype, quadPoints: quads, ...markupColor(a.style) } as AnnotationDraft;
@@ -285,6 +316,8 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
       rect: f.rect,
       ...sf,
     };
+  if (a.subtype === 'ink' && f && 'inkList' in f)
+    return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
   // markup: recolor / opacity only — /QuadPoints geometry isn't edited after create
   if (TEXT_MARKUP.has(a.subtype))
     return { subtype: a.subtype, ...markupColor(a.style) } as AnnotationPatch;

@@ -36,7 +36,7 @@ export function wireMarkup(
       enables: new Set(['text-select', 'annotation-edit']),
     });
     annotation.setDefaults(id, {
-      style: { strokeColor: MARKUP_DEFAULTS[id], fillColor: MARKUP_DEFAULTS[id] },
+      style: { color: MARKUP_DEFAULTS[id] },
     });
   }
 

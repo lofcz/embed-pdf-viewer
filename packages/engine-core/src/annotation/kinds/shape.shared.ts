@@ -6,18 +6,18 @@ import type { AnnotationBase } from '../base';
 import { AnnotationBaseShape, PdfRectDifferencesSchema } from '../base.schema';
 import type { PdfRectDifferences } from '../primitives';
 import {
-  StrokeFillDTOShape,
-  StrokeFillDraftShape,
-  StrokeFillPatchShape,
-  type StrokeFillDraftFields,
-  type StrokeFillFields,
-  type StrokeFillPatchFields,
-} from './stroke-style.shared';
+  FilledStyleDTOShape,
+  FilledStyleDraftShape,
+  FilledStylePatchShape,
+  type FilledStyleDraftFields,
+  type FilledStyleFields,
+  type FilledStylePatchFields,
+} from './style.shared';
 
 /**
  * Shape-family-specific fields. The two shape subtypes (circle/square)
  * share their wire shape per ISO 32000 §12.5.6.8: they are `/Rect`-based
- * outlines with the common stroke/fill styling ({@link StrokeFillFields}),
+ * outlines with the common stroke/fill styling ({@link FilledStyleFields}),
  * an optional cloudy border effect (`/BE`), and optional rectangle
  * differences (`/RD`).
  *
@@ -25,21 +25,21 @@ import {
  * shapes carry `/Rect` as their primary geometry — so the Draft requires
  * `rect` explicitly while the DTO inherits it from `AnnotationBase`.
  */
-export interface ShapeAnnotationFields extends StrokeFillFields {
+export interface ShapeAnnotationFields extends FilledStyleFields {
   /** `/BE` cloudy border intensity. Absent/0 means a plain (non-cloudy) border. */
   cloudyIntensity?: number;
   /** `/RD` rectangle differences (inset of drawn geometry from `/Rect`). */
   rectDifferences?: PdfRectDifferences;
 }
 
-export interface ShapeDraftFields extends StrokeFillDraftFields {
+export interface ShapeDraftFields extends FilledStyleDraftFields {
   /** `/Rect` geometry — required for shapes (they are not derived from quads). */
   rect: PdfRect;
   cloudyIntensity?: number;
   rectDifferences?: PdfRectDifferences;
 }
 
-export interface ShapePatchFields extends StrokeFillPatchFields {
+export interface ShapePatchFields extends FilledStylePatchFields {
   rect?: PdfRect;
   cloudyIntensity?: number;
   rectDifferences?: PdfRectDifferences;
@@ -47,20 +47,20 @@ export interface ShapePatchFields extends StrokeFillPatchFields {
 
 export const ShapeDTOShape = {
   ...AnnotationBaseShape,
-  ...StrokeFillDTOShape,
+  ...FilledStyleDTOShape,
   cloudyIntensity: z.number().nonnegative().optional(),
   rectDifferences: PdfRectDifferencesSchema.optional(),
 } as const;
 
 export const ShapeDraftShape = {
-  ...StrokeFillDraftShape,
+  ...FilledStyleDraftShape,
   rect: PdfRectSchema,
   cloudyIntensity: z.number().nonnegative().optional(),
   rectDifferences: PdfRectDifferencesSchema.optional(),
 } as const;
 
 export const ShapePatchShape = {
-  ...StrokeFillPatchShape,
+  ...FilledStylePatchShape,
   rect: PdfRectSchema.optional(),
   cloudyIntensity: z.number().nonnegative().optional(),
   rectDifferences: PdfRectDifferencesSchema.optional(),

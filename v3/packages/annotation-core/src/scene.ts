@@ -19,8 +19,8 @@ const num = (n: number): number => Number(n.toFixed(3));
  *  exactly how the committed annotation will look, not as a dashed hint. */
 function shapePaint(style: Style, closed: boolean): Paint {
   return {
-    fill: closed ? (style.fillColor ?? undefined) : undefined,
-    stroke: style.strokeColor,
+    fill: closed ? (style.interiorColor ?? undefined) : undefined,
+    stroke: style.color,
     width: style.strokeWidth,
     opacity: style.opacity,
     dash: style.border.kind === 'dashed' ? style.border.dash : undefined,
@@ -41,7 +41,7 @@ function squigglePath(x: number, y: number, w: number, amp: number): string {
 /** Per-subtype markup nodes. Quads are axis-aligned per-line rects (UL,UR,LL,LR);
  *  the colour is the markup `/C` (our model keeps stroke==fill). */
 function markupScene(subtype: Subtype, quads: Quad[], style: Style): SceneNode[] {
-  const color = style.fillColor ?? style.strokeColor;
+  const color = style.color;
   const opacity = style.opacity;
   const nodes: SceneNode[] = [];
   for (const q of quads) {

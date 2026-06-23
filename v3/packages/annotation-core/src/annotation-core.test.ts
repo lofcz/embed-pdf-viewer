@@ -113,8 +113,8 @@ describe('annotation-core', () => {
         ends: { start: 'none', end: 'closed-arrow' },
       },
       style: {
-        strokeColor: '#000000',
-        fillColor: null,
+        color: '#000000',
+        interiorColor: null,
         strokeWidth: 6,
         opacity: 1,
         border: { kind: 'solid' },
@@ -192,8 +192,8 @@ describe('annotation-core', () => {
         ends: { start: 'none', end: 'closed-arrow' },
       },
       style: {
-        strokeColor: '#000000',
-        fillColor: '#ff0000',
+        color: '#000000',
+        interiorColor: '#ff0000',
         strokeWidth: 3,
         opacity: 1,
         border: { kind: 'solid' },
@@ -225,8 +225,8 @@ describe('annotation-core', () => {
         ends: { start: 'none', end: 'open-arrow' },
       },
       style: {
-        strokeColor: '#000000',
-        fillColor: null,
+        color: '#000000',
+        interiorColor: null,
         strokeWidth: 8,
         opacity: 1,
         border: { kind: 'solid' },
@@ -342,8 +342,8 @@ describe('annotation-core', () => {
   it('shapeRectFor stores the OUTER box for a cloudy shape (dragged + extent), the dragged box for solid', () => {
     const dragged = { x: 50, y: 50, width: 40, height: 30 };
     const solid: Style = {
-      strokeColor: '#000000',
-      fillColor: null,
+      color: '#000000',
+      interiorColor: null,
       strokeWidth: 2,
       opacity: 1,
       border: { kind: 'solid' },
@@ -423,8 +423,8 @@ describe('annotation-core', () => {
       geom: quads,
       box: { x: 0, y: 0, width: 100, height: 12 },
       style: {
-        strokeColor: '#ffd400',
-        fillColor: '#ffd400',
+        color: '#ffd400',
+        interiorColor: '#ffd400',
         strokeWidth: 0,
         opacity: 1,
         border: { kind: 'solid' },
@@ -448,8 +448,8 @@ describe('annotation-core', () => {
       geom: { t: 'rect', rect: { x: 0, y: 0, width: 50, height: 40 }, ellipse: false },
       box: { x: 0, y: 0, width: 50, height: 40 },
       style: {
-        strokeColor: '#000000',
-        fillColor: '#eeeeee',
+        color: '#000000',
+        interiorColor: '#eeeeee',
         strokeWidth: 3,
         opacity: 1,
         border: { kind: 'solid' },
@@ -488,7 +488,7 @@ describe('annotation-core', () => {
     const node = scene(pageItems(m, PON)[0])[0];
     expect(node.kind).toBe('poly');
     expect(node.paint.fill).toBeUndefined();
-    expect(node.paint.stroke).toBe(a.style.strokeColor);
+    expect(node.paint.stroke).toBe(a.style.color);
     expect(node.paint.cap).toBe('round');
   });
 
@@ -508,8 +508,8 @@ describe('annotation-core', () => {
         ],
       },
       style: {
-        strokeColor: '#1d4ed8',
-        fillColor: null,
+        color: '#1d4ed8',
+        interiorColor: null,
         strokeWidth: 10,
         opacity: 1,
         border: { kind: 'solid' },
@@ -529,12 +529,12 @@ describe('annotation-core', () => {
     let m = update(initialModel, {
       t: 'setDefaults',
       subtype: 'square',
-      patch: { style: { strokeColor: '#123456' } },
+      patch: { style: { color: '#123456' } },
     })[0];
     // mid-draw (down + move, no up yet) → the ghost is live
     m = run(m, [createPtr('square', 'down', 10, 10), createPtr('square', 'move', 60, 60)]);
     const ghost = pageItems(m, PON).find((i) => i.source === 'ghost');
-    expect(ghost?.style.strokeColor).toBe('#123456'); // tool default, not initialStyle red
+    expect(ghost?.style.color).toBe('#123456'); // tool default, not initialStyle red
   });
 
   it('restyling a selection updates the annotation but never the base default', () => {
@@ -543,10 +543,10 @@ describe('annotation-core', () => {
       createPtr('square', 'move', 60, 60),
       createPtr('square', 'up', 60, 60),
     ]);
-    const baseBefore = m.style.strokeColor;
-    m = update(m, { t: 'setStyle', patch: { strokeColor: '#00ff00' } })[0];
-    expect(m.byId[m.order[0]].style.strokeColor).toBe('#00ff00'); // the selected square changed
-    expect(m.style.strokeColor).toBe(baseBefore); // …the base/default is untouched
+    const baseBefore = m.style.color;
+    m = update(m, { t: 'setStyle', patch: { color: '#00ff00' } })[0];
+    expect(m.byId[m.order[0]].style.color).toBe('#00ff00'); // the selected square changed
+    expect(m.style.color).toBe(baseBefore); // …the base/default is untouched
   });
 
   it('markup is selectable but anchored: it selects, shows a bare outline (no handles), and will not move', () => {
@@ -567,8 +567,8 @@ describe('annotation-core', () => {
         ],
       },
       style: {
-        strokeColor: '#ffcc00',
-        fillColor: '#ffcc00',
+        color: '#ffcc00',
+        interiorColor: '#ffcc00',
         strokeWidth: 0,
         opacity: 1,
         border: { kind: 'solid' },

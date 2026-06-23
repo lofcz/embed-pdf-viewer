@@ -12,7 +12,7 @@ import {
   readRectangleDifferences,
   readVertices,
 } from './annotationReadPrimitives';
-import { readStrokeFillExtras } from './readStrokeFill';
+import { readFilledStyleExtras } from './readStyle';
 
 /**
  * Shared reader for the two vertex subtypes (polygon/polyline). Reads the
@@ -26,7 +26,7 @@ export function readVertexExtras(
   annotPtr: Ptr,
 ): VertexAnnotationFields {
   return {
-    ...readStrokeFillExtras(fn, mem, annotPtr),
+    ...readFilledStyleExtras(fn, mem, annotPtr),
     vertices: readVertices(fn, mem, annotPtr),
   };
 }

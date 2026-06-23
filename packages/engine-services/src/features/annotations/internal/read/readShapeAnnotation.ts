@@ -7,7 +7,7 @@ import type {
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
 import { readBorderEffect, readRectangleDifferences } from './annotationReadPrimitives';
-import { readStrokeFillExtras } from './readStrokeFill';
+import { readFilledStyleExtras } from './readStyle';
 
 /**
  * Shared reader for the two shape subtypes. Materialises the common
@@ -23,7 +23,7 @@ export function readShapeExtras(
   const rectDifferences = readRectangleDifferences(fn, mem, annotPtr);
 
   return {
-    ...readStrokeFillExtras(fn, mem, annotPtr),
+    ...readFilledStyleExtras(fn, mem, annotPtr),
     ...(cloudyIntensity != null ? { cloudyIntensity } : {}),
     ...(rectDifferences ? { rectDifferences } : {}),
   };

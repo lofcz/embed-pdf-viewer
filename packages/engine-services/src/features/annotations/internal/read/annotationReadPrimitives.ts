@@ -1,6 +1,7 @@
 import type {
   AnnotationFlags,
   Color,
+  InkList,
   LineEndings,
   LinePoints,
   PdfPoint,
@@ -232,6 +233,35 @@ export function readVertices(fn: PdfFunctions, mem: PdfRuntimeMemory, annotPtr: 
     }
     return out;
   });
+}
+
+/**
+ * Read the `/InkList` of an ink annotation. `FPDFAnnot_GetInkListCount`
+ * gives the number of strokes; each stroke is sized with a probe call to
+ * `FPDFAnnot_GetInkListPath` (NULL buffer) and then read into a
+ * `count * FS_POINTF` buffer. Empty strokes are skipped; the result is an
+ * array of non-empty point paths.
+ */
+export function readInkList(fn: PdfFunctions, mem: PdfRuntimeMemory, annotPtr: Ptr): InkList {
+  const pathCount = fn.FPDFAnnot_GetInkListCount(annotPtr);
+  if (pathCount <= 0) return [];
+  const out: InkList = [];
+  for (let p = 0; p < pathCount; p++) {
+    const count = fn.FPDFAnnot_GetInkListPath(annotPtr, p, NULL_PTR, 0);
+    if (count <= 0) continue;
+    const stroke = withScratch(mem, count * POINTF_BYTES, (buf) => {
+      const got = fn.FPDFAnnot_GetInkListPath(annotPtr, p, buf, count);
+      if (got <= 0) return [];
+      const pts: PdfPoint[] = [];
+      for (let i = 0; i < got; i++) {
+        const off = i * POINTF_BYTES;
+        pts.push({ x: readF32(mem, buf, off), y: readF32(mem, buf, off + 4) });
+      }
+      return pts;
+    });
+    if (stroke.length > 0) out.push(stroke);
+  }
+  return out;
 }
 
 /**

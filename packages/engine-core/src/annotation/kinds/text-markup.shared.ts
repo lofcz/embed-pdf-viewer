@@ -1,15 +1,22 @@
 import { z } from 'zod';
 import type { AnnotationBase } from '../base';
-import { AnnotationBaseShape, ColorSchema } from '../base.schema';
+import { AnnotationBaseShape } from '../base.schema';
 import { PdfQuadSchema } from '../../geometry/schemas';
 import type { PdfQuad } from '../../geometry/primitives';
-import type { Color } from '../primitives';
+import {
+  ColorStyleDTOShape,
+  ColorStyleDraftShape,
+  ColorStylePatchShape,
+  type ColorStyleDraftFields,
+  type ColorStyleFields,
+  type ColorStylePatchFields,
+} from './style.shared';
 
 /**
  * Text-markup family-specific fields. The four text-markup subtypes
  * (highlight/underline/squiggly/strikeout) share their wire shape per
- * ISO 32000 12.5.6.10: `color` (RGB), `opacity` (/CA), and one or more
- * `quadPoints` quads.
+ * ISO 32000 12.5.6.10: the universal {@link ColorStyleFields} (`/C` color +
+ * `/CA` opacity) plus one or more `quadPoints` quads.
  *
  * This file ONLY carries fields that are unique to the text-markup
  * family. Annotation-wide author-metadata (`contents`, `author`, `nm`)
@@ -17,40 +24,31 @@ import type { Color } from '../primitives';
  * draft/patch type composes the two: family fields + base fields +
  * own `subtype` literal.
  */
-export interface TextMarkupAnnotationFields {
-  color: Color;
-  opacity: number;
+export interface TextMarkupAnnotationFields extends ColorStyleFields {
   quadPoints: PdfQuad[];
 }
 
-export interface TextMarkupDraftFields {
-  color?: Color;
-  opacity?: number;
+export interface TextMarkupDraftFields extends ColorStyleDraftFields {
   quadPoints: PdfQuad[];
 }
 
-export interface TextMarkupPatchFields {
-  color?: Color;
-  opacity?: number;
+export interface TextMarkupPatchFields extends ColorStylePatchFields {
   quadPoints?: PdfQuad[];
 }
 
 export const TextMarkupDTOShape = {
   ...AnnotationBaseShape,
-  color: ColorSchema,
-  opacity: z.number().min(0).max(1),
+  ...ColorStyleDTOShape,
   quadPoints: z.array(PdfQuadSchema),
 } as const;
 
 export const TextMarkupDraftShape = {
-  color: ColorSchema.optional(),
-  opacity: z.number().min(0).max(1).optional(),
+  ...ColorStyleDraftShape,
   quadPoints: z.array(PdfQuadSchema),
 } as const;
 
 export const TextMarkupPatchShape = {
-  color: ColorSchema.optional(),
-  opacity: z.number().min(0).max(1).optional(),
+  ...ColorStylePatchShape,
   quadPoints: z.array(PdfQuadSchema).optional(),
 } as const;
 

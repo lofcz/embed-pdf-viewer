@@ -6,16 +6,17 @@
  * Layout:
  *   1 0 obj  Catalog -> Pages
  *   2 0 obj  Pages tree (Kids [3 0 R], Count 1)
- *   3 0 obj  Page with /Annots [4..12 0 R <<direct>>]
+ *   3 0 obj  Page with /Annots [4..13 0 R <<direct>>]
  *   4 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
  *   5 0 obj  Highlight (indirect, no /NM)         -> ref.kind = objectNumber
- *   6 0 obj  Ink       (indirect)                 -> subtype = unsupported
+ *   6 0 obj  Ink       (indirect, /InkList + /C)  -> subtype = ink
  *   7 0 obj  Highlight (indirect, with /NM)       -> ref.kind = objectNumber, nm != null
  *   8 0 obj  Circle    (indirect, /IC + /C + /BS) -> subtype = circle
  *   9 0 obj  Square    (indirect, /C + dashed /BS)-> subtype = square
  *  10 0 obj  Polygon   (indirect, /Vertices + /IC)-> subtype = polygon
  *  11 0 obj  Polyline  (indirect, /Vertices + /LE)-> subtype = polyline
  *  12 0 obj  Line      (indirect, /L + /LE)       -> subtype = line
+ *  13 0 obj  Screen    (indirect)                 -> subtype = unsupported
  *   direct   Highlight (direct dict in /Annots)   -> ref.kind = index, identity = weak
  *
  * The direct-object annotation is the only way to get an
@@ -49,7 +50,7 @@ const directAnnot = `<<\n/Type /Annot\n/Subtype /Highlight\n/Rect [100 100 200 1
 
 addObject(
   3,
-  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R ${directAnnot}]\n>>`,
+  `<<\n/Type /Page\n/Parent 2 0 R\n/MediaBox [0 0 612 792]\n/Resources <<>>\n/Annots [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R ${directAnnot}]\n>>`,
 );
 
 addObject(
@@ -100,6 +101,13 @@ addObject(
 addObject(
   12,
   `<<\n/Type /Annot\n/Subtype /Line\n/Rect [400 450 520 540]\n/L [410 460 510 530]\n/C [0 0.5 0.5]\n/CA 1\n/BS << /W 2 /S /S >>\n/LE [/None /OpenArrow]\n/F 4\n/Contents (line 1)\n>>`,
+);
+
+// Screen: a subtype the engine has no dedicated reader for -> `unsupported`.
+// Keeps the read-path's unsupported-fallback coverage now that /Ink is wired.
+addObject(
+  13,
+  `<<\n/Type /Annot\n/Subtype /Screen\n/Rect [400 300 500 360]\n/F 4\n/Contents (screen 1)\n>>`,
 );
 
 const buf = [];

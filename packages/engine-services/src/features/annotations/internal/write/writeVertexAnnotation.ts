@@ -15,7 +15,7 @@ import {
   setVertices,
 } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
-import { applyStrokeFillDraft, applyStrokeFillPatch } from './writeStrokeFill';
+import { applyFilledStyleDraft, applyFilledStylePatch } from './writeStyle';
 
 export type VertexDraft = PolygonDraft | PolylineDraft;
 export type VertexPatch = PolygonPatch | PolylinePatch;
@@ -39,7 +39,7 @@ export function applyPolygonDraft(
 ): void {
   applyAnnotationBaseDraft(fn, mem, annotPtr, draft);
   setAnnotRect(fn, mem, annotPtr, draft.rect);
-  applyStrokeFillDraft(fn, mem, annotPtr, draft);
+  applyFilledStyleDraft(fn, mem, annotPtr, draft);
   setVertices(fn, mem, annotPtr, draft.vertices);
 
   if (draft.cloudyIntensity !== undefined && draft.cloudyIntensity > 0) {
@@ -60,7 +60,7 @@ export function applyPolygonPatch(
   if (patch.rect !== undefined) {
     setAnnotRect(fn, mem, annotPtr, patch.rect);
   }
-  applyStrokeFillPatch(fn, mem, annotPtr, patch);
+  applyFilledStylePatch(fn, mem, annotPtr, patch);
   if (patch.vertices !== undefined) {
     setVertices(fn, mem, annotPtr, patch.vertices);
   }
@@ -92,7 +92,7 @@ export function applyPolylineDraft(
 ): void {
   applyAnnotationBaseDraft(fn, mem, annotPtr, draft);
   setAnnotRect(fn, mem, annotPtr, draft.rect);
-  applyStrokeFillDraft(fn, mem, annotPtr, draft);
+  applyFilledStyleDraft(fn, mem, annotPtr, draft);
   setVertices(fn, mem, annotPtr, draft.vertices);
   setLineEndings(fn, annotPtr, draft.lineEndings ?? DEFAULT_LINE_ENDINGS);
 }
@@ -107,7 +107,7 @@ export function applyPolylinePatch(
   if (patch.rect !== undefined) {
     setAnnotRect(fn, mem, annotPtr, patch.rect);
   }
-  applyStrokeFillPatch(fn, mem, annotPtr, patch);
+  applyFilledStylePatch(fn, mem, annotPtr, patch);
   if (patch.vertices !== undefined) {
     setVertices(fn, mem, annotPtr, patch.vertices);
   }

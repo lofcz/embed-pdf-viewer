@@ -170,8 +170,7 @@ export function createAnnotationCapability(
         .page(pon)
         .annotations.list()
         .then(
-          (snap) =>
-            apply({ t: 'loaded', pon, annots: snap.annotations.map((d) => fromDTO(d, crop)) }),
+          (snap) => apply({ t: 'loaded', annots: snap.annotations.map((d) => fromDTO(d, crop)) }),
           () => {
             loaded.delete(pon);
           },

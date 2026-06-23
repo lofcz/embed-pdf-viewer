@@ -8,6 +8,7 @@ import type {
   AnnotationPatch,
   CircleDraft,
   HighlightDraft,
+  InkDraft,
   LineDraft,
   PolygonDraft,
   PolylineDraft,
@@ -18,7 +19,7 @@ import type { DocumentHandle } from '../engine/DocumentHandle';
 import type { Engine } from '../engine/Engine';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
-import type { LinePoints, PdfPoint, PdfRect } from '../geometry/primitives';
+import type { InkList, LinePoints, PdfPoint, PdfRect } from '../geometry/primitives';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import { AbortError } from '../promise/AbortError';
 import {
@@ -62,6 +63,11 @@ export interface AnnotationMutationConformanceFixture extends ConformanceFixture
    * fit inside `createShapeRect`. Defaults to the rect's diagonal.
    */
   createLinePoints?: LinePoints;
+  /**
+   * `/InkList` strokes to use for the ink create test. PDF user space; must
+   * fit inside `createShapeRect`. Defaults to a single short stroke.
+   */
+  createInkList?: InkList;
 }
 
 export interface AnnotationMutationConformanceOptions extends Omit<ConformanceOptions, 'fixture'> {
@@ -100,6 +106,16 @@ const DEFAULT_LINE_POINTS: LinePoints = {
   end: { x: 150, y: 130 },
 };
 
+/** A single freehand stroke inside DEFAULT_SHAPE_RECT (valid for ink). */
+const DEFAULT_INK_STROKES: InkList = [
+  [
+    { x: 70, y: 70 },
+    { x: 100, y: 120 },
+    { x: 130, y: 80 },
+    { x: 150, y: 130 },
+  ],
+];
+
 /**
  * Mutation conformance suite. Mirrors the read suite: tests are written
  * once and run against any engine that satisfies the public API
@@ -131,6 +147,7 @@ export function runAnnotationMutationConformance(
   const shapeRect = fix.createShapeRect ?? DEFAULT_SHAPE_RECT;
   const vertices = fix.createVertices ?? DEFAULT_VERTICES;
   const linePoints = fix.createLinePoints ?? DEFAULT_LINE_POINTS;
+  const inkStrokes = fix.createInkList ?? DEFAULT_INK_STROKES;
 
   describe(`annotation mutation conformance: ${opts.label}`, () => {
     let engine: Engine;
@@ -199,7 +216,7 @@ export function runAnnotationMutationConformance(
           contents: 'mutation conformance: circle',
           rect: shapeRect,
           interiorColor: { r: 255, g: 0, b: 0 },
-          strokeColor: { r: 0, g: 0, b: 255 },
+          color: { r: 0, g: 0, b: 255 },
           strokeWidth: 3,
           borderStyle: 'solid',
           opacity: 0.6,
@@ -211,7 +228,7 @@ export function runAnnotationMutationConformance(
         expect(circle.created.ref.kind).toBe('objectNumber');
         if (circle.created.subtype === 'circle') {
           expect(circle.created.interiorColor).toMatchObject({ r: 255, g: 0, b: 0 });
-          expect(circle.created.strokeColor).toMatchObject({ r: 0, g: 0, b: 255 });
+          expect(circle.created.color).toMatchObject({ r: 0, g: 0, b: 255 });
           expect(circle.created.strokeWidth).toBe(3);
           expect(circle.created.borderStyle).toBe('solid');
           // /CA stored as f32 — compare at 2dp to absorb float drift.
@@ -229,7 +246,7 @@ export function runAnnotationMutationConformance(
           contents: 'mutation conformance: square',
           rect: shapeRect,
           interiorColor: null,
-          strokeColor: { r: 0, g: 128, b: 0 },
+          color: { r: 0, g: 128, b: 0 },
           strokeWidth: 2,
           borderStyle: 'dashed',
           dashArray: [3, 2],
@@ -241,7 +258,7 @@ export function runAnnotationMutationConformance(
         if (square.created.subtype === 'square') {
           // interiorColor omitted/null => no fill.
           expect(square.created.interiorColor).toBe(null);
-          expect(square.created.strokeColor).toMatchObject({ r: 0, g: 128, b: 0 });
+          expect(square.created.color).toMatchObject({ r: 0, g: 128, b: 0 });
           expect(square.created.borderStyle).toBe('dashed');
           expect(square.created.dashArray).toEqual([3, 2]);
         }
@@ -266,7 +283,7 @@ export function runAnnotationMutationConformance(
           rect: shapeRect,
           vertices,
           interiorColor: { r: 255, g: 200, b: 0 },
-          strokeColor: { r: 0, g: 0, b: 255 },
+          color: { r: 0, g: 0, b: 255 },
           strokeWidth: 2,
           borderStyle: 'solid',
           opacity: 0.8,
@@ -276,7 +293,7 @@ export function runAnnotationMutationConformance(
         expect(polygon.created.subtype).toBe('polygon');
         if (polygon.created.subtype === 'polygon') {
           expect(polygon.created.vertices.length).toBe(vertices.length);
-          expect(polygon.created.strokeColor).toMatchObject({ r: 0, g: 0, b: 255 });
+          expect(polygon.created.color).toMatchObject({ r: 0, g: 0, b: 255 });
           expect(polygon.created.interiorColor).toMatchObject({ r: 255, g: 200, b: 0 });
         }
 
@@ -286,7 +303,7 @@ export function runAnnotationMutationConformance(
           rect: shapeRect,
           vertices,
           interiorColor: null,
-          strokeColor: { r: 200, g: 0, b: 0 },
+          color: { r: 200, g: 0, b: 0 },
           strokeWidth: 2,
           borderStyle: 'solid',
           opacity: 1,
@@ -307,7 +324,7 @@ export function runAnnotationMutationConformance(
           rect: shapeRect,
           linePoints,
           interiorColor: null,
-          strokeColor: { r: 0, g: 128, b: 128 },
+          color: { r: 0, g: 128, b: 128 },
           strokeWidth: 2,
           borderStyle: 'solid',
           opacity: 1,
@@ -323,11 +340,77 @@ export function runAnnotationMutationConformance(
           expect(line.created.lineEndings.end).toBe('open-arrow');
         }
 
+        const inkDraft: InkDraft = {
+          subtype: 'ink',
+          contents: 'mutation conformance: ink',
+          rect: shapeRect,
+          inkList: inkStrokes,
+          color: { r: 29, g: 78, b: 216 },
+          strokeWidth: 3,
+          borderStyle: 'solid',
+          opacity: 1,
+        };
+        const ink = await page.annotations.create(inkDraft);
+        expect(AnnotationCreateResultSchema.safeParse(ink).success).toBe(true);
+        expect(ink.created.subtype).toBe('ink');
+        if (ink.created.subtype === 'ink') {
+          expect(ink.created.inkList.length).toBe(inkStrokes.length);
+          expect(ink.created.inkList[0]!.length).toBe(inkStrokes[0]!.length);
+          expect(ink.created.color).toMatchObject({ r: 29, g: 78, b: 216 });
+          // Ink has a stroke but no /IC.
+          expect('interiorColor' in ink.created).toBe(false);
+        }
+
         const after = await page.annotations.list();
         const subtypes = after.annotations.map((a) => a.subtype);
         expect(subtypes.includes('polygon')).toBe(true);
         expect(subtypes.includes('polyline')).toBe(true);
         expect(subtypes.includes('line')).toBe(true);
+        expect(subtypes.includes('ink')).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('update an ink annotation patches strokes + color and is non-structural', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const created = await page.annotations.create({
+          subtype: 'ink',
+          contents: 'ink-update-base',
+          rect: shapeRect,
+          inkList: inkStrokes,
+          color: { r: 0, g: 0, b: 0 },
+          strokeWidth: 2,
+          borderStyle: 'solid',
+          opacity: 1,
+        } satisfies InkDraft);
+        const before = await page.annotations.list();
+
+        const newStrokes: InkList = [
+          ...inkStrokes,
+          [
+            { x: 80, y: 90 },
+            { x: 120, y: 110 },
+          ],
+        ];
+        const result = await page.annotations.update(created.created.ref, {
+          subtype: 'ink',
+          inkList: newStrokes,
+          color: { r: 220, g: 20, b: 60 },
+        });
+        expect(AnnotationUpdateResultSchema.safeParse(result).success).toBe(true);
+        expect(result.updated.subtype).toBe('ink');
+        if (result.updated.subtype === 'ink') {
+          expect(result.updated.inkList.length).toBe(newStrokes.length);
+          expect(result.updated.color).toMatchObject({ r: 220, g: 20, b: 60 });
+        }
+        // Update never bumps the revision.
+        expect(result.meta.affectedPages[0].revision.generation).toBe(
+          before.pageState.revision.generation,
+        );
+        expect(result.meta.weakRefsInvalidated).toBe(false);
       } finally {
         await doc.close();
       }
@@ -343,7 +426,7 @@ export function runAnnotationMutationConformance(
           rect: shapeRect,
           vertices,
           interiorColor: null,
-          strokeColor: { r: 0, g: 0, b: 0 },
+          color: { r: 0, g: 0, b: 0 },
           strokeWidth: 1,
           borderStyle: 'solid',
           opacity: 1,
@@ -386,7 +469,7 @@ export function runAnnotationMutationConformance(
           contents: 'shape-update-base',
           rect: shapeRect,
           interiorColor: { r: 10, g: 20, b: 30 },
-          strokeColor: { r: 0, g: 0, b: 0 },
+          color: { r: 0, g: 0, b: 0 },
           strokeWidth: 1,
           borderStyle: 'solid',
           opacity: 1,
@@ -426,7 +509,7 @@ export function runAnnotationMutationConformance(
             contents: 'appearance-gen',
             rect: shapeRect,
             interiorColor: { r: 255, g: 0, b: 0 },
-            strokeColor: { r: 0, g: 0, b: 0 },
+            color: { r: 0, g: 0, b: 0 },
             strokeWidth: 2,
             borderStyle: 'solid',
             opacity: 1,
@@ -1040,6 +1123,7 @@ function subtypeAwarePatch(subtype: string, newContents: string): AnnotationPatc
     case 'polygon':
     case 'polyline':
     case 'line':
+    case 'ink':
       return {
         subtype: subtype as AnnotationPatch['subtype'],
         contents: newContents,

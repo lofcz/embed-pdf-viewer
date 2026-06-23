@@ -39,6 +39,8 @@ export interface AnnotationReadConformanceFixture extends ConformanceFixture {
   minPolylineCount?: number;
   /** At least this many `'line'` annotations on the page. Defaults to 0. */
   minLineCount?: number;
+  /** At least this many `'ink'` annotations on the page. Defaults to 0. */
+  minInkCount?: number;
   /**
    * `true` if the fixture has at least one weak annotation (no /NM, direct
    * object). Drives the weak-ref + revision tests.
@@ -103,6 +105,8 @@ export function runAnnotationReadConformance(
         expect(polylines.length >= (opts.fixture.minPolylineCount ?? 0)).toBe(true);
         const lines = snap.annotations.filter((a) => a.subtype === 'line');
         expect(lines.length >= (opts.fixture.minLineCount ?? 0)).toBe(true);
+        const inks = snap.annotations.filter((a) => a.subtype === 'ink');
+        expect(inks.length >= (opts.fixture.minInkCount ?? 0)).toBe(true);
       } finally {
         await doc.close();
       }
@@ -113,16 +117,30 @@ export function runAnnotationReadConformance(
       try {
         const snap = await doc.annotations.listRaw(opts.fixture.pageObjectNumber);
         for (const a of snap.annotations) {
+          // Ink carries the geometry styling (/C, /CA, /BS) but NOT /IC, plus
+          // its /InkList (a non-empty array of point paths).
+          if (a.subtype === 'ink') {
+            expect(a.color !== undefined && a.color !== null).toBe(true);
+            expect(typeof a.strokeWidth).toBe('number');
+            expect(typeof a.borderStyle).toBe('string');
+            expect(typeof a.opacity).toBe('number');
+            expect('interiorColor' in a).toBe(false);
+            expect(Array.isArray(a.inkList)).toBe(true);
+            expect(a.inkList.length >= 1).toBe(true);
+            expect(Array.isArray(a.inkList[0])).toBe(true);
+            expect(a.inkList[0]!.length >= 1).toBe(true);
+            continue;
+          }
           // Every stroke/fill family member shares this styling surface.
-          const isStrokeFill =
+          const isFilledStyle =
             a.subtype === 'circle' ||
             a.subtype === 'square' ||
             a.subtype === 'polygon' ||
             a.subtype === 'polyline' ||
             a.subtype === 'line';
-          if (!isStrokeFill) continue;
-          // interiorColor is Color | null; strokeColor is always present.
-          expect(a.strokeColor !== undefined && a.strokeColor !== null).toBe(true);
+          if (!isFilledStyle) continue;
+          // interiorColor is Color | null; color (/C) is always present.
+          expect(a.color !== undefined && a.color !== null).toBe(true);
           expect(typeof a.strokeWidth).toBe('number');
           expect(typeof a.borderStyle).toBe('string');
           expect(typeof a.opacity).toBe('number');

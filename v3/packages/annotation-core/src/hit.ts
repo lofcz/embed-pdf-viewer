@@ -25,7 +25,7 @@ const hasHandles = (subtype: string): boolean => {
   return c.resizable || c.vertexEditable;
 };
 
-const isFilled = (a: Annot): boolean => a.style.fillColor != null || a.geom.t === 'quads';
+const isFilled = (a: Annot): boolean => a.style.interiorColor != null || a.geom.t === 'quads';
 // A SELECTED annotation is grabbable from anywhere inside its SELECTION region — the
 // SAME rect the chrome outlines — so the grab area matches what you see highlighted
 // (a thin/horizontal arrow's whole outline box, arrowhead included; not a sliver).

@@ -2,6 +2,7 @@ import {
   EngineError,
   EngineErrorCode,
   type Color,
+  type InkList,
   type LineEndings,
   type LinePoints,
   type PdfPoint,
@@ -225,6 +226,39 @@ export function setLine(
   } finally {
     mem.free(start);
     mem.free(end);
+  }
+}
+
+/**
+ * Replace the `/InkList` of an ink annotation. PDFium has no single
+ * "set ink list" call, so we clear any existing list with
+ * `FPDFAnnot_RemoveInkList` (a false return is benign on a freshly-created
+ * annotation that has none) and re-add each non-empty stroke via
+ * `FPDFAnnot_AddInkStroke`, which takes a contiguous `count * FS_POINTF`
+ * buffer and returns the new stroke index (`< 0` on failure).
+ */
+export function setInkList(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  inkList: InkList,
+): void {
+  fn.FPDFAnnot_RemoveInkList(annotPtr);
+  for (const stroke of inkList) {
+    if (stroke.length === 0) continue;
+    const buf = mem.alloc(stroke.length * POINTF_BYTES);
+    try {
+      for (let i = 0; i < stroke.length; i++) {
+        const off = i * POINTF_BYTES;
+        mem.poke(buf, 'f32', stroke[i]!.x, off);
+        mem.poke(buf, 'f32', stroke[i]!.y, off + 4);
+      }
+      if (fn.FPDFAnnot_AddInkStroke(annotPtr, buf, stroke.length) < 0) {
+        throw new EngineError(EngineErrorCode.Unknown, 'FPDFAnnot_AddInkStroke returned < 0');
+      }
+    } finally {
+      mem.free(buf);
+    }
   }
 }
 

@@ -56,8 +56,10 @@ export type Border =
   | { kind: 'cloudy'; intensity: number };
 
 export interface Style {
-  strokeColor: string;
-  fillColor: string | null;
+  /** `/C` colour — stroke for geometric kinds, highlight colour for markup. */
+  color: string;
+  /** `/IC` interior (fill) colour. `null` when the annotation has no fill. */
+  interiorColor: string | null;
   strokeWidth: number;
   opacity: number;
   /** Outline style — defaults to `{ kind: 'solid' }`. */

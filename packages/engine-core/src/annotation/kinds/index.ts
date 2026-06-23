@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AnnotationKindModule } from '../registry';
 import { CircleKind } from './circle';
 import { HighlightKind } from './highlight';
+import { InkKind } from './ink';
 import { LineKind } from './line';
 import { PolygonKind } from './polygon';
 import { PolylineKind } from './polyline';
@@ -21,10 +22,11 @@ export * from './square';
 export * from './polygon';
 export * from './polyline';
 export * from './line';
+export * from './ink';
 export * from './unsupported';
 export * from './text-markup.shared';
 export * from './shape.shared';
-export * from './stroke-style.shared';
+export * from './style.shared';
 export * from './vertex.shared';
 
 /**
@@ -51,6 +53,7 @@ export const ANNOTATION_KINDS = [
   PolygonKind,
   PolylineKind,
   LineKind,
+  InkKind,
   UnsupportedKind,
 ] as const;
 
@@ -106,6 +109,7 @@ export const AnnotationDTOSchema: z.ZodType<AnnotationDTO> = z.discriminatedUnio
   PolygonKind.dtoSchema,
   PolylineKind.dtoSchema,
   LineKind.dtoSchema,
+  InkKind.dtoSchema,
   UnsupportedKind.dtoSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
@@ -122,6 +126,7 @@ export const AnnotationDraftSchema: z.ZodType<AnnotationDraft> = z.discriminated
   PolygonKind.draftSchema,
   PolylineKind.draftSchema,
   LineKind.draftSchema,
+  InkKind.draftSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
   ...z.ZodDiscriminatedUnionOption<'subtype'>[],
@@ -137,6 +142,7 @@ export const AnnotationPatchSchema: z.ZodType<AnnotationPatch> = z.discriminated
   PolygonKind.patchSchema,
   PolylineKind.patchSchema,
   LineKind.patchSchema,
+  InkKind.patchSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
   ...z.ZodDiscriminatedUnionOption<'subtype'>[],

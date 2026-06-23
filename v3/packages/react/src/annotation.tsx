@@ -276,8 +276,8 @@ function sameDefaults(a: ToolDefaultsResolved, b: ToolDefaultsResolved): boolean
   const x = a.style;
   const y = b.style;
   return (
-    x.strokeColor === y.strokeColor &&
-    x.fillColor === y.fillColor &&
+    x.color === y.color &&
+    x.interiorColor === y.interiorColor &&
     x.strokeWidth === y.strokeWidth &&
     x.opacity === y.opacity &&
     x.border.kind === y.border.kind &&

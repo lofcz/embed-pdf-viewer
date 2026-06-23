@@ -50,6 +50,18 @@ export interface LinePoints {
 }
 
 /**
+ * A single ink stroke — one continuous pen path, as the ordered point list
+ * of an `/InkList` sub-array. Coordinates are PDF user space, y-up.
+ */
+export type InkStroke = PdfPoint[];
+
+/**
+ * An ink annotation's `/InkList` — an array of strokes (each a point path).
+ * Mirrors the PDF structure: `/InkList [ [x1 y1 x2 y2 ...] [ ... ] ]`.
+ */
+export type InkList = InkStroke[];
+
+/**
  * A /QuadPoints quad. The four points are POSITIONAL, in PDFium
  * `FS_QUADPOINTSF` order (PDF 32000 §12.5.6.10): `p1 p2 p3 p4`. Coordinates
  * are PDF user space, y-up.

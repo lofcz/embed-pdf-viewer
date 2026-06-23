@@ -1,13 +1,13 @@
 import { z } from 'zod';
 
 import {
-  StrokeFillDTOShape,
-  StrokeFillDraftShape,
-  StrokeFillPatchShape,
-  type StrokeFillDraftFields,
-  type StrokeFillFields,
-  type StrokeFillPatchFields,
-} from './stroke-style.shared';
+  FilledStyleDTOShape,
+  FilledStyleDraftShape,
+  FilledStylePatchShape,
+  type FilledStyleDraftFields,
+  type FilledStyleFields,
+  type FilledStylePatchFields,
+} from './style.shared';
 import type { PdfPoint, PdfRect } from '../../geometry/primitives';
 import { PdfPointSchema } from '../../geometry/schemas';
 import { PdfRectSchema } from '../../geometry/schemas';
@@ -17,7 +17,7 @@ import { AnnotationBaseShape } from '../base.schema';
 /**
  * Vertex-family-specific fields. The two vertex subtypes (polygon/polyline)
  * carry their geometry as a `/Vertices` point list (ISO 32000 §12.5.6.9)
- * plus the common stroke/fill styling ({@link StrokeFillFields}). Polygon
+ * plus the common stroke/fill styling ({@link FilledStyleFields}). Polygon
  * layers cloudy borders (`/BE`) + rectangle differences (`/RD`) on top;
  * polyline layers line endings (`/LE`); each kind file adds those.
  *
@@ -26,37 +26,37 @@ import { AnnotationBaseShape } from '../base.schema';
  * faithful persistence layer); the DTO inherits `rect` from
  * `AnnotationBase`.
  */
-export interface VertexAnnotationFields extends StrokeFillFields {
+export interface VertexAnnotationFields extends FilledStyleFields {
   /** `/Vertices` — the ordered point list (PDF user space, y-up). */
   vertices: PdfPoint[];
 }
 
-export interface VertexDraftFields extends StrokeFillDraftFields {
+export interface VertexDraftFields extends FilledStyleDraftFields {
   /** `/Vertices` geometry — required (vertex annotations are not derived). */
   vertices: PdfPoint[];
   /** `/Rect` bounding box — required (computed by the caller/plugin). */
   rect: PdfRect;
 }
 
-export interface VertexPatchFields extends StrokeFillPatchFields {
+export interface VertexPatchFields extends FilledStylePatchFields {
   vertices?: PdfPoint[];
   rect?: PdfRect;
 }
 
 export const VertexDTOShape = {
   ...AnnotationBaseShape,
-  ...StrokeFillDTOShape,
+  ...FilledStyleDTOShape,
   vertices: z.array(PdfPointSchema),
 } as const;
 
 export const VertexDraftShape = {
-  ...StrokeFillDraftShape,
+  ...FilledStyleDraftShape,
   vertices: z.array(PdfPointSchema),
   rect: PdfRectSchema,
 } as const;
 
 export const VertexPatchShape = {
-  ...StrokeFillPatchShape,
+  ...FilledStylePatchShape,
   vertices: z.array(PdfPointSchema).optional(),
   rect: PdfRectSchema.optional(),
 } as const;

@@ -6,7 +6,16 @@
  * importing geometry into the runtime never pulls in zod.
  */
 
-export type { PdfPoint, PdfRect, PdfSize, PdfQuad, PdfRotation, LinePoints } from './primitives';
+export type {
+  PdfPoint,
+  PdfRect,
+  PdfSize,
+  PdfQuad,
+  PdfRotation,
+  LinePoints,
+  InkStroke,
+  InkList,
+} from './primitives';
 export type { PdfOriginSize, PdfQuadCorners } from './convert';
 export {
   normalizePdfRect,

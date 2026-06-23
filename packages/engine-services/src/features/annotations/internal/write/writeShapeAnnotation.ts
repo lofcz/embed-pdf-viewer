@@ -13,7 +13,7 @@ import {
   setRectangleDifferences,
 } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
-import { applyStrokeFillDraft, applyStrokeFillPatch } from './writeStrokeFill';
+import { applyFilledStyleDraft, applyFilledStylePatch } from './writeStyle';
 
 export type ShapeDraft = CircleDraft | SquareDraft;
 export type ShapePatch = CirclePatch | SquarePatch;
@@ -36,7 +36,7 @@ export function applyShapeDraft(
   applyAnnotationBaseDraft(fn, mem, annotPtr, draft);
 
   setAnnotRect(fn, mem, annotPtr, draft.rect);
-  applyStrokeFillDraft(fn, mem, annotPtr, draft);
+  applyFilledStyleDraft(fn, mem, annotPtr, draft);
 
   if (draft.cloudyIntensity !== undefined && draft.cloudyIntensity > 0) {
     setBorderEffect(fn, annotPtr, draft.cloudyIntensity);
@@ -61,7 +61,7 @@ export function applyShapePatch(
   if (patch.rect !== undefined) {
     setAnnotRect(fn, mem, annotPtr, patch.rect);
   }
-  applyStrokeFillPatch(fn, mem, annotPtr, patch);
+  applyFilledStylePatch(fn, mem, annotPtr, patch);
 
   if (patch.cloudyIntensity !== undefined) {
     if (patch.cloudyIntensity > 0) {

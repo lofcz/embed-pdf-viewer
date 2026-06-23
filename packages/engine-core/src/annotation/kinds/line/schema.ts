@@ -7,25 +7,21 @@ import {
   AnnotationPatchBaseShape,
   LineEndingsSchema,
 } from '../../base.schema';
-import {
-  StrokeFillDTOShape,
-  StrokeFillDraftShape,
-  StrokeFillPatchShape,
-} from '../stroke-style.shared';
+import { FilledStyleDTOShape, FilledStyleDraftShape, FilledStylePatchShape } from '../style.shared';
 import type { LineDraft } from './draft';
 import type { LineAnnotationDTO } from './dto';
 import type { LinePatch } from './patch';
 
 export const LineDTOSchema: z.ZodType<LineAnnotationDTO> = z.object({
   ...AnnotationBaseShape,
-  ...StrokeFillDTOShape,
+  ...FilledStyleDTOShape,
   linePoints: LinePointsSchema,
   lineEndings: LineEndingsSchema,
   subtype: z.literal('line'),
 }) as unknown as z.ZodType<LineAnnotationDTO>;
 
 export const LineDraftSchema: z.ZodType<LineDraft> = z.object({
-  ...StrokeFillDraftShape,
+  ...FilledStyleDraftShape,
   ...AnnotationDraftBaseShape,
   linePoints: LinePointsSchema,
   rect: PdfRectSchema,
@@ -34,7 +30,7 @@ export const LineDraftSchema: z.ZodType<LineDraft> = z.object({
 });
 
 export const LinePatchSchema: z.ZodType<LinePatch> = z.object({
-  ...StrokeFillPatchShape,
+  ...FilledStylePatchShape,
   ...AnnotationPatchBaseShape,
   linePoints: LinePointsSchema.optional(),
   rect: PdfRectSchema.optional(),
