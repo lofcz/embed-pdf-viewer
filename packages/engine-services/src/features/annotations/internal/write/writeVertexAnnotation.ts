@@ -11,7 +11,6 @@ import {
   setAnnotRect,
   setBorderEffect,
   setLineEndings,
-  setRectangleDifferences,
   setVertices,
 } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
@@ -29,7 +28,11 @@ const DEFAULT_LINE_ENDINGS = { start: 'none', end: 'none' } as const;
  *   2. /Rect (required — supplied by the plugin; the engine never derives it)
  *   3. shared stroke/fill styling (/IC, /C, /CA, /BS, dash)
  *   4. /Vertices geometry
- *   5. optional cloudy (/BE), rect-diff (/RD)
+ *   5. optional cloudy (/BE)
+ *
+ * Note: polygon does NOT use /RD (rectangle differences) — its geometry is
+ * fully described by /Vertices + /Rect, so /RD is redundant. Per ISO 32000
+ * /RD applies to Square/Circle (and FreeText/Caret), not Polygon.
  */
 export function applyPolygonDraft(
   fn: PdfFunctions,
@@ -44,9 +47,6 @@ export function applyPolygonDraft(
 
   if (draft.cloudyIntensity !== undefined && draft.cloudyIntensity > 0) {
     setBorderEffect(fn, annotPtr, draft.cloudyIntensity);
-  }
-  if (draft.rectDifferences !== undefined) {
-    setRectangleDifferences(fn, annotPtr, draft.rectDifferences);
   }
 }
 
@@ -70,9 +70,6 @@ export function applyPolygonPatch(
     } else {
       clearBorderEffect(fn, annotPtr);
     }
-  }
-  if (patch.rectDifferences !== undefined) {
-    setRectangleDifferences(fn, annotPtr, patch.rectDifferences);
   }
 }
 

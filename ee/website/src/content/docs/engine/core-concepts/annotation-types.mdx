@@ -1,0 +1,237 @@
+---
+title: Annotation types
+description: Every annotation you can create and the exact fields each one takes.
+---
+
+import { Callout } from '@/components/docs/callout';
+
+# Annotation types
+
+This page lists every annotation you can create with `page.annotations.create(...)` and
+what you pass for each. For reading, updating, styling, and flags, see
+[Annotations](/docs/engine/core-concepts/annotations).
+
+<Callout type="info">
+  Coordinates are in PDF points with the origin at the bottom-left of the page (y goes
+  up). A rectangle is `{ left, bottom, right, top }` and a point is `{ x, y }`.
+</Callout>
+
+Every annotation also accepts these optional base fields, so they're left out of the
+per-type tables below:
+
+- `contents` — a text note/comment.
+- `flags` — PDF flags, e.g. `{ print: true }` (see [Annotations](/docs/engine/core-concepts/annotations#flags)).
+- `nm` — a stable name you want to assign.
+
+Anything you omit falls back to its default (a 1pt solid red stroke, full opacity, no
+fill).
+
+<Callout type="info">
+  Any annotation kind the engine doesn't author yet is read back as `unsupported`. It's
+  listed and preserved, but can't be created or have its type-specific fields edited.
+</Callout>
+
+## Text markup
+
+`highlight`, `underline`, `squiggly`, and `strikeout` all work the same way: a color and
+one or more `quadPoints` quads marking the text regions. A quad is four points
+(`p1`–`p4`).
+
+```ts
+await page.annotations.create({
+  subtype: 'highlight', // or 'underline' | 'squiggly' | 'strikeout'
+  color: { r: 255, g: 215, b: 0 },
+  opacity: 0.4,
+  quadPoints: [
+    { p1: { x: 72, y: 712 }, p2: { x: 272, y: 712 }, p3: { x: 72, y: 696 }, p4: { x: 272, y: 696 } },
+  ],
+});
+```
+
+| Field | What it is | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `quadPoints` | One quad per marked text region | yes | — |
+| `color` | Markup color `{ r, g, b }` | no | red |
+| `opacity` | Transparency `0`–`1` | no | `1` |
+
+## Square and circle
+
+`square` (rectangle) and `circle` (ellipse) are drawn inside a `rect`, with a stroke
+(`color`) and an optional fill (`interiorColor`).
+
+```ts
+await page.annotations.create({
+  subtype: 'circle', // or 'square'
+  rect: { left: 60, bottom: 300, right: 180, top: 400 },
+  color: { r: 0, g: 0, b: 139 },
+  interiorColor: { r: 30, g: 144, b: 255 },
+  strokeWidth: 2,
+  borderStyle: 'solid',
+  opacity: 0.5,
+});
+```
+
+| Field | What it is | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `rect` | Bounding box `{ left, bottom, right, top }` | yes | — |
+| `color` | Stroke color | no | red |
+| `interiorColor` | Fill color, or `null` for none | no | none |
+| `strokeWidth` | Border thickness | no | `1` |
+| `borderStyle` | `'solid'`/`'dashed'`/`'beveled'`/`'inset'` | no | `'solid'` |
+| `dashArray` | Dash pattern (with `'dashed'`) | no | — |
+| `opacity` | Transparency `0`–`1` | no | `1` |
+| `cloudyIntensity` | Cloudy-border strength (`0` = plain) | no | `0` |
+| `rectDifferences` | Inset of the shape from `rect` (see below) | no | none |
+
+## Polygon and polyline
+
+Both take a `vertices` point list and a `rect`. A `polygon` is closed and can be filled;
+a `polyline` is open and can have arrowheads (`lineEndings`).
+
+```ts
+// Polygon (closed, filled)
+await page.annotations.create({
+  subtype: 'polygon',
+  rect: { left: 60, bottom: 450, right: 180, top: 550 },
+  vertices: [
+    { x: 70, y: 460 },
+    { x: 170, y: 460 },
+    { x: 120, y: 540 },
+  ],
+  color: { r: 0, g: 0, b: 139 },
+  interiorColor: { r: 255, g: 215, b: 0 },
+  strokeWidth: 2,
+});
+
+// Polyline (open, with arrowheads)
+await page.annotations.create({
+  subtype: 'polyline',
+  rect: { left: 220, bottom: 450, right: 360, top: 550 },
+  vertices: [
+    { x: 230, y: 460 },
+    { x: 290, y: 540 },
+    { x: 350, y: 460 },
+  ],
+  color: { r: 220, g: 20, b: 60 },
+  strokeWidth: 2,
+  lineEndings: { start: 'open-arrow', end: 'closed-arrow' },
+});
+```
+
+| Field | What it is | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `vertices` | Ordered points `{ x, y }` | yes | — |
+| `rect` | Bounding box | yes | — |
+| `color` | Stroke color | no | red |
+| `interiorColor` | Fill, or `null` (polygon) | no | none |
+| `strokeWidth` | Line thickness | no | `1` |
+| `borderStyle` | `'solid'`/`'dashed'`/`'beveled'`/`'inset'` | no | `'solid'` |
+| `dashArray` | Dash pattern (with `'dashed'`) | no | — |
+| `opacity` | Transparency `0`–`1` | no | `1` |
+| `lineEndings` | Arrowheads — **polyline only** | no | none |
+| `cloudyIntensity` | Cloudy border — **polygon only** | no | `0` |
+
+## Line
+
+A single straight line between two points, with optional endings.
+
+```ts
+await page.annotations.create({
+  subtype: 'line',
+  rect: { left: 400, bottom: 450, right: 520, top: 550 },
+  linePoints: { start: { x: 410, y: 460 }, end: { x: 510, y: 540 } },
+  color: { r: 0, g: 128, b: 128 },
+  strokeWidth: 2,
+  lineEndings: { start: 'none', end: 'open-arrow' },
+});
+```
+
+| Field | What it is | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `linePoints` | `{ start: { x, y }, end: { x, y } }` | yes | — |
+| `rect` | Bounding box | yes | — |
+| `color` | Stroke color | no | red |
+| `strokeWidth` | Line thickness | no | `1` |
+| `borderStyle` | `'solid'`/`'dashed'`/`'beveled'`/`'inset'` | no | `'solid'` |
+| `dashArray` | Dash pattern (with `'dashed'`) | no | — |
+| `opacity` | Transparency `0`–`1` | no | `1` |
+| `lineEndings` | Endings at start/end | no | none |
+
+## Ink
+
+Freehand drawing. `inkList` is an array of strokes; each stroke is an array of points
+(one pen path). Ink has a stroke but no fill.
+
+```ts
+await page.annotations.create({
+  subtype: 'ink',
+  rect: { left: 60, bottom: 60, right: 300, top: 200 },
+  inkList: [
+    [ { x: 70, y: 80 }, { x: 120, y: 180 }, { x: 180, y: 90 } ], // stroke 1
+    [ { x: 200, y: 100 }, { x: 260, y: 160 } ],                  // stroke 2
+  ],
+  color: { r: 220, g: 20, b: 60 },
+  strokeWidth: 3,
+});
+```
+
+| Field | What it is | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `inkList` | Array of strokes; each an array of points | yes | — |
+| `rect` | Box covering all strokes | yes | — |
+| `color` | Stroke color | no | red |
+| `strokeWidth` | Pen thickness | no | `1` |
+| `borderStyle` | `'solid'`/`'dashed'`/`'beveled'`/`'inset'` | no | `'solid'` |
+| `dashArray` | Dash pattern (with `'dashed'`) | no | — |
+| `opacity` | Transparency `0`–`1` | no | `1` |
+
+## Cloudy borders
+
+`square`, `circle`, and `polygon` support a cloudy (scalloped) border instead of a
+straight one — the wavy outline reviewers often use to circle a region. Turn it on with
+`cloudyIntensity`, a number that sets how pronounced the waves are:
+
+- `0` (or omitted) — a plain, straight border.
+- around `1` — gentle waves.
+- around `2` — larger, more pronounced waves.
+
+```ts
+await page.annotations.create({
+  subtype: 'square',
+  rect: { left: 60, bottom: 300, right: 180, top: 400 },
+  color: { r: 220, g: 20, b: 60 },
+  strokeWidth: 2,
+  cloudyIntensity: 2, // wavy "cloud" outline
+});
+```
+
+Higher values mean bigger scallops. `cloudyIntensity` only affects the outline; the fill
+(`interiorColor`) and everything else behave the same. It has no effect on `line`,
+`polyline`, or text markup.
+
+## Rectangle differences
+
+`square` and `circle` accept an optional `rectDifferences` — the gap, in points, between
+the `rect` you pass and where the shape is actually drawn. It's four non-negative insets,
+one per edge:
+
+```ts
+rectDifferences: { left: 6, top: 6, right: 6, bottom: 6 } // drawn 6pt inside rect on every side
+```
+
+You mostly need this with a cloudy border: the scallops bulge outward, so `rect` has to
+be a little larger than the shape to fully contain them. `rectDifferences` records how far
+the shape sits inside `rect` so the bounding box stays correct. For a plain border you can
+leave it out — the shape just fills `rect`.
+
+`polygon` doesn't use `rectDifferences`: its outline is already given exactly by
+`vertices` (plus `rect`), so there's nothing to inset.
+
+## Line endings
+
+For `line` and `polyline`, `lineEndings` is `{ start, end }` where each is one of:
+
+`none`, `square`, `circle`, `diamond`, `open-arrow`, `closed-arrow`, `butt`,
+`r-open-arrow`, `r-closed-arrow`, `slash`.
+
+The `r-` variants are reversed. Omit `lineEndings` to leave both ends plain.

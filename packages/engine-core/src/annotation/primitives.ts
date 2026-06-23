@@ -23,15 +23,17 @@ export type Size = PdfSize;
 export type Rotation = PdfRotation;
 
 /**
- * sRGB color with optional alpha. Components are 0..255 integers; alpha is
- * 0..1 float when present (matches PDF /CA). Engines normalize PDFium's
+ * sRGB color. Components are 0..255 integers. Engines normalize PDFium's
  * device color space into sRGB at read time.
+ *
+ * Colour carries NO alpha: annotation transparency is a separate concern
+ * stored in `/CA` and surfaced as the `opacity` style field, so there is a
+ * single source of truth for transparency. See `ColorStyleFields.opacity`.
  */
 export interface Color {
   r: number;
   g: number;
   b: number;
-  a?: number;
 }
 
 /**

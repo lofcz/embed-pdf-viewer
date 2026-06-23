@@ -1,121 +1,175 @@
 ---
 title: Annotations
-description: Read, address, create, update, delete, and reorder annotations — and when a weak edit session is required.
+description: Read, add, update, delete, and reorder annotations, plus styling and flags.
 ---
 
 import { Callout } from '@/components/docs/callout';
+import { Cards, Card } from '@/components/docs/cards';
 
 # Annotations
 
-Annotations are split across two services: a **document-scoped** service for
-cheap whole-document reads and edit sessions, and a **per-page** service for
-fully-typed reads and mutations.
+You read and edit annotations through two services: the **document** service
+(`doc.annotations`) for cheap whole-document reads, and the **page** service
+(`doc.page(pon).annotations`) for typed reads and edits. The examples below assume
+you already opened a document (see [Quick start](/docs/engine/getting-started/quick-start)).
 
 ## Reading annotations
 
-The document service offers two fast "raw" read paths that don't load full
-per-subtype fields — ideal for "show me what's where" UX:
+For a quick "what's where" overview, the document service has two fast read paths:
 
 ```ts
-// Every page, cheapest possible read.
+// Every page, cheapest read.
 const all = await doc.annotations.listRawAll();
 
-// A single page, by page object number.
+// A single page, by its page object number.
 const onePage = await doc.annotations.listRaw(pageObjectNumber);
 ```
 
-For fully-typed, per-subtype annotations on a page, use the page service's
-`list()` (the slower path that loads a page pointer):
+To get the full, typed annotations on one page, use the page service:
 
 ```ts
 const page = doc.page(pageObjectNumber);
 const { annotations } = await page.annotations.list();
 ```
 
-## Addressing an annotation
+## Adding an annotation
 
-Mutations take an `AnnotationRef` — a discriminated union with three ways to
-point at an annotation, resolved in this order:
-
-```ts
-type AnnotationRef =
-  | { kind: 'objectNumber'; pageObjectNumber; annotObjectNumber: number }
-  | { kind: 'nm'; pageObjectNumber; nm: string }
-  | { kind: 'index'; pageObjectNumber; index: number; revision: RevisionToken };
-```
-
-- **`objectNumber`** — durable PDF indirect object number. Preferred.
-- **`nm`** — the annotation's `/NM` name.
-- **`index`** — a position in the page's annotation array. This is the strict
-  escape hatch for legacy/direct annotations: it must carry a fresh
-  `RevisionToken`, which the engine validates against the page's generation
-  counter on every dereference. A stale token fails with
-  `EngineError(InvalidReference)` rather than silently hitting the wrong
-  annotation.
-
-## Mutating annotations
-
-The per-page service supports create, update, delete, and batch move:
-
-```ts
-interface PageAnnotationsService {
-  list(): AbortablePromise<AnnotationListPageSnapshot>;
-  create(draft: AnnotationDraft): AbortablePromise<AnnotationCreateResult>;
-  update(ref: AnnotationRef, patch: AnnotationPatch): AbortablePromise<AnnotationUpdateResult>;
-  delete(ref: AnnotationRef): AbortablePromise<AnnotationDeleteResult>;
-  move(refs: AnnotationRef[], toIndex: number): AbortablePromise<AnnotationMoveResult>;
-}
-```
+Call `create()` with the annotation you want. Each kind has its own fields — see
+[Annotation types](/docs/engine/core-concepts/annotation-types) for the full list.
+Here's a highlight:
 
 ```ts
 const page = doc.page(pageObjectNumber);
 
-const created = await page.annotations.create(draft);
+const { created } = await page.annotations.create({
+  subtype: 'highlight',
+  color: { r: 255, g: 215, b: 0 },
+  opacity: 0.4,
+  quadPoints: [
+    { p1: { x: 72, y: 712 }, p2: { x: 272, y: 712 }, p3: { x: 72, y: 696 }, p4: { x: 272, y: 696 } },
+  ],
+});
 
-await page.annotations.update(
-  { kind: 'objectNumber', pageObjectNumber, annotObjectNumber: created.annotObjectNumber },
-  patch,
-);
+// `created` is the new annotation. Keep `created.ref` to edit it later.
 ```
 
-`move()` accepts a contiguous block (`refs.length === 1` is the single
-annotation case) and inserts at `toIndex` in the post-removal index space. Refs
-may mix stable ids and weak `index` refs; weak refs are opportunistically
-upgraded to durable `/NM` before the move.
+## Updating and deleting
 
-## Weak edit sessions (cloud)
+You never build an identity by hand. Every annotation you read or create comes with a
+`ref` — pass that same `ref` back to `update`, `delete`, or `move`:
 
-The cloud handle advertises `capabilities.weakAnnotationEditSessions ===
-'required'`. Structural edits addressed by **index** (delete/move that shift the
-array) need an active edit session that proves you have sole edit presence on
-the affected pages — a collaboration guard against two clients shifting the same
-page at once.
+```ts
+const { annotations } = await page.annotations.list();
+const note = annotations[0];
+
+// Change something. Repeat the `subtype` so the engine knows which fields are valid.
+await page.annotations.update(note.ref, { subtype: note.subtype, contents: 'edited note' });
+
+// Remove it.
+await page.annotations.delete(note.ref);
+```
+
+<Callout type="info">
+  Advanced: a `ref` points at an annotation in one of three ways — by PDF object
+  number (preferred, durable), by its `/NM` name, or by its position (array index).
+  You normally don't care which: just reuse the `ref` you were handed. Index refs are a
+  legacy escape hatch and need an edit session for structural edits (see below).
+</Callout>
+
+## Reordering
+
+`move()` changes annotation order on a page. Pass the annotations to move (a contiguous
+block; a single `ref` is the common case) and the position to insert them at:
+
+```ts
+await page.annotations.move([note.ref], 0); // move to the front
+```
+
+## Styling
+
+Most annotations share the same styling fields.
+
+**Color is RGB only** — `{ r, g, b }`, each `0`–`255`. Transparency is a separate
+`opacity` field (`0`–`1`), not part of the color:
+
+```ts
+await page.annotations.update(note.ref, {
+  subtype: note.subtype,
+  color: { r: 0, g: 120, b: 255 },
+  opacity: 0.6,
+});
+```
+
+| Field | What it is | Values |
+| :--- | :--- | :--- |
+| `color` | Stroke color (or highlight color) | `{ r, g, b }`, 0–255 |
+| `interiorColor` | Fill color for closed shapes | `{ r, g, b }` or `null` (no fill) |
+| `opacity` | Whole-annotation transparency | `0`–`1` |
+| `strokeWidth` | Line/border thickness in points | number, default `1` |
+| `borderStyle` | Border style | `'solid'`, `'dashed'`, `'beveled'`, `'inset'` |
+| `dashArray` | Dash pattern (with `'dashed'`) | array of numbers |
+
+When you omit a styling field, the engine uses a sensible default: a 1pt solid red
+stroke at full opacity.
+
+## Flags
+
+Every annotation has the standard PDF flags. Set only the ones you care about — the rest
+keep their current value:
+
+```ts
+// On create: print, but don't show on screen.
+await page.annotations.create({
+  subtype: 'square',
+  rect: { left: 100, bottom: 600, right: 200, top: 680 },
+  color: { r: 0, g: 0, b: 0 },
+  flags: { print: true, noView: true },
+});
+
+// Later: lock from editing without touching any other flag.
+await page.annotations.update(note.ref, { subtype: note.subtype, flags: { readOnly: true } });
+```
+
+Available flags: `invisible`, `hidden`, `print`, `noZoom`, `noRotate`, `noView`,
+`readOnly`, `locked`, `toggleNoView`, `lockedContents`.
+
+## Edit sessions (cloud)
+
+On the cloud, structural edits addressed by **index** (a delete or move that shifts the
+array) need an active edit session. It proves you're the only one editing those pages — a
+guard against two clients shifting the same page at once.
 
 ```ts
 const session = await doc.annotations.beginWeakEdit([pageObjectNumber]);
 
 try {
   // …index-addressed structural edits on covered pages…
-  await session.heartbeat(); // keep the session alive (see heartbeatIntervalMs)
+  await session.heartbeat(); // keep the session alive
 } finally {
   await session.release();
 }
 ```
 
-A `WeakAnnotationEditSession` exposes `id`, `expiresAt`, `heartbeatIntervalMs`,
-the `pageObjectNumbers` it covers, and `covers()`, `updatePages()`,
-`heartbeat()`, and `release()`.
-
 <Callout type="info">
-  Stable references (<code>objectNumber</code>, <code>nm</code>) and
-  non-shifting updates don't need a session. You only need
-  <code>beginWeakEdit</code> for index-addressed structural edits. A conflicting
-  edit surfaces as a <code>WeakAnnotationSessionConflict</code> error.
+  Edits that reuse a `ref` from `list()`/`create()` (object number or `/NM`) and
+  non-shifting updates don't need a session. You only need `beginWeakEdit` for
+  index-addressed structural edits. A conflicting edit fails with a
+  `WeakAnnotationSessionConflict` error.
 </Callout>
 
 <Callout type="warn">
   Annotation writes are gated by the caller's scope on the cloud (for example
-  <code>doc.annotate.write</code> and the collab scopes like
-  <code>annotations:update:self</code>). Insufficient scope rejects with
+  <code>doc.annotate.write</code> and collab scopes like
+  <code>annotations:update:self</code>). Insufficient scope fails with
   <code>Forbidden</code>.
 </Callout>
+
+## Next
+
+<Cards>
+  <Card
+    title="Annotation types"
+    description="Every kind you can create and the exact fields each one takes."
+    href="/docs/engine/core-concepts/annotation-types"
+  />
+</Cards>

@@ -206,6 +206,44 @@ export function runAnnotationMutationConformance(
       }
     });
 
+    test('create + update honor annotation flags (set on create, merge on patch)', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+
+        // Create with a single flag set; the others must default to false.
+        const draft: HighlightDraft = {
+          subtype: 'highlight',
+          contents: 'mutation conformance: flags',
+          color: { r: 10, g: 20, b: 30 },
+          opacity: 1,
+          quadPoints: quad,
+          flags: { print: true },
+        };
+        const created = await page.annotations.create(draft);
+        expect(created.created.flags.print).toBe(true);
+        expect(created.created.flags.hidden).toBe(false);
+
+        // Patch a different flag: it must merge, leaving `print` intact.
+        const hidden = await page.annotations.update(created.created.ref, {
+          subtype: 'highlight',
+          flags: { hidden: true },
+        });
+        expect(hidden.updated.flags.hidden).toBe(true);
+        expect(hidden.updated.flags.print).toBe(true);
+
+        // Clearing one flag leaves the rest untouched.
+        const cleared = await page.annotations.update(created.created.ref, {
+          subtype: 'highlight',
+          flags: { print: false },
+        });
+        expect(cleared.updated.flags.print).toBe(false);
+        expect(cleared.updated.flags.hidden).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
     test('create shape annotations (circle + square) round-trip shape fields', async () => {
       const doc = await openFixture(engine, opts);
       try {

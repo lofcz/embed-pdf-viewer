@@ -6,18 +6,13 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
-import {
-  readBorderEffect,
-  readLineEndings,
-  readRectangleDifferences,
-  readVertices,
-} from './annotationReadPrimitives';
+import { readBorderEffect, readLineEndings, readVertices } from './annotationReadPrimitives';
 import { readFilledStyleExtras } from './readStyle';
 
 /**
  * Shared reader for the two vertex subtypes (polygon/polyline). Reads the
  * common stroke/fill styling plus the `/Vertices` point list; each caller
- * layers its own subtype-specific extras (polygon: cloudy + RD; polyline:
+ * layers its own subtype-specific extras (polygon: cloudy border; polyline:
  * line endings) and the `subtype` literal.
  */
 export function readVertexExtras(
@@ -38,13 +33,11 @@ export function readPolygon(
   base: AnnotationBase,
 ): PolygonAnnotationDTO {
   const cloudyIntensity = readBorderEffect(fn, mem, annotPtr);
-  const rectDifferences = readRectangleDifferences(fn, mem, annotPtr);
   return {
     ...base,
     subtype: 'polygon',
     ...readVertexExtras(fn, mem, annotPtr),
     ...(cloudyIntensity != null ? { cloudyIntensity } : {}),
-    ...(rectDifferences ? { rectDifferences } : {}),
   };
 }
 

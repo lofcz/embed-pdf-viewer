@@ -18,8 +18,10 @@ import { AnnotationBaseShape } from '../base.schema';
  * Vertex-family-specific fields. The two vertex subtypes (polygon/polyline)
  * carry their geometry as a `/Vertices` point list (ISO 32000 §12.5.6.9)
  * plus the common stroke/fill styling ({@link FilledStyleFields}). Polygon
- * layers cloudy borders (`/BE`) + rectangle differences (`/RD`) on top;
- * polyline layers line endings (`/LE`); each kind file adds those.
+ * layers a cloudy border (`/BE`) on top; polyline layers line endings
+ * (`/LE`); each kind file adds those. (Polygon does not use `/RD` — its
+ * geometry is fully described by `/Vertices` + `/Rect`, so `/RD` is for the
+ * shape family only.)
  *
  * Like shapes, the engine takes an explicit `/Rect` on the Draft (the v3
  * plugin owns the bounding-box + rotation math, so the engine stays a

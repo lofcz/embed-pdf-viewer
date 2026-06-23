@@ -9,13 +9,14 @@ import type {
   PdfRect,
   PdfRectDifferences,
 } from '@embedpdf/engine-core/runtime';
-import { NO_ANNOTATION_FLAGS } from '@embedpdf/engine-core/runtime';
 import {
   NULL_PTR,
   type PdfFunctions,
   type PdfRuntimeMemory,
   type Ptr,
 } from '@embedpdf/pdf-runtime';
+
+import { bitsToFlags } from '../annotationFlagBits';
 
 import { withScratch, withScratchN } from '../../../../runtime/memory/scratch';
 import { readUtf16String } from '../../../../runtime/memory/strings';
@@ -62,34 +63,8 @@ export function readAnnotRect(fn: PdfFunctions, mem: PdfRuntimeMemory, annotPtr:
   });
 }
 
-const ANNOT_FLAG_BITS = {
-  invisible: 1 << 0,
-  hidden: 1 << 1,
-  print: 1 << 2,
-  noZoom: 1 << 3,
-  noRotate: 1 << 4,
-  noView: 1 << 5,
-  readOnly: 1 << 6,
-  locked: 1 << 7,
-  toggleNoView: 1 << 8,
-  lockedContents: 1 << 9,
-} as const satisfies Record<keyof AnnotationFlags, number>;
-
 export function readAnnotFlags(fn: PdfFunctions, annotPtr: Ptr): AnnotationFlags {
-  const bits = fn.FPDFAnnot_GetFlags(annotPtr);
-  if (bits === 0) return { ...NO_ANNOTATION_FLAGS };
-  return {
-    invisible: (bits & ANNOT_FLAG_BITS.invisible) !== 0,
-    hidden: (bits & ANNOT_FLAG_BITS.hidden) !== 0,
-    print: (bits & ANNOT_FLAG_BITS.print) !== 0,
-    noZoom: (bits & ANNOT_FLAG_BITS.noZoom) !== 0,
-    noRotate: (bits & ANNOT_FLAG_BITS.noRotate) !== 0,
-    noView: (bits & ANNOT_FLAG_BITS.noView) !== 0,
-    readOnly: (bits & ANNOT_FLAG_BITS.readOnly) !== 0,
-    locked: (bits & ANNOT_FLAG_BITS.locked) !== 0,
-    toggleNoView: (bits & ANNOT_FLAG_BITS.toggleNoView) !== 0,
-    lockedContents: (bits & ANNOT_FLAG_BITS.lockedContents) !== 0,
-  };
+  return bitsToFlags(fn.FPDFAnnot_GetFlags(annotPtr));
 }
 
 /**

@@ -1,6 +1,7 @@
 import {
   EngineError,
   EngineErrorCode,
+  type AnnotationFlags,
   type Color,
   type InkList,
   type LineEndings,
@@ -12,6 +13,7 @@ import {
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
 import { F32_BYTES, POINTF_BYTES, RECTF_BYTES } from '../../../../runtime/memory/structs';
+import { flagsToBits } from '../annotationFlagBits';
 import { FPDFANNOT_COLORTYPE } from '../colorType';
 import { lineEndingToCode } from '../lineEnding';
 
@@ -64,6 +66,24 @@ export function setAnnotOpacity(fn: PdfFunctions, annotPtr: Ptr, opacity: number
   const alpha = Math.max(0, Math.min(255, Math.round(opacity * 255)));
   if (!fn.EPDFAnnot_SetOpacity(annotPtr, alpha)) {
     throw new EngineError(EngineErrorCode.Unknown, 'EPDFAnnot_SetOpacity returned false');
+  }
+}
+
+/**
+ * Set the `/F` (Annotation Flags) entry via `FPDFAnnot_SetFlags`. Only the
+ * keys present in `partial` are changed; the rest preserve their current
+ * value (read back via `FPDFAnnot_GetFlags` first). On create the dict
+ * starts at 0, so this is equivalently "set exactly these"; on update it
+ * merges onto the live flags.
+ */
+export function setAnnotFlags(
+  fn: PdfFunctions,
+  annotPtr: Ptr,
+  partial: Partial<AnnotationFlags>,
+): void {
+  const next = flagsToBits(fn.FPDFAnnot_GetFlags(annotPtr), partial);
+  if (!fn.FPDFAnnot_SetFlags(annotPtr, next)) {
+    throw new EngineError(EngineErrorCode.Unknown, 'FPDFAnnot_SetFlags returned false');
   }
 }
 

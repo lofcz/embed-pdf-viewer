@@ -1,3 +1,5 @@
+import type { AnnotationFlags } from './primitives';
+
 /**
  * Generic fields every annotation Draft carries. These are not specific
  * to any subtype family; they map to PDF dictionary entries that exist
@@ -18,4 +20,10 @@ export interface AnnotationDraftBase {
   contents?: string | null;
   /** Optional /NM the caller wants to assign on creation. */
   nm?: string;
+  /**
+   * Optional `/F` (Annotation Flags) to set on creation. Only the keys
+   * provided are set; omitted keys default to `false` (the dict starts at
+   * 0). E.g. `{ print: true }` or `{ readOnly: true, hidden: true }`.
+   */
+  flags?: Partial<AnnotationFlags>;
 }

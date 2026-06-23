@@ -1,3 +1,5 @@
+import type { AnnotationFlags } from './primitives';
+
 /**
  * Generic fields every annotation Patch carries.
  *
@@ -35,4 +37,11 @@ export interface AnnotationPatchBase {
    * "reassign to a different group."
    */
   groupId?: string;
+
+  /**
+   * Update the `/F` (Annotation Flags). Only the keys provided are
+   * changed; omitted keys preserve their current value. E.g.
+   * `{ hidden: true }` hides without touching `print`.
+   */
+  flags?: Partial<AnnotationFlags>;
 }

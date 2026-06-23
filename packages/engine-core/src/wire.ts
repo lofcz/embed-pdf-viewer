@@ -143,6 +143,7 @@ export {
   AnnotationRefSchema,
   RevisionTokenSchema,
   AnnotationFlagsSchema,
+  AnnotationFlagsPartialSchema,
   ColorSchema,
   PointSchema,
   RectSchema,

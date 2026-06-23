@@ -3,6 +3,7 @@ export default {
   'pages-and-rendering': 'Pages & rendering',
   text: 'Text extraction',
   annotations: 'Annotations',
+  'annotation-types': 'Annotation types',
   metadata: 'Metadata',
   'security-and-access': 'Security & access',
   'async-and-errors': 'Async & errors',

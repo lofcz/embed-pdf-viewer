@@ -23,7 +23,6 @@ export const ColorSchema: z.ZodType<Color> = z.object({
   r: z.number().int().min(0).max(255),
   g: z.number().int().min(0).max(255),
   b: z.number().int().min(0).max(255),
-  a: z.number().min(0).max(1).optional(),
 });
 
 export const AnnotationBorderStyleSchema: z.ZodType<AnnotationBorderStyle> = z.enum([
@@ -70,6 +69,26 @@ export const AnnotationFlagsSchema: z.ZodType<AnnotationFlags> = z.object({
   toggleNoView: z.boolean(),
   lockedContents: z.boolean(),
 });
+
+/**
+ * Partial flag set authorable on a Draft or Patch — every key optional so
+ * callers set only the bits they care about. The engine merges these onto
+ * the annotation's current `/F` bitset.
+ */
+export const AnnotationFlagsPartialSchema: z.ZodType<Partial<AnnotationFlags>> = z
+  .object({
+    invisible: z.boolean(),
+    hidden: z.boolean(),
+    print: z.boolean(),
+    noZoom: z.boolean(),
+    noRotate: z.boolean(),
+    noView: z.boolean(),
+    readOnly: z.boolean(),
+    locked: z.boolean(),
+    toggleNoView: z.boolean(),
+    lockedContents: z.boolean(),
+  })
+  .partial();
 
 export const AnnotationStableIdSchema: z.ZodType<AnnotationStableId> = z.discriminatedUnion(
   'kind',
@@ -143,6 +162,7 @@ export const AnnotationBaseShape = {
 export const AnnotationDraftBaseShape = {
   contents: z.string().nullable().optional(),
   nm: z.string().optional(),
+  flags: AnnotationFlagsPartialSchema.optional(),
 } as const;
 
 /**
@@ -158,6 +178,7 @@ export const AnnotationDraftBaseShape = {
 export const AnnotationPatchBaseShape = {
   contents: z.string().nullable().optional(),
   groupId: z.string().min(1).optional(),
+  flags: AnnotationFlagsPartialSchema.optional(),
 } as const;
 
 /** Helper that asserts `BasePart extends AnnotationBase` without subtype. */

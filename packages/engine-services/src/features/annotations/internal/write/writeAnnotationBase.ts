@@ -3,6 +3,7 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 import { NULL_PTR } from '@embedpdf/pdf-runtime';
 
 import { formatPdfDate } from '../../../../shared/pdf-date';
+import { setAnnotFlags } from './annotationWritePrimitives';
 
 /**
  * Write the annotation-wide base fields shared by every Draft
@@ -29,6 +30,9 @@ export function applyAnnotationBaseDraft(
   if (draft.nm !== undefined && draft.nm.length > 0) {
     writeString(fn, mem, annotPtr, 'NM', draft.nm);
   }
+  if (draft.flags !== undefined) {
+    setAnnotFlags(fn, annotPtr, draft.flags);
+  }
 }
 
 /**
@@ -51,6 +55,9 @@ export function applyAnnotationBasePatch(
 ): void {
   if (patch.contents !== undefined) {
     writeStringOrClear(fn, mem, annotPtr, 'Contents', patch.contents);
+  }
+  if (patch.flags !== undefined) {
+    setAnnotFlags(fn, annotPtr, patch.flags);
   }
 }
 
