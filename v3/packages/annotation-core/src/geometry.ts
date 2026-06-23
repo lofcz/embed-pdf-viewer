@@ -13,7 +13,7 @@ import {
   type PointIn,
   type RectIn,
 } from '@embedpdf-x/geometry';
-import { cloudyPath } from './cloudy';
+import { cloudyBorderExtent, cloudyPath } from './cloudy';
 import { endingNodes, endingPoints } from './endings';
 import type {
   Border,
@@ -24,6 +24,7 @@ import type {
   Quad,
   Rect,
   RenderNode,
+  Style,
   Vec,
 } from './types';
 
@@ -138,6 +139,19 @@ const insetRect = (r: Rect, pad: number): Rect => {
   return { x: r.x + (r.width - width) / 2, y: r.y + (r.height - height) / 2, width, height };
 };
 
+/**
+ * The stored `rect` for a freshly-drawn shape, given the box the user dragged. A
+ * cloudy border stores the OUTER box (dragged + cloud extent), so the dragged box
+ * is its inner edge and the scallops bulge out to the stored box — just like a
+ * solid shape, whose /Rect is the dragged box. So `g.rect` is ALWAYS the outer box;
+ * the cloud-vs-solid difference lives only here, at creation.
+ */
+export function shapeRectFor(dragged: Rect, ellipse: boolean, style: Style): Rect {
+  return style.border.kind === 'cloudy'
+    ? expandRect(dragged, cloudyBorderExtent(style.border.intensity, style.strokeWidth, ellipse))
+    : dragged;
+}
+
 /* ── line endings ─────────────────────────────────────────────────────────────
  * The breathing room a stroked line/poly needs beyond its vertices, as a factor
  * of the stroke width (matches v2): the half-stroke under the centre-line plus a
@@ -175,11 +189,12 @@ function endingSegs(g: Geom): EndingSeg[] {
  * A geom's VISUAL bounds: the rect that encloses the drawn appearance, so the
  * baked /AP is never clipped and the selection outline wraps exactly what's drawn.
  *
- * A shape's `rect` is its OUTER box — the box the user dragged, the selection box,
- * the PDF /Rect. Its stroke is drawn INSIDE that box (see `geomScene`), so the
- * visual bounds ARE the box: growing the stroke thickens inward, never spilling
- * past the handles. Lines/polylines have no such box, so they expand by the stroke
- * plus their endings — the SAME ending math feeds `geomScene`, so the two agree.
+ * A shape's `rect` IS its visual box (the PDF /Rect): solid/dashed strokes draw
+ * inside it, and a cloudy border's scallops also inset back into it (the dragged
+ * inner edge sits `/RD` in from it — see `shapeRectFor`). So growing the stroke or
+ * the cloud thickens inward, never spilling past the handles. Lines / polylines /
+ * ink have no box, so they expand by the stroke (+ endings) — the SAME math feeds
+ * `geomScene`, so the visual box and what's drawn always agree.
  */
 export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
   if (g.t === 'rect') return g.rect;
@@ -355,10 +370,15 @@ export function geomDragHandle(g: Geom, handle: string, to: Vec): Geom {
 
 export function geomScene(g: Geom, strokeWidth = 0, border?: Border): RenderNode[] {
   if (g.t === 'rect') {
-    // A cloudy border is one precomputed closed path; its scallops are generated
-    // inside the box and bulge back out to `g.rect`, so the box still bounds it.
+    // A cloudy border's scallops inset back into `g.rect` (the OUTER box): the troughs
+    // land at the dragged inner edge (`g.rect` − extent) and the peaks on `g.rect`.
+    // Only drawn when the box can hold them — a box smaller than 2× the inset (e.g.
+    // a 0-drag, or after cranking intensity) falls through to the plain outline.
     if (border?.kind === 'cloudy') {
-      return [{ kind: 'path', d: cloudyPath(g.rect, g.ellipse, border.intensity, strokeWidth) }];
+      const inset = cloudyBorderExtent(border.intensity, strokeWidth, g.ellipse);
+      if (g.rect.width > 2 * inset && g.rect.height > 2 * inset) {
+        return [{ kind: 'path', d: cloudyPath(g.rect, g.ellipse, border.intensity, strokeWidth) }];
+      }
     }
     // Otherwise the stroke sits INSIDE the box: inset the drawn path by half the
     // stroke so its outer edge lands on `g.rect`, not straddling it.
@@ -414,6 +434,6 @@ export const contentToPdfRect = (r: Rect, crop: PdfRect): PdfRect =>
   cornerToPdfRect(applyRect(invert(pdfToContentMatrix(crop)), r as RectIn<'content'>));
 
 /** A geom's VISUAL bounding box (geometry + stroke + line endings) as a PdfRect —
- *  the engine requires an explicit `rect` that encloses the baked appearance. */
+ *  the engine requires an explicit `rect` that encloses the baked /AP. */
 export const geomPdfBounds = (g: Geom, strokeWidth: number, crop: PdfRect): PdfRect =>
   contentToPdfRect(geomVisualBounds(g, strokeWidth), crop);

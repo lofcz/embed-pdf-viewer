@@ -203,6 +203,8 @@ function shapeExtras(a: Annot): { cloudyIntensity?: number; rectDifferences?: Pd
 function geomFields(a: Annot, crop: PdfRect) {
   const g = a.geom;
   const sw = a.style.strokeWidth;
+  // /Rect IS `g.rect` (the outer box) for every shape; a cloudy border's geometry is
+  // inset from it by /RD (see shapeExtras), and the scallops fill back out to it.
   if (g.t === 'rect') return { rect: contentToPdfRect(g.rect, crop) };
   if (g.t === 'line') {
     return {

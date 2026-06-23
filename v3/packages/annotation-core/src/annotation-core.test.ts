@@ -8,6 +8,7 @@ import {
   geomHit,
   geomScene,
   geomVisualBounds,
+  shapeRectFor,
   contentToPdfRect,
   pdfToContentRect,
   contentToPdfPoint,
@@ -15,7 +16,7 @@ import {
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
-import type { Annot, Geom, Model, Msg, RenderItem } from './types';
+import type { Annot, Geom, Model, Msg, RenderItem, Style } from './types';
 
 const PON = 1 as Annot['pon'];
 const editPtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift = false): Msg => ({
@@ -283,21 +284,45 @@ describe('annotation-core', () => {
     expect(geomHit(g, { x: 100, y: 150 }, margin, false, sw)).toBe(true);
   });
 
-  it('a cloudy border emits one closed path whose scallops stay within the box (no spill past /Rect)', () => {
+  it('a cloudy border insets its scallops within g.rect (the outer box); too-small falls back to a plain outline', () => {
     const box = { x: 100, y: 100, width: 120, height: 90 };
     const g: Geom = { t: 'rect', rect: box, ellipse: false };
     const [node] = geomScene(g, 2, { kind: 'cloudy', intensity: 2 });
     expect(node.kind).toBe('path');
     const d = node.kind === 'path' ? node.d : '';
-    // pull every coordinate out of the path data and confirm it's inside the box
     const nums = d.match(/-?\d+(\.\d+)?/g)!.map(Number);
     const xs = nums.filter((_, i) => i % 2 === 0);
     const ys = nums.filter((_, i) => i % 2 === 1);
     const eps = 0.5;
+    // g.rect is the OUTER box; the scallops stay within it (outline is tight, like solid)
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(box.x - eps);
     expect(Math.max(...xs)).toBeLessThanOrEqual(box.x + box.width + eps);
     expect(Math.min(...ys)).toBeGreaterThanOrEqual(box.y - eps);
     expect(Math.max(...ys)).toBeLessThanOrEqual(box.y + box.height + eps);
+    // a box too small to hold the scallops → plain rect node, never an inverted cloud
+    const tiny: Geom = { t: 'rect', rect: { x: 0, y: 0, width: 4, height: 4 }, ellipse: false };
+    expect(geomScene(tiny, 2, { kind: 'cloudy', intensity: 2 })[0].kind).toBe('rect');
+  });
+
+  it('shapeRectFor stores the OUTER box for a cloudy shape (dragged + extent), the dragged box for solid', () => {
+    const dragged = { x: 50, y: 50, width: 40, height: 30 };
+    const solid: Style = {
+      strokeColor: '#000000',
+      fillColor: null,
+      strokeWidth: 2,
+      opacity: 1,
+      border: { kind: 'solid' },
+    };
+    expect(shapeRectFor(dragged, false, solid)).toEqual(dragged);
+    const e = cloudyBorderExtent(2, 2, false);
+    expect(
+      shapeRectFor(dragged, false, { ...solid, border: { kind: 'cloudy', intensity: 2 } }),
+    ).toEqual({
+      x: 50 - e,
+      y: 50 - e,
+      width: 40 + 2 * e,
+      height: 30 + 2 * e,
+    });
   });
 
   it('cloudyBorderExtent grows with intensity and stroke; circle scallops are larger than square', () => {

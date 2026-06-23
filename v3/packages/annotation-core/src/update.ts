@@ -13,6 +13,7 @@ import {
   geomTranslate,
   rectFromPoints,
   rectsIntersect,
+  shapeRectFor,
   unionRect,
 } from './geometry';
 import type {
@@ -210,9 +211,10 @@ function createPointer(
   const def = defaultsFor(m, d.subtype);
   let geom: Geom | null = null;
   if (d.g === 'create-rect') {
-    const rect = rectFromPoints(d.from, d.to);
-    if (rect.width >= MIN_DRAG || rect.height >= MIN_DRAG)
-      geom = { t: 'rect', rect, ellipse: d.ellipse };
+    const dragged = rectFromPoints(d.from, d.to);
+    if (dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG)
+      // cloudy stores the OUTER box (dragged + extent) so the dragged box is its inner edge
+      geom = { t: 'rect', rect: shapeRectFor(dragged, d.ellipse, def.style), ellipse: d.ellipse };
   } else if (d.g === 'create-line') {
     if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG)
       geom = { t: 'line', a: d.from, b: d.to, ends: def.endings };

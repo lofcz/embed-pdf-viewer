@@ -74,8 +74,14 @@ function paintAttrs(p: Paint) {
  * Svelte painter is the same ~10-line loop.
  */
 function Shape({ item, page }: { item: RenderItem; page: PageContextValue }) {
+  // Nothing to draw until the annotation has area (the 0×0 draft at mouse-down).
+  if (item.box.width <= 0 || item.box.height <= 0) return null;
   const { left, top, width, height } = boxOf(item.box, page);
-  const vb = `${item.box.x} ${item.box.y} ${Math.max(1e-3, item.box.width)} ${Math.max(1e-3, item.box.height)}`;
+  // The viewBox (content units) and the <svg> on-screen size MUST stay proportional
+  // (scale == zoom). Clamping either — e.g. a `max(1px)` floor on the element while
+  // the viewBox keeps shrinking — decouples them, so a sub-pixel box scales content
+  // up by ~1/size and a cloudy border's scallops flood the stage. No clamps here.
+  const vb = `${item.box.x} ${item.box.y} ${item.box.width} ${item.box.height}`;
   return (
     <svg
       viewBox={vb}
@@ -83,8 +89,8 @@ function Shape({ item, page }: { item: RenderItem; page: PageContextValue }) {
         position: 'absolute',
         left,
         top,
-        width: Math.max(1, width),
-        height: Math.max(1, height),
+        width,
+        height,
         overflow: 'visible',
         pointerEvents: 'none',
       }}

@@ -9,6 +9,7 @@ import {
   geomTranslate,
   geomVisualBounds,
   rectFromPoints,
+  shapeRectFor,
   unionRect,
 } from './geometry';
 import { isSelectable } from './hit';
@@ -28,7 +29,8 @@ const PREVIEW_ID = '__markup_preview__';
 function outlineBounds(g: Geom, strokeWidth: number): Rect {
   // Centerline geometries (line / open polyline / ink) have no box the user drew —
   // their stroke straddles the path — so the outline expands by the stroke to wrap
-  // it. Shapes / closed polygons keep tight bounds (handles sit on the box).
+  // it. Shapes (incl. cloudy, whose scallops sit inside `g.rect`) and closed polygons
+  // keep tight bounds, so the handles stay exactly on the box corners.
   return g.t === 'line' || g.t === 'ink' || (g.t === 'poly' && !g.closed)
     ? geomVisualBounds(g, strokeWidth)
     : geomBounds(g);
@@ -72,24 +74,30 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
     d.pon === pon
   ) {
     // Preview with the tool's RESOLVED defaults (base + per-subtype override), so the
-    // ghost is a faithful WYSIWYG of what will commit — not the bare base style.
+    // ghost is a faithful WYSIWYG of what will commit — not the bare base style. A
+    // cloudy rect stores the OUTER box (see `shapeRectFor`), so the cloud grows out
+    // from the cursor; a 0-drag draws nothing (skipped, like a solid 0×0).
     const def = defaultsFor(m, d.subtype);
-    const geom: Geom =
+    const dragged = d.g === 'create-rect' ? rectFromPoints(d.from, d.to) : null;
+    const geom: Geom | null =
       d.g === 'create-rect'
-        ? { t: 'rect', rect: rectFromPoints(d.from, d.to), ellipse: d.ellipse }
+        ? dragged && (dragged.width > 0 || dragged.height > 0)
+          ? { t: 'rect', rect: shapeRectFor(dragged, d.ellipse, def.style), ellipse: d.ellipse }
+          : null
         : d.g === 'create-line'
           ? { t: 'line', a: d.from, b: d.to, ends: def.endings }
           : { t: 'ink', strokes: d.strokes };
-    items.push({
-      id: DRAFT_ID,
-      ref: null,
-      subtype: d.subtype,
-      geom,
-      box: geomVisualBounds(geom, def.style.strokeWidth),
-      style: def.style,
-      source: 'ghost',
-      selected: false,
-    });
+    if (geom)
+      items.push({
+        id: DRAFT_ID,
+        ref: null,
+        subtype: d.subtype,
+        geom,
+        box: geomVisualBounds(geom, def.style.strokeWidth),
+        style: def.style,
+        source: 'ghost',
+        selected: false,
+      });
   }
   // Live text-markup preview: the in-progress selection rendered as the markup it
   // will become (same `scene()` paint as the committed annotation).
