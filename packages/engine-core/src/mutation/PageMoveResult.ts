@@ -1,5 +1,5 @@
-import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageStructureCache } from './PageStructureCache';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
 
 /** A move's coherence pins are the shared structure-op shape — see
  *  {@link PageStructureCache} for the semantics. */

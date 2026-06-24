@@ -1,6 +1,6 @@
-import type { PdfRect, PdfRotation } from '../geometry/primitives';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
+import type { PdfRect, PdfRotation } from '../geometry/primitives';
 
 export type PageRenderEncodedFormat = 'png' | 'webp' | 'bmp';
 

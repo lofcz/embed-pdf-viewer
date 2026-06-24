@@ -5,17 +5,20 @@ import {
   wirePack,
   type DocumentHandle,
   type Engine,
+  type FontService,
   type OpenInput,
   type OpenOptions,
 } from '@embedpdf/engine-core/runtime';
 import { generateUuid } from '@embedpdf/engine-services';
-import type { Transport } from './transport/Transport';
-import { WorkerQueue } from './worker/WorkerQueue';
-import { Priority } from './worker/Priority';
-import type { JobId, WorkerResultPayload } from './worker/protocol';
+
 import { LocalDocumentHandle } from './document/LocalDocumentHandle';
+import { LocalFontService } from './fonts/LocalFontService';
 import { BrowserImageEncoder, type LocalImageEncoder } from './render/BrowserImageEncoder';
 import { buildHandleScopeContext, ScopeGuard } from './scope';
+import type { Transport } from './transport/Transport';
+import { Priority } from './worker/Priority';
+import type { JobId, WorkerResultPayload } from './worker/protocol';
+import { WorkerQueue } from './worker/WorkerQueue';
 
 export interface LocalEngineOptions {
   transport: Transport;
@@ -39,6 +42,13 @@ export class LocalEngine implements Engine {
   private readonly sessionId = `local:${generateUuid()}`;
   private destroyed = false;
 
+  /**
+   * Runtime font registration + fallback configuration. Present on the local
+   * engine because the developer embedding the viewer controls what fonts ship
+   * to the client; the cloud engine deliberately omits it.
+   */
+  readonly fonts: FontService;
+
   private constructor(
     transport: Transport,
     concurrency: number,
@@ -46,6 +56,7 @@ export class LocalEngine implements Engine {
   ) {
     this.queue = new WorkerQueue(transport, { concurrency });
     this.imageEncoder = imageEncoder ?? new BrowserImageEncoder();
+    this.fonts = new LocalFontService(this.queue);
   }
 
   open(input: OpenInput, options?: OpenOptions): AbortablePromise<DocumentHandle> {

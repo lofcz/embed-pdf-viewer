@@ -1,9 +1,9 @@
-import type { AnnotationKindModule } from '../../registry';
-import { PdfAnnotationSubtypeCode } from '../../subtype';
-import type { UnderlineAnnotationDTO } from './dto';
 import type { UnderlineDraft } from './draft';
+import type { UnderlineAnnotationDTO } from './dto';
 import type { UnderlinePatch } from './patch';
 import { UnderlineDTOSchema, UnderlineDraftSchema, UnderlinePatchSchema } from './schema';
+import type { AnnotationKindModule } from '../../registry';
+import { PdfAnnotationSubtypeCode } from '../../subtype';
 
 export type { UnderlineAnnotationDTO } from './dto';
 export type { UnderlineDraft } from './draft';

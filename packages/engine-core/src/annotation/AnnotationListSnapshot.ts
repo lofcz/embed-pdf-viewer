@@ -1,5 +1,5 @@
-import type { PageState } from '../revision/PageState';
 import type { AnnotationDTO } from './kinds';
+import type { PageState } from '../revision/PageState';
 
 /**
  * Whole-document raw read response. Returned by

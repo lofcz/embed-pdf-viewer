@@ -1,9 +1,9 @@
-import type { AnnotationKindModule } from '../../registry';
-import { PdfAnnotationSubtypeCode } from '../../subtype';
-import type { HighlightAnnotationDTO } from './dto';
 import type { HighlightDraft } from './draft';
+import type { HighlightAnnotationDTO } from './dto';
 import type { HighlightPatch } from './patch';
 import { HighlightDTOSchema, HighlightDraftSchema, HighlightPatchSchema } from './schema';
+import type { AnnotationKindModule } from '../../registry';
+import { PdfAnnotationSubtypeCode } from '../../subtype';
 
 export type { HighlightAnnotationDTO } from './dto';
 export type { HighlightDraft } from './draft';

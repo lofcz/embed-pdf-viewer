@@ -3,12 +3,12 @@ import type {
   ConformanceFixture,
   ConformanceOptions,
 } from './runMetadataConformance';
-import type { Engine } from '../engine/Engine';
-import type { DocumentHandle } from '../engine/DocumentHandle';
 import type { AnnotationAppearanceMode } from '../dto/AnnotationRender';
+import type { DocumentHandle } from '../engine/DocumentHandle';
+import type { Engine } from '../engine/Engine';
 import type { AnnotationRef } from '../identity/AnnotationRef';
-import type { PageState } from '../revision/PageState';
 import { AbortError } from '../promise/AbortError';
+import type { PageState } from '../revision/PageState';
 
 /**
  * Per-fixture knowledge for the annotation appearance conformance suite. The

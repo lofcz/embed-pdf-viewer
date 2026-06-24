@@ -1,9 +1,9 @@
-import type { AnnotationKindModule } from '../../registry';
-import { PdfAnnotationSubtypeCode } from '../../subtype';
-import type { CircleAnnotationDTO } from './dto';
 import type { CircleDraft } from './draft';
+import type { CircleAnnotationDTO } from './dto';
 import type { CirclePatch } from './patch';
 import { CircleDTOSchema, CircleDraftSchema, CirclePatchSchema } from './schema';
+import type { AnnotationKindModule } from '../../registry';
+import { PdfAnnotationSubtypeCode } from '../../subtype';
 
 export type { CircleAnnotationDTO } from './dto';
 export type { CircleDraft } from './draft';

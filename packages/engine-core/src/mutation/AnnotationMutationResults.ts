@@ -1,6 +1,6 @@
+import type { AnnotationListMutationMeta } from './AnnotationListMutationMeta';
 import type { AnnotationDTO } from '../annotation/kinds';
 import type { AnnotationStableId } from '../identity/AnnotationStableId';
-import type { AnnotationListMutationMeta } from './AnnotationListMutationMeta';
 
 /**
  * Created annotation, fully materialised. The new annotation always has

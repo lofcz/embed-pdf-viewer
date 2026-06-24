@@ -9,10 +9,11 @@ import {
   type MetadataUpdateResult,
 } from '@embedpdf/engine-core/runtime';
 import type { SessionEventPublisher } from '@embedpdf/engine-services';
-import type { WorkerQueue } from '../worker/WorkerQueue';
+
+import type { ScopeGuard } from '../scope';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
-import type { ScopeGuard } from '../scope';
+import type { WorkerQueue } from '../worker/WorkerQueue';
 
 interface DocClosedView {
   isClosed(): boolean;

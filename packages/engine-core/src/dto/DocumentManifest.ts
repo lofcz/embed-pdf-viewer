@@ -1,5 +1,5 @@
-import type { PageState } from '../revision/PageState';
 import type { CachePins } from './CachePins';
+import type { PageState } from '../revision/PageState';
 
 /**
  * Per-page envelope inside `DocumentManifest`.

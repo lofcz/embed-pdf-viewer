@@ -86,6 +86,7 @@ export type {
 export type { CachePins } from './dto/CachePins';
 export { DEFAULT_PDF_SAVE_MODE } from './dto/PdfSaveMode';
 export type { PdfSaveMode } from './dto/PdfSaveMode';
+export type { FontHandle, FontKey, FontSpec } from './dto/FontSpec';
 
 export { EngineError, serializeError, deserializeError } from './errors/EngineError';
 export type { SerializedEngineError, EngineErrorOptions } from './errors/EngineError';
@@ -119,6 +120,7 @@ export type {
   AnnotationBorderStyle,
   PdfRectDifferences,
   StandardFont,
+  FreeTextFont,
   TextAlignment,
   FreeTextIntent,
 } from './annotation/primitives';

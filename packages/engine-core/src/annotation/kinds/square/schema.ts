@@ -1,8 +1,9 @@
 import { z } from 'zod';
+
 import { AnnotationDraftBaseShape, AnnotationPatchBaseShape } from '../../base.schema';
 import { ShapeDTOShape, ShapeDraftShape, ShapePatchShape } from '../shape.shared';
-import type { SquareAnnotationDTO } from './dto';
 import type { SquareDraft } from './draft';
+import type { SquareAnnotationDTO } from './dto';
 import type { SquarePatch } from './patch';
 
 export const SquareDTOSchema: z.ZodType<SquareAnnotationDTO> = z.object({

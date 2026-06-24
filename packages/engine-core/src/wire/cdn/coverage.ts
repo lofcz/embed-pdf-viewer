@@ -14,8 +14,8 @@
  * Never imported by engine-local — this is HTTP-wire territory.
  */
 
-import { checkResourceAccess, DOC_RESOURCES, type DocResourceId } from '../resources';
 import type { PdfBits } from '../../auth/scope';
+import { checkResourceAccess, DOC_RESOURCES, type DocResourceId } from '../resources';
 
 /**
  * One CDN-coverage entry: the resource id plus both projections of its

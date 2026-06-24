@@ -1,5 +1,5 @@
-import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageStructureCache } from './PageStructureCache';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
 
 /**
  * Result of a `pages.rotate()`. Rotation is PRESENTATION METADATA: pages are

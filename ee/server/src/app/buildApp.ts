@@ -3,7 +3,7 @@ import multipart from '@fastify/multipart';
 import compress from '@fastify/compress';
 import type { Kysely } from 'kysely';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
-import { WorkerThreadPool } from '../runtime/WorkerThreadPool';
+import { WorkerThreadPool, type FallbackFontDescriptor } from '../runtime/WorkerThreadPool';
 import { BaseFileCache } from '../storage/BaseFileCache';
 import type { ObjectStoreWithInfo } from '../storage/ObjectStore';
 import type { Database as Schema } from '../db/schema';
@@ -67,6 +67,15 @@ export interface BuildAppOptions {
    */
   enableJwksPersistence?: boolean;
   poolSize?: number;
+  /**
+   * Deployment fallback fonts, registered on every worker thread at startup.
+   * Server-owned font policy: cloud clients cannot configure fonts, so the
+   * server decides which fallback fonts cover missing glyphs (page render +
+   * annotation appearance generation). Each is a file path that PDFium
+   * range-reads on demand — large CJK fallback fonts cost a file handle, not
+   * resident RAM. A font that fails to load fails worker startup.
+   */
+  fallbackFonts?: ReadonlyArray<FallbackFontDescriptor>;
   /**
    * URL of the worker_thread entry script. The package's main entry exports
    * `defaultWorkerEntryUrl` which works in both dev (tsx -> src/) and after
@@ -274,6 +283,7 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         workerEntry: opts.workerEntry,
         maxDocsPerSlot: opts.maxDocsPerSlot,
         onEvict: evictForward,
+        fonts: opts.fallbackFonts,
       })
     : undefined;
   app.get('/healthz', async () => ({ status: 'ok' }));

@@ -7,9 +7,9 @@ import type {
 import { EngineError, EngineErrorCode, normalizePdfRect } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 
+import { FPDF_REVERSE_BYTE_ORDER, rasterize } from './deviceRaster';
 import type { DocumentSession } from '../../document-session/DocumentSession';
 import { throwIfAborted } from '../../shared/abort';
-import { FPDF_REVERSE_BYTE_ORDER, rasterize } from './deviceRaster';
 
 const FPDF_RENDER_ANNOT = 0x01;
 

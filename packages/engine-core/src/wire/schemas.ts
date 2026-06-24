@@ -10,25 +10,25 @@ import {
   RevisionTokenSchema,
 } from '../annotation/base.schema';
 import { AnnotationDTOSchema } from '../annotation/kinds';
-import { PdfRectSchema, PdfRotationSchema, PdfSizeSchema } from '../geometry/schemas';
-import type { CachePins } from '../dto/CachePins';
-import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
-import type { DocumentMetadata } from '../dto/DocumentMetadata';
-import type { MetadataPatch } from '../dto/MetadataPatch';
-import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
-import type { PageListSnapshot } from '../dto/PageListSnapshot';
-import type { PageBoxes, PageLayout } from '../dto/PageLayout';
-import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
 import type {
   AnnotationAppearanceImageOptions,
   AnnotationAppearanceManifest,
   AnnotationAppearancesQuery,
 } from '../dto/AnnotationRender';
+import type { CachePins } from '../dto/CachePins';
+import type { DocumentManifest, ManifestPage } from '../dto/DocumentManifest';
+import type { DocumentMetadata } from '../dto/DocumentMetadata';
+import type { MetadataPatch } from '../dto/MetadataPatch';
+import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
+import type { PageBoxes, PageLayout } from '../dto/PageLayout';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageImageOptions, PageNetworkRenderFormat, PageRenderQuery } from '../dto/PageRender';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { DocumentSecurityState, PdfPermissionInfo } from '../engine/DocumentSecurityService';
 import type { SerializedEngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
+import { PdfRectSchema, PdfRotationSchema, PdfSizeSchema } from '../geometry/schemas';
 import type { AnnotationListMutationMeta } from '../mutation/AnnotationListMutationMeta';
 import type {
   AnnotationCreateResult,
@@ -36,18 +36,18 @@ import type {
   AnnotationMoveResult,
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
+import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
+import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
+import type { PageDeleteInput } from '../mutation/PageDeleteInput';
+import type { PageDeleteResult } from '../mutation/PageDeleteResult';
+import type { PageMoveInput } from '../mutation/PageMoveInput';
+import type { PageMoveResult } from '../mutation/PageMoveResult';
+import type { PageRotateInput } from '../mutation/PageRotateInput';
+import type { PageRotateResult } from '../mutation/PageRotateResult';
+import type { PageStructureCache } from '../mutation/PageStructureCache';
 import type { RefetchReason } from '../mutation/RefetchReason';
 import type { PageState } from '../revision/PageState';
 import type { WeakAnnotationState } from '../revision/WeakAnnotationState';
-import type { PageMoveInput } from '../mutation/PageMoveInput';
-import type { PageMoveResult } from '../mutation/PageMoveResult';
-import type { PageStructureCache } from '../mutation/PageStructureCache';
-import type { PageRotateInput } from '../mutation/PageRotateInput';
-import type { PageRotateResult } from '../mutation/PageRotateResult';
-import type { PageDeleteInput } from '../mutation/PageDeleteInput';
-import type { PageDeleteResult } from '../mutation/PageDeleteResult';
-import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
-import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
 export type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
 
 export const DocumentMetadataSchema: z.ZodType<DocumentMetadata> = z.object({

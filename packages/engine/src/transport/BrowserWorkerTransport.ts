@@ -1,4 +1,5 @@
 import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core/runtime';
+
 import type { Transport } from './Transport';
 
 interface InitReadyMsg {

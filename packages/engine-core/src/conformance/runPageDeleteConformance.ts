@@ -1,12 +1,12 @@
 import type { ConformanceTestRunner, ConformanceOptions } from './runMetadataConformance';
-import type { Engine } from '../engine/Engine';
+import type { AnnotationPatch, HighlightDraft } from '../annotation/kinds';
 import type { DocumentHandle } from '../engine/DocumentHandle';
-import { AbortError } from '../promise/AbortError';
+import type { Engine } from '../engine/Engine';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
-import { PageDeleteResultSchema } from '../wire/schemas';
-import type { AnnotationPatch, HighlightDraft } from '../annotation/kinds';
 import type { AnnotationRef } from '../identity/AnnotationRef';
+import { AbortError } from '../promise/AbortError';
+import { PageDeleteResultSchema } from '../wire/schemas';
 
 const QUAD: HighlightDraft['quadPoints'] = [
   {

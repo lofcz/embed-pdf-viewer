@@ -329,6 +329,37 @@ export function setDefaultAppearance(
 }
 
 /**
+ * Write the `/DA` default appearance using a runtime font registered through
+ * `engine.fonts` (via `EPDFAnnot_SetDefaultAppearanceRegisteredFont`). `fontId`
+ * is the thread-local `CFX_FontRegistry::FontId` resolved from the stable
+ * `registeredFontKey` at authoring time. The font's glyph subset is embedded
+ * into the annotation's appearance stream when the document/layer is saved.
+ */
+export function setDefaultAppearanceRegisteredFont(
+  fn: PdfFunctions,
+  annotPtr: Ptr,
+  fontId: number,
+  fontSize: number,
+  color: Color,
+): void {
+  if (
+    !fn.EPDFAnnot_SetDefaultAppearanceRegisteredFont(
+      annotPtr,
+      fontId,
+      fontSize,
+      color.r & 0xff,
+      color.g & 0xff,
+      color.b & 0xff,
+    )
+  ) {
+    throw new EngineError(
+      EngineErrorCode.Unknown,
+      'EPDFAnnot_SetDefaultAppearanceRegisteredFont returned false',
+    );
+  }
+}
+
+/**
  * Write the `/Q` text alignment of a free-text annotation via
  * `EPDFAnnot_SetTextAlignment`. `code` is the raw quadding value — the
  * string<->code mapping lives in `textAlignment.ts`.

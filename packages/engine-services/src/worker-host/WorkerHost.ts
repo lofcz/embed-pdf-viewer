@@ -11,6 +11,10 @@ import {
   type DocumentSaveBufferWorkerRequest,
   type DocumentSaveFileWorkerRequest,
   type DocumentSaveLayerBufferWorkerRequest,
+  type FontsRegisterWorkerRequest,
+  type FontsAddFallbackWorkerRequest,
+  type FontsClearFallbacksWorkerRequest,
+  type FontsClearWorkerRequest,
   type AnnotationsListFullPageWorkerRequest,
   type AnnotationsListRawAllWorkerRequest,
   type AnnotationsListRawPageWorkerRequest,
@@ -50,6 +54,7 @@ import {
   AnnotationMutator,
   RawAnnotationReader,
 } from '../features/annotations';
+import { FontRegistrar, type StartupFontSpec } from '../features/fonts';
 import { PageGeometryReader } from '../features/geometry';
 import { MetadataMutator, MetadataReader } from '../features/metadata';
 import { PagesMutator, PagesReader } from '../features/pages';
@@ -73,6 +78,14 @@ export class WorkerHost {
   private readonly sessions = new Map<string, DocumentSession>();
   private readonly baseDocuments: BaseDocumentRegistry;
   private readonly aborts = new Map<WorkerJobId, AbortController>();
+  /**
+   * Runtime-global registered fonts for this thread. The registry is
+   * thread-local in PDFium, so it lives on the host (one per thread), not per
+   * document session. `fontIds` maps the stable wire `fontKey` to this
+   * thread's volatile native FontId.
+   */
+  private readonly fontIds = new Map<string, number>();
+  private readonly fonts: FontRegistrar;
   private destroyed = false;
 
   constructor(
@@ -89,6 +102,18 @@ export class WorkerHost {
   ) {
     ensureInitialized(this.runtime);
     this.baseDocuments = new BaseDocumentRegistry(this.runtime);
+    this.fonts = new FontRegistrar(this.runtime, this.fontIds);
+  }
+
+  /**
+   * Register deployment-owned fonts on this worker thread, after init and
+   * before serving requests. Server-only: the cloud engine never exposes font
+   * configuration to clients, so the host (not a wire message) seeds the
+   * thread's fallback fonts. Browser engines drive fonts through the
+   * `fonts.*` wire path instead. Throws if any font fails to load.
+   */
+  registerStartupFonts(specs: readonly StartupFontSpec[]): void {
+    this.fonts.registerStartup(specs);
   }
 
   receive(msg: WorkerRequest): void {
@@ -178,6 +203,18 @@ export class WorkerHost {
           break;
         case 'document.checkPasswordPermissions':
           resultPack = this.handleDocumentCheckPasswordPermissions(msg);
+          break;
+        case 'fonts.register':
+          resultPack = this.handleFontsRegister(msg);
+          break;
+        case 'fonts.addFallback':
+          resultPack = this.handleFontsAddFallback(msg);
+          break;
+        case 'fonts.clearFallbacks':
+          resultPack = this.handleFontsClearFallbacks(msg);
+          break;
+        case 'fonts.clear':
+          resultPack = this.handleFontsClear(msg);
           break;
         case 'close':
           resultPack = this.handleClose(msg);
@@ -312,7 +349,7 @@ export class WorkerHost {
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
-    const mutator = new AnnotationMutator(this.runtime, session);
+    const mutator = new AnnotationMutator(this.runtime, session, this.fonts);
     const result = mutator.create(req.pageObjectNumber, req.draft, signal, req.actor);
     return this.finishMutation(session, { tag: 'annotations.create', result }, req.artifactPath);
   }
@@ -322,7 +359,7 @@ export class WorkerHost {
     signal: AbortSignal,
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
-    const mutator = new AnnotationMutator(this.runtime, session);
+    const mutator = new AnnotationMutator(this.runtime, session, this.fonts);
     const result = mutator.update(req.ref, req.patch, signal, req.actor);
     return this.finishMutation(session, { tag: 'annotations.update', result }, req.artifactPath);
   }
@@ -470,6 +507,36 @@ export class WorkerHost {
       req.mode ?? 'any',
     );
     return wirePack({ tag: 'document.checkPasswordPermissions', security });
+  }
+
+  private handleFontsRegister(req: FontsRegisterWorkerRequest): WirePack<WorkerResultPayload> {
+    this.fonts.register(
+      req.fontKey,
+      req.familyName,
+      req.weight,
+      req.italic,
+      new Uint8Array(req.data),
+    );
+    return wirePack({ tag: 'fonts.register', fontKey: req.fontKey });
+  }
+
+  private handleFontsAddFallback(
+    req: FontsAddFallbackWorkerRequest,
+  ): WirePack<WorkerResultPayload> {
+    this.fonts.addFallback(req.fontKey);
+    return wirePack({ tag: 'fonts.addFallback' });
+  }
+
+  private handleFontsClearFallbacks(
+    _req: FontsClearFallbacksWorkerRequest,
+  ): WirePack<WorkerResultPayload> {
+    this.fonts.clearFallbacks();
+    return wirePack({ tag: 'fonts.clearFallbacks' });
+  }
+
+  private handleFontsClear(_req: FontsClearWorkerRequest): WirePack<WorkerResultPayload> {
+    this.fonts.clear();
+    return wirePack({ tag: 'fonts.clear' });
   }
 
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {

@@ -1,9 +1,9 @@
-import { AbortablePromise } from '../promise/AbortablePromise';
 import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
 } from '../annotation/AnnotationListSnapshot';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
+import { AbortablePromise } from '../promise/AbortablePromise';
 
 export interface WeakAnnotationEditSession {
   readonly id: string;

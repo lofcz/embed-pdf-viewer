@@ -13,6 +13,7 @@ export type { AbortableExecutor } from './promise/AbortablePromise';
 export { AbortError, isAbortError } from './promise/AbortError';
 
 export type { Engine } from './engine/Engine';
+export type { FontService } from './engine/FontService';
 export type { DocumentHandle } from './engine/DocumentHandle';
 export type {
   DocumentEvent,
@@ -93,6 +94,10 @@ export type {
   PagesTextWorkerRequest,
   PagesGeometryWorkerRequest,
   PagesRenderWorkerRequest,
+  FontsRegisterWorkerRequest,
+  FontsAddFallbackWorkerRequest,
+  FontsClearFallbacksWorkerRequest,
+  FontsClearWorkerRequest,
   CloseWorkerRequest,
   AbortWorkerRequest,
   ShutdownWorkerRequest,

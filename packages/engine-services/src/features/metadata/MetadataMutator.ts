@@ -1,8 +1,8 @@
 import type { MetadataPatch, MetadataUpdateResult } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 
-import { MetadataReader } from './MetadataReader';
 import { applyMetadataPatch } from './internal/write/applyMetadataPatch';
+import { MetadataReader } from './MetadataReader';
 import type { DocumentSession } from '../../document-session/DocumentSession';
 import { throwIfAborted } from '../../shared/abort';
 

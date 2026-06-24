@@ -1,5 +1,5 @@
-import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageStructureCache } from './PageStructureCache';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
 
 /**
  * Result of a `pages.delete()`. A deleted page's object number is RETIRED —

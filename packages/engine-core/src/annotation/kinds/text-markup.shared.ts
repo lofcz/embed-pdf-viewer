@@ -1,8 +1,9 @@
 import { z } from 'zod';
+
+import type { PdfQuad } from '../../geometry/primitives';
+import { PdfQuadSchema } from '../../geometry/schemas';
 import type { AnnotationBase } from '../base';
 import { AnnotationBaseShape } from '../base.schema';
-import { PdfQuadSchema } from '../../geometry/schemas';
-import type { PdfQuad } from '../../geometry/primitives';
 import {
   ColorStyleDTOShape,
   ColorStyleDraftShape,

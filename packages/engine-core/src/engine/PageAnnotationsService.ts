@@ -1,19 +1,19 @@
-import { AbortablePromise } from '../promise/AbortablePromise';
-import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
 import type { AnnotationListPageSnapshot } from '../annotation/AnnotationListSnapshot';
-import type { AnnotationRef } from '../identity/AnnotationRef';
+import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
 import type {
   AnnotationAppearanceImageOptions,
   AnnotationAppearanceImagesResult,
   AnnotationAppearanceRenderOptions,
   AnnotationAppearancesResult,
 } from '../dto/AnnotationRender';
+import type { AnnotationRef } from '../identity/AnnotationRef';
 import type {
   AnnotationCreateResult,
   AnnotationDeleteResult,
   AnnotationMoveResult,
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
+import { AbortablePromise } from '../promise/AbortablePromise';
 
 /**
  * Per-page annotation service exposed via `PageHandle.annotations`.

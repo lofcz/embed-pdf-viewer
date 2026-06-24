@@ -1,7 +1,7 @@
-import { AbortablePromise } from '../promise/AbortablePromise';
 import type { DocumentMetadata } from '../dto/DocumentMetadata';
 import type { MetadataPatch } from '../dto/MetadataPatch';
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
+import { AbortablePromise } from '../promise/AbortablePromise';
 
 export interface MetadataService {
   read(): AbortablePromise<DocumentMetadata>;

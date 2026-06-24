@@ -19,6 +19,8 @@ import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 
 import type { DocumentSession } from '../../document-session/DocumentSession';
 import { throwIfAborted } from '../../shared/abort';
+import type { FontRegistrar } from '../fonts';
+import type { AnnotationWriteContext } from './internal/write/annotationWriteContext';
 import { generateUuid } from '../../shared/uuid';
 import { resolveAnnotPtr } from './internal/identity/resolveAnnotationPointer';
 import { computeMutationImpact } from './internal/mutations/computeMutationImpact';
@@ -67,7 +69,22 @@ export class AnnotationMutator {
   constructor(
     private readonly runtime: PdfRuntimeModule,
     private readonly session: DocumentSession,
+    /**
+     * Registered-font registry for this thread. Optional: when absent, the
+     * registered-font authoring path is unavailable and a draft/patch carrying
+     * a `registeredFontKey` fails loud (rather than silently using a standard
+     * font). Standard-font FreeText and all other subtypes are unaffected.
+     */
+    private readonly fonts?: FontRegistrar,
   ) {}
+
+  /** Build the per-write context handed to subtype writers. Only the FreeText
+   *  writer consumes it (for registered-font `/DA`). */
+  private writeContext(): AnnotationWriteContext | undefined {
+    if (!this.fonts) return undefined;
+    const fonts = this.fonts;
+    return { resolveRegisteredFontId: (key) => fonts.idFor(key) };
+  }
 
   create(
     pageObjectNumber: PageObjectNumber,
@@ -105,7 +122,7 @@ export class AnnotationMutator {
       let newObjNum: number;
       let newIndex: number;
       try {
-        applyDraft(fn, mem, annotPtr, draft);
+        applyDraft(fn, mem, annotPtr, draft, this.writeContext());
         // Stamp identity + modification metadata AFTER the per-subtype
         // writer so a buggy subtype writer can't clobber them:
         //   /T             ← actor.displayName  (when present)
@@ -189,7 +206,7 @@ export class AnnotationMutator {
       const stableId = this.captureOrStampStableId(annotPtr);
 
       // Apply caller-supplied subtype-specific writes.
-      applyPatch(fn, mem, annotPtr, patch);
+      applyPatch(fn, mem, annotPtr, patch, this.writeContext());
       // Refresh standard /M (modified date) on every update — independent
       // of whether the patch touched any subtype-specific field. Then
       // refresh /EMBD_Metadata/UpdatedBy if an actor was supplied;

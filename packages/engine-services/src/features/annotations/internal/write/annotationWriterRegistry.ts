@@ -20,6 +20,7 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
+import type { AnnotationWriteContext } from './annotationWriteContext';
 import { applyCaretDraft, applyCaretPatch, isCaretSubtype } from './writeCaretAnnotation';
 import {
   applyFreeTextDraft,
@@ -64,6 +65,7 @@ export function applyDraft(
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
   draft: AnnotationDraft,
+  ctx?: AnnotationWriteContext,
 ): void {
   if (isTextMarkupSubtype(draft.subtype)) {
     applyTextMarkupDraft(fn, mem, annotPtr, draft as TextMarkupDraft);
@@ -90,7 +92,7 @@ export function applyDraft(
     return;
   }
   if (isFreeTextSubtype(draft.subtype)) {
-    applyFreeTextDraft(fn, mem, annotPtr, draft as FreeTextDraft);
+    applyFreeTextDraft(fn, mem, annotPtr, draft as FreeTextDraft, ctx);
     return;
   }
   if (isCaretSubtype(draft.subtype)) {
@@ -113,6 +115,7 @@ export function applyPatch(
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
   patch: AnnotationPatch,
+  ctx?: AnnotationWriteContext,
 ): void {
   if (isTextMarkupSubtype(patch.subtype)) {
     applyTextMarkupPatch(fn, mem, annotPtr, patch as TextMarkupPatch);
@@ -139,7 +142,7 @@ export function applyPatch(
     return;
   }
   if (isFreeTextSubtype(patch.subtype)) {
-    applyFreeTextPatch(fn, mem, annotPtr, patch as FreeTextPatch);
+    applyFreeTextPatch(fn, mem, annotPtr, patch as FreeTextPatch, ctx);
     return;
   }
   if (isCaretSubtype(patch.subtype)) {

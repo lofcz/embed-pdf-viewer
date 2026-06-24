@@ -84,6 +84,18 @@ export type StandardFont =
   | 'zapf-dingbats';
 
 /**
+ * Font selector for a free-text annotation: either one of the 14 PDF
+ * {@link StandardFont} names, or the `key` of a font registered through
+ * `engine.fonts` (local/WASM engine only).
+ *
+ * The `(string & {})` arm keeps the standard-font literals auto-completing
+ * while still accepting any registered key. Because the standard names are
+ * matched first at write time, those 14 names are reserved: don't register a
+ * custom font under a key like `'helvetica'`.
+ */
+export type FreeTextFont = StandardFont | (string & {});
+
+/**
  * Horizontal text alignment (`/Q`) for free-text annotations. Maps onto the
  * ISO 32000 §12.7.3.3 quadding codes 0/1/2 at write time.
  */

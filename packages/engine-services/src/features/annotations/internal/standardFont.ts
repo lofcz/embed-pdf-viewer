@@ -1,4 +1,4 @@
-import type { StandardFont } from '@embedpdf/engine-core/runtime';
+import type { FreeTextFont, StandardFont } from '@embedpdf/engine-core/runtime';
 
 /**
  * `FPDF_STANDARD_FONT` enum codes (the 14 standard PDF fonts) mapped to the
@@ -37,6 +37,16 @@ export const DEFAULT_STANDARD_FONT: StandardFont = 'helvetica';
 
 export function standardFontToCode(font: StandardFont): number {
   return FONT_TO_CODE[font] ?? FONT_TO_CODE[DEFAULT_STANDARD_FONT];
+}
+
+/**
+ * Narrow a FreeText `fontFamily` to one of the 14 standard fonts. A `false`
+ * result means the value is a registered-font `key`. The standard names are
+ * therefore reserved — a registered font keyed `'helvetica'` resolves as the
+ * standard font.
+ */
+export function isStandardFont(font: FreeTextFont): font is StandardFont {
+  return Object.prototype.hasOwnProperty.call(FONT_TO_CODE, font);
 }
 
 export function standardFontFromCode(code: number): StandardFont {

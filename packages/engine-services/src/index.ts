@@ -55,6 +55,7 @@ export * from './features/render';
 export * from './features/annotations';
 export * from './features/security';
 export * from './features/save';
+export * from './features/fonts';
 
 // Tier 4: worker host
 export { WorkerHost } from './worker-host/WorkerHost';

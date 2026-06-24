@@ -7,10 +7,11 @@ import {
   wirePack,
   type WirePack,
 } from '@embedpdf/engine-core/runtime';
-import type { Transport } from '../transport/Transport';
+
 import { IndexedPriorityHeap, type HeapHandle } from './IndexedPriorityHeap';
 import { Priority } from './Priority';
 import type { JobId, WorkerRequest, WorkerResponse, WorkerResultPayload } from './protocol';
+import type { Transport } from '../transport/Transport';
 
 let _nextJobId = 1;
 function nextJobId(): JobId {

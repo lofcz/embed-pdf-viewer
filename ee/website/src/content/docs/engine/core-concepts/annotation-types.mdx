@@ -238,7 +238,7 @@ await page.annotations.create({
 | :--- | :--- | :--- | :--- |
 | `intent` | `'free-text'` or `'free-text-callout'` | yes | — |
 | `rect` | Bounding box | yes | — |
-| `fontFamily` | A standard font (see below) | yes | — |
+| `fontFamily` | A standard font or a registered font key (see below) | yes | — |
 | `fontSize` | Text size in points | yes | — |
 | `textAlign` | `'left'`/`'center'`/`'right'` | yes | — |
 | `contents` | The text to show | no | — |
@@ -266,6 +266,10 @@ embedding:
 `courier`, `courier-bold`, `courier-bold-oblique`, `courier-oblique`, `helvetica`,
 `helvetica-bold`, `helvetica-bold-oblique`, `helvetica-oblique`, `times-roman`,
 `times-bold`, `times-bold-italic`, `times-italic`, `symbol`, `zapf-dingbats`.
+
+`fontFamily` also accepts the key of a font you've registered with the engine — pass
+`'noto-sc'` instead of a standard name to draw CJK, Cyrillic, or any other script, and a
+glyph subset is embedded on save. See [Custom fonts](/docs/engine/core-concepts/custom-fonts).
 
 <Callout type="info">
   Vertical alignment and rich text aren't authored yet — text is single-style and

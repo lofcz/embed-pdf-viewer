@@ -16,8 +16,6 @@ import {
   type Ptr,
 } from '@embedpdf/pdf-runtime';
 
-import { bitsToFlags } from '../annotationFlagBits';
-
 import { withScratch, withScratchN } from '../../../../runtime/memory/scratch';
 import { readUtf16String } from '../../../../runtime/memory/strings';
 import {
@@ -30,6 +28,7 @@ import {
   readI32,
   readRectF,
 } from '../../../../runtime/memory/structs';
+import { bitsToFlags } from '../annotationFlagBits';
 import { lineEndingFromCode } from '../lineEnding';
 
 /**

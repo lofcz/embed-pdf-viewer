@@ -2,8 +2,8 @@ import type { AnnotationDraftBase, AnnotationPatchBase } from '@embedpdf/engine-
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 import { NULL_PTR } from '@embedpdf/pdf-runtime';
 
-import { formatPdfDate } from '../../../../shared/pdf-date';
 import { setAnnotFlags } from './annotationWritePrimitives';
+import { formatPdfDate } from '../../../../shared/pdf-date';
 
 /**
  * Write the annotation-wide base fields shared by every Draft

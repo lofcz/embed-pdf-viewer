@@ -1,5 +1,5 @@
-import type { AbortablePromise } from '../promise/AbortablePromise';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
+import type { AbortablePromise } from '../promise/AbortablePromise';
 
 /**
  * Per-page text service exposed via `PageHandle.text`.

@@ -1,7 +1,7 @@
+import type { PageImageHandle, PageNetworkRenderFormat, PageRaster } from './PageRender';
 import type { PdfRect, PdfRotation } from '../geometry/primitives';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { PageState } from '../revision/PageState';
-import type { PageImageHandle, PageNetworkRenderFormat, PageRaster } from './PageRender';
 
 /**
  * Which `/AP` sub-dictionary to render. PDFium exposes Normal (`/N`),

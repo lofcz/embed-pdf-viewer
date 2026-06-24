@@ -1,7 +1,7 @@
-import type { AnnotationKindModule } from '../../registry';
-import { PdfAnnotationSubtypeCode } from '../../subtype';
 import type { UnsupportedAnnotationDTO } from './dto';
 import { UnsupportedDTOSchema, UnsupportedDraftSchema, UnsupportedPatchSchema } from './schema';
+import type { AnnotationKindModule } from '../../registry';
+import { PdfAnnotationSubtypeCode } from '../../subtype';
 
 export type { UnsupportedAnnotationDTO } from './dto';
 export type { UnsupportedDraft } from './draft';

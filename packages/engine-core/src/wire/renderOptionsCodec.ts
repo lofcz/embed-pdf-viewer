@@ -1,10 +1,10 @@
 import { flatten, type WireFlat } from './flatten';
 import { encodeAnnotationAppearancesRenderToken, encodeRenderToken } from './tokens';
-import type { PageImageOptions, PageRenderOptions } from '../dto/PageRender';
 import type {
   AnnotationAppearanceImageOptions,
   AnnotationAppearanceRenderOptions,
 } from '../dto/AnnotationRender';
+import type { PageImageOptions, PageRenderOptions } from '../dto/PageRender';
 
 export interface RenderVersions {
   contentVersion: number;

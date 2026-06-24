@@ -37,7 +37,12 @@ export { RevokedJtisGuard } from './auth/RevokedJtisGuard';
 export type { RevokedJtisGuardOptions } from './auth/RevokedJtisGuard';
 export { DbJwksCacheStore } from './auth/JwksCacheStore';
 export { WorkerThreadPool } from './runtime/WorkerThreadPool';
-export type { WorkerThreadPoolOptions } from './runtime/WorkerThreadPool';
+export type {
+  WorkerThreadPoolOptions,
+  FallbackFontDescriptor,
+  WorkerBootstrapData,
+} from './runtime/WorkerThreadPool';
+export { loadFallbackFontsFromEnv } from './runtime/loadFallbackFontsFromEnv';
 export * from './security/index';
 
 // Phase 1 cloud platform surfaces.

@@ -1,12 +1,13 @@
 import type { PageHandle, PageObjectNumber } from '@embedpdf/engine-core/runtime';
 import type { SessionEventPublisher } from '@embedpdf/engine-services';
+
 import { LocalPageAnnotationsService } from './LocalPageAnnotationsService';
 import { LocalPageGeometryService } from './LocalPageGeometryService';
 import { LocalPageRenderService } from './LocalPageRenderService';
 import { LocalPageTextService } from './LocalPageTextService';
-import type { WorkerQueue } from '../worker/WorkerQueue';
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
 import type { ScopeGuard } from '../scope';
+import type { WorkerQueue } from '../worker/WorkerQueue';
 
 interface DocClosedView {
   isClosed(): boolean;

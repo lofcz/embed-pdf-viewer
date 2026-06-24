@@ -1,6 +1,6 @@
-import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { RevisionToken } from './RevisionToken';
 import type { WeakAnnotationState } from './WeakAnnotationState';
+import type { PageObjectNumber } from '../identity/PageObjectNumber';
 
 /**
  * Per-page liveness envelope returned with annotation reads and mutation

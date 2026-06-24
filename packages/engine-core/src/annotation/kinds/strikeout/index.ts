@@ -1,9 +1,9 @@
-import type { AnnotationKindModule } from '../../registry';
-import { PdfAnnotationSubtypeCode } from '../../subtype';
-import type { StrikeoutAnnotationDTO } from './dto';
 import type { StrikeoutDraft } from './draft';
+import type { StrikeoutAnnotationDTO } from './dto';
 import type { StrikeoutPatch } from './patch';
 import { StrikeoutDTOSchema, StrikeoutDraftSchema, StrikeoutPatchSchema } from './schema';
+import type { AnnotationKindModule } from '../../registry';
+import { PdfAnnotationSubtypeCode } from '../../subtype';
 
 export type { StrikeoutAnnotationDTO } from './dto';
 export type { StrikeoutDraft } from './draft';

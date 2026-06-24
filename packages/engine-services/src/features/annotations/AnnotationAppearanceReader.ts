@@ -14,8 +14,8 @@ import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import type { DocumentSession } from '../../document-session/DocumentSession';
 import { throwIfAborted } from '../../shared/abort';
 import { FPDF_REVERSE_BYTE_ORDER, rasterize } from '../render/deviceRaster';
-import { readAnnotationIdentity } from './internal/read/readAnnotationIdentity';
 import { readAnnotRect } from './internal/read/annotationReadPrimitives';
+import { readAnnotationIdentity } from './internal/read/readAnnotationIdentity';
 
 /** `FPDF_ANNOT_WIDGET` — form-field annotation subtype code. */
 const ANNOT_SUBTYPE_WIDGET = 20;

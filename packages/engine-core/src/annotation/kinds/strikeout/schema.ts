@@ -1,12 +1,13 @@
 import { z } from 'zod';
+
 import { AnnotationDraftBaseShape, AnnotationPatchBaseShape } from '../../base.schema';
 import {
   TextMarkupDTOShape,
   TextMarkupDraftShape,
   TextMarkupPatchShape,
 } from '../text-markup.shared';
-import type { StrikeoutAnnotationDTO } from './dto';
 import type { StrikeoutDraft } from './draft';
+import type { StrikeoutAnnotationDTO } from './dto';
 import type { StrikeoutPatch } from './patch';
 
 export const StrikeoutDTOSchema: z.ZodType<StrikeoutAnnotationDTO> = z.object({

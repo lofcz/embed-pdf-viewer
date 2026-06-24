@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+import type { FreeTextDraft } from './draft';
+import type { FreeTextAnnotationDTO } from './dto';
+import type { FreeTextPatch } from './patch';
 import { CalloutLineSchema, PdfRectSchema } from '../../../geometry/schemas';
 import {
   AnnotationBaseShape,
@@ -13,9 +16,13 @@ import {
   StandardFontSchema,
   TextAlignmentSchema,
 } from '../../base.schema';
-import type { FreeTextDraft } from './draft';
-import type { FreeTextAnnotationDTO } from './dto';
-import type { FreeTextPatch } from './patch';
+import type { FreeTextFont } from '../../primitives';
+
+/** Authoring `fontFamily`: a standard font name OR a registered font `key`.
+ *  Any non-empty string is accepted; the writer resolves which it is (and a
+ *  key that was never registered fails loud there). The read-back DTO keeps the
+ *  narrower {@link StandardFontSchema}. */
+const FreeTextFontSchema = z.string().min(1) as unknown as z.ZodType<FreeTextFont>;
 
 export const FreeTextDTOSchema: z.ZodType<FreeTextAnnotationDTO> = z.object({
   ...AnnotationBaseShape,
@@ -39,7 +46,7 @@ export const FreeTextDTOSchema: z.ZodType<FreeTextAnnotationDTO> = z.object({
 export const FreeTextDraftSchema: z.ZodType<FreeTextDraft> = z.object({
   ...AnnotationDraftBaseShape,
   intent: FreeTextIntentSchema,
-  fontFamily: StandardFontSchema,
+  fontFamily: FreeTextFontSchema,
   fontSize: z.number().positive(),
   textAlign: TextAlignmentSchema,
   rect: PdfRectSchema,
@@ -59,7 +66,7 @@ export const FreeTextDraftSchema: z.ZodType<FreeTextDraft> = z.object({
 export const FreeTextPatchSchema: z.ZodType<FreeTextPatch> = z.object({
   ...AnnotationPatchBaseShape,
   intent: FreeTextIntentSchema.optional(),
-  fontFamily: StandardFontSchema.optional(),
+  fontFamily: FreeTextFontSchema.optional(),
   fontSize: z.number().positive().optional(),
   textAlign: TextAlignmentSchema.optional(),
   rect: PdfRectSchema.optional(),

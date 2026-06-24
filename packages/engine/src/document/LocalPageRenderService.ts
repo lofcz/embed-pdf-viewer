@@ -11,11 +11,12 @@ import {
   type PageRenderOptions,
   type PageRenderService,
 } from '@embedpdf/engine-core/runtime';
-import type { WorkerQueue } from '../worker/WorkerQueue';
-import { Priority } from '../worker/Priority';
-import type { JobId, WorkerResultPayload } from '../worker/protocol';
+
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
 import type { ScopeGuard } from '../scope';
+import { Priority } from '../worker/Priority';
+import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { WorkerQueue } from '../worker/WorkerQueue';
 
 interface DocClosedView {
   isClosed(): boolean;

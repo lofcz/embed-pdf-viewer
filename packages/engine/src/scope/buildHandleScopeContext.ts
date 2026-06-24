@@ -102,7 +102,7 @@ let warnedDefaultScope = false;
 function warnDefaultScopeOnce(): void {
   if (warnedDefaultScope) return;
   warnedDefaultScope = true;
-  // eslint-disable-next-line no-console
+
   console.warn(
     '[engine-local] open() called without `scope`; defaulting to ["*"] (admin). ' +
       'Set `scope` explicitly to test realistic permissions matching your cloud deployment.',

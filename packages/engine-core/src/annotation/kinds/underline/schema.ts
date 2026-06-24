@@ -1,12 +1,13 @@
 import { z } from 'zod';
+
 import { AnnotationDraftBaseShape, AnnotationPatchBaseShape } from '../../base.schema';
 import {
   TextMarkupDTOShape,
   TextMarkupDraftShape,
   TextMarkupPatchShape,
 } from '../text-markup.shared';
-import type { UnderlineAnnotationDTO } from './dto';
 import type { UnderlineDraft } from './draft';
+import type { UnderlineAnnotationDTO } from './dto';
 import type { UnderlinePatch } from './patch';
 
 export const UnderlineDTOSchema: z.ZodType<UnderlineAnnotationDTO> = z.object({

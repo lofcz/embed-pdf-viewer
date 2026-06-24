@@ -1,6 +1,7 @@
-import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
-import { WorkerHost } from '@embedpdf/engine-services';
 import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core/runtime';
+import { WorkerHost } from '@embedpdf/engine-services';
+import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
+
 import type { Transport } from './Transport';
 
 /**

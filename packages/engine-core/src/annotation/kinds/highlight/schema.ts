@@ -1,12 +1,13 @@
 import { z } from 'zod';
+
 import { AnnotationDraftBaseShape, AnnotationPatchBaseShape } from '../../base.schema';
 import {
   TextMarkupDTOShape,
   TextMarkupDraftShape,
   TextMarkupPatchShape,
 } from '../text-markup.shared';
-import type { HighlightAnnotationDTO } from './dto';
 import type { HighlightDraft } from './draft';
+import type { HighlightAnnotationDTO } from './dto';
 import type { HighlightPatch } from './patch';
 
 export const HighlightDTOSchema: z.ZodType<HighlightAnnotationDTO> = z.object({

@@ -1,12 +1,13 @@
 import { z } from 'zod';
+
 import { AnnotationDraftBaseShape, AnnotationPatchBaseShape } from '../../base.schema';
 import {
   TextMarkupDTOShape,
   TextMarkupDraftShape,
   TextMarkupPatchShape,
 } from '../text-markup.shared';
-import type { SquigglyAnnotationDTO } from './dto';
 import type { SquigglyDraft } from './draft';
+import type { SquigglyAnnotationDTO } from './dto';
 import type { SquigglyPatch } from './patch';
 
 export const SquigglyDTOSchema: z.ZodType<SquigglyAnnotationDTO> = z.object({

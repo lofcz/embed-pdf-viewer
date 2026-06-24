@@ -14,10 +14,11 @@ import {
   type PasswordPrompt,
   type DocCapability,
 } from '@embedpdf/engine-core/runtime';
-import type { WorkerQueue } from '../worker/WorkerQueue';
+
+import type { ScopeGuard } from '../scope';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
-import type { ScopeGuard } from '../scope';
+import type { WorkerQueue } from '../worker/WorkerQueue';
 
 export class LocalDocumentSecurityService implements DocumentSecurityService {
   private state: DocumentSecurityState;

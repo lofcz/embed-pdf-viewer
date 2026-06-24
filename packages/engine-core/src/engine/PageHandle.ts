@@ -1,8 +1,8 @@
-import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PageAnnotationsService } from './PageAnnotationsService';
 import type { PageGeometryService } from './PageGeometryService';
 import type { PageRenderService } from './PageRenderService';
 import type { PageTextService } from './PageTextService';
+import type { PageObjectNumber } from '../identity/PageObjectNumber';
 
 /**
  * Page-scoped handle returned by `DocumentHandle.page(pageObjectNumber)`.

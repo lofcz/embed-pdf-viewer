@@ -1,9 +1,9 @@
-import type { AnnotationKindModule } from '../../registry';
-import { PdfAnnotationSubtypeCode } from '../../subtype';
-import type { SquigglyAnnotationDTO } from './dto';
 import type { SquigglyDraft } from './draft';
+import type { SquigglyAnnotationDTO } from './dto';
 import type { SquigglyPatch } from './patch';
 import { SquigglyDTOSchema, SquigglyDraftSchema, SquigglyPatchSchema } from './schema';
+import type { AnnotationKindModule } from '../../registry';
+import { PdfAnnotationSubtypeCode } from '../../subtype';
 
 export type { SquigglyAnnotationDTO } from './dto';
 export type { SquigglyDraft } from './draft';

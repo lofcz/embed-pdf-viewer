@@ -3,10 +3,10 @@ import type { AnnotationDraftBase } from '../../draft-base';
 import type {
   AnnotationBorderStyle,
   Color,
+  FreeTextFont,
   FreeTextIntent,
   LineEnding,
   PdfRectDifferences,
-  StandardFont,
   TextAlignment,
 } from '../../primitives';
 
@@ -16,7 +16,12 @@ export interface FreeTextDraft extends AnnotationDraftBase {
   intent: FreeTextIntent;
 
   // text (`/DA`) — required: a free text has no meaningful default font.
-  fontFamily: StandardFont;
+  /**
+   * A PDF standard font name, or the `key` of a font registered through
+   * `engine.fonts`. A registered key makes the `/DA` reference that runtime
+   * font and embeds a per-annotation glyph subset on save (local engine only).
+   */
+  fontFamily: FreeTextFont;
   fontSize: number;
   textAlign: TextAlignment;
 

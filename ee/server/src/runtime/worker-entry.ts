@@ -7,16 +7,38 @@
  * the process.exit after a successful shutdown so the worker_thread can
  * terminate cleanly.
  */
-import { parentPort } from 'node:worker_threads';
+import { parentPort, workerData } from 'node:worker_threads';
 import { createPdfRuntime } from '@embedpdf/pdf-runtime';
-import { WorkerHost } from '@embedpdf/engine-services';
+import { WorkerHost, type StartupFontSpec } from '@embedpdf/engine-services';
 import type { WirePack, WorkerRequest, WorkerResponse } from '@embedpdf/engine-core/runtime';
+import type { WorkerBootstrapData } from './WorkerThreadPool';
 
 if (!parentPort) {
   throw new Error('worker-entry must be loaded as a worker_thread');
 }
 
 const port = parentPort;
+
+/**
+ * Resolve the deployment fallback fonts handed down in `workerData`. Only
+ * paths + metadata cross the thread boundary; PDFium range-reads each file on
+ * demand (it is never loaded into the JS heap), mirroring how file-based base
+ * documents are opened. A read/load failure throws and surfaces as
+ * `init-error`, so a bad font config fails worker spawn rather than degrading
+ * silently.
+ */
+function bootstrapFontSpecs(): StartupFontSpec[] {
+  const data = workerData as WorkerBootstrapData | undefined;
+  const descriptors = data?.fonts ?? [];
+  return descriptors.map((d) => ({
+    key: d.key,
+    path: d.path,
+    familyName: d.familyName,
+    weight: d.weight,
+    italic: d.italic,
+    fallback: d.fallback ?? true,
+  }));
+}
 
 (async () => {
   const runtime = await createPdfRuntime({ prefer: 'native' });
@@ -30,6 +52,10 @@ const port = parentPort;
   const host = new WorkerHost(runtime, (pack: WirePack<WorkerResponse>) => {
     port.postMessage(pack.payload, pack.transfer as readonly ArrayBuffer[]);
   });
+
+  // Seed this thread's runtime fonts before reporting ready, so the first
+  // request already has the deployment's fallback fonts available.
+  host.registerStartupFonts(bootstrapFontSpecs());
 
   port.on('message', (msg: WorkerRequest) => {
     host.receive(msg);

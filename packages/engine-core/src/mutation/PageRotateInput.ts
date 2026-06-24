@@ -1,5 +1,5 @@
-import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PdfRotation } from '../geometry/primitives';
+import type { PageObjectNumber } from '../identity/PageObjectNumber';
 
 /**
  * Input to `pages.rotate()`. Rotation is ABSOLUTE ("set to"), never relative

@@ -1,9 +1,9 @@
-import type { AnnotationKindModule } from '../../registry';
-import { PdfAnnotationSubtypeCode } from '../../subtype';
-import type { FreeTextAnnotationDTO } from './dto';
 import type { FreeTextDraft } from './draft';
+import type { FreeTextAnnotationDTO } from './dto';
 import type { FreeTextPatch } from './patch';
 import { FreeTextDTOSchema, FreeTextDraftSchema, FreeTextPatchSchema } from './schema';
+import type { AnnotationKindModule } from '../../registry';
+import { PdfAnnotationSubtypeCode } from '../../subtype';
 
 export type { FreeTextAnnotationDTO } from './dto';
 export type { FreeTextDraft } from './draft';

@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { AnnotationBaseShape } from '../../base.schema';
+
 import type { UnsupportedAnnotationDTO } from './dto';
+import { AnnotationBaseShape } from '../../base.schema';
 
 export const UnsupportedDTOSchema: z.ZodType<UnsupportedAnnotationDTO> = z.object({
   ...AnnotationBaseShape,

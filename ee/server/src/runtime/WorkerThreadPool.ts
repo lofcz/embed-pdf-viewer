@@ -50,6 +50,32 @@ interface WorkerSlot {
   docToBaseSha: Map<string, string>;
 }
 
+/**
+ * A deployment fallback font, registered on every worker thread at startup.
+ * The pool passes these to each worker via `workerData`; the worker reads the
+ * file and registers it through `WorkerHost.registerStartupFonts`. This is the
+ * server-owned font policy — cloud clients cannot configure fonts.
+ */
+export interface FallbackFontDescriptor {
+  /** Stable key. Also usable as a FreeText `fontFamily` if you expose it. */
+  key: string;
+  /** Absolute path to a TTF/OTF file, read by each worker at startup. */
+  path: string;
+  /** Base font name. Empty/omitted → inferred from the file. */
+  familyName?: string;
+  /** Style weight for matching. Omitted → inferred. */
+  weight?: number;
+  /** Italic flag for matching. Omitted → inferred. */
+  italic?: boolean;
+  /** Add to the glyph-fallback chain. Defaults to `true` (the server use case). */
+  fallback?: boolean;
+}
+
+/** Shape passed to each worker via `workerData`. */
+export interface WorkerBootstrapData {
+  fonts: ReadonlyArray<FallbackFontDescriptor>;
+}
+
 export interface WorkerThreadPoolOptions {
   /**
    * Number of worker threads. Each worker runs an independent, thread-confined
@@ -87,6 +113,13 @@ export interface WorkerThreadPoolOptions {
    * request lazily re-opens.
    */
   onEvict?: (evt: { docId: string; baseSha: string; slot: number }) => void;
+  /**
+   * Deployment fallback fonts, registered on every worker thread at startup
+   * (before it reports ready). A font that fails to load fails worker spawn —
+   * a misconfigured font set is a boot error, not a silent degrade. Server-
+   * owned: clients never configure fonts on the cloud engine.
+   */
+  fonts?: ReadonlyArray<FallbackFontDescriptor>;
 }
 
 /** Conservative default worker count until the thread-confined gate is validated. */
@@ -152,9 +185,13 @@ export class WorkerThreadPool {
     const pool = new WorkerThreadPool(opts);
     const size = resolvePoolSize(opts.size);
     const entry = opts.workerEntry;
+    const bootstrap: WorkerBootstrapData = { fonts: opts.fonts ?? [] };
 
     for (let i = 0; i < size; i++) {
-      const worker = new Worker(entry);
+      // Each worker reads the font files itself and registers them on its own
+      // thread-confined PDFium runtime — the registry is thread-local, so the
+      // same list runs on every worker.
+      const worker = new Worker(entry, { workerData: bootstrap });
       const slot: WorkerSlot = {
         index: i,
         worker,

@@ -6,6 +6,7 @@ import {
   type PageRaster,
   type PageRenderEncodedFormat,
 } from '@embedpdf/engine-core/runtime';
+
 import { encodeBmp } from './bmp';
 
 export interface LocalImageEncoder {

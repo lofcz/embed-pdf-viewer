@@ -16,16 +16,17 @@ import {
   type PdfSaveMode,
 } from '@embedpdf/engine-core/runtime';
 import { EventHub, SessionEventPublisher } from '@embedpdf/engine-services';
-import type { WorkerQueue } from '../worker/WorkerQueue';
-import { Priority } from '../worker/Priority';
-import type { JobId, WorkerResultPayload } from '../worker/protocol';
+
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
 import type { ScopeGuard } from '../scope';
-import { LocalMetadataService } from './LocalMetadataService';
 import { LocalDocumentAnnotationsService } from './LocalDocumentAnnotationsService';
 import { LocalDocumentPagesService } from './LocalDocumentPagesService';
-import { LocalPageHandle } from './LocalPageHandle';
 import { LocalDocumentSecurityService } from './LocalDocumentSecurityService';
+import { LocalMetadataService } from './LocalMetadataService';
+import { LocalPageHandle } from './LocalPageHandle';
+import { Priority } from '../worker/Priority';
+import type { JobId, WorkerResultPayload } from '../worker/protocol';
+import type { WorkerQueue } from '../worker/WorkerQueue';
 
 export class LocalDocumentHandle implements DocumentHandle {
   readonly capabilities = {

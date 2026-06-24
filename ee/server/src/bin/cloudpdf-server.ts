@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable no-console */
 import { buildApp } from '../app/buildApp';
+import { loadFallbackFontsFromEnv } from '../runtime/loadFallbackFontsFromEnv';
 import { createSqliteDb, type CreateSqliteDbOptions } from '../db/drivers/sqlite';
 import { createPostgresDb, type CreatePostgresDbOptions } from '../db/drivers/postgres';
 import { PostgresRealtimeBus } from '../realtime/PostgresRealtimeBus';
@@ -63,6 +64,7 @@ import type { Kysely } from 'kysely';
  *   PORT                   (default: 3000)
  *   HOST                   (default: 0.0.0.0)
  *   CLOUDPDF_WORKER_POOL_SIZE  int|max  (default: min(2, cpus))
+ *   CLOUDPDF_FALLBACK_FONTS  JSON [{key,path,familyName?,...}]  (default: none)
  *
  * Exit codes:
  *   0  success
@@ -206,6 +208,8 @@ function printHelp(): void {
       '  Engine cache (enables /v1/docs/* read+render routes)',
       '    CLOUDPDF_CACHE_ROOT                      (default: ./data/cache)',
       '    CLOUDPDF_CACHE_MAX_BYTES                 (default: 4 GiB)',
+      '  Fonts',
+      '    CLOUDPDF_FALLBACK_FONTS  JSON [{key,path,familyName?,...}]  (default: none)',
       '  Optional adapters (see ADAPTERS.md)',
       '    CLOUDPDF_CDN_KIND      none|bunny|cloud-cdn|cloudfront|azure-fd|custom-hmac (default: none)',
       '    CLOUDPDF_KMS_KIND      static|aws-kms|gcp-kms|azure-kv  (opt-in; needed for encrypted-PDF sessions)',
@@ -510,6 +514,7 @@ async function cmdServe(): Promise<void> {
   const bundle = await buildApp({
     verifier: { mode: 'hs256', secret: JWT_SECRET },
     workerEntry: WORKER_ENTRY_URL,
+    fallbackFonts: loadFallbackFontsFromEnv(),
     db: dbCtx.db,
     objectStore,
     cdnSigner,

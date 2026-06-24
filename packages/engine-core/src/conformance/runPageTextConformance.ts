@@ -3,12 +3,12 @@ import type {
   ConformanceFixture,
   ConformanceOptions,
 } from './runMetadataConformance';
+import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { Engine } from '../engine/Engine';
-import { AbortError } from '../promise/AbortError';
 import { EngineError } from '../errors/EngineError';
 import { EngineErrorCode } from '../errors/EngineErrorCode';
+import { AbortError } from '../promise/AbortError';
 import { PageTextSnapshotSchema } from '../wire/schemas';
-import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 
 /**
  * Per-fixture expectations for the text-extraction harness. Concrete

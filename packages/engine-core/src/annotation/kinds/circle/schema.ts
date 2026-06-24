@@ -1,8 +1,9 @@
 import { z } from 'zod';
+
 import { AnnotationDraftBaseShape, AnnotationPatchBaseShape } from '../../base.schema';
 import { ShapeDTOShape, ShapeDraftShape, ShapePatchShape } from '../shape.shared';
-import type { CircleAnnotationDTO } from './dto';
 import type { CircleDraft } from './draft';
+import type { CircleAnnotationDTO } from './dto';
 import type { CirclePatch } from './patch';
 
 export const CircleDTOSchema: z.ZodType<CircleAnnotationDTO> = z.object({

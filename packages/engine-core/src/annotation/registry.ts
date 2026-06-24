@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+
 import type { AnnotationBase } from './base';
 import type { AnnotationSubtype } from './subtype';
 

@@ -1,6 +1,7 @@
-import { AbortablePromise } from '../promise/AbortablePromise';
-import type { OpenInput, OpenOptions } from '../dto/OpenInput';
 import type { DocumentHandle } from './DocumentHandle';
+import type { FontService } from './FontService';
+import type { OpenInput, OpenOptions } from '../dto/OpenInput';
+import { AbortablePromise } from '../promise/AbortablePromise';
 
 /**
  * Engine contract shared by `@embedpdf/engine` and
@@ -25,4 +26,12 @@ import type { DocumentHandle } from './DocumentHandle';
 export interface Engine {
   open(input: OpenInput, options?: OpenOptions): AbortablePromise<DocumentHandle>;
   destroy(): AbortablePromise<void>;
+
+  /**
+   * Runtime font registration + fallback configuration. Present on the local
+   * (WASM) engine only; `undefined` on the cloud engine, where fallback fonts
+   * are a server-side policy decision and cannot be configured from the
+   * client. See {@link FontService}.
+   */
+  readonly fonts?: FontService;
 }

@@ -1,12 +1,12 @@
-import { AbortablePromise } from '../promise/AbortablePromise';
-import type { PageObjectNumber } from '../identity/PageObjectNumber';
-import type { PdfSaveMode } from '../dto/PdfSaveMode';
-import type { DocumentEventStream } from '../events/DocumentEventStream';
 import type { DocumentAnnotationsService } from './DocumentAnnotationsService';
 import type { DocumentPagesService } from './DocumentPagesService';
 import type { DocumentSecurityService } from './DocumentSecurityService';
 import type { MetadataService } from './MetadataService';
 import type { PageHandle } from './PageHandle';
+import type { PdfSaveMode } from '../dto/PdfSaveMode';
+import type { DocumentEventStream } from '../events/DocumentEventStream';
+import type { PageObjectNumber } from '../identity/PageObjectNumber';
+import { AbortablePromise } from '../promise/AbortablePromise';
 
 export interface DocumentCapabilities {
   readonly weakAnnotationEditSessions: 'not-needed' | 'required';

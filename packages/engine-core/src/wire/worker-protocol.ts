@@ -1,18 +1,20 @@
-import type { AnnotationActor } from '../auth/scope';
 import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
 } from '../annotation/AnnotationListSnapshot';
 import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
-import type { DocumentMetadata } from '../dto/DocumentMetadata';
-import type { PageListSnapshot } from '../dto/PageListSnapshot';
-import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
-import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
-import type { PageRaster, PageRenderOptions } from '../dto/PageRender';
+import type { AnnotationActor } from '../auth/scope';
 import type {
   AnnotationAppearanceRenderOptions,
   AnnotationAppearancesResult,
 } from '../dto/AnnotationRender';
+import type { DocumentMetadata } from '../dto/DocumentMetadata';
+import type { MetadataPatch } from '../dto/MetadataPatch';
+import type { PageGeometrySnapshot } from '../dto/PageGeometrySnapshot';
+import type { PageRotation } from '../dto/PageLayout';
+import type { PageListSnapshot } from '../dto/PageListSnapshot';
+import type { PageRaster, PageRenderOptions } from '../dto/PageRender';
+import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
@@ -23,12 +25,10 @@ import type {
   AnnotationMoveResult,
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
+import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
+import type { PageDeleteResult } from '../mutation/PageDeleteResult';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { PageRotateResult } from '../mutation/PageRotateResult';
-import type { PageDeleteResult } from '../mutation/PageDeleteResult';
-import type { PageRotation } from '../dto/PageLayout';
-import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
-import type { MetadataPatch } from '../dto/MetadataPatch';
 
 /**
  * Wire protocol used between an Engine-side queue and any Worker host
@@ -325,6 +325,42 @@ export interface DocumentCheckPasswordPermissionsWorkerRequest {
   mode?: 'any' | 'owner';
 }
 
+/**
+ * Register a runtime font on the host's PDFium thread. Carries the font bytes
+ * as a transferable `ArrayBuffer` (declared in the producer's transfer
+ * manifest, like `open.fatMem`). Runtime-global: not tied to any docId. The
+ * host keeps the volatile native `FontId` keyed by `fontKey`; the wire only
+ * ever references the stable `fontKey`.
+ */
+export interface FontsRegisterWorkerRequest {
+  kind: 'fonts.register';
+  jobId: WorkerJobId;
+  fontKey: string;
+  /** `""` → infer the base font name from the file. */
+  familyName: string;
+  /** `0` → infer the weight from the file. */
+  weight: number;
+  /** `-1` → infer / `0` non-italic / `1` italic. */
+  italic: number;
+  data: ArrayBuffer;
+}
+
+export interface FontsAddFallbackWorkerRequest {
+  kind: 'fonts.addFallback';
+  jobId: WorkerJobId;
+  fontKey: string;
+}
+
+export interface FontsClearFallbacksWorkerRequest {
+  kind: 'fonts.clearFallbacks';
+  jobId: WorkerJobId;
+}
+
+export interface FontsClearWorkerRequest {
+  kind: 'fonts.clear';
+  jobId: WorkerJobId;
+}
+
 export interface CloseWorkerRequest {
   kind: 'close';
   jobId: WorkerJobId;
@@ -374,6 +410,10 @@ export type WorkerRequest =
   | DocumentSaveLayerBufferWorkerRequest
   | DocumentProbeSecurityFileWorkerRequest
   | DocumentCheckPasswordPermissionsWorkerRequest
+  | FontsRegisterWorkerRequest
+  | FontsAddFallbackWorkerRequest
+  | FontsClearFallbacksWorkerRequest
+  | FontsClearWorkerRequest
   | CloseWorkerRequest
   | AbortWorkerRequest
   | ShutdownWorkerRequest;
@@ -442,6 +482,10 @@ export type WorkerResultPayload =
   | { tag: 'document.saveFile'; path: string }
   | { tag: 'document.probeSecurityFile'; security: DocumentSecurityProbeInfo }
   | { tag: 'document.checkPasswordPermissions'; security: DocumentSecurityProbeInfo }
+  | { tag: 'fonts.register'; fontKey: string }
+  | { tag: 'fonts.addFallback' }
+  | { tag: 'fonts.clearFallbacks' }
+  | { tag: 'fonts.clear' }
   | { tag: 'close' }
   | { tag: 'shutdown' };
 

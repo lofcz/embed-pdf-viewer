@@ -1,8 +1,8 @@
 import type { ConformanceTestRunner, ConformanceOptions } from './runMetadataConformance';
-import type { Engine } from '../engine/Engine';
-import type { DocumentHandle } from '../engine/DocumentHandle';
-import type { DocumentEvent } from '../events/DocumentEvent';
 import type { HighlightDraft } from '../annotation/kinds';
+import type { DocumentHandle } from '../engine/DocumentHandle';
+import type { Engine } from '../engine/Engine';
+import type { DocumentEvent } from '../events/DocumentEvent';
 
 const QUAD: HighlightDraft['quadPoints'] = [
   {

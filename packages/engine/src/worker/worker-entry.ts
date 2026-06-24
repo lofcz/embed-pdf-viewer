@@ -11,9 +11,10 @@
  * Lives in src/ so consumers can import it as a worker source. It is NOT
  * exported by index.ts.
  */
-import { createPdfRuntime } from '@embedpdf/pdf-runtime';
-import { WorkerHost } from '@embedpdf/engine-services';
 import type { WirePack, WorkerResponse } from '@embedpdf/engine-core/runtime';
+import { WorkerHost } from '@embedpdf/engine-services';
+import { createPdfRuntime } from '@embedpdf/pdf-runtime';
+
 import type { WorkerRequest } from './protocol';
 
 declare const self: DedicatedWorkerGlobalScope;

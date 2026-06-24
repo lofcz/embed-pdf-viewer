@@ -9,9 +9,10 @@
  * @embedpdf/engine-core.
  */
 import { createPdfRuntime, type CreatePdfRuntimeOptions } from '@embedpdf/pdf-runtime';
+
 import { LocalEngine, type LocalEngineOptions } from './LocalEngine';
-import { InlineTransport } from './transport/InlineTransport';
 import { BrowserWorkerTransport } from './transport/BrowserWorkerTransport';
+import { InlineTransport } from './transport/InlineTransport';
 
 export { LocalEngine } from './LocalEngine';
 export type { LocalEngineOptions } from './LocalEngine';
@@ -29,6 +30,7 @@ export { LocalPageGeometryService } from './document/LocalPageGeometryService';
 export { LocalPageRenderService } from './document/LocalPageRenderService';
 export { BrowserImageEncoder } from './render/BrowserImageEncoder';
 export type { LocalImageEncoder } from './render/BrowserImageEncoder';
+export { LocalFontService } from './fonts/LocalFontService';
 
 export interface CreateLocalEngineOptions extends Omit<LocalEngineOptions, 'transport'> {
   /** Forwarded to @embedpdf/pdf-runtime when no transport is provided. */

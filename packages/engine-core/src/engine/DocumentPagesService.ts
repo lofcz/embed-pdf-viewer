@@ -1,10 +1,10 @@
-import { AbortablePromise } from '../promise/AbortablePromise';
-import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PdfRotation } from '../geometry/primitives';
+import type { PageObjectNumber } from '../identity/PageObjectNumber';
+import type { PageDeleteResult } from '../mutation/PageDeleteResult';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { PageRotateResult } from '../mutation/PageRotateResult';
-import type { PageDeleteResult } from '../mutation/PageDeleteResult';
+import { AbortablePromise } from '../promise/AbortablePromise';
 
 /**
  * Document-scoped page service exposed via `DocumentHandle.pages`.

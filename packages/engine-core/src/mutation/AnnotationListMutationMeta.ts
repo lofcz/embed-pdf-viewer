@@ -1,6 +1,6 @@
-import type { AnnotationStableId } from '../identity/AnnotationStableId';
-import type { RefetchReason } from './RefetchReason';
 import type { MutationMeta } from './MutationMeta';
+import type { RefetchReason } from './RefetchReason';
+import type { AnnotationStableId } from '../identity/AnnotationStableId';
 
 /**
  * Per-page side-effect envelope every annotation mutation returns. The
