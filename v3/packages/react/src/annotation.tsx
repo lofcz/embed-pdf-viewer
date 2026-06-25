@@ -11,6 +11,10 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { AnnotationToken, refKey } from '@embedpdf-x/plugin-annotation';
+// The render layer is framework code, so it resolves the FULL host lens
+// (pageItems/chrome/appearances/…). Same runtime token as the public one — only
+// the type differs. App code never imports this.
+import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annotation/internal';
 import {
   scene,
   type Border,
@@ -153,7 +157,7 @@ function BakedImage({ box, url, page }: { box: Rect; url: string; page: PageCont
 }
 
 function Chrome({ page }: { page: PageContextValue }) {
-  const nodes = useSelector(AnnotationToken, (c) => c.chrome(page.pon), shallowArray);
+  const nodes = useSelector(AnnotationHostToken, (c) => c.chrome(page.pon), shallowArray);
   return (
     <svg style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
       {nodes.map((n, i) => {
@@ -193,8 +197,8 @@ function Chrome({ page }: { page: PageContextValue }) {
 
 export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
   const page = usePage();
-  const anno = useCapability(AnnotationToken);
-  const items = useSelector(AnnotationToken, (c) => c.pageItems(page.pon), shallowArray);
+  const anno = useCapability(AnnotationHostToken);
+  const items = useSelector(AnnotationHostToken, (c) => c.pageItems(page.pon), shallowArray);
   const [urls, setUrls] = useState<Record<string, { url: string; box: Rect }>>({});
 
   useEffect(() => {
@@ -244,8 +248,13 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
         if (behavior) {
           native = null; // registered per-framework (forms); v1 has none
         } else if (item.source === 'baked') {
+          // Blit the engine raster into the annotation's LIVE AP box (`apBox`
+          // follows a move), so a dragged baked annotation rides along; fall back
+          // to the fetched box for a never-moved one.
           const baked = urls[item.id];
-          native = baked ? <BakedImage box={baked.box} url={baked.url} page={page} /> : null;
+          native = baked ? (
+            <BakedImage box={item.apBox ?? baked.box} url={baked.url} page={page} />
+          ) : null;
         } else {
           native = <Shape item={item} page={page} />; // shapes, cloudy, markup — all painted via scene()
         }
@@ -265,8 +274,9 @@ export function useAnnotationSelection() {
   return useSelector(AnnotationToken, (c) => c.selection(), shallowArray);
 }
 
-export function useAnnotationSelectedItems() {
-  return useSelector(AnnotationToken, (c) => c.selectedItems(), shallowArray);
+/** The selected annotations as engine DTOs — for selection-aware toolbars/sidebars. */
+export function useAnnotationSelected() {
+  return useSelector(AnnotationToken, (c) => c.getSelected(), shallowArray);
 }
 
 /** Structural equality for a tool's resolved defaults (style + endings) — keeps the

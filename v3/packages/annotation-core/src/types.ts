@@ -1,4 +1,9 @@
-import type { AnnotationRef, LineEnding, LineEndings } from '@embedpdf/engine-core/runtime';
+import type {
+  AnnotationDTO,
+  AnnotationRef,
+  LineEnding,
+  LineEndings,
+} from '@embedpdf/engine-core/runtime';
 import type { PageObjectNumber } from '@embedpdf-x/kernel';
 import type { Point, Rect as GeometryRect } from '@embedpdf-x/geometry';
 
@@ -86,6 +91,22 @@ export interface Annot {
   locked: boolean;
   source: 'baked' | 'vector';
   /**
+   * Content-space box of the engine appearance raster (the AP `/Rect`), set when
+   * the annotation is derived from a DTO. While `source === 'baked'` the renderer
+   * blits the engine bitmap into this box; a move translates it (a rigid shift
+   * keeps the raster valid), so the bitmap rides along without re-rendering.
+   * Ignored once `source === 'vector'`.
+   */
+  apBox?: Rect;
+  /**
+   * The canonical engine DTO this annotation was derived from (PDF-space, sRGB)
+   * — the single source of truth for its data. `geom` and `style` are
+   * content-space RENDER PROJECTIONS of it, recomputed (never edited directly)
+   * whenever `data` changes, so the two can't drift. Absent only for a vector
+   * draft that hasn't been committed to the engine yet (no DTO exists).
+   */
+  data?: AnnotationDTO;
+  /**
    * Relationship to another annotation. `irt` ("in reply to") links a child to a
    * parent — a reply in a comment thread, or a caret bound to its strikeout in a
    * replace-text pair. `group` ties a set into one composite unit (created and,
@@ -165,7 +186,13 @@ export type Msg =
   | { t: 'cancel' }
   | { t: 'loaded'; annots: Annot[] }
   | { t: 'created'; tempId: Id; id: Id; ref: AnnotationRef }
-  | { t: 'createFailed'; tempId: Id };
+  | { t: 'createFailed'; tempId: Id }
+  // store maintenance for the data API + collaboration: add-or-replace an
+  // annotation by id (own create/update re-synced from the engine DTO, or a
+  // remote edit arriving over the event stream), and remove by id (own delete
+  // by ref, or a remote delete). Pure store ops — they emit no effects.
+  | { t: 'upsert'; annots: Annot[] }
+  | { t: 'remove'; ids: Id[] };
 
 export type Effect =
   | { fx: 'create'; id: Id }
@@ -185,6 +212,12 @@ export interface RenderItem {
    * appearance can never drift (the v2 "patch computes the rect" rule).
    */
   box: Rect;
+  /**
+   * Content-space box the engine appearance raster occupies (the AP `/Rect`),
+   * with the live move gesture applied — so a baked annotation's bitmap follows
+   * a drag. Only meaningful when `source === 'baked'`; absent otherwise.
+   */
+  apBox?: Rect;
   style: Style;
   source: 'baked' | 'vector' | 'ghost';
   selected: boolean;

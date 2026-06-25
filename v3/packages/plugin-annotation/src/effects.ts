@@ -1,0 +1,65 @@
+/**
+ * Makes annotations REACTIVE to remote collaborators — the same pattern the
+ * metadata plugin uses for the Info dict.
+ *
+ * Own edits already update the model through the capability's promise path
+ * (optimistic draw + re-sync from the engine DTO). This effect folds in the
+ * edits that DIDN'T originate here: it subscribes to the document event stream
+ * and applies `annotation.*` events whose `origin.kind === 'remote'` — another
+ * session's create/update/move/delete, delivered over SSE on cloud. Filtering
+ * to remote avoids double-applying (and racing the temp-id reconcile of) our
+ * own echoes.
+ */
+import type { DocumentEvent, EffectContext } from '@embedpdf-x/kernel';
+import { encodeStableIdKey } from '@embedpdf/engine-core/runtime';
+import { update, type Annot, type Msg } from '@embedpdf-x/annotation-core';
+
+import { fromDTO } from './repository';
+import type { AnnotationAction, AnnotationState } from './types';
+
+export function registerAnnotationEffects(
+  ctx: EffectContext<AnnotationState, AnnotationAction>,
+): void {
+  const doc = ctx.doc;
+  if (!doc) return;
+
+  const cropOf = (pon: number) =>
+    ctx.document()?.pages.find((p) => p.pageObjectNumber === pon)?.boxes.crop ?? null;
+
+  const apply = (msg: Msg): void => {
+    const [next] = update(ctx.getState().model, msg);
+    ctx.dispatch({ type: 'SET_MODEL', model: next });
+  };
+
+  const upsert = (dtos: ReadonlyArray<Parameters<typeof fromDTO>[0]>): void => {
+    const annots: Annot[] = [];
+    for (const dto of dtos) {
+      const crop = cropOf(dto.pageObjectNumber);
+      // Another session authored this — trust the engine's baked AP.
+      if (crop) annots.push(fromDTO(dto, crop, 'baked'));
+    }
+    if (annots.length) apply({ t: 'upsert', annots });
+  };
+
+  const unsubscribe = doc.events.subscribe((event: DocumentEvent) => {
+    // Only fold in OTHER sessions' edits; our own flow through the capability.
+    if (!('origin' in event) || event.origin.kind !== 'remote') return;
+    switch (event.type) {
+      case 'annotation.created':
+        upsert([event.created]);
+        break;
+      case 'annotation.updated':
+        upsert([event.updated]);
+        break;
+      case 'annotation.moved':
+        upsert(event.moved);
+        break;
+      case 'annotation.deleted':
+        if (event.deleted) apply({ t: 'remove', ids: [encodeStableIdKey(event.deleted)] });
+        break;
+      default:
+        break;
+    }
+  });
+  ctx.cleanup(unsubscribe);
+}

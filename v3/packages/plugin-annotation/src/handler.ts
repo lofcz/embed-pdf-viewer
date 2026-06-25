@@ -1,6 +1,6 @@
 import type { InteractionCapability, InteractionHandler } from '@embedpdf-x/plugin-interaction';
 import type { Subtype } from '@embedpdf-x/annotation-core';
-import type { AnnotationCapability } from './types';
+import type { AnnotationHostCapability } from './types';
 
 /**
  * Ambient editing: live under the `annotation-edit` tag, which BOTH the pointer
@@ -10,7 +10,7 @@ import type { AnnotationCapability } from './types';
  * cursor (move / pointer / resize) via a priority cursor claim.
  */
 export function createEditHandler(
-  anno: AnnotationCapability,
+  anno: AnnotationHostCapability,
   interaction: InteractionCapability,
 ): InteractionHandler {
   return {
@@ -45,7 +45,7 @@ export function createEditHandler(
 
 /** Drawing: live under `annotation-draw` (the square / circle / line tools). */
 export function createDrawHandler(
-  anno: AnnotationCapability,
+  anno: AnnotationHostCapability,
   interaction: InteractionCapability,
 ): InteractionHandler {
   const subtype = () => interaction.activeTool().id as Subtype;

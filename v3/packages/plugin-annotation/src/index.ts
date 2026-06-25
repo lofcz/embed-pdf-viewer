@@ -5,8 +5,19 @@
  * create/patch/delete) and the interaction hub (ambient editing + draw tools).
  * Behaviors (forms, links) plug in via registerBehavior. Zero framework code.
  */
+import type { CapabilityToken } from '@embedpdf-x/kernel';
+import { AnnotationToken as AnnotationHostToken } from './types';
+import type { AnnotationCapability } from './types';
+
 export { annotationPlugin } from './annotation.plugin';
-export { createAnnotationCapability } from './capability';
-export { fromDTO, toCreateDraft, toPatch, refKey } from './repository';
-export { AnnotationToken } from './types';
+export { fromDTO, toCreateDraft, toPatch, refKey, styleFromDTO } from './repository';
 export type { AnnotationCapability, AnnotationState, AnnotationAction, Behavior } from './types';
+
+/**
+ * App-facing annotation token: resolves the public {@link AnnotationCapability}.
+ * It is the SAME runtime token the plugin provides, narrowed to the public lens —
+ * the framework-only surface (render projection, pointer gestures, behavior
+ * registration) is reachable only via `@embedpdf-x/plugin-annotation/internal`.
+ */
+export const AnnotationToken =
+  AnnotationHostToken as unknown as CapabilityToken<AnnotationCapability>;

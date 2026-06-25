@@ -69,8 +69,12 @@ export function defaultsFor(m: Model, subtype: Subtype): { style: Style; endings
   };
 }
 
-const touch = (a: Annot): Annot => (a.source === 'vector' ? a : { ...a, source: 'vector' });
+/** Flip an annotation to live (vector) rendering — we now own its appearance, so
+ *  the engine's baked AP is no longer authoritative. Idempotent. */
+const toVector = (a: Annot): Annot => (a.source === 'vector' ? a : { ...a, source: 'vector' });
 const sub = (a: Vec, b: Vec): Vec => ({ x: a.x - b.x, y: a.y - b.y });
+const translateRect = (r: Rect, d: Vec): Rect => ({ ...r, x: r.x + d.x, y: r.y + d.y });
+const geomEqual = (a: Geom, b: Geom): boolean => JSON.stringify(a) === JSON.stringify(b);
 
 export function update(m: Model, msg: Msg): [Model, Effect[]] {
   switch (msg.t) {
@@ -102,6 +106,10 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return [reconcile(m, msg.tempId, msg.id, msg.ref), []];
     case 'createFailed':
       return [removeAnnots(m, [msg.tempId]), []];
+    case 'upsert':
+      return [upsertAnnots(m, msg.annots), []];
+    case 'remove':
+      return [removeAnnots(m, msg.ids), []];
   }
 }
 
@@ -152,7 +160,11 @@ function editMove(m: Model, input: PointerInput): [Model, Effect[]] {
 function editUp(m: Model): [Model, Effect[]] {
   const d = m.draft!;
   if (d.g === 'handle') {
-    const a = touch({ ...m.byId[d.id], geom: d.cur });
+    // A grab that didn't actually resize leaves the appearance untouched → keep
+    // it baked, no engine write.
+    if (geomEqual(d.base, d.cur)) return [{ ...m, draft: null }, []];
+    // A resize changes the appearance: we own it now → live (vector) render.
+    const a = toVector({ ...m.byId[d.id], geom: d.cur });
     return [{ ...m, byId: { ...m.byId, [d.id]: a }, draft: null }, [{ fx: 'patch', id: d.id }]];
   }
   if (d.g === 'move') {
@@ -160,7 +172,14 @@ function editUp(m: Model): [Model, Effect[]] {
     const byId = { ...m.byId };
     const fx: Effect[] = [];
     for (const id of d.ids) {
-      byId[id] = touch({ ...byId[id], geom: geomTranslate(byId[id].geom, d.delta) });
+      const a = byId[id];
+      // A move is a rigid translation — the appearance is unchanged, so a baked
+      // annotation STAYS baked and its raster box rides along. Source preserved.
+      byId[id] = {
+        ...a,
+        geom: geomTranslate(a.geom, d.delta),
+        apBox: a.apBox ? translateRect(a.apBox, d.delta) : undefined,
+      };
       fx.push({ fx: 'patch', id });
     }
     return [{ ...m, byId, draft: null }, fx];
@@ -323,7 +342,7 @@ function setStyle(m: Model, patch: Partial<Style>): [Model, Effect[]] {
   const byId = { ...m.byId };
   const fx: Effect[] = [];
   for (const id of m.selected) {
-    byId[id] = touch({ ...byId[id], style: { ...byId[id].style, ...patch } });
+    byId[id] = toVector({ ...byId[id], style: { ...byId[id].style, ...patch } });
     fx.push({ fx: 'patch', id });
   }
   return [{ ...m, byId }, fx];
@@ -339,7 +358,7 @@ function setEndings(m: Model, patch: Partial<LineEndings>): [Model, Effect[]] {
     if (!g || (g.t !== 'line' && g.t !== 'poly')) continue;
     if (g.t === 'poly' && g.closed) continue; // polygons carry no /LE endings
     const ends: LineEndings = { ...(g.ends ?? NO_ENDINGS), ...patch };
-    byId[id] = touch({ ...a, geom: { ...g, ends } });
+    byId[id] = toVector({ ...a, geom: { ...g, ends } });
     fx.push({ fx: 'patch', id });
   }
   return [{ ...m, byId }, fx];
@@ -383,6 +402,34 @@ function mergeLoaded(m: Model, annots: Annot[]): Model {
     order.push(a.id);
   }
   return { ...m, byId, order };
+}
+
+/**
+ * Add-or-replace by id. Unlike `mergeLoaded` (which skips ids it already has,
+ * for the bulk page read), this OVERWRITES — it's how the data API re-syncs an
+ * annotation from the authoritative engine DTO and how a remote edit lands.
+ * New ids append to `order`; existing ones keep their position. An annotation
+ * currently being dragged (its id is in a `move`/`handle` draft) is left as-is
+ * so a remote echo can't yank geometry out from under the local gesture.
+ */
+function upsertAnnots(m: Model, annots: Annot[]): Model {
+  const dragging = draftIds(m.draft);
+  const byId = { ...m.byId };
+  const order = [...m.order];
+  for (const a of annots) {
+    if (dragging.has(a.id)) continue;
+    if (!byId[a.id]) order.push(a.id);
+    byId[a.id] = a;
+  }
+  return { ...m, byId, order };
+}
+
+/** Ids locked by an in-progress local gesture (don't let an upsert clobber them). */
+function draftIds(draft: Draft | null): Set<Id> {
+  if (!draft) return new Set();
+  if (draft.g === 'move') return new Set(draft.ids);
+  if (draft.g === 'handle') return new Set([draft.id]);
+  return new Set();
 }
 
 function removeAnnots(m: Model, ids: Id[]): Model {

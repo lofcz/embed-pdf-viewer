@@ -7,6 +7,12 @@ import { fileURLToPath } from 'node:url';
 const src = (p: string) =>
   fileURLToPath(new URL(`../../packages/${p}/src/index.ts`, import.meta.url));
 
+// A non-default package entry (e.g. the `/internal` host surface). Aliasing to
+// source bypasses the package's `exports`, so each subpath needs its own entry —
+// listed BEFORE the bare-package alias, since the first matching alias wins.
+const srcEntry = (p: string, file: string) =>
+  fileURLToPath(new URL(`../../packages/${p}/src/${file}.ts`, import.meta.url));
+
 export default defineConfig({
   server: { port: 5199, strictPort: true },
   plugins: [react()],
@@ -21,6 +27,8 @@ export default defineConfig({
       '@embedpdf-x/plugin-interaction': src('plugin-interaction'),
       '@embedpdf-x/plugin-selection': src('plugin-selection'),
       '@embedpdf-x/annotation-core': src('annotation-core'),
+      // More specific first: the host (`/internal`) surface, then the bare package.
+      '@embedpdf-x/plugin-annotation/internal': srcEntry('plugin-annotation', 'internal'),
       '@embedpdf-x/plugin-annotation': src('plugin-annotation'),
       '@embedpdf-x/plugin-persist': src('plugin-persist'),
       '@embedpdf-x/plugin-render': src('plugin-render'),

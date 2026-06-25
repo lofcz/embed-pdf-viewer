@@ -2,11 +2,12 @@ import { definePlugin } from '@embedpdf-x/kernel';
 import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import { SelectionToken } from '@embedpdf-x/plugin-selection';
 import { createAnnotationCapability } from './capability';
+import { registerAnnotationEffects } from './effects';
 import { createDrawHandler, createEditHandler } from './handler';
 import { wireMarkup } from './markup';
 import { annotationReducer, initialAnnotationState } from './reducer';
 import { AnnotationToken } from './types';
-import type { AnnotationAction, AnnotationCapability, AnnotationState } from './types';
+import type { AnnotationAction, AnnotationHostCapability, AnnotationState } from './types';
 
 /**
  * The annotation plugin. Document-scoped; requires the interaction hub and
@@ -14,7 +15,7 @@ import type { AnnotationAction, AnnotationCapability, AnnotationState } from './
  * markup lights up only when a selection plugin is present.
  */
 export const annotationPlugin = () =>
-  definePlugin<AnnotationState, AnnotationAction, AnnotationCapability>({
+  definePlugin<AnnotationState, AnnotationAction, AnnotationHostCapability>({
     id: 'annotation',
     token: AnnotationToken,
     scope: 'document',
@@ -23,6 +24,8 @@ export const annotationPlugin = () =>
     initialState: initialAnnotationState,
     reduce: annotationReducer,
     capability: createAnnotationCapability,
+    // Fold in remote collaborators' edits (own edits flow through the capability).
+    effects: registerAnnotationEffects,
     init: (ctx) => {
       const interaction = ctx.get(InteractionToken);
       const annotation = ctx.get(AnnotationToken);

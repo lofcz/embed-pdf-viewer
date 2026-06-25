@@ -63,17 +63,33 @@ const TEXT_MARKUP = new Set(['highlight', 'underline', 'squiggly', 'strikeout'])
 // here too (it has a stroke but no `/IC`, so its interiorColor reads back null).
 const STROKE_KINDS = new Set(['square', 'circle', 'line', 'polygon', 'polyline', 'ink']);
 
-/** Engine DTO → content-space Annot (loaded = baked). */
-export function fromDTO(dto: AnnotationDTO, crop: PdfRect): Annot {
+/**
+ * Engine DTO → content-space Annot. `source` decides how it renders: `'baked'`
+ * shows the engine's appearance raster (a page load, or a remote edit — trust
+ * the authored AP); `'vector'` renders live from geom/style (we authored or
+ * changed it). `apBox` is the raster's content-space box, used while baked.
+ */
+export function fromDTO(
+  dto: AnnotationDTO,
+  crop: PdfRect,
+  source: 'baked' | 'vector' = 'baked',
+): Annot {
   const base = {
     id: refKey(dto.ref),
     ref: dto.ref,
     pon: dto.pageObjectNumber,
     subtype: dto.subtype,
     locked: dto.flags.locked || dto.flags.readOnly,
-    source: 'baked' as const,
+    source,
+    // Carry the canonical DTO; geom/style below are derived projections of it.
+    data: dto,
   };
-  return { ...base, geom: geomFromDTO(dto, crop), style: styleFromDTO(dto) };
+  return {
+    ...base,
+    geom: geomFromDTO(dto, crop),
+    style: styleFromDTO(dto),
+    apBox: pdfToContentRect(dto.rect, crop),
+  };
 }
 
 function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
@@ -141,7 +157,10 @@ function borderFromDTO(d: {
   return { kind: 'solid' };
 }
 
-function styleFromDTO(dto: AnnotationDTO): Style {
+/** Engine DTO → content-space `Style` (CSS colours, `Border` union). Exported so
+ *  selection-aware UIs can read display values straight off a {@link AnnotationDTO}
+ *  without re-deriving the colour/border mapping. */
+export function styleFromDTO(dto: AnnotationDTO): Style {
   if (STROKE_KINDS.has(dto.subtype)) {
     const d = dto as Extract<AnnotationDTO, { interiorColor: Color | null }>;
     return {

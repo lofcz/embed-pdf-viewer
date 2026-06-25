@@ -14,7 +14,7 @@ import type {
 } from '@embedpdf-x/plugin-stage';
 import { interactionPlugin } from '@embedpdf-x/plugin-interaction';
 import { selectionPlugin } from '@embedpdf-x/plugin-selection';
-import { annotationPlugin } from '@embedpdf-x/plugin-annotation';
+import { annotationPlugin, styleFromDTO } from '@embedpdf-x/plugin-annotation';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
 import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
@@ -30,7 +30,7 @@ import {
   AnnotationLayer,
   useAnnotation,
   useAnnotationSelection,
-  useAnnotationSelectedItems,
+  useAnnotationSelected,
   useAnnotationDefaults,
   usePage,
   useTool,
@@ -353,7 +353,7 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
   const annotation = useAnnotation();
   const { activeToolId } = useTool();
   const annoSelected = useAnnotationSelection();
-  const selItems = useAnnotationSelectedItems();
+  const selDtos = useAnnotationSelected();
   // SUBSCRIBED defaults (not an imperative read) — so editing a tool default
   // re-renders these controls live. See useAnnotationDefaults.
   const toolDefaults = useAnnotationDefaults(activeToolId);
@@ -388,21 +388,23 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
       </aside>
     );
 
-  const first = selItems[0];
+  // The selected annotation as a DTO + its content-space style projection (the
+  // read side now reads the canonical engine DTO; writes go through the API).
+  const first = selDtos[0];
+  const firstStyle = first ? styleFromDTO(first) : undefined;
 
   // Text markup: anchored to text — a single colour + opacity, no stroke/fill/box.
-  const isMarkup = hasSel ? first?.geom.t === 'quads' : isMarkupTool;
+  const isMarkup = hasSel ? (first ? MARKUP_SUBTYPES.has(first.subtype) : false) : isMarkupTool;
   if (isMarkup) {
-    const color =
-      (hasSel ? first?.style.color : undefined) ?? toolDefaults.style.color ?? '#ffe16a';
-    const opacity = (hasSel ? first?.style.opacity : undefined) ?? toolDefaults.style.opacity ?? 1;
+    const color = (hasSel ? firstStyle?.color : undefined) ?? toolDefaults.style.color ?? '#ffe16a';
+    const opacity = (hasSel ? firstStyle?.opacity : undefined) ?? toolDefaults.style.opacity ?? 1;
     const setMarkupColor = (c: string) =>
       hasSel
-        ? annotation.setStyle({ color: c })
+        ? annotation.updateSelection({ style: { color: c } })
         : annotation.setDefaults(activeToolId, { style: { color: c } });
     const setMarkupOpacity = (o: number) =>
       hasSel
-        ? annotation.setStyle({ opacity: o })
+        ? annotation.updateSelection({ style: { opacity: o } })
         : annotation.setDefaults(activeToolId, { style: { opacity: o } });
     return (
       <aside style={annoSidebar}>
@@ -451,49 +453,47 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
     );
   }
 
-  const strokeColor = (hasSel ? first?.style.color : undefined) ?? toolDefaults.style.color;
+  const strokeColor = (hasSel ? firstStyle?.color : undefined) ?? toolDefaults.style.color;
   const strokeWidth =
-    (hasSel ? first?.style.strokeWidth : undefined) ?? toolDefaults.style.strokeWidth;
+    (hasSel ? firstStyle?.strokeWidth : undefined) ?? toolDefaults.style.strokeWidth;
   const setColor = (c: string) =>
     hasSel
-      ? annotation.setStyle({ color: c })
+      ? annotation.updateSelection({ style: { color: c } })
       : annotation.setDefaults(activeToolId, { style: { color: c } });
   const setWidth = (w: number) =>
     hasSel
-      ? annotation.setStyle({ strokeWidth: w })
+      ? annotation.updateSelection({ style: { strokeWidth: w } })
       : annotation.setDefaults(activeToolId, { style: { strokeWidth: w } });
 
   const fillColor =
-    (hasSel ? first?.style.interiorColor : undefined) ?? toolDefaults.style.interiorColor ?? null;
+    (hasSel ? firstStyle?.interiorColor : undefined) ?? toolDefaults.style.interiorColor ?? null;
   const setFill = (c: string | null) =>
     hasSel
-      ? annotation.setStyle({ interiorColor: c })
+      ? annotation.updateSelection({ style: { interiorColor: c } })
       : annotation.setDefaults(activeToolId, { style: { interiorColor: c } });
 
   // Ink is stroke-only (freehand) — no fill / border / endings controls.
-  const isInk = hasSel ? first?.geom.t === 'ink' : activeToolId === 'ink';
+  const isInk = hasSel ? first?.subtype === 'ink' : activeToolId === 'ink';
   // Border style applies to the shapes (square/circle); cloudy is shape-only.
   const isShape = hasSel
-    ? first?.geom.t === 'rect'
+    ? first?.subtype === 'square' || first?.subtype === 'circle'
     : activeToolId === 'square' || activeToolId === 'circle';
-  const border: Border = (hasSel ? first?.style.border : undefined) ??
+  const border: Border = (hasSel ? firstStyle?.border : undefined) ??
     toolDefaults.style.border ?? { kind: 'solid' };
   const setBorder = (b: Border) =>
     hasSel
-      ? annotation.setStyle({ border: b })
+      ? annotation.updateSelection({ style: { border: b } })
       : annotation.setDefaults(activeToolId, { style: { border: b } });
 
-  const lineSel = selItems.find(
-    (it) => it.geom.t === 'line' || (it.geom.t === 'poly' && !it.geom.closed),
-  );
+  const lineSel = selDtos.find((d) => d.subtype === 'line' || d.subtype === 'polyline');
   const showEndings = hasSel ? !!lineSel : activeToolId === 'line';
   const ends =
-    lineSel && (lineSel.geom.t === 'line' || lineSel.geom.t === 'poly')
-      ? (lineSel.geom.ends ?? NO_ENDS)
+    lineSel && (lineSel.subtype === 'line' || lineSel.subtype === 'polyline')
+      ? (lineSel.lineEndings ?? NO_ENDS)
       : toolDefaults.endings; // line tool active → these are the line defaults' endings
   const setEnding = (side: 'start' | 'end', v: LineEndingName) => {
     const endings = side === 'start' ? { start: v } : { end: v };
-    if (hasSel) annotation.setEndings(endings);
+    if (hasSel) annotation.updateSelection({ endings });
     else annotation.setDefaults('line', { endings });
   };
 

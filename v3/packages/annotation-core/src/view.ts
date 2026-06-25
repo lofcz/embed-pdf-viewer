@@ -35,6 +35,26 @@ function effGeom(m: Model, id: Id): Geom {
   return a.geom;
 }
 
+/** The annotation's AP-raster box with the live move applied, so a baked bitmap
+ *  follows a drag. Undefined for non-baked annotations. */
+function effApBox(m: Model, id: Id): Rect | undefined {
+  const a = m.byId[id];
+  if (!a.apBox) return undefined;
+  const d = m.draft;
+  if (d?.g === 'move' && d.ids.includes(id)) {
+    return { ...a.apBox, x: a.apBox.x + d.delta.x, y: a.apBox.y + d.delta.y };
+  }
+  return a.apBox;
+}
+
+/** Render source for one annotation: an in-progress resize renders LIVE (the
+ *  baked raster can't stretch), even though the commit hasn't flipped `source`
+ *  yet — so the drag is crisp and a no-op grab can revert to baked. */
+function effSource(m: Model, id: Id): 'baked' | 'vector' {
+  const a = m.byId[id];
+  return m.draft?.g === 'handle' && m.draft.id === id ? 'vector' : a.source;
+}
+
 export function pageItems(m: Model, pon: number): RenderItem[] {
   const items: RenderItem[] = [];
   for (const id of m.order) {
@@ -47,8 +67,9 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       subtype: a.subtype,
       geom,
       box: geomVisualBounds(geom, a.style.strokeWidth),
+      apBox: effApBox(m, id),
       style: a.style,
-      source: a.source,
+      source: effSource(m, id),
       selected: m.selected.includes(id),
     });
   }

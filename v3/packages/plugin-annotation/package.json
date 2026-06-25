@@ -11,6 +11,10 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./internal": {
+      "types": "./src/internal.ts",
+      "import": "./src/internal.ts"
     }
   },
   "publishConfig": {
@@ -21,6 +25,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./internal": {
+        "types": "./dist/internal.d.ts",
+        "import": "./dist/internal.js"
       }
     }
   },

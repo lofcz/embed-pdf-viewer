@@ -8,7 +8,7 @@
  */
 import type { InteractionCapability } from '@embedpdf-x/plugin-interaction';
 import type { SelectionCapability } from '@embedpdf-x/plugin-selection';
-import type { AnnotationCapability } from './types';
+import type { AnnotationHostCapability } from './types';
 
 /** Text-markup tools and their default colours (seeded as tool defaults). */
 const MARKUP_DEFAULTS: Record<string, string> = {
@@ -24,7 +24,7 @@ const MARKUP_SUBTYPES = new Set(Object.keys(MARKUP_DEFAULTS));
  * `init` only when a selection plugin is present.
  */
 export function wireMarkup(
-  annotation: AnnotationCapability,
+  annotation: AnnotationHostCapability,
   selection: SelectionCapability,
   interaction: InteractionCapability,
 ): void {
