@@ -7,6 +7,7 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 
 import { readAnnotFlags, readAnnotRect, readAnnotString } from './annotationReadPrimitives';
 import { readAnnotationIdentity } from './readAnnotationIdentity';
+import { readAnnotationRelationship } from './readAnnotationRelationship';
 import { readEmbedMetadata } from './readEmbedMetadata';
 import { pdfDateToIso } from '../../../../shared/pdf-date';
 
@@ -35,6 +36,7 @@ export function readAnnotationBase(
   // annotations. We spread the present fields into the DTO so the wire
   // never carries explicit `undefined` keys.
   const embd = readEmbedMetadata(fn, mem, annotPtr);
+  const relationship = readAnnotationRelationship(fn, mem, annotPtr, pageObjectNumber);
 
   return {
     ref: identity.ref,
@@ -48,6 +50,8 @@ export function readAnnotationBase(
     author,
     created: createdRaw ? pdfDateToIso(createdRaw) : null,
     modified: modifiedRaw ? pdfDateToIso(modifiedRaw) : null,
+    inReplyTo: relationship.inReplyTo,
+    replyType: relationship.replyType,
     ...(embd?.userId !== undefined ? { userId: embd.userId } : {}),
     ...(embd?.groupId !== undefined ? { groupId: embd.groupId } : {}),
     ...(embd?.createdBy !== undefined ? { createdBy: embd.createdBy } : {}),

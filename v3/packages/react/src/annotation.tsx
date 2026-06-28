@@ -9,7 +9,8 @@
  * `customRenderer` may wrap or replace it.
  */
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnnotationToken, refKey, type TextItem } from '@embedpdf-x/plugin-annotation';
 // The render layer is framework code, so it resolves the FULL host lens
 // (pageItems/chrome/appearances/…). Same runtime token as the public one — only
@@ -38,6 +39,13 @@ export type {
 } from '@embedpdf-x/annotation-core';
 import { shallowArray, useCapability, usePage, useSelector } from './runtime';
 import type { PageContextValue } from './runtime';
+import {
+  positionMenuAroundRect,
+  type AnnotationMenuPlacement,
+  type AnnotationMenuPosition,
+} from './annotation-menu-position';
+
+export type { AnnotationMenuPlacement } from './annotation-menu-position';
 
 const ACCENT = '#3858e9';
 
@@ -421,4 +429,106 @@ function sameDefaults(a: ToolDefaultsResolved, b: ToolDefaultsResolved): boolean
  */
 export function useAnnotationDefaults(toolId: string): ToolDefaultsResolved {
   return useSelector(AnnotationToken, (c) => c.currentDefaults(toolId), sameDefaults);
+}
+
+// ── Selection menu ────────────────────────────────────────────────────────────
+// A headless, render-prop menu that floats over the current selection. The
+// content-space anchor (`selectionAnchor`) is shared by BOTH flavors: the default
+// Stage `<AnnotationMenu>` (in `./annotation-menu`, positions via the camera) and
+// the Stage-free `<PageAnnotationMenu>` below (positions via `page.toClientRect`).
+
+/** The selection's menu anchor: the primary page + the union box of the selection
+ *  on that page (content space). */
+export type SelectionAnchor = { pon: number; bounds: Rect };
+
+/** Structural equality for the selection anchor — keeps the menu from re-rendering
+ *  on unrelated dispatches (the capability returns a fresh object each call). */
+export function sameAnchor(a: SelectionAnchor | null, b: SelectionAnchor | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.pon === b.pon &&
+    a.bounds.x === b.bounds.x &&
+    a.bounds.y === b.bounds.y &&
+    a.bounds.width === b.bounds.width &&
+    a.bounds.height === b.bounds.height
+  );
+}
+
+/** What a menu's render prop receives: the live selection (engine DTOs) + the
+ *  selection-scoped intents. Fully headless — you render all UI. */
+export interface AnnotationMenuRenderArgs {
+  selected: ReturnType<typeof useAnnotationSelected>;
+  deleteSelection: () => void;
+  deselect: () => void;
+  updateSelection: (patch: {
+    style?: Partial<Style>;
+    endings?: Partial<LineEndings>;
+  }) => Promise<void>;
+}
+
+export interface AnnotationMenuProps {
+  children: (args: AnnotationMenuRenderArgs) => React.ReactNode;
+  /** Gap in screen px between the selection box and the menu (default 8). */
+  gap?: number;
+  /** Where to place the menu relative to the selection box. Default 'top'. */
+  placement?: AnnotationMenuPlacement;
+}
+
+/**
+ * The Stage-FREE selection menu, for `<PageView>` (no camera). It transforms a
+ * selected content rect to client px via `page.toClientRect`, then renders an
+ * UPRIGHT menu through a portal to
+ * `document.body` (so it never rotates with the page nor clips at a container
+ * edge). Re-measures on scroll/resize. For `<Stage>`, prefer `<AnnotationMenu>`
+ * from `@embedpdf-x/react/annotation-menu` (camera-driven, more responsive).
+ */
+export function PageAnnotationMenu({ children, gap = 8, placement = 'top' }: AnnotationMenuProps) {
+  const page = usePage();
+  const anno = useCapability(AnnotationHostToken);
+  const anchor = useSelector(AnnotationHostToken, (c) => c.selectionAnchor(), sameAnchor);
+  const selected = useAnnotationSelected();
+  const [pos, setPos] = useState<AnnotationMenuPosition | null>(null);
+  const here = !!anchor && anchor.pon === page.pon;
+
+  // Measure in a layout effect (NOT during render): `page.toClientRect` reads the
+  // page wrapper's live client rect, which only exists after the ref commits.
+  useLayoutEffect(() => {
+    if (!here || !anchor) {
+      setPos(null);
+      return;
+    }
+    const measure = () => {
+      setPos(positionMenuAroundRect(page.toClientRect(anchor.bounds), placement, gap));
+    };
+    measure();
+    // No camera here — the page only moves when the document scrolls or resizes.
+    window.addEventListener('scroll', measure, true);
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('resize', measure);
+    };
+  }, [here, anchor, page, gap, placement]);
+
+  if (!pos) return null;
+  return createPortal(
+    <div
+      style={{
+        position: 'fixed',
+        left: pos.left,
+        top: pos.top,
+        transform: pos.transform,
+        pointerEvents: 'auto',
+      }}
+    >
+      {children({
+        selected,
+        deleteSelection: anno.deleteSelection,
+        deselect: anno.deselect,
+        updateSelection: anno.updateSelection,
+      })}
+    </div>,
+    document.body,
+  );
 }

@@ -52,6 +52,25 @@ describe('makePageContext wiring', () => {
     expect(back.y).toBeCloseTo(0, 4);
   });
 
+  it('toClientRect offsets the transform rect by the live client rect origin', () => {
+    const t = pageTransform({
+      pageSize: { width: 100, height: 200 },
+      rotation: 90,
+      scale: 1,
+      dpr: 1,
+    });
+    const ctx = makePageContext('d', 1, 0, NO_FRAME, t, rectAt(30, 40, t.viewWidth, t.viewHeight));
+    const rect = { x: 10, y: 20, width: 30, height: 40 };
+    const view = t.pageToViewRect(rect);
+
+    expect(ctx.toClientRect(rect)).toEqual({
+      x: 30 + view.x,
+      y: 40 + view.y,
+      width: view.width,
+      height: view.height,
+    });
+  });
+
   it('carries transform + frame through', () => {
     const frame = { top: 0, right: 0, bottom: 16, left: 0 };
     const t = pageTransform({ pageSize: { width: 10, height: 10 }, rotation: 0, scale: 1, dpr: 1 });

@@ -1,4 +1,5 @@
-import type { AnnotationFlags } from './primitives';
+import type { AnnotationFlags, AnnotationReplyType } from './primitives';
+import type { AnnotationRef } from '../identity/AnnotationRef';
 
 /**
  * Generic fields every annotation Patch carries.
@@ -44,4 +45,21 @@ export interface AnnotationPatchBase {
    * `{ hidden: true }` hides without touching `print`.
    */
   flags?: Partial<AnnotationFlags>;
+
+  /**
+   * Re-target or clear the `/IRT` link, three-state:
+   *   undefined -> leave the link untouched
+   *   null      -> clear `/IRT` (and `/RT`); becomes top-level
+   *   ref       -> set/relink to this parent (must be on the same page;
+   *                `InvalidArg` otherwise). Setting a link promotes a
+   *                weak/direct parent to indirect — its strengthened
+   *                stable id is reported in `meta.changed`.
+   */
+  inReplyTo?: AnnotationRef | null;
+  /**
+   * Change `/RT` without re-linking. Applies to the current `/IRT`
+   * parent; ignored if the annotation has no link and `inReplyTo` is not
+   * being set in the same patch.
+   */
+  replyType?: AnnotationReplyType;
 }

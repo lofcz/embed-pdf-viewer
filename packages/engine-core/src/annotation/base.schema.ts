@@ -169,6 +169,9 @@ export const AnnotationBaseShape = {
   author: z.string().nullable(),
   created: z.string().datetime().nullable(),
   modified: z.string().datetime().nullable(),
+  // /IRT resolved to the parent's ref + /RT. null exactly when top-level.
+  inReplyTo: AnnotationRefSchema.nullable(),
+  replyType: z.enum(['reply', 'group']).nullable(),
   // EmbedPDF /EMBD_Metadata fields — see AnnotationBase docstring.
   // Optional (absent for legacy or anonymous annotations) and never
   // null on the wire: present-as-string or absent entirely.
@@ -190,6 +193,8 @@ export const AnnotationDraftBaseShape = {
   contents: z.string().nullable().optional(),
   nm: z.string().optional(),
   flags: AnnotationFlagsPartialSchema.optional(),
+  inReplyTo: AnnotationRefSchema.optional(),
+  replyType: z.enum(['reply', 'group']).optional(),
 } as const;
 
 /**
@@ -206,6 +211,9 @@ export const AnnotationPatchBaseShape = {
   contents: z.string().nullable().optional(),
   groupId: z.string().min(1).optional(),
   flags: AnnotationFlagsPartialSchema.optional(),
+  // Three-state: undefined=leave, null=clear /IRT (+/RT), ref=set/relink.
+  inReplyTo: AnnotationRefSchema.nullable().optional(),
+  replyType: z.enum(['reply', 'group']).optional(),
 } as const;
 
 /** Helper that asserts `BasePart extends AnnotationBase` without subtype. */

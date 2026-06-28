@@ -1302,6 +1302,171 @@ export function runAnnotationMutationConformance(
         await doc.close();
       }
     });
+
+    // ─────────────────────────────────────────────────────────────────
+    //  /IRT + /RT relationships (reply vs group). Locked rules:
+    //  - A draft `inReplyTo` writes /IRT; /RT defaults to 'reply' when
+    //    `replyType` is omitted (ISO 32000 §12.5.6.2 default).
+    //  - The DTO surfaces `inReplyTo` (parent ref) + `replyType`; a
+    //    top-level annotation reports both as null.
+    //  - Linking reports the (possibly strengthened) parent id in
+    //    `meta.changed` and is non-structural (no rev bump / refetch).
+    //  - A cross-page parent is rejected with InvalidArg.
+    // ─────────────────────────────────────────────────────────────────
+
+    test('create a reply links /IRT and defaults /RT to "reply", reporting the parent', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const parent = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'reply parent',
+          quadPoints: quad,
+        } satisfies HighlightDraft);
+        // A freshly created top-level annotation has no relationship.
+        expect(parent.created.inReplyTo).toBe(null);
+        expect(parent.created.replyType).toBe(null);
+
+        const reply = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'a reply',
+          quadPoints: quad,
+          inReplyTo: parent.created.ref,
+        } satisfies HighlightDraft);
+        expect(AnnotationCreateResultSchema.safeParse(reply).success).toBe(true);
+        // /RT absent in the draft normalizes to 'reply'.
+        expect(reply.created.replyType).toBe('reply');
+        expect(reply.created.inReplyTo === null).toBe(false);
+        if (
+          reply.created.inReplyTo?.kind === 'objectNumber' &&
+          parent.created.ref.kind === 'objectNumber'
+        ) {
+          expect(reply.created.inReplyTo.annotObjectNumber).toBe(
+            parent.created.ref.annotObjectNumber,
+          );
+          expect(reply.created.inReplyTo.pageObjectNumber).toBe(fix.pageObjectNumber);
+        }
+        // The parent (already durable) is reported alongside the new reply.
+        expect(reply.meta.changed.length).toBe(2);
+        // Linking is non-structural: no rev bump, no refetch.
+        expect(reply.meta.shouldRefetch).toBe(null);
+        expect(reply.meta.weakRefsInvalidated).toBe(false);
+
+        // The relationship survives a fresh read.
+        const after = await page.annotations.list();
+        const readReply = after.annotations.find(
+          (a) =>
+            a.ref.kind === 'objectNumber' &&
+            reply.created.ref.kind === 'objectNumber' &&
+            a.ref.annotObjectNumber === reply.created.ref.annotObjectNumber,
+        );
+        expect(readReply?.replyType).toBe('reply');
+        expect(readReply?.inReplyTo == null).toBe(false);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('create a grouped subordinate writes /RT /Group', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const primary = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'group primary',
+          quadPoints: quad,
+        } satisfies HighlightDraft);
+
+        const caret = await page.annotations.create({
+          subtype: 'caret',
+          contents: '',
+          rect: shapeRect,
+          color: { r: 0, g: 0, b: 0 },
+          opacity: 1,
+          inReplyTo: primary.created.ref,
+          replyType: 'group',
+        } satisfies CaretDraft);
+        expect(AnnotationCreateResultSchema.safeParse(caret).success).toBe(true);
+        expect(caret.created.replyType).toBe('group');
+        expect(caret.created.inReplyTo === null).toBe(false);
+
+        const after = await page.annotations.list();
+        const readCaret = after.annotations.find(
+          (a) =>
+            a.ref.kind === 'objectNumber' &&
+            caret.created.ref.kind === 'objectNumber' &&
+            a.ref.annotObjectNumber === caret.created.ref.annotObjectNumber,
+        );
+        expect(readCaret?.replyType).toBe('group');
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('patch inReplyTo: null clears /IRT and /RT (back to top-level)', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const parent = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'clear parent',
+          quadPoints: quad,
+        } satisfies HighlightDraft);
+        const reply = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'clearable reply',
+          quadPoints: quad,
+          inReplyTo: parent.created.ref,
+        } satisfies HighlightDraft);
+        expect(reply.created.replyType).toBe('reply');
+
+        const cleared = await page.annotations.update(reply.created.ref, {
+          subtype: 'highlight',
+          inReplyTo: null,
+        });
+        expect(AnnotationUpdateResultSchema.safeParse(cleared).success).toBe(true);
+        expect(cleared.updated.inReplyTo).toBe(null);
+        expect(cleared.updated.replyType).toBe(null);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('create with a cross-page /IRT parent throws InvalidArg', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const parent = await page.annotations.create({
+          subtype: 'highlight',
+          contents: 'cross-page parent',
+          quadPoints: quad,
+        } satisfies HighlightDraft);
+        if (parent.created.ref.kind !== 'objectNumber') return;
+
+        // Same annotation object number, but a deliberately different page:
+        // the engine must reject before resolving anything (ISO requires
+        // reply and parent on the same page).
+        const crossPageRef: AnnotationRef = {
+          kind: 'objectNumber',
+          pageObjectNumber: fix.pageObjectNumber + 2,
+          annotObjectNumber: parent.created.ref.annotObjectNumber,
+        };
+        let caught: unknown;
+        try {
+          await page.annotations.create({
+            subtype: 'highlight',
+            contents: 'bad cross-page reply',
+            quadPoints: quad,
+            inReplyTo: crossPageRef,
+          } satisfies HighlightDraft);
+        } catch (err) {
+          caught = err;
+        }
+        expect(EngineError.is(caught, EngineErrorCode.InvalidArg)).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
   });
 }
 

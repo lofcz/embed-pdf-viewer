@@ -133,6 +133,19 @@ export interface PdfRectDifferences {
 }
 
 /**
+ * The `/RT` (reply type) relationship an annotation declares toward the
+ * annotation its `/IRT` points at (ISO 32000 §12.5.6.2). Wire-stable
+ * kebab/lower-case strings; the engine maps these onto PDFium's
+ * `FPDF_ANNOT_REPLY_TYPE` integer codes at read/write time.
+ *
+ *   'reply' -> `/R`     a comment-thread reply (the ISO default when
+ *                       `/IRT` is present but `/RT` is absent).
+ *   'group' -> `/Group` a subordinate part of one logical annotation
+ *                       group (e.g. the Caret of a text-edit pair).
+ */
+export type AnnotationReplyType = 'reply' | 'group';
+
+/**
  * Bitset wrapper for the `/F` (Annotation Flags) PDF entry. We expose each
  * bit as its own boolean so callers don't have to know the bit positions.
  */

@@ -246,6 +246,7 @@ describe('pageToWorld: page space → world space (the sizing-policy transform)'
   it('returns null for an unknown pon', () => {
     const { stage } = harness(MIXED);
     expect(stage.pageToWorld(99, { x: 0, y: 0 })).toBeNull();
+    expect(stage.pageRectToScreen(99, { x: 0, y: 0, width: 10, height: 10 })).toBeNull();
   });
 });
 
@@ -273,6 +274,25 @@ describe('document rotation: the stage honors PageLayout.rotation', () => {
     const flat = harness([{ width: 600, height: 800 }]).stage;
     const fr = flat.pageRect(1)!;
     expect(flat.pageToWorld(1, { x: 10, y: 20 })).toEqual({ x: fr.x + 10, y: fr.y + 20 });
+  });
+
+  it('pageRectToScreen returns the screen-space AABB of a rotated content rect', () => {
+    const { stage } = harness([{ width: 600, height: 800, rotation: 90 }]);
+    const rect = { x: 100, y: 200, width: 80, height: 40 };
+    const box = stage.pageRectToScreen(1, rect)!;
+    const corners = [
+      { x: rect.x, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y },
+      { x: rect.x, y: rect.y + rect.height },
+      { x: rect.x + rect.width, y: rect.y + rect.height },
+    ].map((p) => stage.toScreen(stage.pageToWorld(1, p)!));
+    const xs = corners.map((p) => p.x);
+    const ys = corners.map((p) => p.y);
+
+    expect(box.x).toBeCloseTo(Math.min(...xs), 4);
+    expect(box.y).toBeCloseTo(Math.min(...ys), 4);
+    expect(box.width).toBeCloseTo(Math.max(...xs) - Math.min(...xs), 4);
+    expect(box.height).toBeCloseTo(Math.max(...ys) - Math.min(...ys), 4);
   });
 
   it('a rotated page changes which axis fit-width resolves against', () => {

@@ -7,7 +7,14 @@
  * framework — the part that ports to Rust/Crux.
  */
 export { update, initialModel, initialStyle, defaultsFor } from './update';
-export { pageItems, chrome, selectedItems, textBoxes } from './view';
+export {
+  pageItems,
+  chrome,
+  selectedItems,
+  textBoxes,
+  selectionBoundsOnPage,
+  selectionAnchor,
+} from './view';
 export type { TextBox } from './view';
 export { hitTest, cursorAt, isSelectable, canMove, type Target } from './hit';
 export { KINDS, capsFor, type KindCaps, type AnnotationKind } from './kinds';

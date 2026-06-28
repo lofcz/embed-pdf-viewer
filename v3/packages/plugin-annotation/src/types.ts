@@ -135,6 +135,10 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   // ── render projection (consumed by the framework render layer) ──
   pageItems(pon: PageObjectNumber): RenderItem[];
   chrome(pon: PageObjectNumber): ChromeNode[];
+  /** The anchor for a selection-aware floating menu: the primary page + the
+   *  selection's union box on that page (content space), or null when nothing
+   *  selectable is selected. One anchor regardless of cross-page selection. */
+  selectionAnchor(): { pon: PageObjectNumber; bounds: Rect } | null;
   /** The engine's rendered /AP appearance images for a page — the `baked` visual. */
   appearances(
     pon: PageObjectNumber,

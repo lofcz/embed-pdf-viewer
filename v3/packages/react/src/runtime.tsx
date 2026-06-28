@@ -20,7 +20,7 @@ import { createKernel } from '@embedpdf-x/kernel';
 import type { AnyPlugin, CapabilityToken, Engine, Kernel, OpenInput } from '@embedpdf-x/kernel';
 // Pure coordinate math from the geometry base — NOT from stage-core. The
 // PageContext seam stays stage-agnostic (it must also serve standalone PageView).
-import type { PageFrame, PageTransform, Point } from '@embedpdf-x/geometry';
+import type { PageFrame, PageTransform, Point, Rect } from '@embedpdf-x/geometry';
 
 const KernelCtx = createContext<Kernel | null>(null);
 /** The document a subtree is bound to. null => use the active document. */
@@ -202,6 +202,13 @@ export interface PageContextValue {
   transform: PageTransform;
   /** Client (screen) point → PDF point — the one platform-bound hit-test. */
   toPagePoint(clientX: number, clientY: number): Point;
+  /** PDF/content point → client (screen) px — the exact inverse of `toPagePoint`
+   *  (rotation applied). Lets viewport-space UI (e.g. a selection menu) anchor to a
+   *  page point WITHOUT a Stage camera, so it works the same in `<PageView>`. */
+  toClientPoint(p: Point): Point;
+  /** PDF/content rect → client (screen) px AABB. Rect analog of `toClientPoint`
+   *  for upright viewport-space UI that frames a selected page region. */
+  toClientRect(rect: Rect): Rect;
 }
 
 const PageCtx = createContext<PageContextValue | null>(null);
@@ -234,6 +241,19 @@ export function makePageContext(
       // not re-derived per framework adapter).
       const r = getRect();
       return transform.viewToPage({ x: cx - r.left, y: cy - r.top });
+    },
+    toClientPoint: (p) => {
+      // Exact inverse of `toPagePoint`: page/content point → display-box view px
+      // (rotation applied by the transform), offset by the same live display-box
+      // origin. So the two can never drift, in either <Stage> or <PageView>.
+      const r = getRect();
+      const v = transform.pageToView(p);
+      return { x: r.left + v.x, y: r.top + v.y };
+    },
+    toClientRect: (rect) => {
+      const r = getRect();
+      const v = transform.pageToViewRect(rect);
+      return { x: r.left + v.x, y: r.top + v.y, width: v.width, height: v.height };
     },
   };
 }

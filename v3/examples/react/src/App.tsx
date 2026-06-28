@@ -28,6 +28,7 @@ import {
   RenderLayer,
   SelectionLayer,
   AnnotationLayer,
+  AnnotationMenu,
   useAnnotation,
   useAnnotationSelection,
   useAnnotationSelected,
@@ -47,6 +48,17 @@ import {
 import type { Border } from '@embedpdf-x/react';
 import type { DocumentMetadata, MetadataPatch, OpenInput, PdfSaveMode } from '@embedpdf-x/kernel';
 import { bootstrap, engineMode, newDocument, SAMPLES, fetchBytes } from './engine';
+
+/** Shared button style for the selection menu overlay. */
+const MENU_BTN: React.CSSProperties = {
+  background: 'transparent',
+  border: '1px solid rgba(255,255,255,.18)',
+  borderRadius: 6,
+  color: '#e6e6e6',
+  cursor: 'pointer',
+  fontSize: 12,
+  padding: '3px 8px',
+};
 import type { Boot } from './engine';
 
 // The Stage is a LENS: a document can be viewed through several at once. The
@@ -832,7 +844,54 @@ function DocumentView() {
       <Toolbar />
       <AnnotationBar stylesOpen={stylesOpen} onToggleStyles={() => setStylesOpen((o) => !o)} />
       <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-        <Stage interaction style={{ flex: 1, background: '#0d1117' }}>
+        <Stage
+          interaction
+          style={{ flex: 1, background: '#0d1117' }}
+          overlay={
+            <AnnotationMenu>
+              {({ selected, deleteSelection, deselect, updateSelection }) => (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 8px',
+                    borderRadius: 10,
+                    background: '#1b1f27',
+                    border: '1px solid rgba(255,255,255,.12)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+                    color: '#e6e6e6',
+                    fontSize: 12,
+                  }}
+                >
+                  {['#e5484d', '#f5a623', '#3858e9', '#30a46c'].map((c) => (
+                    <button
+                      key={c}
+                      title={c}
+                      onClick={() => updateSelection({ style: { color: c } })}
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: '50%',
+                        background: c,
+                        border: '1px solid rgba(255,255,255,.5)',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    />
+                  ))}
+                  <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,.18)' }} />
+                  <button onClick={deleteSelection} style={MENU_BTN}>
+                    Delete{selected.length > 1 ? ` (${selected.length})` : ''}
+                  </button>
+                  <button onClick={deselect} style={MENU_BTN}>
+                    Done
+                  </button>
+                </div>
+              )}
+            </AnnotationMenu>
+          }
+        >
           {() => (
             <>
               {/* the overlay owns annotation rendering, so the page bitmap excludes them */}

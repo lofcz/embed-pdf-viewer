@@ -4,6 +4,7 @@
   "private": true,
   "description": "React adapter for EmbedPDF v3: one generic reactive binding + structural components (Viewer, Stage, PageView) + headless layers & hooks. The whole framework surface.",
   "type": "module",
+  "sideEffects": false,
   "main": "./src/index.ts",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
@@ -11,6 +12,50 @@
     ".": {
       "types": "./src/index.ts",
       "import": "./src/index.ts"
+    },
+    "./runtime": {
+      "types": "./src/runtime.tsx",
+      "import": "./src/runtime.tsx"
+    },
+    "./stage": {
+      "types": "./src/stage.tsx",
+      "import": "./src/stage.tsx"
+    },
+    "./page-view": {
+      "types": "./src/page-view.tsx",
+      "import": "./src/page-view.tsx"
+    },
+    "./render": {
+      "types": "./src/render.tsx",
+      "import": "./src/render.tsx"
+    },
+    "./interaction": {
+      "types": "./src/interaction.tsx",
+      "import": "./src/interaction.tsx"
+    },
+    "./selection": {
+      "types": "./src/selection.tsx",
+      "import": "./src/selection.tsx"
+    },
+    "./annotation": {
+      "types": "./src/annotation.tsx",
+      "import": "./src/annotation.tsx"
+    },
+    "./annotation-menu": {
+      "types": "./src/annotation-menu.tsx",
+      "import": "./src/annotation-menu.tsx"
+    },
+    "./views": {
+      "types": "./src/views.ts",
+      "import": "./src/views.ts"
+    },
+    "./page-edit": {
+      "types": "./src/page-edit.ts",
+      "import": "./src/page-edit.ts"
+    },
+    "./metadata": {
+      "types": "./src/metadata.ts",
+      "import": "./src/metadata.ts"
     }
   },
   "publishConfig": {
@@ -21,6 +66,50 @@
       ".": {
         "types": "./dist/index.d.ts",
         "import": "./dist/index.js"
+      },
+      "./runtime": {
+        "types": "./dist/runtime.d.ts",
+        "import": "./dist/runtime.js"
+      },
+      "./stage": {
+        "types": "./dist/stage.d.ts",
+        "import": "./dist/stage.js"
+      },
+      "./page-view": {
+        "types": "./dist/page-view.d.ts",
+        "import": "./dist/page-view.js"
+      },
+      "./render": {
+        "types": "./dist/render.d.ts",
+        "import": "./dist/render.js"
+      },
+      "./interaction": {
+        "types": "./dist/interaction.d.ts",
+        "import": "./dist/interaction.js"
+      },
+      "./selection": {
+        "types": "./dist/selection.d.ts",
+        "import": "./dist/selection.js"
+      },
+      "./annotation": {
+        "types": "./dist/annotation.d.ts",
+        "import": "./dist/annotation.js"
+      },
+      "./annotation-menu": {
+        "types": "./dist/annotation-menu.d.ts",
+        "import": "./dist/annotation-menu.js"
+      },
+      "./views": {
+        "types": "./dist/views.d.ts",
+        "import": "./dist/views.js"
+      },
+      "./page-edit": {
+        "types": "./dist/page-edit.d.ts",
+        "import": "./dist/page-edit.js"
+      },
+      "./metadata": {
+        "types": "./dist/metadata.d.ts",
+        "import": "./dist/metadata.js"
       }
     }
   },
@@ -48,10 +137,12 @@
     "@embedpdf-x/plugin-view-manager": "workspace:*"
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": ">=18",
+    "react-dom": ">=18"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
     "typescript": "^5.0.0",
     "vitest": "^2.1.9"
   },

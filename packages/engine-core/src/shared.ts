@@ -117,6 +117,7 @@ export type {
   LineEnding,
   LineEndings,
   AnnotationFlags,
+  AnnotationReplyType,
   AnnotationBorderStyle,
   PdfRectDifferences,
   StandardFont,
@@ -210,6 +211,9 @@ export type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
 } from './annotation/AnnotationListSnapshot';
+
+export { classifyRelation, buildThreads, refKey } from './annotation/relationships';
+export type { AnnotationRelationKind, AnnotationThread } from './annotation/relationships';
 
 export type { DocumentManifest, ManifestPage } from './dto/DocumentManifest';
 export type { CacheDelta, MutationMeta } from './mutation/MutationMeta';

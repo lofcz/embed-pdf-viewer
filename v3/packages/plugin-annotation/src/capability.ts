@@ -12,12 +12,14 @@ import {
   hitTest,
   pageItems as corePageItems,
   pdfToContentRect,
+  selectionAnchor as coreSelectionAnchor,
   update,
   type ChromeNode,
   type Effect,
   type LineEndings,
   type Model,
   type Msg,
+  type Rect,
   type RenderItem,
   type Style,
 } from '@embedpdf-x/annotation-core';
@@ -77,6 +79,16 @@ export function createAnnotationCapability(
     if (c && c.model === m) return c.v;
     const v = coreChrome(m, pon);
     chromeCache.set(pon, { model: m, v });
+    return v;
+  };
+  // Anchor for the selection menu — memoized by model identity so the selector
+  // returns a stable reference between unrelated dispatches.
+  let anchorCache: { model: Model; v: { pon: number; bounds: Rect } | null } | null = null;
+  const memoAnchor = (): { pon: number; bounds: Rect } | null => {
+    const m = model();
+    if (anchorCache && anchorCache.model === m) return anchorCache.v;
+    const v = coreSelectionAnchor(m);
+    anchorCache = { model: m, v };
     return v;
   };
   const textsCache = new Map<number, { model: Model; v: TextItem[] }>();
@@ -255,6 +267,7 @@ export function createAnnotationCapability(
     // selectors
     pageItems: (pon) => memoItems(pon),
     chrome: (pon) => memoChrome(pon),
+    selectionAnchor: () => memoAnchor(),
     selection: () => model().selected,
     hitKind: (pon, point) => hitTest(model(), pon, point, HANDLE_TOL, model().hitMargin).t,
     cursorAt: (pon, point) => cursorAt(model(), pon, point, HANDLE_TOL, model().hitMargin),

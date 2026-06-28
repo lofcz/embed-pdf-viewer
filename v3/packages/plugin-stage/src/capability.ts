@@ -1,5 +1,6 @@
 import * as S from '@embedpdf-x/stage-core';
 import {
+  applyRect,
   applyPoint,
   displaySize,
   pageTransform,
@@ -579,6 +580,16 @@ export function createStageCapability(
       const m = rotateScaleMatrix(pr.contentScale, content.width, content.height, pr.rotation);
       const offset = applyPoint(m, pt);
       return { x: pr.x + offset.x, y: pr.y + offset.y };
+    },
+    pageRectToScreen: (pon, rect) => {
+      const pr = api.pageRect(pon);
+      if (!pr) return null;
+      const content = displaySize({ width: pr.width, height: pr.height }, pr.rotation);
+      const m = rotateScaleMatrix(pr.contentScale, content.width, content.height, pr.rotation);
+      const wr = applyRect(m, rect);
+      const c = cam();
+      const tl = S.toScreen(c, { x: pr.x + wr.x, y: pr.y + wr.y });
+      return { x: tl.x, y: tl.y, width: wr.width * c.zoom, height: wr.height * c.zoom };
     },
     toScreen: (w) => S.toScreen(cam(), w),
     toWorld: (s) => S.toWorld(cam(), s),

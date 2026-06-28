@@ -1,6 +1,6 @@
 import { createCapabilityToken } from '@embedpdf-x/kernel';
 import type { PageObjectNumber } from '@embedpdf-x/kernel';
-import type { PageTransform } from '@embedpdf-x/geometry';
+import type { PageTransform, Rect } from '@embedpdf-x/geometry';
 import type {
   Alignment,
   Anchor,
@@ -235,6 +235,12 @@ export interface StageCapability {
    * with toScreen for viewport-space overlays anchored to page content.
    */
   pageToWorld(pon: PageObjectNumber, pt: Point): Point | null;
+  /**
+   * Content rect on a page → this Stage viewport's screen-space AABB. Applies page
+   * rotation/contentScale and the current camera. Use for upright viewport overlays
+   * that need to frame a selected page region.
+   */
+  pageRectToScreen(pon: PageObjectNumber, rect: Rect): Rect | null;
   toScreen(world: Point): Point;
   toWorld(screen: Point): Point;
   flow(): FlowMode;

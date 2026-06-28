@@ -204,3 +204,31 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
   }
   return nodes;
 }
+
+/** The content-space union of the selectable selected items on `pon`, or null if
+ *  the page holds none. This is the SAME box the chrome outline draws, so a
+ *  floating menu sits exactly on the selection. */
+export function selectionBoundsOnPage(m: Model, pon: number): Rect | null {
+  const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
+  if (sel.length === 0) return null;
+  if (sel.length === 1) {
+    const a = m.byId[sel[0]];
+    return selectionBounds(effGeom(m, sel[0]), a.style.strokeWidth);
+  }
+  const corners = sel.flatMap((id) =>
+    rectCorners(selectionBounds(effGeom(m, id), m.byId[id].style.strokeWidth)),
+  );
+  return unionRect(corners);
+}
+
+/** The anchor for a selection-aware floating menu: the PRIMARY page (the first
+ *  selectable selected id) + the union box of the selection on that page (content
+ *  space). Null when nothing selectable is selected. A cross-page selection
+ *  anchors to its primary page, so there is exactly one menu. */
+export function selectionAnchor(m: Model): { pon: number; bounds: Rect } | null {
+  const id = m.selected.find((x) => isSelectable(m, x));
+  if (id == null) return null;
+  const pon = m.byId[id].pon;
+  const bounds = selectionBoundsOnPage(m, pon);
+  return bounds ? { pon, bounds } : null;
+}

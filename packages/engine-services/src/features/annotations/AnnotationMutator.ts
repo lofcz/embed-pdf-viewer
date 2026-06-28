@@ -21,7 +21,7 @@ import type { DocumentSession } from '../../document-session/DocumentSession';
 import { throwIfAborted } from '../../shared/abort';
 import type { FontRegistrar } from '../fonts';
 import type { AnnotationWriteContext } from './internal/write/annotationWriteContext';
-import { generateUuid } from '../../shared/uuid';
+import { captureOrStampStableId } from './internal/identity/captureOrStampStableId';
 import { resolveAnnotPtr } from './internal/identity/resolveAnnotationPointer';
 import { computeMutationImpact } from './internal/mutations/computeMutationImpact';
 import { readAnnotString } from './internal/read/annotationReadPrimitives';
@@ -30,8 +30,8 @@ import { applyDraft, applyPatch } from './internal/write/annotationWriterRegistr
 import {
   writeAnnotationAuthor,
   writeAnnotationModified,
-  writeAnnotationNm,
 } from './internal/write/writeAnnotationBase';
+import { writeAnnotationRelationship } from './internal/write/writeAnnotationRelationship';
 import {
   applyEmbedMetadataOnCreate,
   applyEmbedMetadataOnUpdate,
@@ -121,8 +121,23 @@ export class AnnotationMutator {
       let dto;
       let newObjNum: number;
       let newIndex: number;
+      let linkedParentId: AnnotationStableId | null = null;
       try {
         applyDraft(fn, mem, annotPtr, draft, this.writeContext());
+        // Link to an /IRT parent when the draft asks for one. This may
+        // promote a weak/direct parent to an indirect object (non-structural,
+        // no index shift); the strengthened parent id is folded into
+        // `meta.changed` below so the client can reconcile its cached ref.
+        if (draft.inReplyTo !== undefined || draft.replyType !== undefined) {
+          linkedParentId = writeAnnotationRelationship(
+            this.runtime,
+            this.session,
+            pagePtr,
+            annotPtr,
+            pageObjectNumber,
+            { inReplyTo: draft.inReplyTo, replyType: draft.replyType },
+          );
+        }
         // Stamp identity + modification metadata AFTER the per-subtype
         // writer so a buggy subtype writer can't clobber them:
         //   /T             ← actor.displayName  (when present)
@@ -167,12 +182,17 @@ export class AnnotationMutator {
         fn.FPDFPage_CloseAnnot(annotPtr);
       }
 
+      const createdId: AnnotationStableId = { kind: 'objectNumber', value: newObjNum };
+      // Linking promoted the parent in place, so the page may now have one
+      // fewer weak annotation — refresh the flag that future delete/move
+      // refetch decisions read. (A plain create touches no existing annot.)
+      if (linkedParentId) this.recordWeakStateFromPage(pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(pageObjectNumber);
       const meta: AnnotationListMutationMeta = computeMutationImpact({
         mutation: 'create',
         pageStateBefore,
         pageStateAfter,
-        changed: [{ kind: 'objectNumber', value: newObjNum }],
+        changed: linkedParentId ? [createdId, linkedParentId] : [createdId],
       });
 
       return { created: dto, meta };
@@ -207,6 +227,20 @@ export class AnnotationMutator {
 
       // Apply caller-supplied subtype-specific writes.
       applyPatch(fn, mem, annotPtr, patch, this.writeContext());
+      // Apply /IRT + /RT changes (set/relink/clear, or RT-only). Setting a
+      // link may promote a weak parent to indirect (non-structural); the
+      // strengthened parent id is folded into `meta.changed` below.
+      let linkedParentId: AnnotationStableId | null = null;
+      if (patch.inReplyTo !== undefined || patch.replyType !== undefined) {
+        linkedParentId = writeAnnotationRelationship(
+          this.runtime,
+          this.session,
+          pagePtr,
+          annotPtr,
+          ref.pageObjectNumber,
+          { inReplyTo: patch.inReplyTo, replyType: patch.replyType },
+        );
+      }
       // Refresh standard /M (modified date) on every update — independent
       // of whether the patch touched any subtype-specific field. Then
       // refresh /EMBD_Metadata/UpdatedBy if an actor was supplied;
@@ -242,7 +276,7 @@ export class AnnotationMutator {
         mutation: 'update',
         pageStateBefore,
         pageStateAfter,
-        changed: [stableId],
+        changed: linkedParentId ? [stableId, linkedParentId] : [stableId],
       });
       return { updated: dto, meta };
     } finally {
@@ -546,13 +580,6 @@ export class AnnotationMutator {
   }
 
   /**
-   * Read an annotation's stable id, opportunistically stamping a fresh
-   * engine-generated UUID v4 as `/NM` if it is currently weak (no
-   * objectNumber, no /NM). Same monotonic `/NM` rule as `update()`:
-   * already-durable annotations are NEVER touched. Caller owns the
-   * lifecycle of `annotPtr`.
-   */
-  /**
    * Bake (or re-bake) an annotation's `/AP` normal appearance stream from
    * its current dictionary properties using PDFium's native AP generator,
    * then flush the page content so the result is persisted into the
@@ -572,14 +599,7 @@ export class AnnotationMutator {
   }
 
   private captureOrStampStableId(annotPtr: Ptr): AnnotationStableId {
-    const { fn, mem } = this.runtime;
-    const objNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);
-    if (objNum > 0) return { kind: 'objectNumber', value: objNum };
-    const nm = readAnnotString(fn, mem, annotPtr, 'NM');
-    if (nm !== null && nm.length > 0) return { kind: 'nm', value: nm };
-    const minted = generateUuid();
-    writeAnnotationNm(fn, mem, annotPtr, minted);
-    return { kind: 'nm', value: minted };
+    return captureOrStampStableId(this.runtime, annotPtr);
   }
 
   private ensureKnownWeakStateFromPage(pageObjectNumber: PageObjectNumber, pagePtr: Ptr): void {
