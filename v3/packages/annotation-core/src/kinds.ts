@@ -78,6 +78,18 @@ const READONLY: KindCaps = caps({});
 /** The built-in kinds. Shapes resize, lines/polys vertex-edit, markup is anchored
  *  (selectable + recolor/delete, never move/resize). */
 export const KINDS: Record<string, AnnotationKind> = {
+  'free-text': {
+    subtype: 'free-text',
+    variant: 'text',
+    caps: caps({
+      selectable: true,
+      movable: true,
+      resizable: true, // the box resizes (8 handles); text reflows
+      textEditable: true,
+      commentable: true,
+      hasFill: true, // `/C` box background
+    }),
+  },
   square: {
     subtype: 'square',
     variant: 'rect',
@@ -169,3 +181,7 @@ export const KINDS: Record<string, AnnotationKind> = {
 
 /** The capabilities of a subtype, or the read-only default for unknown kinds. */
 export const capsFor = (subtype: string): KindCaps => KINDS[subtype]?.caps ?? READONLY;
+
+/** A text-markup kind (highlight/underline/squiggly/strikeout). These are drawn
+ *  on the text layer, which always sits beneath every other annotation. */
+export const isMarkup = (subtype: string): boolean => KINDS[subtype]?.variant === 'quads';

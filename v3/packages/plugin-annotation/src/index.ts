@@ -11,7 +11,13 @@ import type { AnnotationCapability } from './types';
 
 export { annotationPlugin } from './annotation.plugin';
 export { fromDTO, toCreateDraft, toPatch, refKey, styleFromDTO } from './repository';
-export type { AnnotationCapability, AnnotationState, AnnotationAction, Behavior } from './types';
+export type {
+  AnnotationCapability,
+  AnnotationState,
+  AnnotationAction,
+  Behavior,
+  TextItem,
+} from './types';
 
 /**
  * App-facing annotation token: resolves the public {@link AnnotationCapability}.

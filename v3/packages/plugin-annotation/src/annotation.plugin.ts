@@ -29,9 +29,10 @@ export const annotationPlugin = () =>
     init: (ctx) => {
       const interaction = ctx.get(InteractionToken);
       const annotation = ctx.get(AnnotationToken);
-      // Pointer-drawn kinds: square/circle/line (drag) and ink (freehand). They all
-      // share the draw handler, which dispatches createPointer(activeTool.id, …).
-      for (const id of ['square', 'circle', 'line', 'ink']) {
+      // Pointer-drawn kinds: square/circle/line (drag), ink (freehand), and
+      // free-text (drag a box, or click for a default one → opens straight into
+      // edit). All share the draw handler → createPointer(activeTool.id, …).
+      for (const id of ['square', 'circle', 'line', 'ink', 'free-text']) {
         interaction.registerTool({
           id,
           cursor: 'crosshair',

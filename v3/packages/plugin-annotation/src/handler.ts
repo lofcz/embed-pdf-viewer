@@ -19,9 +19,24 @@ export function createEditHandler(
     enabledFor: (t) => t.enables.has('annotation-edit'),
     onDown: (s) => {
       if (!s.page) return false;
+      // While a free-text box is being edited it owns its own pointer events, so a
+      // down that reaches the hub at all is a click OUTSIDE the editor — commit and
+      // leave text edit. This makes exit hub-driven (deterministic) rather than
+      // relying on a DOM blur, which races the focus-steal of the entering gesture.
+      const wasEditing = anno.currentEditing() != null;
+      if (wasEditing) anno.endTextEdit();
       if (anno.hitKind(s.page.pon, s.page.point) === 'empty') {
-        anno.deselect(); // click on empty → drop the selection, let pan/text act
-        return false;
+        anno.deselect(); // click on empty → drop the selection
+        // A click that dismissed an active edit is CONSUMED: its sole job was to
+        // leave edit mode, so the draw tool doesn't also spawn a new annotation
+        // (matches v2). Only when nothing was being edited do we decline, letting
+        // pan / text-selection / draw act on the empty click.
+        return wasEditing;
+      }
+      // Double-click over a free-text box → enter text edit (not a move).
+      if ((s.clickCount ?? 1) >= 2) {
+        anno.beginTextEditAt(s.page.pon, s.page.point);
+        return true;
       }
       anno.editPointer('down', s.page.pon, s.page.point, s.modifiers.shift);
       return true;

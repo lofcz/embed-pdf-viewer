@@ -15,6 +15,12 @@ export type EngineMode = 'local' | 'cloud';
 export const engineMode: EngineMode =
   (new URLSearchParams(window.location.search).get('engine') as EngineMode | null) ?? 'local';
 
+const DROID_FALLBACK_FONT = {
+  key: 'droid-sans-fallback-full',
+  familyName: 'Droid Sans Fallback',
+  url: `${import.meta.env.BASE_URL}DroidSansFallbackFull.ttf`,
+} as const;
+
 export async function createEngine(): Promise<Engine> {
   switch (engineMode) {
     case 'cloud': {
@@ -29,9 +35,30 @@ export async function createEngine(): Promise<Engine> {
     default: {
       const { createLocalEngineWithWorker } = await import('@embedpdf/engine');
       const { default: EngineWorker } = await import('@embedpdf/engine/worker-entry?worker');
-      return createLocalEngineWithWorker({ worker: new EngineWorker() });
+      const engine = await createLocalEngineWithWorker({ worker: new EngineWorker() });
+      await registerFallbackFonts(engine);
+      return engine;
     }
   }
+}
+
+async function registerFallbackFonts(engine: Engine): Promise<void> {
+  if (!engine.fonts) {
+    if (engineMode === 'local') {
+      throw new Error('local engine did not expose engine.fonts for fallback font registration');
+    }
+    return;
+  }
+
+  console.info(`[embedpdf-v3] loading fallback font: ${DROID_FALLBACK_FONT.url}`);
+  const data = await fetchBytes(DROID_FALLBACK_FONT.url);
+  const handle = await engine.fonts.register({
+    key: DROID_FALLBACK_FONT.key,
+    familyName: DROID_FALLBACK_FONT.familyName,
+    data,
+  });
+  await engine.fonts.addFallback(handle);
+  console.info(`[embedpdf-v3] registered fallback font: ${handle.key} (${data.byteLength} bytes)`);
 }
 
 // Sample documents shipped in /public. For cloud they'd address server documents
@@ -46,7 +73,12 @@ export const SAMPLES: ReadonlyArray<{ id: string; name: string; url: string }> =
 ];
 
 export const fetchBytes = async (url: string): Promise<Uint8Array> =>
-  new Uint8Array(await (await fetch(url)).arrayBuffer());
+  fetch(url).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`failed to fetch ${url}: ${response.status} ${response.statusText}`);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  });
 
 async function loadInitialDocuments(): Promise<InitialDocument[]> {
   if (engineMode === 'cloud') {
@@ -66,7 +98,8 @@ export interface Boot {
 }
 
 export async function bootstrap(): Promise<Boot> {
-  const [engine, documents] = await Promise.all([createEngine(), loadInitialDocuments()]);
+  const engine = await createEngine();
+  const documents = await loadInitialDocuments();
   return { engine, documents };
 }
 

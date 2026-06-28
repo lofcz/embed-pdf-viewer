@@ -34,6 +34,31 @@ export interface Behavior {
 }
 
 /**
+ * A free-text annotation projected for the framework: the box (content space,
+ * live gesture applied) + the plain text + an `editing` flag + a ready-to-spread
+ * CSS style. The framework renders ONE editable element from this and nothing
+ * more — all the mapping (fonts, colours, alignment) is done here, once.
+ */
+export interface TextItem {
+  id: Id;
+  ref: AnnotationRef | null;
+  box: Rect;
+  contents: string;
+  editing: boolean;
+  css: {
+    fontFamily: string;
+    /** Content units (the framework multiplies by the page scale). */
+    fontSize: number;
+    lineHeight: number;
+    color: string;
+    align: 'left' | 'center' | 'right';
+    padding: number;
+    /** `/C` box background as a CSS colour, or null for transparent. */
+    background: string | null;
+  };
+}
+
+/**
  * The PUBLIC annotation API — the documented, stable surface for application code
  * (toolbars, sidebars, app logic). Resolve it with the token re-exported from the
  * package root (`@embedpdf-x/plugin-annotation`).
@@ -121,6 +146,21 @@ export interface AnnotationHostCapability extends AnnotationCapability {
    *  PDF↔content seam. Null if the page's crop box is unknown. */
   toContentBox(pon: PageObjectNumber, rect: PdfRect): Rect | null;
   ensurePage(pon: PageObjectNumber): void; // lazy-load a page's annotations
+  // ── free-text (the editable-element layer) ──
+  /** The free-text boxes on a page, ready to render as editable elements. */
+  textItems(pon: PageObjectNumber): TextItem[];
+  /** The id of the annotation currently being text-edited, or null. Read live (not
+   *  from a stale render) so the editor can tell a real exit from a focus-steal. */
+  currentEditing(): Id | null;
+  /** Enter text-edit on a free-text annotation (focus its editable element). */
+  beginTextEdit(ref: AnnotationRef): void;
+  /** Enter text-edit on whatever free-text box is under a content point — wired
+   *  to a double-click by the interaction edit handler. */
+  beginTextEditAt(pon: PageObjectNumber, point: Vec): void;
+  /** Apply the editor's plain text — optimistic locally, debounced to the engine. */
+  setContents(ref: AnnotationRef, text: string): void;
+  /** Leave text-edit (flush any pending write). */
+  endTextEdit(): void;
   // ── hit-testing & cursor (consumed by the interaction edit handler) ──
   /** What's under a content point — for the edit handler's capture decision. */
   hitKind(pon: PageObjectNumber, point: Vec): 'handle' | 'annot' | 'empty';

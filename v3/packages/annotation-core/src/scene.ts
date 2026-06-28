@@ -17,6 +17,14 @@ const num = (n: number): number => Number(n.toFixed(3));
 /** Uniform paint for a shape/line/poly node. Fill only lands on closed nodes; the
  *  dash comes solely from the border style — so a live draft (ghost) previews
  *  exactly how the committed annotation will look, not as a dashed hint. */
+/** The CSS mix-blend-mode an annotation composites with against the page. Only
+ *  highlights multiply (so the underlying text reads through); every other kind
+ *  composites normally. The ONE source of truth, used by the vector painter (per
+ *  scene node) AND for the baked /AP image. */
+export function blendFor(subtype: Subtype): 'multiply' | undefined {
+  return subtype === 'highlight' ? 'multiply' : undefined;
+}
+
 function shapePaint(style: Style, closed: boolean): Paint {
   return {
     fill: closed ? (style.interiorColor ?? undefined) : undefined,
@@ -79,7 +87,7 @@ function markupScene(subtype: Subtype, quads: Quad[], style: Style): SceneNode[]
       nodes.push({
         kind: 'rect',
         rect: { x, y, width: w, height: h },
-        paint: { fill: color, opacity, blend: 'multiply' },
+        paint: { fill: color, opacity, blend: blendFor(subtype) },
       });
     }
   }

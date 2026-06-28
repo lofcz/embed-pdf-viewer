@@ -57,6 +57,7 @@ export const initialModel: Model = {
   style: initialStyle,
   defaults: {},
   hitMargin: 6,
+  editing: null,
 };
 
 /** Resolve a tool's effective defaults: the base `style` + endings, with the
@@ -110,7 +111,26 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return [upsertAnnots(m, msg.annots), []];
     case 'remove':
       return [removeAnnots(m, msg.ids), []];
+    case 'beginTextEdit':
+      return m.byId[msg.id]
+        ? [{ ...m, editing: msg.id, selected: [msg.id], draft: null }, []]
+        : [m, []];
+    case 'setText':
+      return setText(m, msg.id, msg.text);
+    case 'endTextEdit':
+      return m.editing ? [{ ...m, editing: null }, []] : [m, []];
   }
+}
+
+/** Apply the editor's plain text optimistically. Updates `contents` on the
+ *  DTO-backed model and flips the box to `vector` so the live text shows. Emits
+ *  NO effect — the plugin owns the (debounced) engine write while you type, so
+ *  the model never churns mid-keystroke. */
+function setText(m: Model, id: Id, text: string): [Model, Effect[]] {
+  const a = m.byId[id];
+  if (!a) return [m, []];
+  const next = toVector({ ...a, data: a.data ? { ...a.data, contents: text } : a.data });
+  return [{ ...m, byId: { ...m.byId, [id]: next } }, []];
 }
 
 function editPointer(
@@ -199,7 +219,7 @@ function createPointer(
         ? { g: 'create-line', subtype, pon: input.pon, from: input.point, to: input.point }
         : subtype === 'ink'
           ? { g: 'create-ink', subtype, pon: input.pon, strokes: [[input.point]] }
-          : subtype === 'square' || subtype === 'circle'
+          : subtype === 'square' || subtype === 'circle' || subtype === 'free-text'
             ? {
                 g: 'create-rect',
                 subtype,
@@ -229,7 +249,16 @@ function createPointer(
 
   const def = defaultsFor(m, d.subtype);
   let geom: Geom | null = null;
-  if (d.g === 'create-rect') {
+  if (d.g === 'create-rect' && d.subtype === 'free-text') {
+    // Free-text: a dragged box, or — on a mere click — a sensible default box you
+    // can immediately type into. Always created; never a no-op.
+    const dragged = rectFromPoints(d.from, d.to);
+    const rect =
+      dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG
+        ? dragged
+        : { x: d.from.x, y: d.from.y, width: 180, height: 40 };
+    geom = { t: 'text', rect };
+  } else if (d.g === 'create-rect') {
     const dragged = rectFromPoints(d.from, d.to);
     if (dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG)
       // cloudy stores the OUTER box (dragged + extent) so the dragged box is its inner edge
@@ -264,6 +293,8 @@ function createPointer(
       order: [...m.order, id],
       selected: [id],
       draft: null,
+      // A freshly drawn free-text box opens straight into edit (type immediately).
+      editing: geom.t === 'text' ? id : m.editing,
     },
     [{ fx: 'create', id }],
   ];
@@ -442,6 +473,7 @@ function removeAnnots(m: Model, ids: Id[]): Model {
     order: m.order.filter((id) => !gone.has(id)),
     selected: m.selected.filter((id) => !gone.has(id)),
     draft: null,
+    editing: m.editing && gone.has(m.editing) ? null : m.editing,
   };
 }
 
@@ -454,5 +486,7 @@ function reconcile(m: Model, tempId: Id, id: Id, ref: AnnotationRef): Model {
     byId: { ...rest, [id]: { ...a, id, ref } },
     order: m.order.map((x) => (x === tempId ? id : x)),
     selected: m.selected.map((x) => (x === tempId ? id : x)),
+    // keep the just-drawn box in edit mode across the temp→durable id swap
+    editing: m.editing === tempId ? id : m.editing,
   };
 }

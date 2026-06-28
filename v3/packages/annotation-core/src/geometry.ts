@@ -197,7 +197,7 @@ function endingSegs(g: Geom): EndingSeg[] {
  * `geomScene`, so the visual box and what's drawn always agree.
  */
 export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
-  if (g.t === 'rect') return g.rect;
+  if (g.t === 'rect' || g.t === 'text') return g.rect;
   if (g.t === 'quads') return expandRect(unionRect(g.quads.flat()), strokeWidth / 2);
   if (g.t === 'ink') return expandRect(unionRect(g.strokes.flat()), strokeWidth / 2);
   const pts: Vec[] = g.t === 'line' ? [g.a, g.b] : [...g.points];
@@ -255,7 +255,7 @@ function endingHit(g: Geom, p: Vec, tol: number, strokeWidth: number): boolean {
 /* ── geom ops ─────────────────────────────────────────────────────────────── */
 
 export function geomBounds(g: Geom): Rect {
-  if (g.t === 'rect') return g.rect;
+  if (g.t === 'rect' || g.t === 'text') return g.rect;
   if (g.t === 'line') return rectFromPoints(g.a, g.b);
   if (g.t === 'poly') return unionRect(g.points);
   if (g.t === 'ink') return unionRect(g.strokes.flat());
@@ -279,6 +279,8 @@ export function geomHit(
   strokeWidth: number,
 ): boolean {
   const tol = margin + strokeWidth / 2;
+  // A text box is a solid hit target anywhere inside it (+ the click margin).
+  if (g.t === 'text') return rectContains(expandRect(g.rect, margin), p);
   if (g.t === 'rect') {
     const r = g.rect;
     if (g.ellipse) {
@@ -341,7 +343,7 @@ export function geomHit(
 }
 
 export function geomHandles(g: Geom): Handle[] {
-  if (g.t === 'rect') {
+  if (g.t === 'rect' || g.t === 'text') {
     return RECT_HANDLES.map((h) => ({
       id: h,
       at: rectHandlePoint(g.rect, h),
@@ -362,7 +364,8 @@ export function geomHandles(g: Geom): Handle[] {
 
 export function geomTranslate(g: Geom, d: Vec): Geom {
   const mv = (p: Vec): Vec => ({ x: p.x + d.x, y: p.y + d.y });
-  if (g.t === 'rect') return { ...g, rect: { ...g.rect, x: g.rect.x + d.x, y: g.rect.y + d.y } };
+  if (g.t === 'rect' || g.t === 'text')
+    return { ...g, rect: { ...g.rect, x: g.rect.x + d.x, y: g.rect.y + d.y } };
   if (g.t === 'line') return { ...g, a: mv(g.a), b: mv(g.b) };
   if (g.t === 'poly') return { ...g, points: g.points.map(mv) };
   if (g.t === 'ink') return { ...g, strokes: g.strokes.map((s) => s.map(mv)) };
@@ -370,7 +373,8 @@ export function geomTranslate(g: Geom, d: Vec): Geom {
 }
 
 export function geomDragHandle(g: Geom, handle: string, to: Vec): Geom {
-  if (g.t === 'rect') return { ...g, rect: resizeRect(g.rect, handle as RectHandle, to) };
+  if (g.t === 'rect' || g.t === 'text')
+    return { ...g, rect: resizeRect(g.rect, handle as RectHandle, to) };
   if (g.t === 'line') return handle === 'v0' ? { ...g, a: to } : { ...g, b: to };
   if (g.t === 'poly') {
     const i = Number(handle.slice(1));
@@ -383,6 +387,8 @@ export function geomDragHandle(g: Geom, handle: string, to: Vec): Geom {
 }
 
 export function geomScene(g: Geom, strokeWidth = 0, border?: Border): RenderNode[] {
+  // A text box draws no vector nodes — the framework renders its editable element.
+  if (g.t === 'text') return [];
   if (g.t === 'rect') {
     // A cloudy border's scallops inset back into `g.rect` (the OUTER box): the troughs
     // land at the dragged inner edge (`g.rect` − extent) and the peaks on `g.rect`.

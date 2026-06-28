@@ -42,7 +42,7 @@ const h2 = (n: number) =>
   Math.max(0, Math.min(255, Math.round(n)))
     .toString(16)
     .padStart(2, '0');
-const colorToCss = (c: Color): string => `#${h2(c.r)}${h2(c.g)}${h2(c.b)}`;
+export const colorToCss = (c: Color): string => `#${h2(c.r)}${h2(c.g)}${h2(c.b)}`;
 function cssToColor(css: string): Color {
   const s = css.trim();
   const m6 = /^#?([0-9a-f]{6})$/i.exec(s);
@@ -123,6 +123,8 @@ function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
         t: 'ink',
         strokes: dto.inkList.map((stroke) => stroke.map((p) => pdfToContentPoint(p, crop))),
       };
+    case 'free-text':
+      return { t: 'text', rect: pdfToContentRect(dto.rect, crop) };
     case 'highlight':
     case 'underline':
     case 'squiggly':
@@ -246,7 +248,7 @@ function geomFields(a: Annot, crop: PdfRect): GeomFields | null {
   const sw = a.style.strokeWidth;
   // /Rect IS `g.rect` (the outer box) for every shape; a cloudy border's geometry is
   // inset from it by /RD (see shapeExtras), and the scallops fill back out to it.
-  if (g.t === 'rect') return { rect: contentToPdfRect(g.rect, crop) };
+  if (g.t === 'rect' || g.t === 'text') return { rect: contentToPdfRect(g.rect, crop) };
   if (g.t === 'line') {
     return {
       linePoints: { start: contentToPdfPoint(g.a, crop), end: contentToPdfPoint(g.b, crop) },
@@ -303,6 +305,20 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
     };
   if (a.subtype === 'ink' && f && 'inkList' in f)
     return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
+  if (a.subtype === 'free-text' && f && 'rect' in f)
+    return {
+      subtype: 'free-text',
+      intent: 'free-text',
+      rect: f.rect,
+      // text style — defaults for a fresh box; the user edits font/size later.
+      fontFamily: 'helvetica',
+      fontSize: 14,
+      textAlign: 'left',
+      contents: a.data?.contents ?? '',
+      color: cssToColor(a.style.color), // `/DA` colour (border + default text)
+      interiorColor: a.style.interiorColor ? cssToColor(a.style.interiorColor) : null,
+      opacity: a.style.opacity,
+    } as AnnotationDraft;
   const quads = quadPointsFor(a, crop);
   if (TEXT_MARKUP.has(a.subtype) && quads)
     return { subtype: a.subtype, quadPoints: quads, ...markupColor(a.style) } as AnnotationDraft;
@@ -337,6 +353,10 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
     };
   if (a.subtype === 'ink' && f && 'inkList' in f)
     return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
+  // free-text move/resize: send the box. Text content is committed separately
+  // (the debounced `update(contents)` while typing), so it's not duplicated here.
+  if (a.subtype === 'free-text' && f && 'rect' in f)
+    return { subtype: 'free-text', rect: f.rect } as AnnotationPatch;
   // markup: recolor / opacity only — /QuadPoints geometry isn't edited after create
   if (TEXT_MARKUP.has(a.subtype))
     return { subtype: a.subtype, ...markupColor(a.style) } as AnnotationPatch;

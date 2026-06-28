@@ -13,29 +13,43 @@ const src = (p: string) =>
 const srcEntry = (p: string, file: string) =>
   fileURLToPath(new URL(`../../packages/${p}/src/${file}.ts`, import.meta.url));
 
+const rootSrc = (p: string) =>
+  fileURLToPath(new URL(`../../../packages/${p}/src/index.ts`, import.meta.url));
+const rootSrcEntry = (p: string, file: string) =>
+  fileURLToPath(new URL(`../../../packages/${p}/src/${file}.ts`, import.meta.url));
+
 export default defineConfig({
   server: { port: 5199, strictPort: true },
+  worker: { format: 'es' },
   plugins: [react()],
   // The wasm runtime is loaded by the engine worker; let it stay un-prebundled.
-  optimizeDeps: { exclude: ['@embedpdf/pdf-runtime-wasm32'] },
+  optimizeDeps: { exclude: ['@embedpdf/pdf-runtime-wasm32', '@embedpdf/engine'] },
   resolve: {
-    alias: {
-      '@embedpdf-x/kernel': src('kernel'),
-      '@embedpdf-x/geometry': src('geometry'),
-      '@embedpdf-x/stage-core': src('stage-core'),
-      '@embedpdf-x/plugin-stage': src('plugin-stage'),
-      '@embedpdf-x/plugin-interaction': src('plugin-interaction'),
-      '@embedpdf-x/plugin-selection': src('plugin-selection'),
-      '@embedpdf-x/annotation-core': src('annotation-core'),
+    alias: [
+      { find: '@embedpdf-x/kernel', replacement: src('kernel') },
+      { find: '@embedpdf-x/geometry', replacement: src('geometry') },
+      { find: '@embedpdf-x/stage-core', replacement: src('stage-core') },
+      { find: '@embedpdf-x/plugin-stage', replacement: src('plugin-stage') },
+      { find: '@embedpdf-x/plugin-interaction', replacement: src('plugin-interaction') },
+      { find: '@embedpdf-x/plugin-selection', replacement: src('plugin-selection') },
+      { find: '@embedpdf-x/annotation-core', replacement: src('annotation-core') },
       // More specific first: the host (`/internal`) surface, then the bare package.
-      '@embedpdf-x/plugin-annotation/internal': srcEntry('plugin-annotation', 'internal'),
-      '@embedpdf-x/plugin-annotation': src('plugin-annotation'),
-      '@embedpdf-x/plugin-persist': src('plugin-persist'),
-      '@embedpdf-x/plugin-render': src('plugin-render'),
-      '@embedpdf-x/plugin-page-edit': src('plugin-page-edit'),
-      '@embedpdf-x/plugin-metadata': src('plugin-metadata'),
-      '@embedpdf-x/plugin-view-manager': src('plugin-view-manager'),
-      '@embedpdf-x/react': src('react'),
-    },
+      {
+        find: '@embedpdf-x/plugin-annotation/internal',
+        replacement: srcEntry('plugin-annotation', 'internal'),
+      },
+      { find: '@embedpdf-x/plugin-annotation', replacement: src('plugin-annotation') },
+      { find: '@embedpdf-x/plugin-persist', replacement: src('plugin-persist') },
+      { find: '@embedpdf-x/plugin-render', replacement: src('plugin-render') },
+      { find: '@embedpdf-x/plugin-page-edit', replacement: src('plugin-page-edit') },
+      { find: '@embedpdf-x/plugin-metadata', replacement: src('plugin-metadata') },
+      { find: '@embedpdf-x/plugin-view-manager', replacement: src('plugin-view-manager') },
+      { find: '@embedpdf-x/react', replacement: src('react') },
+      {
+        find: /^@embedpdf\/engine\/worker-entry$/,
+        replacement: rootSrcEntry('engine', 'worker/worker-entry'),
+      },
+      { find: /^@embedpdf\/engine$/, replacement: rootSrc('engine') },
+    ],
   },
 });

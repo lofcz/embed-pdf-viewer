@@ -46,7 +46,10 @@ export type Geom =
   | { t: 'line'; a: Vec; b: Vec; ends?: LineEndings } // line (optional /LE endings)
   | { t: 'poly'; points: Vec[]; closed: boolean; ends?: LineEndings } // polygon (closed) / polyline (open, /LE endings)
   | { t: 'quads'; quads: Quad[] } // highlight / underline / squiggly / strikeout
-  | { t: 'ink'; strokes: Vec[][] }; // freehand ink (one or more pen strokes)
+  | { t: 'ink'; strokes: Vec[][] } // freehand ink (one or more pen strokes)
+  | { t: 'text'; rect: Rect }; // free-text box — a resizable rect; its TEXT is data
+// (DTO `contents`), rendered by the framework as an
+// editable element, not by `scene()`.
 
 /**
  * How a shape's outline is stroked. A discriminated union so illegal combinations
@@ -161,6 +164,10 @@ export interface Model {
   defaults: Record<string, ToolDefaults>;
   /** Extra clickable margin (content units) around a stroke — bump it for touch. */
   hitMargin: number;
+  /** The free-text annotation currently in TEXT-EDIT mode (its `contentEditable`
+   *  is focused), or null. Distinct from `selected`: you select to move/resize,
+   *  you edit to type. */
+  editing: Id | null;
 }
 
 export interface PointerInput {
@@ -192,7 +199,13 @@ export type Msg =
   // remote edit arriving over the event stream), and remove by id (own delete
   // by ref, or a remote delete). Pure store ops — they emit no effects.
   | { t: 'upsert'; annots: Annot[] }
-  | { t: 'remove'; ids: Id[] };
+  | { t: 'remove'; ids: Id[] }
+  // free-text editing: enter/leave the focused `contentEditable`, and apply the
+  // browser's plain-text result optimistically (the plugin debounces the engine
+  // write). `setText` flips the annotation to `vector` so the live text shows.
+  | { t: 'beginTextEdit'; id: Id }
+  | { t: 'setText'; id: Id; text: string }
+  | { t: 'endTextEdit' };
 
 export type Effect =
   | { fx: 'create'; id: Id }
@@ -221,6 +234,12 @@ export interface RenderItem {
   style: Style;
   source: 'baked' | 'vector' | 'ghost';
   selected: boolean;
+  /**
+   * Mix-blend-mode the annotation composites with against the page (highlights
+   * multiply). The vector painter reads blend per scene node; the baked /AP image
+   * has no scene, so it reads this. Undefined = normal compositing.
+   */
+  blend?: 'multiply';
 }
 
 /** The dumb draw vocabulary the framework renderer maps to SVG (content space).

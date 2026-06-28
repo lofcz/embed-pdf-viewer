@@ -1,11 +1,25 @@
 import { geomHandles, geomHit, selectionBounds } from './geometry';
-import { capsFor } from './kinds';
+import { capsFor, isMarkup } from './kinds';
 import { type Annot, type Cursor, type Id, type Model, type Vec } from './types';
 
 export type Target =
   | { t: 'handle'; id: Id; handle: string; cursor: Cursor }
   | { t: 'annot'; id: Id }
   | { t: 'empty' };
+
+/** Page annotation ids in PAINT order (back→front): text-layer markups first
+ *  (always beneath), then every other kind, each group preserving creation
+ *  z-order. The ONE z-order shared by rendering (`pageItems`) and hit-testing. */
+export function paintOrder(m: Model, pon: number): Id[] {
+  const markup: Id[] = [];
+  const other: Id[] = [];
+  for (const id of m.order) {
+    const a = m.byId[id];
+    if (!a || a.pon !== pon) continue;
+    (isMarkup(a.subtype) ? markup : other).push(id);
+  }
+  return [...markup, ...other];
+}
 
 /** Can this annotation be clicked to select? (locked overrides all caps.) */
 export const isSelectable = (m: Model, id: Id): boolean => {
@@ -59,10 +73,11 @@ export function hitTest(
       }
     }
   }
-  for (let i = m.order.length - 1; i >= 0; i--) {
-    const id = m.order[i];
+  const order = paintOrder(m, pon);
+  for (let i = order.length - 1; i >= 0; i--) {
+    const id = order[i];
     const a = m.byId[id];
-    if (!a || a.pon !== pon || !isSelectable(m, id)) continue;
+    if (!a || !isSelectable(m, id)) continue;
     // A SELECTED annotation is sticky-grabbable from anywhere in its bounds, but
     // only if it can actually move; otherwise it's grabbed on its stroke/fill like
     // an unselected one (so a selectable-but-anchored kind still re-selects cleanly).

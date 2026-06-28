@@ -12,8 +12,9 @@ import {
   shapeRectFor,
   unionRect,
 } from './geometry';
-import { isSelectable } from './hit';
+import { isSelectable, paintOrder } from './hit';
 import { capsFor } from './kinds';
+import { blendFor } from './scene';
 import { defaultsFor } from './update';
 import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types';
 
@@ -55,11 +56,24 @@ function effSource(m: Model, id: Id): 'baked' | 'vector' {
   return m.draft?.g === 'handle' && m.draft.id === id ? 'vector' : a.source;
 }
 
+/** A free-text box renders as a LIVE element (editable / reflowing) while it's
+ *  being edited or while its source is vector (a resize, in-progress or committed);
+ *  otherwise it renders as the engine's baked /AP image, exactly like a shape. */
+function textIsLive(m: Model, id: Id): boolean {
+  return m.editing === id || effSource(m, id) === 'vector';
+}
+
 export function pageItems(m: Model, pon: number): RenderItem[] {
   const items: RenderItem[] = [];
-  for (const id of m.order) {
+  // `paintOrder` puts text-layer markups beneath every other kind (back→front),
+  // so a highlight drawn after a circle still paints under it. The SAME order
+  // hit-testing uses, so what you click matches what you see.
+  for (const id of paintOrder(m, pon)) {
     const a = m.byId[id];
-    if (a.pon !== pon) continue;
+    // Live (editing / resizing) free-text is rendered by the framework as an editable
+    // element (see `textBoxes`); a baked, idle box renders as its engine /AP image —
+    // the SAME path shapes use. So only skip text while it's live.
+    if (a.geom.t === 'text' && textIsLive(m, id)) continue;
     const geom = effGeom(m, id);
     items.push({
       id,
@@ -71,6 +85,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       style: a.style,
       source: effSource(m, id),
       selected: m.selected.includes(id),
+      blend: blendFor(a.subtype),
     });
   }
   const d = m.draft;
@@ -121,6 +136,29 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
     });
   }
   return items;
+}
+
+/** One free-text box, geometry only (the live move/resize gesture applied), with
+ *  its edit flag. The framework renders an editable element here; the plugin
+ *  layers the DTO-derived text style on top. */
+export interface TextBox {
+  id: Id;
+  box: Rect;
+  editing: boolean;
+}
+
+/** The free-text boxes on a page — the text counterpart of `pageItems`. */
+export function textBoxes(m: Model, pon: number): TextBox[] {
+  const out: TextBox[] = [];
+  for (const id of m.order) {
+    const a = m.byId[id];
+    if (a.pon !== pon || a.geom.t !== 'text') continue;
+    if (!textIsLive(m, id)) continue; // baked → rendered as the /AP image instead
+    const g = effGeom(m, id);
+    if (g.t !== 'text') continue;
+    out.push({ id, box: g.rect, editing: m.editing === id });
+  }
+  return out;
 }
 
 /** The currently selected annotations as render items (live gesture applied) —

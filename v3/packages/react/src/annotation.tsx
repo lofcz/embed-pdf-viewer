@@ -10,7 +10,7 @@
  */
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { AnnotationToken, refKey } from '@embedpdf-x/plugin-annotation';
+import { AnnotationToken, refKey, type TextItem } from '@embedpdf-x/plugin-annotation';
 // The render layer is framework code, so it resolves the FULL host lens
 // (pageItems/chrome/appearances/…). Same runtime token as the public one — only
 // the type differs. App code never imports this.
@@ -137,7 +137,17 @@ function Shape({ item, page }: { item: RenderItem; page: PageContextValue }) {
   );
 }
 
-function BakedImage({ box, url, page }: { box: Rect; url: string; page: PageContextValue }) {
+function BakedImage({
+  box,
+  url,
+  page,
+  blend,
+}: {
+  box: Rect;
+  url: string;
+  page: PageContextValue;
+  blend?: 'multiply';
+}) {
   const b = boxOf(box, page);
   return (
     <img
@@ -151,6 +161,7 @@ function BakedImage({ box, url, page }: { box: Rect; url: string; page: PageCont
         width: b.width,
         height: b.height,
         pointerEvents: 'none',
+        mixBlendMode: blend, // highlights multiply with the page beneath
       }}
     />
   );
@@ -195,10 +206,103 @@ function Chrome({ page }: { page: PageContextValue }) {
   );
 }
 
+/**
+ * A free-text annotation: the SAME styled element for viewing and editing —
+ * `contentEditable` just toggles, so the text never jumps. The plugin handed us a
+ * ready-to-spread style (`item.css`); the browser owns layout, caret, selection,
+ * IME and clipboard; the plugin owns the text truth + the debounced engine write.
+ * This component is the ENTIRE per-framework surface for text editing.
+ */
+function FreeText({ item, page }: { item: TextItem; page: PageContextValue }) {
+  const anno = useCapability(AnnotationHostToken);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const box = boxOf(item.box, page);
+  const scale = item.box.width > 0 ? box.width / item.box.width : 1; // content units → screen px
+
+  // DOM ← model, but ONLY when this element isn't being typed in — keeps the caret
+  // stable while you type AND lets a remote (collab) edit land live when idle.
+  useEffect(() => {
+    const el = ref.current;
+    if (el && document.activeElement !== el && el.innerText !== item.contents) {
+      el.innerText = item.contents;
+    }
+  }, [item.contents, item.editing]);
+  // Keep DOM focus in sync with the model's `editing` state. Focus follows the
+  // model — it never drives it (exit is hub-driven, see the edit handler), so a
+  // transient focus-steal by the page surface can't end the edit.
+  useEffect(() => {
+    if (item.editing) ref.current?.focus();
+  }, [item.editing]);
+
+  // Isolate the editor from the interaction hub: a pointerdown inside it must NOT
+  // bubble up to the Stage's native listener (which the edit handler reads as a
+  // click-outside → exit). Stopping it here lets the browser own caret placement
+  // and drag-selection inside the box, while clicks OUTSIDE still reach the hub and
+  // commit the edit. Native listener (not React's) so it runs during real DOM
+  // bubbling, before the Stage's own native listener on an ancestor.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const stop = (e: Event) => e.stopPropagation();
+    el.addEventListener('pointerdown', stop);
+    return () => el.removeEventListener('pointerdown', stop);
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      contentEditable={item.editing}
+      suppressContentEditableWarning
+      onInput={() => item.ref && anno.setContents(item.ref, ref.current!.innerText)}
+      onBlur={(e) => {
+        // The gesture that opens the editor fires a native `mousedown` on the
+        // non-focusable page surface, which blurs us to <body> (relatedTarget null)
+        // right after we focus. If the MODEL still has this box in edit, that blur
+        // is a spurious steal — re-assert focus. A real click-away routes through
+        // the hub, which clears `editing` BEFORE this fires, so we let it go (and a
+        // focus move to a real element, relatedTarget != null, is always honoured).
+        if (
+          e.relatedTarget == null &&
+          ref.current?.isConnected &&
+          anno.currentEditing() === item.id
+        ) {
+          ref.current.focus();
+        }
+      }}
+      onPaste={(e) => {
+        e.preventDefault();
+        document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+      }}
+      style={{
+        position: 'absolute',
+        left: box.left,
+        top: box.top,
+        width: box.width,
+        minHeight: box.height,
+        fontFamily: item.css.fontFamily,
+        fontSize: item.css.fontSize * scale,
+        lineHeight: `${item.css.lineHeight * scale}px`,
+        color: item.css.color,
+        textAlign: item.css.align,
+        padding: item.css.padding * scale,
+        boxSizing: 'border-box',
+        background: item.css.background ?? 'transparent',
+        whiteSpace: 'pre-wrap',
+        overflowWrap: 'break-word',
+        outline: item.editing ? '1px solid #3858e9' : 'none',
+        cursor: item.editing ? 'text' : 'default',
+        // not editing → clicks fall through to the shape layer (select / move / resize)
+        pointerEvents: item.editing ? 'auto' : 'none',
+      }}
+    />
+  );
+}
+
 export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
   const page = usePage();
   const anno = useCapability(AnnotationHostToken);
   const items = useSelector(AnnotationHostToken, (c) => c.pageItems(page.pon), shallowArray);
+  const texts = useSelector(AnnotationHostToken, (c) => c.textItems(page.pon), shallowArray);
   const [urls, setUrls] = useState<Record<string, { url: string; box: Rect }>>({});
 
   useEffect(() => {
@@ -253,7 +357,12 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
           // to the fetched box for a never-moved one.
           const baked = urls[item.id];
           native = baked ? (
-            <BakedImage box={item.apBox ?? baked.box} url={baked.url} page={page} />
+            <BakedImage
+              box={item.apBox ?? baked.box}
+              url={baked.url}
+              page={page}
+              blend={item.blend}
+            />
           ) : null;
         } else {
           native = <Shape item={item} page={page} />; // shapes, cloudy, markup — all painted via scene()
@@ -261,6 +370,9 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
         const out = customRenderer?.({ annotation: item, nativeComponent: native }) ?? native;
         return <React.Fragment key={item.id}>{out}</React.Fragment>;
       })}
+      {texts.map((t) => (
+        <FreeText key={t.id} item={t} page={page} />
+      ))}
       <Chrome page={page} />
     </div>
   );

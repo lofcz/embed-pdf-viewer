@@ -587,4 +587,56 @@ describe('annotation-core', () => {
     expect(c.filter((n) => n.kind === 'handle')).toHaveLength(0);
     expect(c.some((n) => n.kind === 'outline')).toBe(true);
   });
+
+  it('markups always sit beneath other annotations, regardless of creation order', () => {
+    const square: Annot = {
+      id: 'S1',
+      ref: null,
+      pon: PON,
+      subtype: 'square',
+      geom: { t: 'rect', rect: { x: 0, y: 0, width: 100, height: 100 }, ellipse: false },
+      style: {
+        color: '#000000',
+        interiorColor: '#eeeeee', // filled → hittable anywhere inside
+        strokeWidth: 2,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      locked: false,
+      source: 'vector',
+    };
+    const highlight: Annot = {
+      id: 'H1',
+      ref: null,
+      pon: PON,
+      subtype: 'highlight',
+      geom: {
+        t: 'quads',
+        quads: [
+          [
+            { x: 0, y: 0 },
+            { x: 100, y: 0 },
+            { x: 0, y: 100 },
+            { x: 100, y: 100 },
+          ],
+        ],
+      },
+      style: {
+        color: '#ffcc00',
+        interiorColor: '#ffcc00',
+        strokeWidth: 0,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      locked: false,
+      source: 'vector',
+    };
+    // square added FIRST, highlight SECOND — naive creation order would paint the
+    // highlight on top.
+    const m = update(initialModel, { t: 'loaded', annots: [square, highlight] })[0];
+    // pageItems paints back→front: the markup comes first (beneath), the square last (on top).
+    expect(pageItems(m, PON).map((i) => i.id)).toEqual(['H1', 'S1']);
+    // and the overlap hit-tests to the square (the top-most painted), not the highlight.
+    expect(hitTest(m, PON, { x: 50, y: 50 }, 6, 6)).toEqual({ t: 'annot', id: 'S1' });
+  });
 });

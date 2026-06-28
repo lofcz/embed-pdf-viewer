@@ -251,6 +251,7 @@ const TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'circle', label: '◯ circle', title: 'draw a circle' },
   { id: 'line', label: '╱ line', title: 'draw a line' },
   { id: 'ink', label: '✎ ink', title: 'draw freehand' },
+  { id: 'free-text', label: 'T text', title: 'add a text box (drag or click, then type)' },
 ];
 // Markup tools create from a TEXT SELECTION (select text with the tool active).
 const MARKUP_TOOLS: { id: string; label: string; title: string }[] = [

@@ -22,11 +22,13 @@ import {
   type Style,
 } from '@embedpdf-x/annotation-core';
 import { fromDTO, refKey, toCreateDraft, toPatch } from './repository';
+import { buildTextItems } from './text-item';
 import type {
   AnnotationAction,
   AnnotationHostCapability,
   AnnotationState,
   Behavior,
+  TextItem,
 } from './types';
 
 const HANDLE_TOL = 6; // content units (PDF points)
@@ -37,6 +39,8 @@ const HANDLE_TOL = 6; // content units (PDF points)
 const ANNOTATE_MODIFY: DocCapability = 'doc.annotate.modify';
 
 const NO_ENDINGS: LineEndings = { start: 'none', end: 'none' };
+
+const TEXT_COMMIT_DEBOUNCE_MS = 250;
 
 /**
  * The annotation shell. The pure `update` runs HERE (so it can emit effects);
@@ -49,6 +53,8 @@ export function createAnnotationCapability(
 ): AnnotationHostCapability {
   const loaded = new Set<number>();
   const behaviors: Behavior[] = [];
+  /** Per-annotation debounce timer for the engine `contents` write while typing. */
+  const textTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   const model = (): Model => ctx.getState().model;
 
@@ -71,6 +77,15 @@ export function createAnnotationCapability(
     if (c && c.model === m) return c.v;
     const v = coreChrome(m, pon);
     chromeCache.set(pon, { model: m, v });
+    return v;
+  };
+  const textsCache = new Map<number, { model: Model; v: TextItem[] }>();
+  const memoTexts = (pon: number): TextItem[] => {
+    const m = model();
+    const c = textsCache.get(pon);
+    if (c && c.model === m) return c.v;
+    const v = buildTextItems(m, pon);
+    textsCache.set(pon, { model: m, v });
     return v;
   };
   const cropOf = (pon: number) =>
@@ -292,6 +307,60 @@ export function createAnnotationCapability(
             loaded.delete(pon);
           },
         );
+    },
+
+    // ── free-text (the editable-element layer) ──
+    textItems: (pon) => memoTexts(pon),
+    currentEditing: () => model().editing,
+    beginTextEdit: (ref) => apply({ t: 'beginTextEdit', id: refKey(ref) }),
+    beginTextEditAt: (pon, point) => {
+      const m = model();
+      const h = hitTest(m, pon, point, HANDLE_TOL, m.hitMargin);
+      // A double-click on the box body OR one of its resize handles both target the
+      // same annotation; either should open it for editing.
+      const id = h.t === 'annot' || h.t === 'handle' ? h.id : null;
+      if (id != null && m.byId[id]?.geom.t === 'text') apply({ t: 'beginTextEdit', id });
+    },
+    setContents: (ref, text) => {
+      apply({ t: 'setText', id: refKey(ref), text }); // optimistic, no engine churn
+      const key = refKey(ref);
+      clearTimeout(textTimers.get(key));
+      textTimers.set(
+        key,
+        setTimeout(() => {
+          textTimers.delete(key);
+          const pon = ponForRef(ref);
+          if (pon != null) {
+            ctx.doc
+              ?.page(pon)
+              .annotations.update(ref, { subtype: 'free-text', contents: text })
+              .then(
+                () => {},
+                () => {},
+              );
+          }
+        }, TEXT_COMMIT_DEBOUNCE_MS),
+      );
+    },
+    endTextEdit: () => {
+      // flush any pending debounced write immediately, then leave edit mode
+      for (const t of textTimers.values()) clearTimeout(t);
+      const id = model().editing;
+      const a = id ? model().byId[id] : null;
+      if (a?.ref) {
+        const pon = ponForRef(a.ref);
+        const text = a.data?.contents ?? '';
+        if (pon != null)
+          ctx.doc
+            ?.page(pon)
+            .annotations.update(a.ref, { subtype: 'free-text', contents: text })
+            .then(
+              () => {},
+              () => {},
+            );
+      }
+      textTimers.clear();
+      apply({ t: 'endTextEdit' });
     },
 
     registerBehavior: (b) => {
