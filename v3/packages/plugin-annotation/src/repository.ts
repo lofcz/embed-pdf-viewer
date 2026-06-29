@@ -141,6 +141,8 @@ function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
             ] as Quad,
         ),
       };
+    case 'caret':
+      return { t: 'caret', rect: pdfToContentRect(dto.rect, crop) };
     default:
       return { t: 'rect', rect: pdfToContentRect(dto.rect, crop), ellipse: false };
   }
@@ -183,6 +185,16 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
       border: { kind: 'solid' },
     };
   }
+  if (dto.subtype === 'caret') {
+    const d = dto as Extract<AnnotationDTO, { color: Color; opacity: number }>;
+    return {
+      color: colorToCss(d.color),
+      interiorColor: null,
+      strokeWidth: 1,
+      opacity: d.opacity,
+      border: { kind: 'solid' },
+    };
+  }
   return {
     color: '#444444',
     interiorColor: null,
@@ -218,6 +230,12 @@ const markupColor = (style: Style) => ({
   opacity: style.opacity,
 });
 
+const caretStyle = (style: Style) => ({
+  color: cssToColor(style.color),
+  opacity: style.opacity,
+  rectDifferences: { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 },
+});
+
 /**
  * Cloudy-border fields for a shape (/BE intensity + /RD inset). The /Rect we send
  * is the OUTER box, and /RD tells the engine how far to inset the drawn geometry
@@ -248,7 +266,8 @@ function geomFields(a: Annot, crop: PdfRect): GeomFields | null {
   const sw = a.style.strokeWidth;
   // /Rect IS `g.rect` (the outer box) for every shape; a cloudy border's geometry is
   // inset from it by /RD (see shapeExtras), and the scallops fill back out to it.
-  if (g.t === 'rect' || g.t === 'text') return { rect: contentToPdfRect(g.rect, crop) };
+  if (g.t === 'rect' || g.t === 'text' || g.t === 'caret')
+    return { rect: contentToPdfRect(g.rect, crop) };
   if (g.t === 'line') {
     return {
       linePoints: { start: contentToPdfPoint(g.a, crop), end: contentToPdfPoint(g.b, crop) },
@@ -329,6 +348,8 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       interiorColor: a.style.interiorColor ? cssToColor(a.style.interiorColor) : null,
       opacity: a.style.opacity,
     } as AnnotationDraft;
+  if (a.subtype === 'caret' && f && 'rect' in f)
+    return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
   const quads = quadPointsFor(a, crop);
   if (TEXT_MARKUP.has(a.subtype) && quads)
     return { subtype: a.subtype, quadPoints: quads, ...markupColor(a.style) } as AnnotationDraft;
@@ -367,6 +388,8 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
   // (the debounced `update(contents)` while typing), so it's not duplicated here.
   if (a.subtype === 'free-text' && f && 'rect' in f)
     return { subtype: 'free-text', rect: f.rect } as AnnotationPatch;
+  if (a.subtype === 'caret' && f && 'rect' in f)
+    return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
   // markup: recolor / opacity only — /QuadPoints geometry isn't edited after create
   if (TEXT_MARKUP.has(a.subtype))
     return { subtype: a.subtype, ...markupColor(a.style) } as AnnotationPatch;

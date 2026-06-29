@@ -10,6 +10,7 @@ import {
   geomVisualBounds,
   selectionBounds,
   shapeRectFor,
+  caretRectFromTextEnd,
   contentToPdfRect,
   pdfToContentRect,
   contentToPdfPoint,
@@ -182,6 +183,25 @@ describe('annotation-core', () => {
     expect(m.order).toHaveLength(1);
     expect(m.byId[m.order[0]].geom).toMatchObject({ t: 'poly', closed: true });
     expect(creationDraftAnchor(m)).toBeNull();
+  });
+
+  it('creates a caret at the end of a text line rect', () => {
+    const lineRect = { x: 20, y: 40, width: 80, height: 20 };
+    expect(caretRectFromTextEnd(lineRect)).toEqual({ x: 95, y: 50, width: 10, height: 10 });
+
+    const [m, fx] = update(initialModel, { t: 'createCaret', pon: PON, rect: lineRect });
+    const a = m.byId[m.order[0]];
+    expect(a).toMatchObject({
+      subtype: 'caret',
+      geom: { t: 'caret', rect: { x: 95, y: 50, width: 10, height: 10 } },
+      source: 'vector',
+    });
+    expect(m.selected).toEqual([a.id]);
+    expect(fx[0]).toMatchObject({ fx: 'create', id: a.id });
+    expect(scene(pageItems(m, PON)[0])[0]).toMatchObject({
+      kind: 'path',
+      paint: { fill: initialModel.style.color, stroke: initialModel.style.color },
+    });
   });
 
   it('an UNFILLED rect is hit only on its stroke; a filled one anywhere inside', () => {

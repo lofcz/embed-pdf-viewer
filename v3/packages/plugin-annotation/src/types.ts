@@ -199,6 +199,8 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   /** Create one text-markup annotation on a page from the selected text's per-line
    *  rects (content space) — the `text-selection` create gesture. */
   createMarkup(subtype: Subtype, pon: PageObjectNumber, rects: Rect[]): void;
+  /** Create a caret annotation from the final line rect of a text selection. */
+  createCaret(pon: PageObjectNumber, textEndRect: Rect): void;
   /** Set the live markup preview from the selection's per-page rects (renders a
    *  ghost that looks like the markup it will become). */
   previewMarkup(subtype: Subtype, rectsByPage: Record<number, Rect[]>): void;

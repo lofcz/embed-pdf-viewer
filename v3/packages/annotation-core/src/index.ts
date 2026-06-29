@@ -33,6 +33,7 @@ export {
   pdfToContentPoint,
   contentToPdfPoint,
   rectFromPoints,
+  caretRectFromTextEnd,
   selectionBounds,
   shapeRectFor,
   unionRect,

@@ -18,6 +18,7 @@ const MARKUP_DEFAULTS: Record<string, string> = {
   squiggly: '#22c55e',
 };
 const MARKUP_SUBTYPES = new Set(Object.keys(MARKUP_DEFAULTS));
+const INSERT_TEXT_TOOL = 'insert-text';
 
 /**
  * Register the markup tools and wire selection → annotation. Call from the plugin's
@@ -39,6 +40,14 @@ export function wireMarkup(
       style: { color: MARKUP_DEFAULTS[id] },
     });
   }
+  interaction.registerTool({
+    id: INSERT_TEXT_TOOL,
+    cursor: 'text',
+    enables: new Set(['text-select', 'annotation-edit']),
+  });
+  annotation.setDefaults('caret', {
+    style: { color: '#ef4444', strokeWidth: 1 },
+  });
 
   // Keep the live preview + the selection's own visual in sync with (active tool,
   // selection). While a markup tool is active the blue highlight is suppressed and
@@ -48,7 +57,7 @@ export function wireMarkup(
     selection.setHighlightVisible(!markup);
     if (markup && selection.hasSelection()) {
       const rectsByPage: Record<number, ReturnType<typeof selection.rectsForPage>> = {};
-      for (const pon of selection.selectedPages()) rectsByPage[pon] = selection.rectsForPage(pon);
+      for (const page of selection.snapshot().pages) rectsByPage[page.pon] = page.rects;
       annotation.previewMarkup(interaction.activeToolId(), rectsByPage);
     } else {
       annotation.clearMarkupPreview();
@@ -60,9 +69,14 @@ export function wireMarkup(
   // On gesture-end, if a markup tool is active, turn the selection into markup.
   selection.onCommit(() => {
     const tool = interaction.activeToolId();
+    const snapshot = selection.snapshot();
+    if (tool === INSERT_TEXT_TOOL) {
+      if (snapshot.end) annotation.createCaret(snapshot.end.pon, snapshot.end.rect);
+      selection.clear();
+      return;
+    }
     if (!MARKUP_SUBTYPES.has(tool)) return; // pointer tool → leave the selection (copy)
-    for (const pon of selection.selectedPages())
-      annotation.createMarkup(tool, pon, selection.rectsForPage(pon));
+    for (const page of snapshot.pages) annotation.createMarkup(tool, page.pon, page.rects);
     selection.clear(); // fires onChange → preview clears; blue stays suppressed (markup tool still active)
   });
 }

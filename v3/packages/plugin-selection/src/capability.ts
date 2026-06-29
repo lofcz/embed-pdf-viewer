@@ -12,7 +12,9 @@ import type {
   GlyphPointer,
   SelectionAction,
   SelectionCapability,
+  SelectionEndpoint,
   SelectionRange,
+  SelectionSnapshot,
   SelectionState,
 } from './types';
 
@@ -46,13 +48,39 @@ export function createSelectionCapability(
     ctx.document()?.pages[i]?.pageObjectNumber;
 
   // Order the two ends of a selection by document position (page, then glyph).
-  function orderedEnds(sel: SelectionRange): { start: GlyphPointer; end: GlyphPointer } {
+  function orderedEnds(sel: SelectionRange): {
+    start: GlyphPointer;
+    end: GlyphPointer;
+    direction: 'forward' | 'backward';
+  } {
     const ai = pageIndexOf(sel.anchor.pon);
     const fi = pageIndexOf(sel.focus.pon);
     const anchorFirst = ai < fi || (ai === fi && sel.anchor.glyph <= sel.focus.glyph);
     return anchorFirst
-      ? { start: sel.anchor, end: sel.focus }
-      : { start: sel.focus, end: sel.anchor };
+      ? { start: sel.anchor, end: sel.focus, direction: 'forward' }
+      : { start: sel.focus, end: sel.anchor, direction: 'backward' };
+  }
+
+  function endpointFor(ptr: GlyphPointer, which: 'start' | 'end'): SelectionEndpoint | null {
+    const rects = ctx.getState().rects[ptr.pon] ?? EMPTY;
+    if (!rects.length) return null;
+    return { pon: ptr.pon, rect: which === 'start' ? rects[0] : rects[rects.length - 1] };
+  }
+
+  function snapshot(): SelectionSnapshot {
+    const { selection, rects } = ctx.getState();
+    const pages = Object.keys(rects)
+      .map(Number)
+      .filter((pon) => (rects[pon]?.length ?? 0) > 0)
+      .map((pon) => ({ pon: pon as PageObjectNumber, rects: rects[pon] }));
+    if (!selection) return { pages, start: null, end: null, direction: 'forward' };
+    const { start, end, direction } = orderedEnds(selection);
+    return {
+      pages,
+      start: endpointFor(start, 'start'),
+      end: endpointFor(end, 'end'),
+      direction,
+    };
   }
 
   function ensurePage(pon: PageObjectNumber): void {
@@ -155,6 +183,8 @@ export function createSelectionCapability(
       ctx.dispatch({ type: 'CLEAR' });
       fireChange();
     },
+
+    snapshot,
 
     rectsForPage: (pon) => ctx.getState().rects[pon] ?? EMPTY,
 

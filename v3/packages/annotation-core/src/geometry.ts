@@ -152,6 +152,18 @@ export function shapeRectFor(dragged: Rect, ellipse: boolean, style: Style): Rec
     : dragged;
 }
 
+export function caretRectFromTextEnd(lineRect: Rect): Rect {
+  const height = lineRect.height / 2;
+  const width = height;
+  const lineEndX = lineRect.x + lineRect.width;
+  return {
+    x: lineEndX - width / 2,
+    y: lineRect.y + lineRect.height / 2,
+    width,
+    height,
+  };
+}
+
 /* ── line endings ─────────────────────────────────────────────────────────────
  * The breathing room a stroked line/poly needs beyond its vertices, as a factor
  * of the stroke width (matches v2): the half-stroke under the centre-line plus a
@@ -197,7 +209,7 @@ function endingSegs(g: Geom): EndingSeg[] {
  * `geomScene`, so the visual box and what's drawn always agree.
  */
 export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
-  if (g.t === 'rect' || g.t === 'text') return g.rect;
+  if (g.t === 'rect' || g.t === 'text' || g.t === 'caret') return g.rect;
   if (g.t === 'quads') return expandRect(unionRect(g.quads.flat()), strokeWidth / 2);
   if (g.t === 'ink') return expandRect(unionRect(g.strokes.flat()), strokeWidth / 2);
   const pts: Vec[] = g.t === 'line' ? [g.a, g.b] : [...g.points];
@@ -255,7 +267,7 @@ function endingHit(g: Geom, p: Vec, tol: number, strokeWidth: number): boolean {
 /* ── geom ops ─────────────────────────────────────────────────────────────── */
 
 export function geomBounds(g: Geom): Rect {
-  if (g.t === 'rect' || g.t === 'text') return g.rect;
+  if (g.t === 'rect' || g.t === 'text' || g.t === 'caret') return g.rect;
   if (g.t === 'line') return rectFromPoints(g.a, g.b);
   if (g.t === 'poly') return unionRect(g.points);
   if (g.t === 'ink') return unionRect(g.strokes.flat());
@@ -280,7 +292,7 @@ export function geomHit(
 ): boolean {
   const tol = margin + strokeWidth / 2;
   // A text box is a solid hit target anywhere inside it (+ the click margin).
-  if (g.t === 'text') return rectContains(expandRect(g.rect, margin), p);
+  if (g.t === 'text' || g.t === 'caret') return rectContains(expandRect(g.rect, margin), p);
   if (g.t === 'rect') {
     const r = g.rect;
     if (g.ellipse) {
@@ -364,7 +376,7 @@ export function geomHandles(g: Geom): Handle[] {
 
 export function geomTranslate(g: Geom, d: Vec): Geom {
   const mv = (p: Vec): Vec => ({ x: p.x + d.x, y: p.y + d.y });
-  if (g.t === 'rect' || g.t === 'text')
+  if (g.t === 'rect' || g.t === 'text' || g.t === 'caret')
     return { ...g, rect: { ...g.rect, x: g.rect.x + d.x, y: g.rect.y + d.y } };
   if (g.t === 'line') return { ...g, a: mv(g.a), b: mv(g.b) };
   if (g.t === 'poly') return { ...g, points: g.points.map(mv) };
@@ -389,6 +401,18 @@ export function geomDragHandle(g: Geom, handle: string, to: Vec): Geom {
 export function geomScene(g: Geom, strokeWidth = 0, border?: Border): RenderNode[] {
   // A text box draws no vector nodes — the framework renders its editable element.
   if (g.t === 'text') return [];
+  if (g.t === 'caret') {
+    const r = g.rect;
+    const midX = r.x + r.width / 2;
+    const bottom = r.y + r.height;
+    const d = [
+      `M ${r.x} ${bottom}`,
+      `C ${r.x + r.width * 0.27} ${bottom} ${midX} ${r.y + r.height * 0.56} ${midX} ${r.y}`,
+      `C ${midX} ${r.y + r.height * 0.56} ${r.x + r.width * 0.73} ${bottom} ${r.x + r.width} ${bottom}`,
+      'Z',
+    ].join(' ');
+    return [{ kind: 'path', d }];
+  }
   if (g.t === 'rect') {
     // A cloudy border's scallops inset back into `g.rect` (the OUTER box): the troughs
     // land at the dragged inner edge (`g.rect` − extent) and the peaks on `g.rect`.

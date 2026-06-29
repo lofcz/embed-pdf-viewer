@@ -97,6 +97,17 @@ function markupScene(subtype: Subtype, quads: Quad[], style: Style): SceneNode[]
 /** The full painted scene for one annotation. */
 export function scene(item: RenderItem): SceneNode[] {
   if (item.geom.t === 'quads') return markupScene(item.subtype, item.geom.quads, item.style);
+  if (item.geom.t === 'caret') {
+    return geomScene(item.geom).map((n) => ({
+      ...n,
+      paint: {
+        fill: item.style.color,
+        stroke: item.style.color,
+        width: 0.5,
+        opacity: item.style.opacity,
+      },
+    })) as SceneNode[];
+  }
   const ink = item.geom.t === 'ink'; // freehand: round the pen-stroke ends (caps)
   return geomScene(item.geom, item.style.strokeWidth, item.style.border).map((n) => {
     const closed =

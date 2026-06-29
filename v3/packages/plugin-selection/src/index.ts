@@ -16,6 +16,8 @@ export type {
   GlyphPointer,
   SelectionAction,
   SelectionCapability,
+  SelectionEndpoint,
   SelectionRange,
+  SelectionSnapshot,
   SelectionState,
 } from './types';

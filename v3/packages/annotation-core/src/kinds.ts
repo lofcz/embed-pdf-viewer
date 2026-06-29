@@ -177,6 +177,11 @@ export const KINDS: Record<string, AnnotationKind> = {
     variant: 'quads',
     caps: caps({ selectable: true, anchored: true, commentable: true }),
   },
+  caret: {
+    subtype: 'caret',
+    variant: 'caret',
+    caps: caps({ selectable: true, anchored: true, commentable: true }),
+  },
 };
 
 /** The capabilities of a subtype, or the read-only default for unknown kinds. */

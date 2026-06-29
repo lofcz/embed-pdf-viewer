@@ -13,6 +13,18 @@ export interface SelectionRange {
   focus: GlyphPointer;
 }
 
+export interface SelectionEndpoint {
+  pon: PageObjectNumber;
+  rect: Rect;
+}
+
+export interface SelectionSnapshot {
+  pages: Array<{ pon: PageObjectNumber; rects: Rect[] }>;
+  start: SelectionEndpoint | null;
+  end: SelectionEndpoint | null;
+  direction: 'forward' | 'backward';
+}
+
 export interface SelectionState {
   selection: SelectionRange | null;
   /** Derived highlight rects per page, in CONTENT space (y-down, PDF units). */
@@ -46,6 +58,8 @@ export interface SelectionCapability {
   extendTo(pon: PageObjectNumber, point: Point): void;
   end(): void;
   clear(): void;
+  /** Coherent read-model for consumers that create annotations or selection UI. */
+  snapshot(): SelectionSnapshot;
   /** Highlight rects for a page, in content space — the layer's only input. */
   rectsForPage(pon: PageObjectNumber): Rect[];
   hasSelection(): boolean;

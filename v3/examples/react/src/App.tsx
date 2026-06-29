@@ -280,12 +280,13 @@ const TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'ink', label: '✎ ink', title: 'draw freehand' },
   { id: 'free-text', label: 'T text', title: 'add a text box (drag or click, then type)' },
 ];
-// Markup tools create from a TEXT SELECTION (select text with the tool active).
+// Text-selection tools create from a TEXT SELECTION (select text with the tool active).
 const MARKUP_TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'highlight', label: '🖍 highlight', title: 'select text to highlight' },
   { id: 'underline', label: 'U̲ underline', title: 'select text to underline' },
   { id: 'strikeout', label: 'S̶ strikeout', title: 'select text to strike out' },
   { id: 'squiggly', label: '∿ squiggly', title: 'select text to squiggly-underline' },
+  { id: 'insert-text', label: '⌃ caret', title: 'select text to add an insert caret' },
 ];
 const MARKUP_SUBTYPES = new Set(['highlight', 'underline', 'squiggly', 'strikeout']);
 
@@ -328,7 +329,7 @@ function AnnotationBar({
         ))}
       </div>
       <Divider />
-      {/* markup: created by selecting text with the tool active */}
+      {/* text-selection tools: created by selecting text with the tool active */}
       <div style={{ display: 'flex', gap: 2 }}>
         {MARKUP_TOOLS.map((t) => (
           <button

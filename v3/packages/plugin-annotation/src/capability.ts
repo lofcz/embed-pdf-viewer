@@ -312,6 +312,7 @@ export function createAnnotationCapability(
     finishCreationDraft: () => apply({ t: 'finishCreationDraft' }),
     cancelCreationDraft: () => apply({ t: 'cancel' }),
     createMarkup: (subtype, pon, rects) => apply({ t: 'createMarkup', subtype, pon, rects }),
+    createCaret: (pon, textEndRect) => apply({ t: 'createCaret', pon, rect: textEndRect }),
     previewMarkup: (subtype, rectsByPage) => apply({ t: 'setMarkupPreview', subtype, rectsByPage }),
     clearMarkupPreview: () => apply({ t: 'clearMarkupPreview' }),
     setDefaults: (subtype, patch) => apply({ t: 'setDefaults', subtype, patch }),

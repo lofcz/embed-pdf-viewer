@@ -8,6 +8,7 @@
 import type { AnnotationRef } from '@embedpdf/engine-core/runtime';
 import { canMove, hitTest, isSelectable } from './hit';
 import {
+  caretRectFromTextEnd,
   geomDragHandle,
   geomTranslate,
   rectFromPoints,
@@ -89,6 +90,8 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return createPointer(m, msg.phase, msg.subtype, msg.in);
     case 'finishCreationDraft':
       return finishPolyCreate(m);
+    case 'createCaret':
+      return createCaret(m, msg.pon, msg.rect);
     case 'createMarkup':
       return createMarkup(m, msg.subtype, msg.pon, msg.rects);
     case 'setMarkupPreview':
@@ -440,6 +443,34 @@ function createMarkup(
     subtype,
     geom: { t: 'quads', quads },
     style: defaultsFor(m, subtype).style,
+    locked: false,
+    source: 'vector',
+  };
+  return [
+    {
+      ...m,
+      seq: m.seq + 1,
+      byId: { ...m.byId, [id]: annot },
+      order: [...m.order, id],
+      selected: [id],
+      draft: null,
+      preview: null,
+    },
+    [{ fx: 'create', id }],
+  ];
+}
+
+function createCaret(m: Model, pon: Annot['pon'], textEndRect: Rect): [Model, Effect[]] {
+  if (textEndRect.width <= 0 || textEndRect.height <= 0) return [m, []];
+  const id = `tmp:${m.seq + 1}`;
+  const def = defaultsFor(m, 'caret');
+  const annot: Annot = {
+    id,
+    ref: null,
+    pon,
+    subtype: 'caret',
+    geom: { t: 'caret', rect: caretRectFromTextEnd(textEndRect) },
+    style: def.style,
     locked: false,
     source: 'vector',
   };

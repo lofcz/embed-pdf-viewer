@@ -34,19 +34,21 @@ export type Subtype =
   | 'line'
   | 'polygon'
   | 'polyline'
+  | 'caret'
   | 'ink'
   | (string & {});
 
 /**
  * Content-space geometry — the ONE thing hit-testing, editing, and rendering work
  * on. A small closed union covers every kind: shapes (rect/ellipse), line,
- * polygon/polyline (poly), text markup (quads).
+ * polygon/polyline (poly), text markup (quads), and caret.
  */
 export type Geom =
   | { t: 'rect'; rect: Rect; ellipse: boolean } // square / circle
   | { t: 'line'; a: Vec; b: Vec; ends?: LineEndings } // line (optional /LE endings)
   | { t: 'poly'; points: Vec[]; closed: boolean; ends?: LineEndings } // polygon (closed) / polyline (open, /LE endings)
   | { t: 'quads'; quads: Quad[] } // highlight / underline / squiggly / strikeout
+  | { t: 'caret'; rect: Rect } // caret insertion marker
   | { t: 'ink'; strokes: Vec[][] } // freehand ink (one or more pen strokes)
   | { t: 'text'; rect: Rect }; // free-text box — a resizable rect; its TEXT is data
 // (DTO `contents`), rendered by the framework as an
@@ -202,6 +204,7 @@ export type Msg =
   | { t: 'marqueePointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
   | { t: 'createPointer'; phase: 'down' | 'move' | 'up'; subtype: Subtype; in: PointerInput }
   | { t: 'finishCreationDraft' }
+  | { t: 'createCaret'; pon: PageObjectNumber; rect: Rect }
   // text markup: build one annotation from the selected text's per-line rects (the
   // `text-selection` create gesture). One message per page the selection covers.
   | { t: 'createMarkup'; subtype: Subtype; pon: PageObjectNumber; rects: Rect[] }
