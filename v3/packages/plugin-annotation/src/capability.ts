@@ -294,6 +294,8 @@ export function createAnnotationCapability(
     // intents
     editPointer: (phase, pon, point, shift) =>
       apply({ t: 'editPointer', phase, in: { pon, point, shift } }),
+    marqueePointer: (phase, pon, point, shift) =>
+      apply({ t: 'marqueePointer', phase, in: { pon, point, shift } }),
     createPointer: (subtype, phase, pon, point) =>
       apply({ t: 'createPointer', phase, subtype, in: { pon, point, shift: false } }),
     createMarkup: (subtype, pon, rects) => apply({ t: 'createMarkup', subtype, pon, rects }),

@@ -3,7 +3,7 @@ import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import { SelectionToken } from '@embedpdf-x/plugin-selection';
 import { createAnnotationCapability } from './capability';
 import { registerAnnotationEffects } from './effects';
-import { createDrawHandler, createEditHandler } from './handler';
+import { createDrawHandler, createEditHandler, createMarqueeHandler } from './handler';
 import { wireMarkup } from './markup';
 import { annotationReducer, initialAnnotationState } from './reducer';
 import { AnnotationToken } from './types';
@@ -41,6 +41,7 @@ export const annotationPlugin = () =>
       }
       annotation.setDefaults('ink', { style: { color: '#1d4ed8', strokeWidth: 3 } });
       interaction.registerHandler(createEditHandler(annotation, interaction));
+      interaction.registerHandler(createMarqueeHandler(annotation));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
 
       // Markup is opt-in: only when a selection plugin is installed.

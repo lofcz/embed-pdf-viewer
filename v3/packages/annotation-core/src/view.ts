@@ -185,6 +185,9 @@ export function selectedItems(m: Model): RenderItem[] {
 
 export function chrome(m: Model, pon: number): ChromeNode[] {
   const nodes: ChromeNode[] = [];
+  if (m.draft?.g === 'marquee' && m.draft.pon === pon) {
+    nodes.push({ kind: 'marquee', rect: rectFromPoints(m.draft.from, m.draft.to) });
+  }
   const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
   if (sel.length === 1) {
     const a = m.byId[sel[0]];

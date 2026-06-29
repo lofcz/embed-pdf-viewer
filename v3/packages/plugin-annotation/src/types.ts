@@ -178,6 +178,12 @@ export interface AnnotationHostCapability extends AnnotationCapability {
     point: Vec,
     shift: boolean,
   ): void;
+  marqueePointer(
+    phase: 'down' | 'move' | 'up',
+    pon: PageObjectNumber,
+    point: Vec,
+    shift: boolean,
+  ): void;
   createPointer(
     subtype: Subtype,
     phase: 'down' | 'move' | 'up',

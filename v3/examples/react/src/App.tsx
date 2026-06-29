@@ -257,7 +257,7 @@ const borderKey = (b: Border): string =>
 const NO_ENDS = { start: 'none', end: 'none' } as const;
 
 const TOOLS: { id: string; label: string; title: string }[] = [
-  { id: 'pointer', label: '↖ select', title: 'select text' },
+  { id: 'pointer', label: '↖ select', title: 'select text or drag to select annotations' },
   { id: 'pan', label: '✋ pan', title: 'pan (hand)' },
   { id: 'square', label: '▭ square', title: 'draw a square' },
   { id: 'circle', label: '◯ circle', title: 'draw a circle' },
@@ -848,7 +848,7 @@ function DocumentView() {
           interaction
           style={{ flex: 1, background: '#0d1117' }}
           overlay={
-            <AnnotationMenu>
+            <AnnotationMenu placement="bottom">
               {({ selected, deleteSelection, deselect, updateSelection }) => (
                 <div
                   style={{

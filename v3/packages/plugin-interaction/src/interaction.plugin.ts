@@ -13,11 +13,15 @@ import type {
 /**
  * The two built-in tools. Features ADD tools via `registerTool` (a draw tool, a
  * redact tool…). `enables` is the composition seam:
- *   pointer → text selection + annotation editing (reading-first default)
+ *   pointer → text selection + annotation editing + annotation marquee selection
  *   pan     → scrolling (contributed by Stage) + annotation editing, NO text select
  */
 export const builtinTools = (): Tool[] => [
-  { id: 'pointer', cursor: 'default', enables: new Set(['text-select', 'annotation-edit']) },
+  {
+    id: 'pointer',
+    cursor: 'default',
+    enables: new Set(['text-select', 'annotation-edit', 'annotation-marquee']),
+  },
   { id: 'pan', cursor: 'grab', enables: new Set(['scroll', 'annotation-edit']) },
 ];
 

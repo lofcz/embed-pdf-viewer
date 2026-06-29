@@ -6,13 +6,13 @@
  * math is in geometry.ts. Effects (create/patch/delete) are the only impurities.
  */
 import type { AnnotationRef } from '@embedpdf/engine-core/runtime';
-import { canMove, hitTest } from './hit';
+import { canMove, hitTest, isSelectable } from './hit';
 import {
-  geomBounds,
   geomDragHandle,
   geomTranslate,
   rectFromPoints,
   rectsIntersect,
+  selectionBounds,
   shapeRectFor,
   unionRect,
 } from './geometry';
@@ -81,6 +81,8 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
   switch (msg.t) {
     case 'editPointer':
       return editPointer(m, msg.phase, msg.in);
+    case 'marqueePointer':
+      return marqueePointer(m, msg.phase, msg.in);
     case 'createPointer':
       return createPointer(m, msg.phase, msg.subtype, msg.in);
     case 'createMarkup':
@@ -205,6 +207,36 @@ function editUp(m: Model): [Model, Effect[]] {
     return [{ ...m, byId, draft: null }, fx];
   }
   return [{ ...m, draft: null }, []];
+}
+
+function marqueePointer(
+  m: Model,
+  phase: 'down' | 'move' | 'up',
+  input: PointerInput,
+): [Model, Effect[]] {
+  if (phase === 'down') {
+    return [
+      { ...m, draft: { g: 'marquee', pon: input.pon, from: input.point, to: input.point } },
+      [],
+    ];
+  }
+  if (m.draft?.g !== 'marquee') return [m, []];
+  if (phase === 'move') {
+    return [{ ...m, draft: { ...m.draft, to: input.point } }, []];
+  }
+
+  const hits = annotsInBox(m, m.draft.pon, m.draft.from, input.point);
+  const selected = input.shift ? toggleSelection(m.selected, hits) : hits;
+  return [{ ...m, selected, draft: null }, []];
+}
+
+function toggleSelection(base: Id[], ids: Id[]): Id[] {
+  const next = new Set(base);
+  for (const id of ids) {
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+  }
+  return [...next];
 }
 
 function createPointer(
@@ -414,11 +446,14 @@ function deleteSelection(m: Model): [Model, Effect[]] {
   return [removeAnnots(m, m.selected), fx];
 }
 
-/* ── marquee helper kept for the (future) drag-select; exported for tests ─── */
+/* ── marquee helper; exported for tests ───────────────────────────────────── */
 export function annotsInBox(m: Model, pon: number, a: Vec, b: Vec): Id[] {
   const box = rectFromPoints(a, b);
   return m.order.filter(
-    (id) => m.byId[id]?.pon === pon && rectsIntersect(geomBounds(m.byId[id].geom), box),
+    (id) =>
+      m.byId[id]?.pon === pon &&
+      isSelectable(m, id) &&
+      rectsIntersect(selectionBounds(m.byId[id].geom, m.byId[id].style.strokeWidth), box),
   );
 }
 

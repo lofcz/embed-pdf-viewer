@@ -1,6 +1,8 @@
 import type { InteractionCapability, InteractionHandler } from '@embedpdf-x/plugin-interaction';
-import type { Subtype } from '@embedpdf-x/annotation-core';
+import type { Subtype, Vec } from '@embedpdf-x/annotation-core';
 import type { AnnotationHostCapability } from './types';
+
+const MARQUEE_DRAG_THRESHOLD_PX = 4;
 
 /**
  * Ambient editing: live under the `annotation-edit` tag, which BOTH the pointer
@@ -26,7 +28,9 @@ export function createEditHandler(
       const wasEditing = anno.currentEditing() != null;
       if (wasEditing) anno.endTextEdit();
       if (anno.hitKind(s.page.pon, s.page.point) === 'empty') {
-        anno.deselect(); // click on empty → drop the selection
+        // Plain empty click drops the selection. Shift-empty preserves it so the
+        // lower-priority marquee handler can additive/toggle-select.
+        if (!s.modifiers.shift) anno.deselect();
         // A click that dismissed an active edit is CONSUMED: its sole job was to
         // leave edit mode, so the draw tool doesn't also spawn a new annotation
         // (matches v2). Only when nothing was being edited do we decline, letting
@@ -54,6 +58,63 @@ export function createEditHandler(
         s.page ? anno.cursorAt(s.page.pon, s.page.point) : null,
         20,
       );
+    },
+  };
+}
+
+/**
+ * Empty-page drag selection. Lower priority than annotation edit and text
+ * selection, so it only owns drags that begin on empty, non-text page space.
+ */
+export function createMarqueeHandler(anno: AnnotationHostCapability): InteractionHandler {
+  let anchor: {
+    pon: number;
+    point: Vec;
+    vx: number;
+    vy: number;
+    shift: boolean;
+  } | null = null;
+  let last: { pon: number; point: Vec } | null = null;
+  let dragging = false;
+
+  return {
+    id: 'annotation-marquee',
+    priority: 50,
+    enabledFor: (t) => t.enables.has('annotation-marquee'),
+    onDown: (s) => {
+      if (!s.page) return false;
+      anchor = {
+        pon: s.page.pon,
+        point: s.page.point,
+        vx: s.viewport.x,
+        vy: s.viewport.y,
+        shift: s.modifiers.shift,
+      };
+      last = { pon: s.page.pon, point: s.page.point };
+      dragging = false;
+      return true;
+    },
+    onMove: (s) => {
+      if (!anchor || !s.page || s.page.pon !== anchor.pon) return;
+      last = { pon: s.page.pon, point: s.page.point };
+      if (!dragging) {
+        if (
+          Math.hypot(s.viewport.x - anchor.vx, s.viewport.y - anchor.vy) < MARQUEE_DRAG_THRESHOLD_PX
+        ) {
+          return;
+        }
+        dragging = true;
+        anno.marqueePointer('down', anchor.pon, anchor.point, anchor.shift);
+      }
+      anno.marqueePointer('move', s.page.pon, s.page.point, anchor.shift);
+    },
+    onUp: () => {
+      if (dragging && anchor && last) {
+        anno.marqueePointer('up', anchor.pon, last.point, anchor.shift);
+      }
+      anchor = null;
+      last = null;
+      dragging = false;
     },
   };
 }

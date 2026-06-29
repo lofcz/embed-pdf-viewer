@@ -25,6 +25,11 @@ const editPtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift = fa
   phase,
   in: { pon: PON, point: { x, y }, shift },
 });
+const marqueePtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift = false): Msg => ({
+  t: 'marqueePointer',
+  phase,
+  in: { pon: PON, point: { x, y }, shift },
+});
 const createPtr = (
   subtype: 'square' | 'circle' | 'line',
   phase: 'down' | 'move' | 'up',
@@ -143,6 +148,76 @@ describe('annotation-core', () => {
     expect(m.selected).toHaveLength(1);
     m = update(m, { t: 'deselect' })[0];
     expect(m.selected).toHaveLength(0);
+  });
+
+  it('marquee selects selectable annotations intersecting the dragged box', () => {
+    let m = run(initialModel, [
+      createPtr('square', 'down', 10, 10),
+      createPtr('square', 'move', 60, 60),
+      createPtr('square', 'up', 60, 60),
+      createPtr('circle', 'down', 120, 120),
+      createPtr('circle', 'move', 160, 160),
+      createPtr('circle', 'up', 160, 160),
+      createPtr('square', 'down', 300, 300),
+      createPtr('square', 'move', 340, 340),
+      createPtr('square', 'up', 340, 340),
+    ]);
+
+    m = run(m, [
+      marqueePtr('down', 0, 0),
+      marqueePtr('move', 180, 180),
+      marqueePtr('up', 180, 180),
+    ]);
+
+    expect(m.selected).toEqual([m.order[0], m.order[1]]);
+    expect(m.draft).toBeNull();
+  });
+
+  it('shift-marquee toggles hits against the current selection', () => {
+    let m = run(initialModel, [
+      createPtr('square', 'down', 10, 10),
+      createPtr('square', 'move', 60, 60),
+      createPtr('square', 'up', 60, 60),
+      createPtr('circle', 'down', 120, 120),
+      createPtr('circle', 'move', 160, 160),
+      createPtr('circle', 'up', 160, 160),
+    ]);
+    const [a, b] = m.order;
+    expect(m.selected).toEqual([b]); // last created annotation stays selected
+
+    m = run(m, [
+      marqueePtr('down', 0, 0, true),
+      marqueePtr('move', 80, 80, true),
+      marqueePtr('up', 80, 80, true),
+    ]);
+
+    expect(m.selected).toEqual([b, a]);
+  });
+
+  it('marquee ignores locked or otherwise unselectable annotations', () => {
+    const locked: Annot = {
+      id: 'locked',
+      ref: null,
+      pon: PON,
+      subtype: 'square',
+      geom: { t: 'rect', rect: { x: 10, y: 10, width: 50, height: 50 }, ellipse: false },
+      style: initialModel.style,
+      locked: true,
+      source: 'vector',
+    };
+    let m = update(initialModel, { t: 'loaded', annots: [locked] })[0];
+
+    m = run(m, [marqueePtr('down', 0, 0), marqueePtr('move', 80, 80), marqueePtr('up', 80, 80)]);
+
+    expect(m.selected).toEqual([]);
+  });
+
+  it('active marquee draft emits a marquee chrome node', () => {
+    const m = run(initialModel, [marqueePtr('down', 10, 20), marqueePtr('move', 40, 60)]);
+    expect(chrome(m, PON)).toContainEqual({
+      kind: 'marquee',
+      rect: { x: 10, y: 20, width: 30, height: 40 },
+    });
   });
 
   it('resize from the SE handle keeps the NW corner', () => {

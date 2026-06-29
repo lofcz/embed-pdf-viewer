@@ -178,6 +178,7 @@ export interface PointerInput {
 
 export type Msg =
   | { t: 'editPointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
+  | { t: 'marqueePointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
   | { t: 'createPointer'; phase: 'down' | 'move' | 'up'; subtype: Subtype; in: PointerInput }
   // text markup: build one annotation from the selected text's per-line rects (the
   // `text-selection` create gesture). One message per page the selection covers.
