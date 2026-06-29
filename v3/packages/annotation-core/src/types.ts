@@ -22,6 +22,7 @@ export type Quad = [Vec, Vec, Vec, Vec];
 
 export type Id = string;
 export type Cursor = string;
+export type PolySubtype = 'polygon' | 'polyline';
 
 export type Subtype =
   | 'highlight'
@@ -138,6 +139,14 @@ export type Draft =
       ellipse: boolean;
     }
   | { g: 'create-line'; subtype: Subtype; pon: PageObjectNumber; from: Vec; to: Vec }
+  | {
+      g: 'create-poly';
+      subtype: Subtype;
+      pon: PageObjectNumber;
+      points: Vec[];
+      cur: Vec;
+      closed: boolean;
+    }
   | { g: 'create-ink'; subtype: Subtype; pon: PageObjectNumber; strokes: Vec[][] }
   | { g: 'move'; ids: Id[]; start: Vec; delta: Vec }
   | { g: 'handle'; id: Id; handle: string; base: Geom; cur: Geom }
@@ -148,6 +157,17 @@ export type Draft =
 export interface MarkupPreview {
   subtype: Subtype;
   byPage: Record<number, Quad[]>;
+}
+
+/** Anchor + affordance state for UI that controls an in-progress creation draft. */
+export interface CreationDraftAnchor {
+  kind: 'poly';
+  subtype: PolySubtype;
+  pon: PageObjectNumber;
+  bounds: Rect;
+  pointCount: number;
+  minPoints: number;
+  canFinish: boolean;
 }
 
 export interface Model {
@@ -174,12 +194,14 @@ export interface PointerInput {
   pon: PageObjectNumber;
   point: Vec;
   shift: boolean;
+  finish?: boolean;
 }
 
 export type Msg =
   | { t: 'editPointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
   | { t: 'marqueePointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
   | { t: 'createPointer'; phase: 'down' | 'move' | 'up'; subtype: Subtype; in: PointerInput }
+  | { t: 'finishCreationDraft' }
   // text markup: build one annotation from the selected text's per-line rects (the
   // `text-selection` create gesture). One message per page the selection covers.
   | { t: 'createMarkup'; subtype: Subtype; pon: PageObjectNumber; rects: Rect[] }

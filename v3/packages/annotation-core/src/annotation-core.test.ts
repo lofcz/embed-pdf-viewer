@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { initialModel, update } from './update';
-import { chrome, pageItems } from './view';
+import { chrome, creationDraftAnchor, pageItems } from './view';
 import { cursorAt, hitTest } from './hit';
 import { capsFor } from './kinds';
 import {
@@ -17,7 +17,7 @@ import {
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
-import type { Annot, Geom, Model, Msg, RenderItem, Style } from './types';
+import type { Annot, Geom, Model, Msg, RenderItem, Style, Subtype } from './types';
 
 const PON = 1 as Annot['pon'];
 const editPtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift = false): Msg => ({
@@ -31,11 +31,17 @@ const marqueePtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift =
   in: { pon: PON, point: { x, y }, shift },
 });
 const createPtr = (
-  subtype: 'square' | 'circle' | 'line',
+  subtype: Extract<Subtype, 'square' | 'circle' | 'line' | 'polygon' | 'polyline'>,
   phase: 'down' | 'move' | 'up',
   x: number,
   y: number,
-): Msg => ({ t: 'createPointer', phase, subtype, in: { pon: PON, point: { x, y }, shift: false } });
+  finish = false,
+): Msg => ({
+  t: 'createPointer',
+  phase,
+  subtype,
+  in: { pon: PON, point: { x, y }, shift: false, finish },
+});
 const run = (m: Model, msgs: Msg[]): Model => msgs.reduce((acc, msg) => update(acc, msg)[0], m);
 const rectGeom = (g: Geom) => (g.t === 'rect' ? g.rect : null);
 
@@ -74,6 +80,108 @@ describe('annotation-core', () => {
       createPtr('square', 'up', 40, 40),
     );
     expect(fx[0]).toMatchObject({ fx: 'create' });
+  });
+
+  it('creates polygon and polyline from clicked vertices, finishing on an explicit final click', () => {
+    const polygon = run(initialModel, [
+      createPtr('polygon', 'down', 10, 10),
+      createPtr('polygon', 'up', 10, 10),
+      createPtr('polygon', 'down', 80, 10),
+      createPtr('polygon', 'up', 80, 10),
+      createPtr('polygon', 'down', 40, 70),
+      createPtr('polygon', 'up', 40, 70),
+      createPtr('polygon', 'down', 40, 70, true),
+    ]);
+    const pg = polygon.byId[polygon.order[0]];
+    expect(pg.geom).toEqual({
+      t: 'poly',
+      points: [
+        { x: 10, y: 10 },
+        { x: 80, y: 10 },
+        { x: 40, y: 70 },
+      ],
+      closed: true,
+      ends: undefined,
+    });
+    expect(pg.source).toBe('vector');
+    expect(polygon.selected).toEqual([pg.id]);
+
+    const polyline = run(initialModel, [
+      createPtr('polyline', 'down', 20, 20),
+      createPtr('polyline', 'up', 20, 20),
+      createPtr('polyline', 'down', 90, 45),
+      createPtr('polyline', 'up', 90, 45),
+      createPtr('polyline', 'down', 90, 45, true),
+    ]);
+    const pl = polyline.byId[polyline.order[0]];
+    expect(pl.geom).toEqual({
+      t: 'poly',
+      points: [
+        { x: 20, y: 20 },
+        { x: 90, y: 45 },
+      ],
+      closed: false,
+      ends: { start: 'none', end: 'none' },
+    });
+  });
+
+  it('previews an in-progress polygon with the hover point but commits only clicked vertices', () => {
+    const drawing = run(initialModel, [
+      createPtr('polygon', 'down', 10, 10),
+      createPtr('polygon', 'down', 80, 10),
+      createPtr('polygon', 'move', 40, 70),
+    ]);
+    const ghost = pageItems(drawing, PON).find((i) => i.source === 'ghost');
+    expect(ghost?.geom).toEqual({
+      t: 'poly',
+      points: [
+        { x: 10, y: 10 },
+        { x: 80, y: 10 },
+        { x: 40, y: 70 },
+      ],
+      closed: true,
+      ends: undefined,
+    });
+
+    const committed = run(drawing, [
+      createPtr('polygon', 'down', 80, 80),
+      createPtr('polygon', 'down', 80, 80, true),
+    ]);
+    const geom = committed.byId[committed.order[0]].geom;
+    expect(geom.t === 'poly' && geom.points).toEqual([
+      { x: 10, y: 10 },
+      { x: 80, y: 10 },
+      { x: 80, y: 80 },
+    ]);
+  });
+
+  it('exposes a committed-bounds rect anchor for finishing or cancelling an active poly creation draft', () => {
+    let m = run(initialModel, [
+      createPtr('polygon', 'down', 10, 10),
+      createPtr('polygon', 'down', 80, 10),
+    ]);
+    expect(creationDraftAnchor(m)).toMatchObject({
+      kind: 'poly',
+      subtype: 'polygon',
+      pon: PON,
+      bounds: { x: 10, y: 10, width: 70, height: 0 },
+      pointCount: 2,
+      minPoints: 3,
+      canFinish: false,
+    });
+
+    m = run(m, [createPtr('polygon', 'down', 40, 70)]);
+    expect(creationDraftAnchor(m)).toMatchObject({
+      bounds: { x: 10, y: 10, width: 70, height: 60 },
+      pointCount: 3,
+      canFinish: true,
+    });
+
+    m = update(m, { t: 'finishCreationDraft' })[0];
+    expect(m.draft).toBeNull();
+    expect(m.order).toHaveLength(1);
+    expect(m.byId[m.order[0]].geom).toMatchObject({ t: 'poly', closed: true });
+    expect(creationDraftAnchor(m)).toBeNull();
   });
 
   it('an UNFILLED rect is hit only on its stroke; a filled one anywhere inside', () => {

@@ -3,6 +3,7 @@ import type { Subtype, Vec } from '@embedpdf-x/annotation-core';
 import type { AnnotationHostCapability } from './types';
 
 const MARQUEE_DRAG_THRESHOLD_PX = 4;
+const isPolyTool = (subtype: Subtype): boolean => subtype === 'polygon' || subtype === 'polyline';
 
 /**
  * Ambient editing: live under the `annotation-edit` tag, which BOTH the pointer
@@ -125,20 +126,42 @@ export function createDrawHandler(
   interaction: InteractionCapability,
 ): InteractionHandler {
   const subtype = () => interaction.activeTool().id as Subtype;
+  let drawingPoly = false;
+  interaction.onToolChange(() => {
+    drawingPoly = false;
+  });
   return {
     id: 'annotation-draw',
     priority: 90,
     enabledFor: (t) => t.enables.has('annotation-draw'),
     onDown: (s) => {
       if (!s.page) return false;
-      anno.createPointer(subtype(), 'down', s.page.pon, s.page.point);
+      const st = subtype();
+      if (isPolyTool(st)) {
+        const finish = (s.clickCount ?? 1) >= 2;
+        anno.createPointer(st, 'down', s.page.pon, s.page.point, finish);
+        drawingPoly = !finish;
+        return true;
+      }
+      drawingPoly = false;
+      anno.createPointer(st, 'down', s.page.pon, s.page.point);
       return true;
     },
     onMove: (s) => {
-      if (s.page) anno.createPointer(subtype(), 'move', s.page.pon, s.page.point);
+      const st = subtype();
+      if (s.page && (!isPolyTool(st) || drawingPoly)) {
+        anno.createPointer(st, 'move', s.page.pon, s.page.point);
+      }
     },
     onUp: (s) => {
-      if (s.page) anno.createPointer(subtype(), 'up', s.page.pon, s.page.point);
+      const st = subtype();
+      if (s.page && !isPolyTool(st)) anno.createPointer(st, 'up', s.page.pon, s.page.point);
+    },
+    onHover: (s) => {
+      const st = subtype();
+      if (drawingPoly && isPolyTool(st) && s.page) {
+        anno.createPointer(st, 'move', s.page.pon, s.page.point);
+      }
     },
   };
 }

@@ -17,6 +17,7 @@ import { capsFor } from './kinds';
 import { blendFor } from './scene';
 import { defaultsFor } from './update';
 import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types';
+import type { CreationDraftAnchor } from './types';
 
 const DRAFT_ID = '__draft__';
 const PREVIEW_ID = '__markup_preview__';
@@ -25,6 +26,11 @@ const rectCorners = (r: Rect): Vec[] => [
   { x: r.x, y: r.y },
   { x: r.x + r.width, y: r.y + r.height },
 ];
+
+const polyPreviewPoints = (points: Vec[], cur: Vec): Vec[] => {
+  const last = points[points.length - 1];
+  return last && (cur.x !== last.x || cur.y !== last.y) ? [...points, cur] : points;
+};
 
 function effGeom(m: Model, id: Id): Geom {
   const a = m.byId[id];
@@ -90,7 +96,10 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
   }
   const d = m.draft;
   if (
-    (d?.g === 'create-rect' || d?.g === 'create-line' || d?.g === 'create-ink') &&
+    (d?.g === 'create-rect' ||
+      d?.g === 'create-line' ||
+      d?.g === 'create-poly' ||
+      d?.g === 'create-ink') &&
     d.pon === pon
   ) {
     // Preview with the tool's RESOLVED defaults (base + per-subtype override), so the
@@ -106,7 +115,14 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
           : null
         : d.g === 'create-line'
           ? { t: 'line', a: d.from, b: d.to, ends: def.endings }
-          : { t: 'ink', strokes: d.strokes };
+          : d.g === 'create-poly'
+            ? {
+                t: 'poly',
+                points: polyPreviewPoints(d.points, d.cur),
+                closed: d.closed,
+                ends: d.closed ? undefined : def.endings,
+              }
+            : { t: 'ink', strokes: d.strokes };
     if (geom)
       items.push({
         id: DRAFT_ID,
@@ -234,4 +250,23 @@ export function selectionAnchor(m: Model): { pon: number; bounds: Rect } | null 
   const pon = m.byId[id].pon;
   const bounds = selectionBoundsOnPage(m, pon);
   return bounds ? { pon, bounds } : null;
+}
+
+/** Anchor for controls that finish/cancel an active multi-click creation draft.
+ *  It is rect-based like selectionAnchor, using the committed vertices only so
+ *  the menu remains stable while the hover preview follows the pointer. */
+export function creationDraftAnchor(m: Model): CreationDraftAnchor | null {
+  const d = m.draft;
+  if (d?.g !== 'create-poly') return null;
+  if (!d.points.length) return null;
+  const minPoints = d.closed ? 3 : 2;
+  return {
+    kind: 'poly',
+    subtype: d.closed ? 'polygon' : 'polyline',
+    pon: d.pon,
+    bounds: unionRect(d.points),
+    pointCount: d.points.length,
+    minPoints,
+    canFinish: d.points.length >= minPoints,
+  };
 }

@@ -14,6 +14,7 @@ export {
   textBoxes,
   selectionBoundsOnPage,
   selectionAnchor,
+  creationDraftAnchor,
 } from './view';
 export type { TextBox } from './view';
 export { hitTest, cursorAt, isSelectable, canMove, type Target } from './hit';
@@ -45,6 +46,7 @@ export type {
   Border,
   ChromeNode,
   Cursor,
+  CreationDraftAnchor,
   Draft,
   Effect,
   Geom,

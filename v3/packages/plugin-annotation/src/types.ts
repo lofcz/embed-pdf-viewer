@@ -9,6 +9,7 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import type {
   ChromeNode,
+  CreationDraftAnchor,
   Id,
   LineEndings,
   Model,
@@ -139,6 +140,8 @@ export interface AnnotationHostCapability extends AnnotationCapability {
    *  selection's union box on that page (content space), or null when nothing
    *  selectable is selected. One anchor regardless of cross-page selection. */
   selectionAnchor(): { pon: PageObjectNumber; bounds: Rect } | null;
+  /** The anchor + action state for a live multi-click creation draft, or null. */
+  creationDraftAnchor(): CreationDraftAnchor | null;
   /** The engine's rendered /AP appearance images for a page — the `baked` visual. */
   appearances(
     pon: PageObjectNumber,
@@ -189,7 +192,10 @@ export interface AnnotationHostCapability extends AnnotationCapability {
     phase: 'down' | 'move' | 'up',
     pon: PageObjectNumber,
     point: Vec,
+    finish?: boolean,
   ): void;
+  finishCreationDraft(): void;
+  cancelCreationDraft(): void;
   /** Create one text-markup annotation on a page from the selected text's per-line
    *  rects (content space) — the `text-selection` create gesture. */
   createMarkup(subtype: Subtype, pon: PageObjectNumber, rects: Rect[]): void;

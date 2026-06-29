@@ -28,6 +28,7 @@ import {
   RenderLayer,
   SelectionLayer,
   AnnotationLayer,
+  AnnotationDraftMenu,
   AnnotationMenu,
   useAnnotation,
   useAnnotationSelection,
@@ -58,6 +59,18 @@ const MENU_BTN: React.CSSProperties = {
   cursor: 'pointer',
   fontSize: 12,
   padding: '3px 8px',
+};
+const DRAFT_MENU_BTN: React.CSSProperties = {
+  width: 40,
+  height: 40,
+  border: '1px solid rgba(255,255,255,.18)',
+  borderRadius: 8,
+  background: 'transparent',
+  color: '#f2f4f8',
+  cursor: 'pointer',
+  fontSize: 20,
+  lineHeight: 1,
+  padding: 0,
 };
 import type { Boot } from './engine';
 
@@ -262,6 +275,8 @@ const TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'square', label: '▭ square', title: 'draw a square' },
   { id: 'circle', label: '◯ circle', title: 'draw a circle' },
   { id: 'line', label: '╱ line', title: 'draw a line' },
+  { id: 'polygon', label: '⬠ polygon', title: 'click vertices, double-click to finish' },
+  { id: 'polyline', label: '⌁ polyline', title: 'click vertices, double-click to finish' },
   { id: 'ink', label: '✎ ink', title: 'draw freehand' },
   { id: 'free-text', label: 'T text', title: 'add a text box (drag or click, then type)' },
 ];
@@ -848,48 +863,94 @@ function DocumentView() {
           interaction
           style={{ flex: 1, background: '#0d1117' }}
           overlay={
-            <AnnotationMenu placement="bottom">
-              {({ selected, deleteSelection, deselect, updateSelection }) => (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 8px',
-                    borderRadius: 10,
-                    background: '#1b1f27',
-                    border: '1px solid rgba(255,255,255,.12)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,.4)',
-                    color: '#e6e6e6',
-                    fontSize: 12,
-                  }}
-                >
-                  {['#e5484d', '#f5a623', '#3858e9', '#30a46c'].map((c) => (
+            <>
+              <AnnotationDraftMenu placement="bottom" gap={12}>
+                {({ canFinish, finish, cancel, subtype, pointCount, minPoints }) => (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: 6,
+                      borderRadius: 10,
+                      background: '#1b1f27',
+                      border: '1px solid rgba(255,255,255,.12)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+                    }}
+                  >
                     <button
-                      key={c}
-                      title={c}
-                      onClick={() => updateSelection({ style: { color: c } })}
+                      aria-label={`Finish ${subtype}`}
+                      title={
+                        canFinish
+                          ? `Finish ${subtype}`
+                          : `${subtype} needs ${minPoints - pointCount} more point${
+                              minPoints - pointCount === 1 ? '' : 's'
+                            }`
+                      }
+                      disabled={!canFinish}
+                      onClick={finish}
                       style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: '50%',
-                        background: c,
-                        border: '1px solid rgba(255,255,255,.5)',
-                        cursor: 'pointer',
-                        padding: 0,
+                        ...DRAFT_MENU_BTN,
+                        opacity: canFinish ? 1 : 0.38,
+                        cursor: canFinish ? 'pointer' : 'not-allowed',
                       }}
-                    />
-                  ))}
-                  <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,.18)' }} />
-                  <button onClick={deleteSelection} style={MENU_BTN}>
-                    Delete{selected.length > 1 ? ` (${selected.length})` : ''}
-                  </button>
-                  <button onClick={deselect} style={MENU_BTN}>
-                    Done
-                  </button>
-                </div>
-              )}
-            </AnnotationMenu>
+                    >
+                      ✓
+                    </button>
+                    <button
+                      aria-label={`Cancel ${subtype}`}
+                      title={`Cancel ${subtype}`}
+                      onClick={cancel}
+                      style={DRAFT_MENU_BTN}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+              </AnnotationDraftMenu>
+              <AnnotationMenu placement="bottom">
+                {({ selected, deleteSelection, deselect, updateSelection }) => (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 8px',
+                      borderRadius: 10,
+                      background: '#1b1f27',
+                      border: '1px solid rgba(255,255,255,.12)',
+                      boxShadow: '0 8px 24px rgba(0,0,0,.4)',
+                      color: '#e6e6e6',
+                      fontSize: 12,
+                    }}
+                  >
+                    {['#e5484d', '#f5a623', '#3858e9', '#30a46c'].map((c) => (
+                      <button
+                        key={c}
+                        title={c}
+                        onClick={() => updateSelection({ style: { color: c } })}
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: '50%',
+                          background: c,
+                          border: '1px solid rgba(255,255,255,.5)',
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      />
+                    ))}
+                    <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,.18)' }} />
+                    <button onClick={deleteSelection} style={MENU_BTN}>
+                      Delete{selected.length > 1 ? ` (${selected.length})` : ''}
+                    </button>
+                    <button onClick={deselect} style={MENU_BTN}>
+                      Done
+                    </button>
+                  </div>
+                )}
+              </AnnotationMenu>
+            </>
           }
         >
           {() => (

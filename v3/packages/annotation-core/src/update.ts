@@ -36,6 +36,8 @@ import type {
 
 const MIN_DRAG = 3;
 const HANDLE_TOL = 6;
+const isPolySubtype = (subtype: Subtype): subtype is 'polygon' | 'polyline' =>
+  subtype === 'polygon' || subtype === 'polyline';
 
 export const initialStyle: Style = {
   color: '#e5484d',
@@ -85,6 +87,8 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return marqueePointer(m, msg.phase, msg.in);
     case 'createPointer':
       return createPointer(m, msg.phase, msg.subtype, msg.in);
+    case 'finishCreationDraft':
+      return finishPolyCreate(m);
     case 'createMarkup':
       return createMarkup(m, msg.subtype, msg.pon, msg.rects);
     case 'setMarkupPreview':
@@ -246,6 +250,37 @@ function createPointer(
   input: PointerInput,
 ): [Model, Effect[]] {
   if (phase === 'down') {
+    if (isPolySubtype(subtype)) {
+      if (input.finish) return finishPolyCreate(m);
+      if (
+        m.draft?.g === 'create-poly' &&
+        m.draft.subtype === subtype &&
+        m.draft.pon === input.pon
+      ) {
+        return [
+          {
+            ...m,
+            draft: { ...m.draft, points: [...m.draft.points, input.point], cur: input.point },
+          },
+          [],
+        ];
+      }
+      return [
+        {
+          ...m,
+          selected: [],
+          draft: {
+            g: 'create-poly',
+            subtype,
+            pon: input.pon,
+            points: [input.point],
+            cur: input.point,
+            closed: subtype === 'polygon',
+          },
+        },
+        [],
+      ];
+    }
     const draft: Draft | null =
       subtype === 'line'
         ? { g: 'create-line', subtype, pon: input.pon, from: input.point, to: input.point }
@@ -264,6 +299,9 @@ function createPointer(
     return draft ? [{ ...m, selected: [], draft }, []] : [m, []];
   }
   if (phase === 'move') {
+    if (m.draft?.g === 'create-poly') {
+      return [{ ...m, draft: { ...m.draft, cur: input.point } }, []];
+    }
     if (m.draft?.g === 'create-rect' || m.draft?.g === 'create-line') {
       return [{ ...m, draft: { ...m.draft, to: input.point } }, []];
     }
@@ -327,6 +365,43 @@ function createPointer(
       draft: null,
       // A freshly drawn free-text box opens straight into edit (type immediately).
       editing: geom.t === 'text' ? id : m.editing,
+    },
+    [{ fx: 'create', id }],
+  ];
+}
+
+function finishPolyCreate(m: Model): [Model, Effect[]] {
+  const d = m.draft;
+  if (d?.g !== 'create-poly') return [m, []];
+  const minPoints = d.closed ? 3 : 2;
+  if (d.points.length < minPoints) return [{ ...m, draft: null }, []];
+
+  const def = defaultsFor(m, d.subtype);
+  const geom: Geom = {
+    t: 'poly',
+    points: d.points,
+    closed: d.closed,
+    ends: d.closed ? undefined : def.endings,
+  };
+  const id = `tmp:${m.seq + 1}`;
+  const annot: Annot = {
+    id,
+    ref: null,
+    pon: d.pon,
+    subtype: d.subtype,
+    geom,
+    style: def.style,
+    locked: false,
+    source: 'vector',
+  };
+  return [
+    {
+      ...m,
+      seq: m.seq + 1,
+      byId: { ...m.byId, [id]: annot },
+      order: [...m.order, id],
+      selected: [id],
+      draft: null,
     },
     [{ fx: 'create', id }],
   ];

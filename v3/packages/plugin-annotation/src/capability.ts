@@ -7,6 +7,7 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import {
   chrome as coreChrome,
+  creationDraftAnchor as coreCreationDraftAnchor,
   cursorAt,
   defaultsFor,
   hitTest,
@@ -15,6 +16,7 @@ import {
   selectionAnchor as coreSelectionAnchor,
   update,
   type ChromeNode,
+  type CreationDraftAnchor,
   type Effect,
   type LineEndings,
   type Model,
@@ -89,6 +91,14 @@ export function createAnnotationCapability(
     if (anchorCache && anchorCache.model === m) return anchorCache.v;
     const v = coreSelectionAnchor(m);
     anchorCache = { model: m, v };
+    return v;
+  };
+  let draftAnchorCache: { model: Model; v: CreationDraftAnchor | null } | null = null;
+  const memoDraftAnchor = (): CreationDraftAnchor | null => {
+    const m = model();
+    if (draftAnchorCache && draftAnchorCache.model === m) return draftAnchorCache.v;
+    const v = coreCreationDraftAnchor(m);
+    draftAnchorCache = { model: m, v };
     return v;
   };
   const textsCache = new Map<number, { model: Model; v: TextItem[] }>();
@@ -268,6 +278,7 @@ export function createAnnotationCapability(
     pageItems: (pon) => memoItems(pon),
     chrome: (pon) => memoChrome(pon),
     selectionAnchor: () => memoAnchor(),
+    creationDraftAnchor: () => memoDraftAnchor(),
     selection: () => model().selected,
     hitKind: (pon, point) => hitTest(model(), pon, point, HANDLE_TOL, model().hitMargin).t,
     cursorAt: (pon, point) => cursorAt(model(), pon, point, HANDLE_TOL, model().hitMargin),
@@ -296,8 +307,10 @@ export function createAnnotationCapability(
       apply({ t: 'editPointer', phase, in: { pon, point, shift } }),
     marqueePointer: (phase, pon, point, shift) =>
       apply({ t: 'marqueePointer', phase, in: { pon, point, shift } }),
-    createPointer: (subtype, phase, pon, point) =>
-      apply({ t: 'createPointer', phase, subtype, in: { pon, point, shift: false } }),
+    createPointer: (subtype, phase, pon, point, finish = false) =>
+      apply({ t: 'createPointer', phase, subtype, in: { pon, point, shift: false, finish } }),
+    finishCreationDraft: () => apply({ t: 'finishCreationDraft' }),
+    cancelCreationDraft: () => apply({ t: 'cancel' }),
     createMarkup: (subtype, pon, rects) => apply({ t: 'createMarkup', subtype, pon, rects }),
     previewMarkup: (subtype, rectsByPage) => apply({ t: 'setMarkupPreview', subtype, rectsByPage }),
     clearMarkupPreview: () => apply({ t: 'clearMarkupPreview' }),

@@ -303,6 +303,16 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       rect: f.rect,
       ...sf,
     };
+  if (a.subtype === 'polygon' && f && 'vertices' in f)
+    return { subtype: 'polygon', vertices: f.vertices, rect: f.rect, ...sf };
+  if (a.subtype === 'polyline' && f && 'vertices' in f)
+    return {
+      subtype: 'polyline',
+      vertices: f.vertices,
+      lineEndings: f.lineEndings,
+      rect: f.rect,
+      ...sf,
+    };
   if (a.subtype === 'ink' && f && 'inkList' in f)
     return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
   if (a.subtype === 'free-text' && f && 'rect' in f)

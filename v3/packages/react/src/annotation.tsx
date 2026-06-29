@@ -19,6 +19,7 @@ import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annot
 import {
   scene,
   type Border,
+  type CreationDraftAnchor,
   type LineEndings,
   type Paint,
   type Rect,
@@ -475,6 +476,39 @@ export interface AnnotationMenuProps {
   placement?: AnnotationMenuPlacement;
 }
 
+export function sameCreationDraftAnchor(
+  a: CreationDraftAnchor | null,
+  b: CreationDraftAnchor | null,
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.kind === b.kind &&
+    a.subtype === b.subtype &&
+    a.pon === b.pon &&
+    a.pointCount === b.pointCount &&
+    a.minPoints === b.minPoints &&
+    a.canFinish === b.canFinish &&
+    a.bounds.x === b.bounds.x &&
+    a.bounds.y === b.bounds.y &&
+    a.bounds.width === b.bounds.width &&
+    a.bounds.height === b.bounds.height
+  );
+}
+
+export interface AnnotationDraftMenuRenderArgs extends CreationDraftAnchor {
+  finish: () => void;
+  cancel: () => void;
+}
+
+export interface AnnotationDraftMenuProps {
+  children: (args: AnnotationDraftMenuRenderArgs) => React.ReactNode;
+  /** Gap in screen px between the draft anchor and the menu (default 8). */
+  gap?: number;
+  /** Where to place the menu relative to the draft anchor. Default 'top'. */
+  placement?: AnnotationMenuPlacement;
+}
+
 /**
  * The Stage-FREE selection menu, for `<PageView>` (no camera). It transforms a
  * selected content rect to client px via `page.toClientRect`, then renders an
@@ -527,6 +561,69 @@ export function PageAnnotationMenu({ children, gap = 8, placement = 'top' }: Ann
         deleteSelection: anno.deleteSelection,
         deselect: anno.deselect,
         updateSelection: anno.updateSelection,
+      })}
+    </div>,
+    document.body,
+  );
+}
+
+export function PageAnnotationDraftMenu({
+  children,
+  gap = 8,
+  placement = 'top',
+}: AnnotationDraftMenuProps) {
+  const page = usePage();
+  const anno = useCapability(AnnotationHostToken);
+  const anchor = useSelector(
+    AnnotationHostToken,
+    (c) => c.creationDraftAnchor(),
+    sameCreationDraftAnchor,
+  );
+  const [pos, setPos] = useState<AnnotationMenuPosition | null>(null);
+  const ref = React.useRef<HTMLDivElement>(null);
+  const here = !!anchor && anchor.pon === page.pon;
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const stop = (e: Event) => e.stopPropagation();
+    el.addEventListener('pointerdown', stop);
+    return () => el.removeEventListener('pointerdown', stop);
+  });
+
+  useLayoutEffect(() => {
+    if (!here || !anchor) {
+      setPos(null);
+      return;
+    }
+    const measure = () => {
+      setPos(positionMenuAroundRect(page.toClientRect(anchor.bounds), placement, gap));
+    };
+    measure();
+    window.addEventListener('scroll', measure, true);
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('resize', measure);
+    };
+  }, [here, anchor, page, gap, placement]);
+
+  if (!anchor || !pos) return null;
+  return createPortal(
+    <div
+      ref={ref}
+      style={{
+        position: 'fixed',
+        left: pos.left,
+        top: pos.top,
+        transform: pos.transform,
+        pointerEvents: 'auto',
+      }}
+    >
+      {children({
+        ...anchor,
+        finish: anno.finishCreationDraft,
+        cancel: anno.cancelCreationDraft,
       })}
     </div>,
     document.body,

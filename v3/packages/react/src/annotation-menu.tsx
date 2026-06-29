@@ -15,7 +15,13 @@ import { useEffect, useRef } from 'react';
 import { StageToken } from '@embedpdf-x/plugin-stage';
 import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annotation/internal';
 import { useCapability, useSelector } from './runtime';
-import { sameAnchor, useAnnotationSelected, type AnnotationMenuProps } from './annotation';
+import {
+  sameAnchor,
+  sameCreationDraftAnchor,
+  useAnnotationSelected,
+  type AnnotationDraftMenuProps,
+  type AnnotationMenuProps,
+} from './annotation';
 import { positionMenuAroundRect } from './annotation-menu-position';
 
 export function AnnotationMenu({ children, gap = 8, placement = 'top' }: AnnotationMenuProps) {
@@ -62,6 +68,53 @@ export function AnnotationMenu({ children, gap = 8, placement = 'top' }: Annotat
         deleteSelection: anno.deleteSelection,
         deselect: anno.deselect,
         updateSelection: anno.updateSelection,
+      })}
+    </div>
+  );
+}
+
+export function AnnotationDraftMenu({
+  children,
+  gap = 8,
+  placement = 'top',
+}: AnnotationDraftMenuProps) {
+  const stage = useCapability(StageToken);
+  const anno = useCapability(AnnotationHostToken);
+  useSelector(StageToken, (c) => c.visiblePages());
+  const anchor = useSelector(
+    AnnotationHostToken,
+    (c) => c.creationDraftAnchor(),
+    sameCreationDraftAnchor,
+  );
+
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const stop = (e: Event) => e.stopPropagation();
+    el.addEventListener('pointerdown', stop);
+    return () => el.removeEventListener('pointerdown', stop);
+  });
+
+  if (!anchor) return null;
+  const box = stage.pageRectToScreen(anchor.pon, anchor.bounds);
+  if (!box) return null;
+  const pos = positionMenuAroundRect(box, placement, gap);
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'absolute',
+        left: pos.left,
+        top: pos.top,
+        transform: pos.transform,
+        pointerEvents: 'auto',
+      }}
+    >
+      {children({
+        ...anchor,
+        finish: anno.finishCreationDraft,
+        cancel: anno.cancelCreationDraft,
       })}
     </div>
   );

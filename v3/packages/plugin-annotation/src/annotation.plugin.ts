@@ -29,10 +29,11 @@ export const annotationPlugin = () =>
     init: (ctx) => {
       const interaction = ctx.get(InteractionToken);
       const annotation = ctx.get(AnnotationToken);
-      // Pointer-drawn kinds: square/circle/line (drag), ink (freehand), and
-      // free-text (drag a box, or click for a default one → opens straight into
-      // edit). All share the draw handler → createPointer(activeTool.id, …).
-      for (const id of ['square', 'circle', 'line', 'ink', 'free-text']) {
+      // Pointer-drawn kinds: square/circle/line (drag), polygon/polyline
+      // (click vertices, double-click to finish), ink (freehand), and free-text
+      // (drag a box, or click for a default one → opens straight into edit).
+      // All share the draw handler → createPointer(activeTool.id, …).
+      for (const id of ['square', 'circle', 'line', 'polygon', 'polyline', 'ink', 'free-text']) {
         interaction.registerTool({
           id,
           cursor: 'crosshair',
@@ -43,6 +44,7 @@ export const annotationPlugin = () =>
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createMarqueeHandler(annotation));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
+      interaction.onToolChange(() => annotation.cancel());
 
       // Markup is opt-in: only when a selection plugin is installed.
       const selection = ctx.tryGet(SelectionToken);
