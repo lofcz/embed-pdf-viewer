@@ -287,7 +287,9 @@ function FreeText({ item, page }: { item: TextItem; page: PageContextValue }) {
         left: box.left,
         top: box.top,
         width: box.width,
-        minHeight: box.height,
+        // Fixed to the annotation rect — the box never grows with content; it
+        // scrolls while editing and clips otherwise (matching the baked /AP).
+        height: box.height,
         fontFamily: item.css.fontFamily,
         fontSize: item.css.fontSize * scale,
         lineHeight: `${item.css.lineHeight * scale}px`,
@@ -298,6 +300,8 @@ function FreeText({ item, page }: { item: TextItem; page: PageContextValue }) {
         background: item.css.background ?? 'transparent',
         whiteSpace: 'pre-wrap',
         overflowWrap: 'break-word',
+        overflowY: item.editing ? 'auto' : 'hidden',
+        overflowX: 'hidden',
         outline: item.editing ? '1px solid #3858e9' : 'none',
         cursor: item.editing ? 'text' : 'default',
         // not editing → clicks fall through to the shape layer (select / move / resize)
