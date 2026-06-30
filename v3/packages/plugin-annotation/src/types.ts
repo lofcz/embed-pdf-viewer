@@ -46,6 +46,9 @@ export interface TextItem {
   box: Rect;
   contents: string;
   editing: boolean;
+  /** Applied rotation (deg, CW). `box` is the UNROTATED text box; the framework
+   *  rotates the editable element about its centre by this. 0/undefined = none. */
+  rot?: number;
   css: {
     fontFamily: string;
     /** Content units (the framework multiplies by the page scale). */
@@ -133,6 +136,12 @@ export interface AnnotationCapability {
   setDefaults(subtype: Subtype, patch: ToolDefaults): void;
   /** The resolved defaults (style + endings) a tool will use for new annotations. */
   currentDefaults(subtype: Subtype): { style: Style; endings: LineEndings };
+  // ── rotation (selection-scoped; rotatable kinds only) ──
+  /** Rotate the current selection a quarter-turn clockwise about its centre
+   *  (a single shape's own centre / the union-box centre for a group). */
+  rotateSelection90(): void;
+  /** Reset the current selection to its as-authored orientation (rotation → 0). */
+  resetSelectionRotation(): void;
   // ── lifecycle ──
   deleteSelection(): void;
   deselect(): void;
@@ -152,7 +161,7 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   /** The anchor for a selection-aware floating menu: the primary page + the
    *  selection's union box on that page (content space), or null when nothing
    *  selectable is selected. One anchor regardless of cross-page selection. */
-  selectionAnchor(): { pon: PageObjectNumber; bounds: Rect } | null;
+  selectionAnchor(): { pon: PageObjectNumber; bounds: Rect; knob?: Vec } | null;
   /** The anchor + action state for a live multi-click creation draft, or null. */
   creationDraftAnchor(): CreationDraftAnchor | null;
   /** The engine's rendered /AP appearance images for a page — the `baked` visual. */
@@ -183,7 +192,10 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   endTextEdit(): void;
   // ── hit-testing & cursor (consumed by the interaction edit handler) ──
   /** What's under a content point — for the edit handler's capture decision. */
-  hitKind(pon: PageObjectNumber, point: Vec): 'handle' | 'annot' | 'empty';
+  hitKind(
+    pon: PageObjectNumber,
+    point: Vec,
+  ): 'handle' | 'rotate' | 'group-handle' | 'annot' | 'empty';
   /** The cursor to show at a content point (resize over a handle, move/pointer over a body, else null). */
   cursorAt(pon: PageObjectNumber, point: Vec): string | null;
   behaviorFor(a: { subtype: Subtype; ref: AnnotationRef | null }): Behavior | null;

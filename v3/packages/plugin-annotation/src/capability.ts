@@ -27,6 +27,7 @@ import {
   type Rect,
   type RenderItem,
   type Style,
+  type Vec,
 } from '@embedpdf-x/annotation-core';
 import { fromDTO, refKey, toCreateDraft, toPatch } from './repository';
 import { buildTextItems } from './text-item';
@@ -88,8 +89,9 @@ export function createAnnotationCapability(
   };
   // Anchor for the selection menu — memoized by model identity so the selector
   // returns a stable reference between unrelated dispatches.
-  let anchorCache: { model: Model; v: { pon: number; bounds: Rect } | null } | null = null;
-  const memoAnchor = (): { pon: number; bounds: Rect } | null => {
+  let anchorCache: { model: Model; v: { pon: number; bounds: Rect; knob?: Vec } | null } | null =
+    null;
+  const memoAnchor = (): { pon: number; bounds: Rect; knob?: Vec } | null => {
     const m = model();
     if (anchorCache && anchorCache.model === m) return anchorCache.v;
     const v = coreSelectionAnchor(m);
@@ -351,6 +353,11 @@ export function createAnnotationCapability(
     deleteSelection: () => apply({ t: 'delete' }),
     deselect: () => apply({ t: 'deselect' }),
     cancel: () => apply({ t: 'cancel' }),
+    // Rotate the selection a quarter-turn clockwise / reset it to as-authored.
+    // Both commit one geometry patch per rotatable member (the same path the
+    // rotate-knob gesture uses), so they round-trip through the engine identically.
+    rotateSelection90: () => apply({ t: 'rotate90' }),
+    resetSelectionRotation: () => apply({ t: 'resetRotation' }),
 
     // ── grouping (engine `/IRT` + `/RT /Group`; page-local) ──
     /** Group the current selection into one unit: the bottom-most member becomes

@@ -38,6 +38,7 @@ export function buildTextItems(m: Model, pon: number): TextItem[] {
       box: tb.box,
       contents: a?.data?.contents ?? '',
       editing: tb.editing,
+      ...(tb.rot ? { rot: tb.rot } : {}),
       css: {
         fontFamily: cssFontFor(ft?.fontFamily ?? 'helvetica'),
         fontSize: size,

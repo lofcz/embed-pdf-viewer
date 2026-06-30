@@ -4,6 +4,7 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 import { setAnnotRect, setLine, setLineEndings } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
 import { applyFilledStyleDraft, applyFilledStylePatch } from './writeStyle';
+import { writeVertexTransformMetadata } from './writeAnnotationTransformMetadata';
 
 /** Default line endings when a line draft omits them. */
 const DEFAULT_LINE_ENDINGS = { start: 'none', end: 'none' } as const;
@@ -27,6 +28,8 @@ export function applyLineDraft(
   applyFilledStyleDraft(fn, mem, annotPtr, draft);
   setLine(fn, mem, annotPtr, draft.linePoints);
   setLineEndings(fn, annotPtr, draft.lineEndings ?? DEFAULT_LINE_ENDINGS);
+  // Advisory rotation: the endpoints are already rotated; this just records θ.
+  writeVertexTransformMetadata(fn, annotPtr, { rotation: draft.rotation });
 }
 
 export function applyLinePatch(
@@ -42,6 +45,8 @@ export function applyLinePatch(
   applyFilledStylePatch(fn, mem, annotPtr, patch);
   if (patch.linePoints !== undefined) {
     setLine(fn, mem, annotPtr, patch.linePoints);
+    // Reconcile advisory rotation only when the geometry was (re)written.
+    writeVertexTransformMetadata(fn, annotPtr, { rotation: patch.rotation });
   }
   if (patch.lineEndings !== undefined) {
     setLineEndings(fn, annotPtr, patch.lineEndings);

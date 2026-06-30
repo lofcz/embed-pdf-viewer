@@ -46,4 +46,8 @@ export interface FreeTextDraft extends AnnotationDraftBase {
   // callout — optional (used when `intent === 'free-text-callout'`).
   calloutLine?: CalloutLine;
   lineEnding?: LineEnding;
+
+  // rotation (box kind).
+  rotation?: number;
+  unrotatedRect?: PdfRect;
 }

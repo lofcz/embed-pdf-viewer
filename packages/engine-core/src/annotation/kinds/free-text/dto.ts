@@ -1,4 +1,4 @@
-import type { CalloutLine } from '../../../geometry/primitives';
+import type { CalloutLine, PdfRect } from '../../../geometry/primitives';
 import type { AnnotationBase } from '../../base';
 import type {
   AnnotationBorderStyle,
@@ -58,4 +58,10 @@ export type FreeTextAnnotationDTO = AnnotationBase & {
   calloutLine?: CalloutLine;
   /** `/LE` ending drawn at the called-out end of the leader line. */
   lineEnding?: LineEnding;
+
+  // rotation (box kind — same model as square/circle)
+  /** `/EMBD_Metadata/Rotation` — degrees, normalized `[0,360)`. */
+  rotation?: number;
+  /** `/EMBD_Metadata/UnrotatedRect` — the logical box (required when rotation != 0). */
+  unrotatedRect?: PdfRect;
 };

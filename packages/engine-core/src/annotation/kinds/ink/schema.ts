@@ -19,6 +19,7 @@ export const InkDTOSchema: z.ZodType<InkAnnotationDTO> = z.object({
   ...AnnotationBaseShape,
   ...GeometryStyleDTOShape,
   inkList: InkListSchema,
+  rotation: z.number().optional(),
   subtype: z.literal('ink'),
 }) as unknown as z.ZodType<InkAnnotationDTO>;
 
@@ -27,6 +28,7 @@ export const InkDraftSchema: z.ZodType<InkDraft> = z.object({
   ...AnnotationDraftBaseShape,
   inkList: InkListSchema,
   rect: PdfRectSchema,
+  rotation: z.number().optional(),
   subtype: z.literal('ink'),
 });
 
@@ -35,5 +37,6 @@ export const InkPatchSchema: z.ZodType<InkPatch> = z.object({
   ...AnnotationPatchBaseShape,
   inkList: InkListSchema.optional(),
   rect: PdfRectSchema.optional(),
+  rotation: z.number().optional(),
   subtype: z.literal('ink'),
 });

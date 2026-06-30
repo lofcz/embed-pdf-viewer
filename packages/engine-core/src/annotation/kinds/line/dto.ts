@@ -9,4 +9,7 @@ export type LineAnnotationDTO = AnnotationBase & {
   linePoints: LinePoints;
   /** `/LE` the start/end line endings. */
   lineEndings: LineEndings;
+  /** `/EMBD_Metadata/Rotation` — advisory rotation (deg); the endpoints are
+   *  already rotated. No `unrotatedRect`, so it is inert for AP. */
+  rotation?: number;
 } & FilledStyleFields;

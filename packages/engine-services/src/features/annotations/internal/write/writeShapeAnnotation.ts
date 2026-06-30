@@ -14,6 +14,7 @@ import {
 } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
 import { applyFilledStyleDraft, applyFilledStylePatch } from './writeStyle';
+import { writeBoxTransformMetadata } from './writeAnnotationTransformMetadata';
 
 export type ShapeDraft = CircleDraft | SquareDraft;
 export type ShapePatch = CirclePatch | SquarePatch;
@@ -44,6 +45,12 @@ export function applyShapeDraft(
   if (draft.rectDifferences !== undefined) {
     setRectangleDifferences(fn, annotPtr, draft.rectDifferences);
   }
+  // /Rect above is the rotated visual AABB; the rotation metadata tells the AP
+  // generator to bake a /Matrix from the unrotated box.
+  writeBoxTransformMetadata(fn, mem, annotPtr, {
+    rotation: draft.rotation,
+    unrotatedRect: draft.unrotatedRect,
+  });
 }
 
 /**
@@ -60,6 +67,12 @@ export function applyShapePatch(
 
   if (patch.rect !== undefined) {
     setAnnotRect(fn, mem, annotPtr, patch.rect);
+    // Reconcile rotation only when geometry was (re)written, so a pure
+    // style/colour patch never disturbs an existing rotation.
+    writeBoxTransformMetadata(fn, mem, annotPtr, {
+      rotation: patch.rotation,
+      unrotatedRect: patch.unrotatedRect,
+    });
   }
   applyFilledStylePatch(fn, mem, annotPtr, patch);
 

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { initialModel, update } from './update';
-import { chrome, creationDraftAnchor, pageItems } from './view';
-import { cursorAt, hitTest } from './hit';
+import {
+  chrome,
+  creationDraftAnchor,
+  pageItems,
+  selectionAnchor,
+  selectionBoundsOnPage,
+} from './view';
+import { cursorAt, groupUnionBounds, hitTest } from './hit';
 import { capsFor } from './kinds';
 import {
   geomBounds,
@@ -20,6 +26,15 @@ import {
   pdfToContentRect,
   contentToPdfPoint,
   pdfToContentPoint,
+  centroidOf,
+  geomRotation,
+  geomRotateAbout,
+  geomResetRotation,
+  obbFromGeom,
+  rotatedAabb,
+  normalizeDeg,
+  selectionQuad,
+  selectionCenter,
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
@@ -1170,5 +1185,387 @@ describe('annotation-core callout', () => {
       width: 120,
       height: 50,
     });
+  });
+});
+
+describe('annotation-core — rotation', () => {
+  const seededSquare = (
+    id: string,
+    rect: { x: number; y: number; width: number; height: number },
+  ): Annot => ({
+    id,
+    ref: {
+      kind: 'objectNumber',
+      pageObjectNumber: 1,
+      annotObjectNumber: Number(id.slice(1)),
+    } as Annot['ref'],
+    pon: PON,
+    subtype: 'square',
+    geom: { t: 'rect', rect, ellipse: false },
+    style: initialModel.style,
+    locked: false,
+    source: 'baked',
+  });
+
+  it('box rotates about its own centre: rot adds, centre + size fixed', () => {
+    const g: Geom = { t: 'rect', rect: { x: 100, y: 100, width: 100, height: 50 }, ellipse: false };
+    const r = geomRotateAbout(g, centroidOf(g), 90);
+    expect(geomRotation(r)).toBe(90);
+    if (r.t !== 'rect') throw new Error('expected rect');
+    expect(centroidOf(r)).toMatchObject({ x: 150, y: 125 }); // centre preserved
+    expect(r.rect.width).toBe(100); // stored box stays UNROTATED
+    expect(r.rect.height).toBe(50);
+  });
+
+  it('vertex rotation is additive about the centroid and reset is exact', () => {
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 40 },
+    ];
+    const g: Geom = { t: 'poly', points: pts.map((p) => ({ ...p })), closed: false };
+    const c0 = centroidOf(g);
+    const r1 = geomRotateAbout(g, centroidOf(g), 30);
+    const r2 = geomRotateAbout(r1, centroidOf(r1), 30);
+    expect(geomRotation(r2)).toBe(60); // θ is additive
+    const c2 = centroidOf(r2);
+    expect(c2.x).toBeCloseTo(c0.x); // centroid is the fixed pivot
+    expect(c2.y).toBeCloseTo(c0.y);
+    const reset = geomResetRotation(r2);
+    expect(geomRotation(reset)).toBe(0);
+    if (reset.t !== 'poly') throw new Error('expected poly');
+    reset.points.forEach((p, i) => {
+      expect(p.x).toBeCloseTo(pts[i].x); // points return to as-authored
+      expect(p.y).toBeCloseTo(pts[i].y);
+    });
+  });
+
+  it('obbFromGeom reconstructs an oriented box from θ for both families', () => {
+    const box: Geom = {
+      t: 'rect',
+      rect: { x: 0, y: 0, width: 100, height: 100 },
+      ellipse: false,
+      rot: 90,
+    };
+    const obbBox = obbFromGeom(box, 0);
+    expect(obbBox?.angle).toBe(90);
+    expect(obbBox?.corners).toHaveLength(4);
+
+    // a vertex shape: spin the same points by 45° and the OBB tilts to match.
+    const base: Geom = {
+      t: 'poly',
+      points: [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+      ],
+      closed: true,
+    };
+    const turned = geomRotateAbout(base, centroidOf(base), 45);
+    const obbV = obbFromGeom(turned, 0);
+    expect(obbV?.angle).toBe(45);
+    expect(obbV?.corners).toHaveLength(4);
+  });
+
+  it('rotatedAabb: a square is unchanged at 90°, grows by √2 at 45°', () => {
+    const sq = { x: 0, y: 0, width: 100, height: 100 };
+    expect(rotatedAabb(sq, 90).width).toBeCloseTo(100);
+    expect(rotatedAabb(sq, 45).width).toBeCloseTo(Math.SQRT2 * 100, 3);
+  });
+
+  it('normalizeDeg wraps into [0,360)', () => {
+    expect(normalizeDeg(-90)).toBe(270);
+    expect(normalizeDeg(450)).toBe(90);
+    expect(normalizeDeg(360)).toBe(0);
+  });
+
+  it('rotate90 turns a single selected shape about its centre (one patch)', () => {
+    const base = update(initialModel, {
+      t: 'loaded',
+      annots: [seededSquare('s1', { x: 100, y: 100, width: 100, height: 50 })],
+    })[0];
+    const [m, fx] = update({ ...base, selected: ['s1'] }, { t: 'rotate90' });
+    expect(fx).toEqual([{ fx: 'patch', id: 's1' }]);
+    const g = m.byId['s1'].geom;
+    expect(geomRotation(g)).toBe(90);
+    expect(centroidOf(g)).toMatchObject({ x: 150, y: 125 });
+  });
+
+  it('rotate90 on a group turns every member about the union centre (one patch each)', () => {
+    const base = update(initialModel, {
+      t: 'loaded',
+      annots: [
+        seededSquare('s1', { x: 0, y: 0, width: 100, height: 100 }),
+        seededSquare('s2', { x: 200, y: 0, width: 100, height: 100 }),
+      ],
+    })[0];
+    const [m, fx] = update({ ...base, selected: ['s1', 's2'] }, { t: 'rotate90' });
+    expect(fx).toHaveLength(2);
+    expect(geomRotation(m.byId['s1'].geom)).toBe(90);
+    expect(geomRotation(m.byId['s2'].geom)).toBe(90);
+    // the two boxes orbit the union centre, so their centres swap places vertically
+    expect(centroidOf(m.byId['s1'].geom).x).not.toBe(50);
+  });
+
+  it('resetRotation clears rotation on the selection (one patch per rotated member)', () => {
+    const base = update(initialModel, {
+      t: 'loaded',
+      annots: [seededSquare('s1', { x: 100, y: 100, width: 100, height: 50 })],
+    })[0];
+    const rotated = update({ ...base, selected: ['s1'] }, { t: 'rotate90' })[0];
+    const [m, fx] = update(rotated, { t: 'resetRotation' });
+    expect(fx).toEqual([{ fx: 'patch', id: 's1' }]);
+    expect(geomRotation(m.byId['s1'].geom)).toBe(0);
+  });
+});
+
+describe('annotation-core — rotation-aware selection (grab + menu + group)', () => {
+  const square = (id: string, geom: Geom): Annot => ({
+    id,
+    ref: {
+      kind: 'objectNumber',
+      pageObjectNumber: 1,
+      annotObjectNumber: Number(id.slice(1)),
+    } as Annot['ref'],
+    pon: PON,
+    subtype: 'square',
+    geom,
+    style: initialModel.style,
+    locked: false,
+    source: 'baked',
+  });
+  const rect = (x: number, y: number, width: number, height: number): Geom => ({
+    t: 'rect',
+    rect: { x, y, width, height },
+    ellipse: false,
+  });
+
+  it('a SELECTED rotated box is grabbable across its TILTED body, not its footprint', () => {
+    // 100×50 box at (100,100); turned 90° about its centre (150,125) it becomes a
+    // 50×100 box spanning x[125,175], y[75,175]. The unrotated footprint was
+    // x[100,200], y[100,150].
+    const base = update(initialModel, {
+      t: 'loaded',
+      annots: [square('s1', rect(100, 100, 100, 50))],
+    })[0];
+    const rotated = update({ ...base, selected: ['s1'] }, { t: 'rotate90' })[0];
+
+    // (150,90): inside the tilted box but ABOVE the old footprint (y<100) — now grabs.
+    expect(hitTest(rotated, PON, { x: 150, y: 90 }, 6, 3)).toEqual({ t: 'annot', id: 's1' });
+    // (110,140): inside the old footprint but LEFT of the tilted box (x<125) — vacated.
+    expect(hitTest(rotated, PON, { x: 110, y: 140 }, 6, 3).t).toBe('empty');
+  });
+
+  it('the menu anchor is the ROTATED AABB and tracks rot (not the fixed unrotated box)', () => {
+    const base = update(initialModel, {
+      t: 'loaded',
+      annots: [square('s1', rect(100, 100, 100, 50))],
+    })[0];
+    const before = selectionBoundsOnPage({ ...base, selected: ['s1'] }, PON);
+    expect(before).toMatchObject({ x: 100, y: 100, width: 100, height: 50 }); // upright = the box
+
+    const rotated = update({ ...base, selected: ['s1'] }, { t: 'rotate90' })[0];
+    const after = selectionBoundsOnPage(rotated, PON);
+    // 90° → the AABB is the box's transpose, recentred on (150,125).
+    expect(after?.x).toBeCloseTo(125);
+    expect(after?.y).toBeCloseTo(75);
+    expect(after?.width).toBeCloseTo(50);
+    expect(after?.height).toBeCloseTo(100);
+    // it MOVED — the bug was the anchor never changing when you rotate.
+    expect(after).not.toMatchObject({ x: 100, y: 100, width: 100, height: 50 });
+  });
+
+  it('groupUnionBounds encloses a rotated member’s tilted corners', () => {
+    const tilted = geomRotateAbout(rect(0, 0, 100, 100), centroidOf(rect(0, 0, 100, 100)), 45);
+    const m = update(initialModel, {
+      t: 'loaded',
+      annots: [square('s1', tilted), square('s2', rect(200, 0, 100, 100))],
+    })[0];
+    const union = groupUnionBounds({ ...m, selected: ['s1', 's2'] }, PON);
+    // a 100×100 box turned 45° about its centre (50,50) reaches out to ~−20.7.
+    expect(union).not.toBeNull();
+    expect(union!.x).toBeCloseTo(50 - (100 * Math.SQRT2) / 2, 3); // ≈ -20.71
+    expect(union!.x + union!.width).toBeCloseTo(300); // s2 still bounds the right edge
+  });
+
+  it('selectionQuad of an upright box is just its axis-aligned corners', () => {
+    const quad = selectionQuad(rect(10, 20, 100, 40), 0);
+    expect(quad).toEqual([
+      { x: 10, y: 20 },
+      { x: 110, y: 20 },
+      { x: 110, y: 60 },
+      { x: 10, y: 60 },
+    ]);
+  });
+});
+
+describe('annotation-core — rotation pivots about the rect centre', () => {
+  const square = (id: string, geom: Geom): Annot => ({
+    id,
+    ref: {
+      kind: 'objectNumber',
+      pageObjectNumber: 1,
+      annotObjectNumber: Number(id.slice(1)),
+    } as Annot['ref'],
+    pon: PON,
+    subtype: 'square',
+    geom,
+    style: initialModel.style,
+    locked: false,
+    source: 'baked',
+  });
+
+  it('selectionCenter of a box is the rect centre, before AND after a quarter-turn', () => {
+    const g: Geom = { t: 'rect', rect: { x: 100, y: 100, width: 100, height: 50 }, ellipse: false };
+    expect(selectionCenter(g, 0)).toMatchObject({ x: 150, y: 125 });
+    const turned = geomRotateAbout(g, selectionCenter(g, 0), 90);
+    const c = selectionCenter(turned, 0);
+    expect(c.x).toBeCloseTo(150);
+    expect(c.y).toBeCloseTo(125);
+  });
+
+  it('a vertex shape spins in place about selectionCenter, NOT its off-centre vertex mean', () => {
+    // An L-shaped (asymmetric) polyline: its vertex mean sits well away from the
+    // centre of the bounding rect.
+    const g: Geom = {
+      t: 'poly',
+      points: [
+        { x: 0, y: 0 },
+        { x: 0, y: 100 },
+        { x: 20, y: 100 },
+        { x: 20, y: 20 },
+        { x: 100, y: 20 },
+        { x: 100, y: 0 },
+      ],
+      closed: false,
+    };
+    const mean = centroidOf(g);
+    const centre = selectionCenter(g, 0);
+    // the two are genuinely different for an asymmetric shape (the whole bug).
+    expect(Math.hypot(mean.x - centre.x, mean.y - centre.y)).toBeGreaterThan(5);
+
+    // rotating about the selection centre keeps that centre fixed → spins in place.
+    const spun = geomRotateAbout(g, centre, 37);
+    const after = selectionCenter(spun, 0);
+    expect(after.x).toBeCloseTo(centre.x, 6);
+    expect(after.y).toBeCloseTo(centre.y, 6);
+
+    // rotating about the vertex mean (the OLD behaviour) drifts the visible centre.
+    const swung = geomRotateAbout(g, mean, 37);
+    const drifted = selectionCenter(swung, 0);
+    expect(Math.hypot(drifted.x - centre.x, drifted.y - centre.y)).toBeGreaterThan(1);
+  });
+
+  it('a rotate gesture on a vertex shape pivots about the selection centre and keeps it fixed', () => {
+    const g: Geom = {
+      t: 'poly',
+      points: [
+        { x: 0, y: 0 },
+        { x: 0, y: 100 },
+        { x: 20, y: 100 },
+        { x: 20, y: 20 },
+        { x: 100, y: 20 },
+        { x: 100, y: 0 },
+      ],
+      closed: false,
+    };
+    const poly: Annot = { ...square('s1', g), subtype: 'polyline' };
+    const base = update(initialModel, { t: 'loaded', annots: [poly] })[0];
+    const m = { ...base, selected: ['s1'] };
+    const centre = selectionCenter(g, poly.style.strokeWidth);
+
+    // find the rotate knob, then start + drag the gesture there.
+    const obb = obbFromGeom(g, poly.style.strokeWidth)!;
+    const corners = obb.corners;
+    const fromMid = { x: (corners[0].x + corners[1].x) / 2, y: (corners[0].y + corners[1].y) / 2 };
+    const down = { x: corners[3].x - corners[0].x, y: corners[3].y - corners[0].y };
+    const len = Math.hypot(down.x, down.y) || 1;
+    const knob = { x: fromMid.x - (down.x / len) * 24, y: fromMid.y - (down.y / len) * 24 };
+
+    const started = update(m, {
+      t: 'editPointer',
+      phase: 'down',
+      in: { pon: PON, point: knob, shift: false },
+    })[0];
+    expect(started.draft?.g).toBe('rotate');
+    if (started.draft?.g === 'rotate') {
+      expect(started.draft.pivot.x).toBeCloseTo(centre.x, 6);
+      expect(started.draft.pivot.y).toBeCloseTo(centre.y, 6);
+    }
+
+    // drag to some other angle and commit; the selection centre must not move.
+    const moved = update(started, {
+      t: 'editPointer',
+      phase: 'move',
+      in: { pon: PON, point: { x: knob.x + 40, y: knob.y + 40 }, shift: false },
+    })[0];
+    const up = update(moved, {
+      t: 'editPointer',
+      phase: 'up',
+      in: { pon: PON, point: { x: knob.x + 40, y: knob.y + 40 }, shift: false },
+    })[0];
+    const after = selectionCenter(up.byId['s1'].geom, up.byId['s1'].style.strokeWidth);
+    expect(after.x).toBeCloseTo(centre.x, 4);
+    expect(after.y).toBeCloseTo(centre.y, 4);
+    expect(geomRotation(up.byId['s1'].geom)).not.toBe(0);
+  });
+});
+
+describe('annotation-core — selectionAnchor carries the knob alongside a centred box', () => {
+  const square = (id: string, geom: Geom): Annot => ({
+    id,
+    ref: {
+      kind: 'objectNumber',
+      pageObjectNumber: 1,
+      annotObjectNumber: Number(id.slice(1)),
+    } as Annot['ref'],
+    pon: PON,
+    subtype: 'square',
+    geom,
+    style: initialModel.style,
+    locked: false,
+    source: 'baked',
+  });
+  const rect = (x: number, y: number, width: number, height: number): Geom => ({
+    t: 'rect',
+    rect: { x, y, width, height },
+    ellipse: false,
+  });
+
+  it('a rotatable selection: bounds equal selectionBoundsOnPage (centred, NOT grown) and a knob is present', () => {
+    const base = update(initialModel, {
+      t: 'loaded',
+      annots: [square('s1', rect(100, 100, 100, 50))],
+    })[0];
+    const m = { ...base, selected: ['s1'] };
+    const anchor = selectionAnchor(m);
+    expect(anchor).not.toBeNull();
+    // The box is the plain selection box — the knob is NOT folded in (no growth).
+    expect(anchor!.bounds).toEqual(selectionBoundsOnPage(m, PON));
+    expect(anchor!.knob).toBeDefined();
+  });
+
+  it('a non-rotatable selection (highlight) exposes a box but NO knob', () => {
+    const hi: Annot = {
+      ...square('s2', {
+        t: 'quads',
+        quads: [
+          [
+            { x: 10, y: 10 },
+            { x: 90, y: 10 },
+            { x: 10, y: 22 },
+            { x: 90, y: 22 },
+          ],
+        ],
+      }),
+      subtype: 'highlight',
+    };
+    const base = update(initialModel, { t: 'loaded', annots: [hi] })[0];
+    const m = { ...base, selected: ['s2'] };
+    const anchor = selectionAnchor(m);
+    expect(anchor).not.toBeNull();
+    expect(anchor!.bounds).toEqual(selectionBoundsOnPage(m, PON));
+    expect(anchor!.knob).toBeUndefined();
   });
 });

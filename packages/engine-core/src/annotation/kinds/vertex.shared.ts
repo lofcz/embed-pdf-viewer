@@ -31,6 +31,14 @@ import { AnnotationBaseShape } from '../base.schema';
 export interface VertexAnnotationFields extends FilledStyleFields {
   /** `/Vertices` — the ordered point list (PDF user space, y-up). */
   vertices: PdfPoint[];
+  /**
+   * `/EMBD_Metadata/Rotation` — ADVISORY rotation (degrees, PDF convention). The
+   * vertices are already rotated (they ARE the portable visual); this scalar
+   * just records the applied angle so EmbedPDF can show an oriented selection
+   * box and offer reset. It carries NO `unrotatedRect`, so it is inert for AP
+   * (PDFium ignores a lone `Rotation`).
+   */
+  rotation?: number;
 }
 
 export interface VertexDraftFields extends FilledStyleDraftFields {
@@ -38,29 +46,35 @@ export interface VertexDraftFields extends FilledStyleDraftFields {
   vertices: PdfPoint[];
   /** `/Rect` bounding box — required (computed by the caller/plugin). */
   rect: PdfRect;
+  /** Advisory rotation (deg). See {@link VertexAnnotationFields.rotation}. */
+  rotation?: number;
 }
 
 export interface VertexPatchFields extends FilledStylePatchFields {
   vertices?: PdfPoint[];
   rect?: PdfRect;
+  rotation?: number;
 }
 
 export const VertexDTOShape = {
   ...AnnotationBaseShape,
   ...FilledStyleDTOShape,
   vertices: z.array(PdfPointSchema),
+  rotation: z.number().optional(),
 } as const;
 
 export const VertexDraftShape = {
   ...FilledStyleDraftShape,
   vertices: z.array(PdfPointSchema),
   rect: PdfRectSchema,
+  rotation: z.number().optional(),
 } as const;
 
 export const VertexPatchShape = {
   ...FilledStylePatchShape,
   vertices: z.array(PdfPointSchema).optional(),
   rect: PdfRectSchema.optional(),
+  rotation: z.number().optional(),
 } as const;
 
 /** Glue type used by each vertex kind file to construct its concrete DTO. */

@@ -28,6 +28,7 @@ import {
 } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
 import { applyBorderDraft, applyBorderPatch, DEFAULT_OPACITY } from './writeStyle';
+import { writeBoxTransformMetadata } from './writeAnnotationTransformMetadata';
 
 /**
  * Default `/DA` colour for free text: black (border + default text). Unlike
@@ -128,6 +129,12 @@ export function applyFreeTextDraft(
   if (draft.lineEnding !== undefined) {
     setLineEndings(fn, annotPtr, { start: 'none', end: draft.lineEnding });
   }
+  // A plain text box rotates like square/circle (box model); a callout carries
+  // no rotation, so its absent fields simply clear the keys.
+  writeBoxTransformMetadata(fn, mem, annotPtr, {
+    rotation: draft.rotation,
+    unrotatedRect: draft.unrotatedRect,
+  });
 }
 
 /**
@@ -152,6 +159,10 @@ export function applyFreeTextPatch(
 
   if (patch.rect !== undefined) {
     setAnnotRect(fn, mem, annotPtr, patch.rect);
+    writeBoxTransformMetadata(fn, mem, annotPtr, {
+      rotation: patch.rotation,
+      unrotatedRect: patch.unrotatedRect,
+    });
   }
 
   if (patch.interiorColor !== undefined) {

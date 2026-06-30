@@ -8,6 +8,10 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 
 import { readBorderEffect, readRectangleDifferences } from './annotationReadPrimitives';
 import { readFilledStyleExtras } from './readStyle';
+import {
+  readAnnotationRotation,
+  readAnnotationUnrotatedRect,
+} from './readAnnotationTransformMetadata';
 
 /**
  * Shared reader for the two shape subtypes. Materialises the common
@@ -21,11 +25,15 @@ export function readShapeExtras(
 ): ShapeAnnotationFields {
   const cloudyIntensity = readBorderEffect(fn, mem, annotPtr);
   const rectDifferences = readRectangleDifferences(fn, mem, annotPtr);
+  const rotation = readAnnotationRotation(fn, mem, annotPtr);
+  const unrotatedRect = readAnnotationUnrotatedRect(fn, mem, annotPtr);
 
   return {
     ...readFilledStyleExtras(fn, mem, annotPtr),
     ...(cloudyIntensity != null ? { cloudyIntensity } : {}),
     ...(rectDifferences ? { rectDifferences } : {}),
+    ...(rotation != null ? { rotation } : {}),
+    ...(unrotatedRect ? { unrotatedRect } : {}),
   };
 }
 

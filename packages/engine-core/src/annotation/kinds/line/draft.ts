@@ -10,4 +10,6 @@ export interface LineDraft extends AnnotationDraftBase, FilledStyleDraftFields {
   /** `/Rect` bounding box — required (computed by the caller/plugin). */
   rect: PdfRect;
   lineEndings?: LineEndings;
+  /** Advisory rotation (deg). */
+  rotation?: number;
 }

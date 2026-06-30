@@ -10,6 +10,8 @@ import {
   applyRect,
   invert,
   pdfToContentMatrix,
+  rotateAbout,
+  type Mat2D,
   type PointIn,
   type RectIn,
 } from '@embedpdf-x/geometry';
@@ -136,6 +138,242 @@ const rectCornerPoints = (r: Rect): Vec[] => [
   { x: r.x + r.width, y: r.y + r.height },
   { x: r.x, y: r.y + r.height },
 ];
+
+/* ── rotation ──────────────────────────────────────────────────────────────
+ * Annotation rotation, layered on the generic `@embedpdf-x/geometry` affine
+ * primitives (`rotateAbout`). Box kinds carry an UNROTATED `rect` + a `rot`
+ * angle; vertex kinds carry already-rotated points + an ADVISORY `rot`. These
+ * helpers know that split and compose the matrix builders — they never hand-roll
+ * a rotation matrix. See `Geom` in types.ts.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const DEG2RAD = Math.PI / 180;
+
+/** How far (content units) the rotate knob hangs off the top edge of the box. */
+export const ROTATE_KNOB_OFFSET = 24;
+
+/** Normalize degrees into `[0, 360)`. */
+export const normalizeDeg = (d: number): number => ((d % 360) + 360) % 360;
+
+/** A geom's applied rotation (deg), or 0 for the non-rotatable kinds. */
+export function geomRotation(g: Geom): number {
+  if (g.t === 'rect' || g.t === 'line' || g.t === 'poly' || g.t === 'ink' || g.t === 'text')
+    return g.rot ?? 0;
+  return 0;
+}
+
+const rectCenter = (r: Rect): Vec => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+
+const rotateAboutM = (pivot: Vec, deg: number): Mat2D<'content', 'content'> =>
+  rotateAbout(pivot as PointIn<'content'>, deg * DEG2RAD);
+
+const rotatePoint = (p: Vec, pivot: Vec, deg: number): Vec =>
+  applyPoint(rotateAboutM(pivot, deg), p as PointIn<'content'>);
+
+/**
+ * The rotation PIVOT for a single shape: a box turns about its own `rect`
+ * centre; a vertex shape about the CENTROID of its points (the mean). Rotating a
+ * point set about its centroid leaves the centroid fixed, so the advisory `rot`
+ * stays cleanly additive across gestures and reset is exact.
+ */
+export function centroidOf(g: Geom): Vec {
+  if (g.t === 'rect' || g.t === 'text' || g.t === 'caret') return rectCenter(g.rect);
+  if (g.t === 'line') return { x: (g.a.x + g.b.x) / 2, y: (g.a.y + g.b.y) / 2 };
+  const pts = g.t === 'poly' ? g.points : g.t === 'ink' ? g.strokes.flat() : g.quads.flat();
+  let sx = 0;
+  let sy = 0;
+  for (const p of pts) {
+    sx += p.x;
+    sy += p.y;
+  }
+  const n = pts.length || 1;
+  return { x: sx / n, y: sy / n };
+}
+
+/** Is this kind rotatable (the geometry carries a meaningful `rot`)? */
+export function isRotatableGeom(g: Geom): boolean {
+  return (
+    g.t === 'rect' ||
+    g.t === 'line' ||
+    g.t === 'poly' ||
+    g.t === 'ink' ||
+    (g.t === 'text' && !g.callout)
+  );
+}
+
+/**
+ * Rotate a geom by `deltaDeg` (clockwise) about `pivot`.
+ *  - BOX (`rect`/plain `text`): orbit the box centre about the pivot (a rigid
+ *    translation of the unrotated `rect`) and add the angle to `rot`. When the
+ *    pivot IS the box centre this is a pure `rot += delta`.
+ *  - VERTEX (`line`/`poly`/`ink`): map every point through the rotation AND bump
+ *    the advisory `rot` (the points stay the authoritative visual).
+ * Non-rotatable kinds (caret/quads, callouts) are returned unchanged.
+ */
+export function geomRotateAbout(g: Geom, pivot: Vec, deltaDeg: number): Geom {
+  if (deltaDeg === 0) return g;
+  const nextRot = normalizeDeg(geomRotation(g) + deltaDeg);
+  if (g.t === 'rect') {
+    const c = rotatePoint(rectCenter(g.rect), pivot, deltaDeg);
+    return {
+      ...g,
+      rect: { ...g.rect, x: c.x - g.rect.width / 2, y: c.y - g.rect.height / 2 },
+      rot: nextRot,
+    };
+  }
+  if (g.t === 'text') {
+    if (g.callout) return g; // callout rotation is out of scope
+    const c = rotatePoint(rectCenter(g.rect), pivot, deltaDeg);
+    return {
+      ...g,
+      rect: { ...g.rect, x: c.x - g.rect.width / 2, y: c.y - g.rect.height / 2 },
+      rot: nextRot,
+    };
+  }
+  const rp = (p: Vec) => rotatePoint(p, pivot, deltaDeg);
+  if (g.t === 'line') return { ...g, a: rp(g.a), b: rp(g.b), rot: nextRot };
+  if (g.t === 'poly') return { ...g, points: g.points.map(rp), rot: nextRot };
+  if (g.t === 'ink') return { ...g, strokes: g.strokes.map((s) => s.map(rp)), rot: nextRot };
+  return g;
+}
+
+/** The AABB of `rect` rotated `deg` about its own centre. */
+export function rotatedAabb(rect: Rect, deg: number): Rect {
+  if (!deg) return rect;
+  const c = rectCenter(rect);
+  return unionRect(rectCornerPoints(rect).map((p) => rotatePoint(p, c, deg)));
+}
+
+/** Reset a geom to its as-authored orientation (`rot → 0`). Box: drop `rot`.
+ *  Vertex: spin the points by `-rot` about their centroid so they return to the
+ *  orientation they were drawn at, in place. */
+export function geomResetRotation(g: Geom): Geom {
+  const rot = geomRotation(g);
+  if (!rot) return g;
+  if (g.t === 'rect' || g.t === 'text') return { ...g, rot: 0 };
+  const c = centroidOf(g);
+  const rotated = geomRotateAbout(g, c, -rot);
+  // geomRotateAbout already set rot = normalize(rot - rot) = 0.
+  return rotated;
+}
+
+/**
+ * The oriented selection box (OBB) of a rotatable geom: four corners (in order
+ * nw, ne, se, sw of the LOCAL box, transformed) + the angle. For a box this is
+ * the `rect` rotated about its centre; for a vertex shape it is reconstructed
+ * from the advisory `rot` — un-rotate the points to recover the as-authored
+ * shape, take that tight local box, then rotate it back — giving the snug tilted
+ * rectangle. Returns null for non-rotatable kinds.
+ */
+export function obbFromGeom(
+  g: Geom,
+  strokeWidth: number,
+): { corners: [Vec, Vec, Vec, Vec]; angle: number } | null {
+  if (!isRotatableGeom(g)) return null;
+  const rot = geomRotation(g);
+  if (g.t === 'rect' || g.t === 'text') {
+    const c = rectCenter(g.rect);
+    const corners = rectCornerPoints(g.rect).map((p) => rotatePoint(p, c, rot));
+    return { corners: corners as [Vec, Vec, Vec, Vec], angle: rot };
+  }
+  // vertex: reconstruct the local (as-authored) box from rot about the centroid.
+  const c = centroidOf(g);
+  const unrotated = rot ? geomRotateAbout(g, c, -rot) : g;
+  const localBox = selectionBounds(unrotated, strokeWidth);
+  const corners = rectCornerPoints(localBox).map((p) => rotatePoint(p, c, rot));
+  return { corners: corners as [Vec, Vec, Vec, Vec], angle: rot };
+}
+
+/* ── group (multi-target) scaling ─────────────────────────────────────────────
+ * A multi-selection scales as one box about a fixed anchor (the opposite handle
+ * corner/edge). Resize is ANISOTROPIC only when every member has `rot == 0`
+ * (otherwise an off-axis scale would shear a rotated shape it can't represent —
+ * so we fall back to a uniform scale). The iso/aniso choice is decided by the
+ * caller (it needs the live selection); these helpers take the resolved factors.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The 8 box resize handles (corner + edge, with cursors) of a plain rect — used
+ *  for the multi-target group box. */
+export function rectHandlesFor(r: Rect): Handle[] {
+  return RECT_HANDLES.map((h) => ({ id: h, at: rectHandlePoint(r, h), cursor: RECT_CURSOR[h] }));
+}
+
+/** The fixed point of a group resize: the OPPOSITE handle's point on the box. */
+export function groupResizeAnchor(base: Rect, handle: string): Vec {
+  return rectHandlePoint(base, OPPOSITE_HANDLE[handle as RectHandle] ?? 'nw');
+}
+
+/**
+ * The live group resize box for a drag. Anisotropic = the plain axis-aligned
+ * `resizeRect`; isotropic = a uniform scale of `base` about the anchor by the
+ * larger of the two drag ratios (so the preview matches the committed scale and
+ * never shears a rotated member).
+ */
+export function groupResizeBox(base: Rect, handle: string, to: Vec, isotropic: boolean): Rect {
+  const raw = resizeRect(base, handle as RectHandle, to);
+  if (!isotropic) return raw;
+  const sx = base.width > 0 ? raw.width / base.width : 1;
+  const sy = base.height > 0 ? raw.height / base.height : 1;
+  const s = Math.max(MIN_SIZE / Math.max(base.width, base.height, 1), Math.max(sx, sy));
+  const anchor = groupResizeAnchor(base, handle);
+  return {
+    x: anchor.x + (base.x - anchor.x) * s,
+    y: anchor.y + (base.y - anchor.y) * s,
+    width: base.width * s,
+    height: base.height * s,
+  };
+}
+
+/** The (sx, sy) factors a `base`→`cur` group resize applied about its anchor. */
+export function groupResizeFactors(base: Rect, cur: Rect): { sx: number; sy: number } {
+  return {
+    sx: base.width > 0 ? cur.width / base.width : 1,
+    sy: base.height > 0 ? cur.height / base.height : 1,
+  };
+}
+
+/**
+ * Scale a geom about `anchor` by `(sx, sy)`. For a rotated box (iso scale, so
+ * `sx === sy`) the unrotated `rect` is scaled about the anchor and `rot` is
+ * preserved (a uniform scale commutes with rotation). For unrotated members
+ * (the anisotropic case) every point/extent scales directly.
+ */
+export function geomScaleAbout(g: Geom, anchor: Vec, sx: number, sy: number): Geom {
+  const sp = (p: Vec): Vec => ({
+    x: anchor.x + (p.x - anchor.x) * sx,
+    y: anchor.y + (p.y - anchor.y) * sy,
+  });
+  if (g.t === 'rect' || g.t === 'text') {
+    if (g.t === 'text' && g.callout) return g;
+    const c = sp(rectCenter(g.rect));
+    const w = Math.max(MIN_SIZE, g.rect.width * Math.abs(sx));
+    const h = Math.max(MIN_SIZE, g.rect.height * Math.abs(sy));
+    return { ...g, rect: { x: c.x - w / 2, y: c.y - h / 2, width: w, height: h } };
+  }
+  if (g.t === 'line') return { ...g, a: sp(g.a), b: sp(g.b) };
+  if (g.t === 'poly') return { ...g, points: g.points.map(sp) };
+  if (g.t === 'ink') return { ...g, strokes: g.strokes.map((s) => s.map(sp)) };
+  if (g.t === 'caret') {
+    const c = sp(rectCenter(g.rect));
+    const w = Math.max(MIN_SIZE, g.rect.width * Math.abs(sx));
+    const h = Math.max(MIN_SIZE, g.rect.height * Math.abs(sy));
+    return { ...g, rect: { x: c.x - w / 2, y: c.y - h / 2, width: w, height: h } };
+  }
+  return g; // quads scale with their points
+}
+
+/** Where the rotate knob sits, given the OBB corners (nw, ne, se, sw) and the
+ *  outward offset (content units). `from` is the top-edge midpoint the connector
+ *  stalk anchors to; `at` is the grab dot, offset along the outward normal. */
+export function rotateKnob(corners: [Vec, Vec, Vec, Vec], offset: number): { at: Vec; from: Vec } {
+  const [nw, ne, , sw] = corners;
+  const from = { x: (nw.x + ne.x) / 2, y: (nw.y + ne.y) / 2 };
+  // outward normal = from the bottom edge toward the top edge (away from shape).
+  const down = { x: sw.x - nw.x, y: sw.y - nw.y };
+  const len = Math.hypot(down.x, down.y) || 1;
+  const up = { x: -down.x / len, y: -down.y / len };
+  return { at: { x: from.x + up.x * offset, y: from.y + up.y * offset }, from };
+}
 
 /* ── callout leader ───────────────────────────────────────────────────────────
  * A free-text callout draws a 2–3 point leader (`/CL`) from the called-out `tip`
@@ -288,6 +526,38 @@ export function selectionBounds(g: Geom, strokeWidth: number): Rect {
 }
 
 /**
+ * The four corners of the ORIENTED selection box — the SAME quad `chrome` draws.
+ * For a rotatable kind this is the OBB (the tilted box, from `obbFromGeom`); at
+ * `rot == 0` those are just the axis-aligned corners of `selectionBounds`, and
+ * for non-rotatable kinds (markup quads, callouts) it falls back to the rect
+ * corners. The grab region, the floating-menu anchor and the multi/group union
+ * all consume this, so what you can grab / where the menu sits never drifts from
+ * the outline you see.
+ */
+export function selectionQuad(g: Geom, strokeWidth: number): [Vec, Vec, Vec, Vec] {
+  const obb = obbFromGeom(g, strokeWidth);
+  if (obb) return obb.corners;
+  return rectCornerPoints(selectionBounds(g, strokeWidth)) as [Vec, Vec, Vec, Vec];
+}
+
+/** Is the point inside the (convex) selection quad? Even-odd ring test. */
+export const pointInQuad = (p: Vec, quad: [Vec, Vec, Vec, Vec]): boolean => pointInPoly(p, quad);
+
+/**
+ * The centre of the ORIENTED selection box — the middle of the rect you see.
+ * For box kinds this is the rect centre (so squares/circles are unchanged); for
+ * vertex kinds it is the OBB centre, so rotation spins the shape in place rather
+ * than swinging it about the off-centre vertex mean (`centroidOf`).
+ */
+export function selectionCenter(g: Geom, strokeWidth: number): Vec {
+  const q = selectionQuad(g, strokeWidth);
+  return {
+    x: (q[0].x + q[1].x + q[2].x + q[3].x) / 4,
+    y: (q[0].y + q[1].y + q[2].y + q[3].y) / 4,
+  };
+}
+
+/**
  * Is the content point ON a line/poly's drawn ENDINGS — so an arrowhead is as
  * clickable as the stroke. Uses the SAME ending nodes the renderer draws: a closed
  * shape (closed arrow, circle, square, diamond) hits inside OR near its edge; an
@@ -351,6 +621,12 @@ export function geomHit(
   strokeWidth: number,
 ): boolean {
   const tol = margin + strokeWidth / 2;
+  // A rotated box stores its UNROTATED `rect`; inverse-rotate the pointer into
+  // that local frame and run the normal axis-aligned tests. Vertex kinds carry
+  // already-rotated points, so they hit-test directly (rot is advisory).
+  if ((g.t === 'rect' || (g.t === 'text' && !g.callout)) && (g.rot ?? 0) !== 0) {
+    p = rotatePoint(p, rectCenter(g.rect), -(g.rot ?? 0));
+  }
   // A text box is a solid hit target anywhere inside it (+ the click margin).
   if (g.t === 'caret') return rectContains(expandRect(g.rect, margin), p);
   if (g.t === 'text') {
@@ -428,9 +704,13 @@ export function geomHit(
 
 export function geomHandles(g: Geom): Handle[] {
   if (g.t === 'rect' || g.t === 'text') {
+    const rot = g.t === 'text' && g.callout ? 0 : (g.rot ?? 0);
+    const c = rectCenter(g.rect);
     const handles: Handle[] = RECT_HANDLES.map((h) => ({
       id: h,
-      at: rectHandlePoint(g.rect, h),
+      // box handles sit on the UNROTATED rect; rotate each into place so they
+      // ride the tilted box.
+      at: rot ? rotatePoint(rectHandlePoint(g.rect, h), c, rot) : rectHandlePoint(g.rect, h),
       cursor: RECT_CURSOR[h],
     }));
     // A callout adds vertex handles for the leader tip and (if present) knee, so
@@ -477,14 +757,61 @@ export function geomTranslate(g: Geom, d: Vec): Geom {
   return { ...g, quads: g.quads.map((q) => q.map(mv) as Quad) };
 }
 
+const OPPOSITE_HANDLE: Record<RectHandle, RectHandle> = {
+  nw: 'se',
+  ne: 'sw',
+  se: 'nw',
+  sw: 'ne',
+  n: 's',
+  s: 'n',
+  e: 'w',
+  w: 'e',
+};
+
+/**
+ * Resize a ROTATED box by `handle`, keeping the opposite corner/edge fixed in
+ * WORLD space. The pointer is mapped into the box's local (unrotated) frame, the
+ * axis-aligned `resizeRect` runs there, then the new box is repositioned so the
+ * anchor (the opposite handle's point) lands back where it was — and the box
+ * still rotates about its OWN centre. With `rot === 0` this is exactly the plain
+ * `resizeRect`.
+ */
+function resizeRotatedRect(base: Rect, rot: number, handle: RectHandle, to: Vec): Rect {
+  if (!rot) return resizeRect(base, handle, to);
+  const c0 = rectCenter(base);
+  const localTo = rotatePoint(to, c0, -rot);
+  const next = resizeRect(base, handle, localTo);
+  const anchorLocal = rectHandlePoint(base, OPPOSITE_HANDLE[handle]);
+  const anchorWorld = rotatePoint(anchorLocal, c0, rot);
+  const nextCenterLocal = rectCenter(next);
+  // offset of the anchor from the new centre, in the local frame; rotate it to
+  // world orientation and place the new centre so the anchor stays put.
+  const offX = anchorLocal.x - nextCenterLocal.x;
+  const offY = anchorLocal.y - nextCenterLocal.y;
+  const rad = rot * DEG2RAD;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const rOffX = cos * offX - sin * offY;
+  const rOffY = sin * offX + cos * offY;
+  const cx = anchorWorld.x - rOffX;
+  const cy = anchorWorld.y - rOffY;
+  return {
+    x: cx - next.width / 2,
+    y: cy - next.height / 2,
+    width: next.width,
+    height: next.height,
+  };
+}
+
 export function geomDragHandle(g: Geom, handle: string, to: Vec): Geom {
   if (g.t === 'text') {
     if (handle === 'callout-tip' && g.callout) return { ...g, callout: { ...g.callout, tip: to } };
     if (handle === 'callout-knee' && g.callout)
       return { ...g, callout: { ...g.callout, knee: to } };
-    return { ...g, rect: resizeRect(g.rect, handle as RectHandle, to) };
+    return { ...g, rect: resizeRotatedRect(g.rect, g.rot ?? 0, handle as RectHandle, to) };
   }
-  if (g.t === 'rect') return { ...g, rect: resizeRect(g.rect, handle as RectHandle, to) };
+  if (g.t === 'rect')
+    return { ...g, rect: resizeRotatedRect(g.rect, g.rot ?? 0, handle as RectHandle, to) };
   if (g.t === 'line') return handle === 'v0' ? { ...g, a: to } : { ...g, b: to };
   if (g.t === 'poly') {
     const i = Number(handle.slice(1));

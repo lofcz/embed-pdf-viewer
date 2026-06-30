@@ -4,6 +4,7 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 import { setAnnotRect, setInkList } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
 import { applyGeometryStyleDraft, applyGeometryStylePatch } from './writeStyle';
+import { writeVertexTransformMetadata } from './writeAnnotationTransformMetadata';
 
 /**
  * Apply an ink draft to a freshly-created annotation. Ink has a stroke but
@@ -24,6 +25,8 @@ export function applyInkDraft(
   setAnnotRect(fn, mem, annotPtr, draft.rect);
   applyGeometryStyleDraft(fn, mem, annotPtr, draft);
   setInkList(fn, mem, annotPtr, draft.inkList);
+  // Advisory rotation: the strokes are already rotated; this just records θ.
+  writeVertexTransformMetadata(fn, annotPtr, { rotation: draft.rotation });
 }
 
 export function applyInkPatch(
@@ -39,6 +42,8 @@ export function applyInkPatch(
   applyGeometryStylePatch(fn, mem, annotPtr, patch);
   if (patch.inkList !== undefined) {
     setInkList(fn, mem, annotPtr, patch.inkList);
+    // Reconcile advisory rotation only when the geometry was (re)written.
+    writeVertexTransformMetadata(fn, annotPtr, { rotation: patch.rotation });
   }
 }
 

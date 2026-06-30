@@ -56,14 +56,29 @@ export interface Callout {
   ending: LineEnding;
 }
 
+/**
+ * Rotation (degrees, clockwise in content space, normalized `[0,360)`) carried by
+ * the rotatable `Geom` variants. The semantics differ by family, which is exactly
+ * the box-vs-vertex split:
+ *
+ * - **Box** (`rect`, `text`): `rect` is the UNROTATED local box and `rot` is the
+ *   applied tilt — together they reconstruct the visual. The repository emits
+ *   `rect` as `unrotatedRect`, `rot` as the rendered `/EMBD_Metadata/Rotation`,
+ *   and the rotated visual AABB as `/Rect`, so PDFium bakes a portable `/AP`.
+ * - **Vertex** (`line`, `poly`, `ink`): the points are ALREADY rotated (they are
+ *   the portable visual), so `rot` is an ADVISORY scalar — the cumulative tilt the
+ *   user applied since authoring. It lets EmbedPDF reconstruct an oriented
+ *   selection box (`obbFromTheta`) and offer reset-to-0; it is inert for
+ *   rendering (PDFium ignores a lone `Rotation` with no `UnrotatedRect`).
+ */
 export type Geom =
-  | { t: 'rect'; rect: Rect; ellipse: boolean } // square / circle
-  | { t: 'line'; a: Vec; b: Vec; ends?: LineEndings } // line (optional /LE endings)
-  | { t: 'poly'; points: Vec[]; closed: boolean; ends?: LineEndings } // polygon (closed) / polyline (open, /LE endings)
+  | { t: 'rect'; rect: Rect; ellipse: boolean; rot?: number } // square / circle (rect = unrotated box)
+  | { t: 'line'; a: Vec; b: Vec; ends?: LineEndings; rot?: number } // line (points pre-rotated; rot advisory)
+  | { t: 'poly'; points: Vec[]; closed: boolean; ends?: LineEndings; rot?: number } // polygon/polyline (pre-rotated; rot advisory)
   | { t: 'quads'; quads: Quad[] } // highlight / underline / squiggly / strikeout
   | { t: 'caret'; rect: Rect } // caret insertion marker
-  | { t: 'ink'; strokes: Vec[][] } // freehand ink (one or more pen strokes)
-  | { t: 'text'; rect: Rect; callout?: Callout }; // free-text box (`rect` is the text box);
+  | { t: 'ink'; strokes: Vec[][]; rot?: number } // freehand ink (pre-rotated; rot advisory)
+  | { t: 'text'; rect: Rect; callout?: Callout; rot?: number }; // free-text box (`rect` is the unrotated text box);
 // a `callout` adds a leader line + arrow. The TEXT is data (DTO `contents`),
 // rendered by the framework as an editable element, not by `scene()`.
 
@@ -180,6 +195,25 @@ export type Draft =
     }
   | { g: 'move'; ids: Id[]; start: Vec; delta: Vec }
   | { g: 'handle'; id: Id; handle: string; base: Geom; cur: Geom }
+  // Rotate gesture (single OR multi-target). `pivot` is the rotation centre
+  // (a single shape's own centre / the union-box centre for a group); `ids` are
+  // the members being turned; `start`/`cur` are the pointer at grab and now, so
+  // the live angle is `angle(cur - pivot) - angle(start - pivot)`. The base
+  // geometry stays in `m.byId` until commit, so `effGeom` rotates from there.
+  | { g: 'rotate'; ids: Id[]; pivot: Vec; start: Vec; cur: Vec }
+  // Multi-target box transform (move/resize) computed as one Mat2D about the
+  // union box. `anchor` is the fixed point of a resize (the opposite corner);
+  // `sx`/`sy` the live scale; for `move` the scale is 1 and `delta` carries the
+  // translation. Single-shape resize keeps using the `handle` draft above.
+  | {
+      g: 'group';
+      op: 'resize';
+      ids: Id[];
+      handle: string;
+      anchor: Vec;
+      base: Rect;
+      cur: Rect;
+    }
   | { g: 'marquee'; pon: PageObjectNumber; from: Vec; to: Vec };
 
 /** A live text-markup preview (the in-progress selection rendered as the markup it
@@ -243,6 +277,13 @@ export type Msg =
   | { t: 'setStyle'; patch: Partial<Style> }
   | { t: 'setEndings'; patch: Partial<LineEndings> }
   | { t: 'setDefaults'; subtype: Subtype; patch: ToolDefaults }
+  // Rotate the current selection by a fixed quarter-turn (clockwise) about its
+  // centre — the toolbar "rotate 90°" affordance. Works for a single shape or a
+  // multi-target group (about the union-box centre).
+  | { t: 'rotate90' }
+  // Reset rotation to the as-authored orientation: box `rot → 0`; vertex points
+  // spun by `-rot` about their centroid, `rot → 0`. One patch effect per member.
+  | { t: 'resetRotation' }
   | { t: 'delete' }
   | { t: 'cancel' }
   | { t: 'loaded'; annots: Annot[] }
@@ -288,6 +329,13 @@ export interface RenderItem {
   style: Style;
   source: 'baked' | 'vector' | 'ghost';
   selected: boolean;
+  /**
+   * Applied rotation (deg, CW), or 0/undefined. For BOX kinds (`rect`/`text`)
+   * `box` is the UNROTATED visual box and the renderer applies this rotation
+   * about its centre (CSS/SVG transform). For VERTEX kinds the geometry is
+   * already rotated, so this is advisory only — the renderer must NOT re-apply it.
+   */
+  rot?: number;
   /**
    * Mix-blend-mode the annotation composites with against the page (highlights
    * multiply). The vector painter reads blend per scene node; the baked /AP image
@@ -339,5 +387,13 @@ export type SceneNode =
 
 export type ChromeNode =
   | { kind: 'outline'; rect: Rect }
+  // An oriented selection box: the four corners of the (possibly tilted) OBB in
+  // order, for rotatable kinds. The renderer draws the closed quad; `angle` (deg)
+  // lets it orient resize cursors. Replaces the axis-aligned `outline` whenever a
+  // shape (or group) carries rotation.
+  | { kind: 'obb'; corners: [Vec, Vec, Vec, Vec]; angle: number }
   | { kind: 'handle'; at: Vec; cursor: Cursor }
+  // The rotate knob: `at` is where the grab dot sits (hanging off the top edge),
+  // `from` the edge anchor the connector stalk draws to.
+  | { kind: 'rotate-knob'; at: Vec; from: Vec }
   | { kind: 'marquee'; rect: Rect };

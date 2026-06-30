@@ -33,4 +33,7 @@ export interface FreeTextPatch extends AnnotationPatchBase {
 
   calloutLine?: CalloutLine;
   lineEnding?: LineEnding;
+
+  rotation?: number;
+  unrotatedRect?: PdfRect;
 }

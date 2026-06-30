@@ -7,7 +7,34 @@
  * it is simply the annotation whose `id` equals the group key, so membership is
  * the set of annotations pointing at it plus the primary itself.
  */
+import { capsFor } from './kinds';
 import type { Id, Model } from './types';
+
+/**
+ * The transform capabilities of a multi-target (group) selection: a group can
+ * move/resize/rotate only if EVERY member's kind allows that group op AND no
+ * member is locked. This is the SINGLE resolver every adapter consumes (v2
+ * duplicated the `.every(...)` across three framework components). The iso-vs-
+ * aniso resize choice is computed separately, per-gesture, since it depends on
+ * the live `rot` of the members, not the static caps.
+ */
+export interface GroupCaps {
+  movable: boolean;
+  resizable: boolean;
+  rotatable: boolean;
+}
+
+export function groupCaps(m: Model, ids: Id[]): GroupCaps {
+  const members = ids.map((id) => m.byId[id]).filter((a): a is NonNullable<typeof a> => !!a);
+  if (members.length === 0) return { movable: false, resizable: false, rotatable: false };
+  const ok = (pick: (c: ReturnType<typeof capsFor>) => boolean): boolean =>
+    members.every((a) => !a.locked && pick(capsFor(a.subtype)));
+  return {
+    movable: ok((c) => c.groupMovable),
+    resizable: ok((c) => c.groupResizable),
+    rotatable: ok((c) => c.groupRotatable),
+  };
+}
 
 /**
  * The key of the group `id` belongs to, or `null` when it is ungrouped. A

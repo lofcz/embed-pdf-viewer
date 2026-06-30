@@ -148,6 +148,116 @@ function plainFreeTextDTO(annotObjectNumber = 21): AnnotationDTO {
   } as AnnotationDTO;
 }
 
+/* ── rotation round-trip (CW content ↔ PDF convention) ────────────────────────
+ * The model carries `rot` CLOCKWISE in content space; the engine DTO carries
+ * `/EMBD_Metadata/Rotation` in PDF convention. The repository converts ONCE at
+ * this seam: `rot_content = -rotation_pdf (mod 360)` and back. Box kinds also
+ * split `/Rect` (the rotated AABB) from `unrotatedRect` (the logical box); vertex
+ * kinds keep an advisory scalar only (the points are already rotated).
+ */
+function rotatedSquareDTO(rotationPdf: number, annotObjectNumber = 30): AnnotationDTO {
+  return {
+    ...squareDTO(annotObjectNumber),
+    // /Rect is the rotated AABB; for a square turned 90° it equals the box.
+    rect: { left: 100, bottom: 100, right: 200, top: 200 },
+    rotation: rotationPdf,
+    unrotatedRect: { left: 100, bottom: 100, right: 200, top: 200 },
+  } as AnnotationDTO;
+}
+
+function rotatedPolylineDTO(rotationPdf: number, annotObjectNumber = 31): AnnotationDTO {
+  const ref: AnnotationRef = { kind: 'objectNumber', pageObjectNumber: 1, annotObjectNumber };
+  return {
+    ref,
+    pageObjectNumber: 1,
+    index: 0,
+    identityQuality: 'durable',
+    nm: null,
+    flags: NO_FLAGS,
+    rect: { left: 100, bottom: 100, right: 300, top: 300 },
+    contents: null,
+    author: null,
+    created: null,
+    modified: null,
+    inReplyTo: null,
+    replyType: null,
+    subtype: 'polyline',
+    color: { r: 0, g: 0, b: 0 },
+    interiorColor: null,
+    strokeWidth: 2,
+    opacity: 1,
+    borderStyle: 'solid',
+    vertices: [
+      { x: 120, y: 120 },
+      { x: 200, y: 260 },
+      { x: 280, y: 140 },
+    ],
+    lineEndings: { start: 'none', end: 'none' },
+    rotation: rotationPdf,
+  } as AnnotationDTO;
+}
+
+describe('repository — rotation round-trip', () => {
+  it('box: fromDTO reads unrotatedRect + converts PDF→CW content rot', () => {
+    const a = fromDTO(rotatedSquareDTO(90), CROP);
+    if (a.geom.t !== 'rect') throw new Error('expected rect geom');
+    // unrotatedRect {100,100,200,200} → content {x:100,y:600,w:100,h:100}
+    expect(a.geom.rect).toMatchObject({ x: 100, y: 600, width: 100, height: 100 });
+    // PDF 90° → CW content 270° (negation mod 360, from the y-flip)
+    expect(a.geom.rot).toBe(270);
+  });
+
+  it('box: toPatch emits rect(AABB) + unrotatedRect + rotation (CW→PDF back)', () => {
+    const patch = toPatch(fromDTO(rotatedSquareDTO(90), CROP), CROP) as Extract<
+      AnnotationPatch,
+      { subtype: 'square' }
+    > & { rotation?: number; unrotatedRect?: PdfRect };
+    if (!patch) throw new Error('expected a patch');
+    expect(patch.rotation).toBe(90); // round-trips back to the PDF angle
+    expect(patch.unrotatedRect).toMatchObject({ left: 100, bottom: 100, right: 200, top: 200 });
+    // the square turned a quarter-turn still spans the same AABB
+    if (!patch.rect) throw new Error('expected a rect');
+    expect(patch.rect.left).toBeCloseTo(100);
+    expect(patch.rect.right).toBeCloseTo(200);
+  });
+
+  it('box: an unrotated DTO carries no rotation metadata back out', () => {
+    const patch = toPatch(fromDTO(squareDTO(32), CROP), CROP) as Extract<
+      AnnotationPatch,
+      { subtype: 'square' }
+    > & { rotation?: number; unrotatedRect?: PdfRect };
+    if (!patch) throw new Error('expected a patch');
+    expect(patch.rotation).toBeUndefined();
+    expect(patch.unrotatedRect).toBeUndefined();
+  });
+
+  it('vertex: advisory rotation round-trips and the points stay authoritative', () => {
+    const a = fromDTO(rotatedPolylineDTO(30), CROP);
+    if (a.geom.t !== 'poly') throw new Error('expected poly geom');
+    expect(a.geom.rot).toBe(330); // -30 mod 360
+    // the points are the visual — first vertex maps straight through the y-flip
+    expect(a.geom.points[0]).toEqual({ x: 120, y: 680 });
+
+    const patch = toPatch(a, CROP) as Extract<AnnotationPatch, { subtype: 'polyline' }> & {
+      rotation?: number;
+      unrotatedRect?: PdfRect;
+    };
+    if (!patch) throw new Error('expected a patch');
+    expect(patch.rotation).toBe(30); // back to the PDF angle
+    expect(patch).not.toHaveProperty('unrotatedRect'); // vertex kinds never carry one
+    expect(patch.vertices?.[0]).toMatchObject({ x: 120, y: 120 });
+  });
+
+  it('vertex: an unrotated polyline carries no rotation back out', () => {
+    const a = fromDTO(rotatedPolylineDTO(0, 33), CROP);
+    expect(a.geom.t === 'poly' && a.geom.rot).toBeFalsy();
+    const patch = toPatch(a, CROP) as Extract<AnnotationPatch, { subtype: 'polyline' }> & {
+      rotation?: number;
+    };
+    expect(patch?.rotation).toBeUndefined();
+  });
+});
+
 describe('repository — free-text callout mapping', () => {
   it('fromDTO: intent + /CL + /RD → a text geom with a leader (box recovered, conn dropped)', () => {
     const a = fromDTO(calloutDTO(), CROP);

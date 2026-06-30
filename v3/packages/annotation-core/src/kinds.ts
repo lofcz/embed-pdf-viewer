@@ -29,8 +29,16 @@ export interface KindCaps {
   resizable: boolean;
   /** Exposes per-vertex handles (line endpoints, polygon/polyline vertices). */
   vertexEditable: boolean;
-  /** Can be rotated (stamp, free text). */
+  /** Can be rotated (shapes, free text, lines/polys/ink). */
   rotatable: boolean;
+  /** Can be MOVED as part of a multi-target (group) transform. */
+  groupMovable: boolean;
+  /** Can be uniformly SCALED as part of a multi-target (group) transform — ON
+   *  even for vertex kinds that have no single-shape box resize (their handles
+   *  ARE the vertices; in a group they scale fine). */
+  groupResizable: boolean;
+  /** Can be ROTATED as part of a multi-target (group) transform. */
+  groupRotatable: boolean;
   /** Carries editable text content (free text, the comment popup). */
   textEditable: boolean;
   /** Can carry a comment/note + threaded replies (`/Contents` + `/Popup`). */
@@ -62,6 +70,9 @@ const caps = (c: Partial<KindCaps>): KindCaps => ({
   resizable: false,
   vertexEditable: false,
   rotatable: false,
+  groupMovable: false,
+  groupResizable: false,
+  groupRotatable: false,
   textEditable: false,
   commentable: false,
   hasPopup: false,
@@ -85,6 +96,10 @@ export const KINDS: Record<string, AnnotationKind> = {
       selectable: true,
       movable: true,
       resizable: true, // the box resizes (8 handles); text reflows
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
       textEditable: true,
       commentable: true,
       hasFill: true, // `/C` box background
@@ -97,6 +112,10 @@ export const KINDS: Record<string, AnnotationKind> = {
       selectable: true,
       movable: true,
       resizable: true,
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
       commentable: true,
       hasFill: true,
       hasCloudy: true,
@@ -109,6 +128,10 @@ export const KINDS: Record<string, AnnotationKind> = {
       selectable: true,
       movable: true,
       resizable: true,
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
       commentable: true,
       hasFill: true,
       hasCloudy: true,
@@ -121,6 +144,10 @@ export const KINDS: Record<string, AnnotationKind> = {
       selectable: true,
       movable: true,
       vertexEditable: true,
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
       commentable: true,
       hasEndings: true,
     }),
@@ -132,6 +159,10 @@ export const KINDS: Record<string, AnnotationKind> = {
       selectable: true,
       movable: true,
       vertexEditable: true,
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
       commentable: true,
       hasFill: true,
       hasCloudy: true,
@@ -144,16 +175,29 @@ export const KINDS: Record<string, AnnotationKind> = {
       selectable: true,
       movable: true,
       vertexEditable: true,
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
       commentable: true,
       hasEndings: true,
     }),
   },
-  // Ink: freehand strokes. Selectable + movable as a whole; no resize/vertex
-  // handles in v1 (the strokes are the geometry). Created by a freehand drag.
+  // Ink: freehand strokes. Selectable + movable as a whole; no single-shape
+  // resize/vertex handles (the strokes are the geometry), but rotatable and
+  // group-resizable. Created by a freehand drag.
   ink: {
     subtype: 'ink',
     variant: 'ink',
-    caps: caps({ selectable: true, movable: true, commentable: true }),
+    caps: caps({
+      selectable: true,
+      movable: true,
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
+      commentable: true,
+    }),
   },
   // Text markup: selectable + anchored (bound to text — recolor/delete, never
   // move/resize). Created from a text selection, not a drag (see the markup tool).

@@ -8,4 +8,6 @@ export interface InkDraft extends AnnotationDraftBase, GeometryStyleDraftFields 
   inkList: InkList;
   /** `/Rect` bounding box — required (computed by the caller/plugin). */
   rect: PdfRect;
+  /** Advisory rotation (deg). */
+  rotation?: number;
 }

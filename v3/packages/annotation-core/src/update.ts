@@ -7,14 +7,23 @@
  */
 import type { AnnotationRef } from '@embedpdf/engine-core/runtime';
 import { expandGroups, groupMembers } from './group';
-import { canMove, hitTest, isSelectable } from './hit';
+import { canMove, groupUnionBounds, hitTest, isSelectable } from './hit';
+import { capsFor } from './kinds';
 import {
   caretRectFromTextEnd,
   geomDragHandle,
+  geomResetRotation,
+  geomRotateAbout,
+  geomRotation,
+  geomScaleAbout,
   geomTranslate,
+  groupResizeAnchor,
+  groupResizeBox,
+  groupResizeFactors,
   rectFromPoints,
   rectsIntersect,
-  selectionBounds,
+  selectionCenter,
+  selectionQuad,
   shapeRectFor,
   unionRect,
 } from './geometry';
@@ -80,6 +89,16 @@ const toVector = (a: Annot): Annot => (a.source === 'vector' ? a : { ...a, sourc
 const sub = (a: Vec, b: Vec): Vec => ({ x: a.x - b.x, y: a.y - b.y });
 const translateRect = (r: Rect, d: Vec): Rect => ({ ...r, x: r.x + d.x, y: r.y + d.y });
 const geomEqual = (a: Geom, b: Geom): boolean => JSON.stringify(a) === JSON.stringify(b);
+const RAD2DEG = 180 / Math.PI;
+
+/** The signed CW angle (deg) of `p` relative to `pivot`, in content space (y-down). */
+const angleAt = (pivot: Vec, p: Vec): number => Math.atan2(p.y - pivot.y, p.x - pivot.x) * RAD2DEG;
+
+/** A group resize is isotropic (uniform) when ANY selected member is rotated —
+ *  an off-axis scale across a rotated rect+rot is a shear it can't represent. A
+ *  vertex member's advisory `rot` counts (preserves obbFromTheta + reset). */
+const selectionHasRotation = (m: Model, ids: Id[]): boolean =>
+  ids.some((id) => geomRotation(m.byId[id]?.geom ?? ({ t: 'caret' } as Geom)) !== 0);
 
 export function update(m: Model, msg: Msg): [Model, Effect[]] {
   switch (msg.t) {
@@ -107,6 +126,10 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return setEndings(m, msg.patch);
     case 'setDefaults':
       return setDefaults(m, msg.subtype, msg.patch);
+    case 'rotate90':
+      return rotateSelection(m, 90);
+    case 'resetRotation':
+      return resetRotation(m);
     case 'delete':
       return deleteSelection(m);
     case 'cancel':
@@ -159,6 +182,38 @@ function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
     const base = m.byId[hit.id].geom;
     return [{ ...m, draft: { g: 'handle', id: hit.id, handle: hit.handle, base, cur: base } }, []];
   }
+  if (hit.t === 'rotate') {
+    return [
+      {
+        ...m,
+        draft: {
+          g: 'rotate',
+          ids: hit.ids,
+          pivot: hit.pivot,
+          start: input.point,
+          cur: input.point,
+        },
+      },
+      [],
+    ];
+  }
+  if (hit.t === 'group-handle') {
+    return [
+      {
+        ...m,
+        draft: {
+          g: 'group',
+          op: 'resize',
+          ids: hit.ids,
+          handle: hit.handle,
+          anchor: groupResizeAnchor(hit.box, hit.handle),
+          base: hit.box,
+          cur: hit.box,
+        },
+      },
+      [],
+    ];
+  }
   if (hit.t === 'annot') {
     // A hit on any member acts on the WHOLE group — select/toggle/drag as a unit.
     const grp = groupMembers(m, hit.id);
@@ -186,6 +241,11 @@ function editMove(m: Model, input: PointerInput): [Model, Effect[]] {
   if (d.g === 'move') return [{ ...m, draft: { ...d, delta: sub(input.point, d.start) } }, []];
   if (d.g === 'handle')
     return [{ ...m, draft: { ...d, cur: geomDragHandle(d.base, d.handle, input.point) } }, []];
+  if (d.g === 'rotate') return [{ ...m, draft: { ...d, cur: input.point } }, []];
+  if (d.g === 'group') {
+    const iso = selectionHasRotation(m, d.ids);
+    return [{ ...m, draft: { ...d, cur: groupResizeBox(d.base, d.handle, input.point, iso) } }, []];
+  }
   return [m, []];
 }
 
@@ -198,6 +258,33 @@ function editUp(m: Model): [Model, Effect[]] {
     // A resize changes the appearance: we own it now → live (vector) render.
     const a = toVector({ ...m.byId[d.id], geom: d.cur });
     return [{ ...m, byId: { ...m.byId, [d.id]: a }, draft: null }, [{ fx: 'patch', id: d.id }]];
+  }
+  if (d.g === 'rotate') {
+    const delta = angleAt(d.pivot, d.cur) - angleAt(d.pivot, d.start);
+    if (Math.abs(delta) < 0.01) return [{ ...m, draft: null }, []];
+    const byId = { ...m.byId };
+    const fx: Effect[] = [];
+    for (const id of d.ids) {
+      const a = byId[id];
+      if (!a) continue;
+      // rotation re-bakes the appearance → live (vector) render + patch.
+      byId[id] = toVector({ ...a, geom: geomRotateAbout(a.geom, d.pivot, delta) });
+      fx.push({ fx: 'patch', id });
+    }
+    return [{ ...m, byId, draft: null }, fx];
+  }
+  if (d.g === 'group') {
+    const { sx, sy } = groupResizeFactors(d.base, d.cur);
+    if (Math.abs(sx - 1) < 1e-4 && Math.abs(sy - 1) < 1e-4) return [{ ...m, draft: null }, []];
+    const byId = { ...m.byId };
+    const fx: Effect[] = [];
+    for (const id of d.ids) {
+      const a = byId[id];
+      if (!a) continue;
+      byId[id] = toVector({ ...a, geom: geomScaleAbout(a.geom, d.anchor, sx, sy) });
+      fx.push({ fx: 'patch', id });
+    }
+    return [{ ...m, byId, draft: null }, fx];
   }
   if (d.g === 'move') {
     if (Math.hypot(d.delta.x, d.delta.y) < 0.01) return [{ ...m, draft: null }, []]; // a click
@@ -641,6 +728,52 @@ function setDefaults(m: Model, subtype: Subtype, patch: ToolDefaults): [Model, E
   return [{ ...m, defaults: { ...m.defaults, [subtype]: next } }, []];
 }
 
+/**
+ * Rotate the current selection by `deltaDeg` (clockwise) — the toolbar
+ * "rotate 90°" affordance. A single shape turns about its own centre; a
+ * multi-target group about the union-box centre (gated by `groupRotatable` for
+ * groups, `rotatable` for a single shape). Emits one patch per rotated member.
+ */
+function rotateSelection(m: Model, deltaDeg: number): [Model, Effect[]] {
+  const ids = m.selected.filter((id) => {
+    const a = m.byId[id];
+    return a && !a.locked && capsFor(a.subtype).rotatable;
+  });
+  if (!ids.length) return [m, []];
+  // pivot: a single shape's own selection-rect centre (so vertex kinds spin in
+  // place, not about their off-centre vertex mean); a group's union-box centre.
+  let pivot: Vec;
+  if (ids.length === 1) {
+    const a = m.byId[ids[0]];
+    pivot = selectionCenter(a.geom, a.style.strokeWidth);
+  } else {
+    const pon = m.byId[ids[0]].pon;
+    const union = groupUnionBounds({ ...m, selected: ids }, pon);
+    if (!union) return [m, []];
+    pivot = { x: union.x + union.width / 2, y: union.y + union.height / 2 };
+  }
+  const byId = { ...m.byId };
+  const fx: Effect[] = [];
+  for (const id of ids) {
+    byId[id] = toVector({ ...byId[id], geom: geomRotateAbout(byId[id].geom, pivot, deltaDeg) });
+    fx.push({ fx: 'patch', id });
+  }
+  return [{ ...m, byId }, fx];
+}
+
+/** Reset rotation on the selection to the as-authored orientation. */
+function resetRotation(m: Model): [Model, Effect[]] {
+  const byId = { ...m.byId };
+  const fx: Effect[] = [];
+  for (const id of m.selected) {
+    const a = byId[id];
+    if (!a || a.locked || geomRotation(a.geom) === 0) continue;
+    byId[id] = toVector({ ...a, geom: geomResetRotation(a.geom) });
+    fx.push({ fx: 'patch', id });
+  }
+  return fx.length ? [{ ...m, byId }, fx] : [m, []];
+}
+
 function deleteSelection(m: Model): [Model, Effect[]] {
   if (!m.selected.length) return [m, []];
   const fx: Effect[] = [];
@@ -658,7 +791,9 @@ export function annotsInBox(m: Model, pon: number, a: Vec, b: Vec): Id[] {
     (id) =>
       m.byId[id]?.pon === pon &&
       isSelectable(m, id) &&
-      rectsIntersect(selectionBounds(m.byId[id].geom, m.byId[id].style.strokeWidth), box),
+      // intersect against the ROTATED extent (AABB of the oriented quad), so a
+      // marquee catches a tilted shape by what's actually drawn, not its footprint.
+      rectsIntersect(unionRect(selectionQuad(m.byId[id].geom, m.byId[id].style.strokeWidth)), box),
   );
 }
 
@@ -700,6 +835,7 @@ function draftIds(draft: Draft | null): Set<Id> {
   if (!draft) return new Set();
   if (draft.g === 'move') return new Set(draft.ids);
   if (draft.g === 'handle') return new Set([draft.id]);
+  if (draft.g === 'rotate' || draft.g === 'group') return new Set(draft.ids);
   return new Set();
 }
 

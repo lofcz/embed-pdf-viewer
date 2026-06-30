@@ -5,27 +5,35 @@
  */
 import {
   geomHandles,
+  geomRotateAbout,
+  geomRotation,
+  geomScaleAbout,
   geomTranslate,
   geomVisualBounds,
+  groupResizeFactors,
+  obbFromGeom,
   rectFromPoints,
+  rectHandlesFor,
+  rotateKnob,
   selectionBounds,
+  selectionQuad,
   shapeRectFor,
   unionRect,
+  ROTATE_KNOB_OFFSET,
 } from './geometry';
-import { isSelectable, paintOrder } from './hit';
+import { groupCaps } from './group';
+import { groupUnionBounds, isSelectable, paintOrder } from './hit';
 import { capsFor } from './kinds';
 import { blendFor } from './scene';
 import { calloutBox, defaultsFor } from './update';
 import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types';
 import type { CreationDraftAnchor } from './types';
 
+const RAD2DEG = 180 / Math.PI;
+const angleAt = (pivot: Vec, p: Vec): number => Math.atan2(p.y - pivot.y, p.x - pivot.x) * RAD2DEG;
+
 const DRAFT_ID = '__draft__';
 const PREVIEW_ID = '__markup_preview__';
-
-const rectCorners = (r: Rect): Vec[] => [
-  { x: r.x, y: r.y },
-  { x: r.x + r.width, y: r.y + r.height },
-];
 
 const polyPreviewPoints = (points: Vec[], cur: Vec): Vec[] => {
   const last = points[points.length - 1];
@@ -38,6 +46,14 @@ function effGeom(m: Model, id: Id): Geom {
   if (d) {
     if (d.g === 'move' && d.ids.includes(id)) return geomTranslate(a.geom, d.delta);
     if (d.g === 'handle' && d.id === id) return d.cur;
+    if (d.g === 'rotate' && d.ids.includes(id)) {
+      const delta = angleAt(d.pivot, d.cur) - angleAt(d.pivot, d.start);
+      return geomRotateAbout(a.geom, d.pivot, delta);
+    }
+    if (d.g === 'group' && d.ids.includes(id)) {
+      const { sx, sy } = groupResizeFactors(d.base, d.cur);
+      return geomScaleAbout(a.geom, d.anchor, sx, sy);
+    }
   }
   return a.geom;
 }
@@ -59,7 +75,12 @@ function effApBox(m: Model, id: Id): Rect | undefined {
  *  yet — so the drag is crisp and a no-op grab can revert to baked. */
 function effSource(m: Model, id: Id): 'baked' | 'vector' {
   const a = m.byId[id];
-  return m.draft?.g === 'handle' && m.draft.id === id ? 'vector' : a.source;
+  const d = m.draft;
+  // A live resize/rotate/group transform must render LIVE — the baked raster
+  // can't stretch or tilt — even before the commit flips `source`.
+  if (d?.g === 'handle' && d.id === id) return 'vector';
+  if ((d?.g === 'rotate' || d?.g === 'group') && d.ids.includes(id)) return 'vector';
+  return a.source;
 }
 
 /** A free-text box renders as a LIVE element (editable / reflowing) while it's
@@ -93,6 +114,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       style: a.style,
       source: effSource(m, id),
       selected: m.selected.includes(id),
+      rot: geomRotation(geom),
       blend: blendFor(a.subtype),
     });
   }
@@ -183,6 +205,9 @@ export interface TextBox {
   id: Id;
   box: Rect;
   editing: boolean;
+  /** Applied rotation (deg, CW). `box` is the UNROTATED text box; the framework
+   *  rotates the editable element about its centre by this. 0/undefined = none. */
+  rot?: number;
 }
 
 /** The free-text boxes on a page — the text counterpart of `pageItems`. */
@@ -194,7 +219,7 @@ export function textBoxes(m: Model, pon: number): TextBox[] {
     if (!textIsLive(m, id)) continue; // baked → rendered as the /AP image instead
     const g = effGeom(m, id);
     if (g.t !== 'text') continue;
-    out.push({ id, box: g.rect, editing: m.editing === id });
+    out.push({ id, box: g.rect, editing: m.editing === id, rot: geomRotation(g) });
   }
   return out;
 }
@@ -216,9 +241,39 @@ export function selectedItems(m: Model): RenderItem[] {
       style: a.style,
       source: a.source,
       selected: true,
+      rot: geomRotation(geom),
     });
   }
   return items;
+}
+
+const boxCorners = (r: Rect): [Vec, Vec, Vec, Vec] => [
+  { x: r.x, y: r.y },
+  { x: r.x + r.width, y: r.y },
+  { x: r.x + r.width, y: r.y + r.height },
+  { x: r.x, y: r.y + r.height },
+];
+
+/**
+ * The rotate knob for the current selection on `pon` — the SAME knob `chrome`
+ * draws — or null when the selection has none (non-rotatable single, or a group
+ * whose caps aren't rotatable). A single shape's knob hangs off its OBB top edge;
+ * a group's off the union box. Shared by `chrome` (to draw) and `selectionAnchor`
+ * (to push the menu clear of it), so the two can never disagree on where it is.
+ */
+export function selectionKnob(m: Model, pon: number): { at: Vec; from: Vec } | null {
+  const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
+  if (sel.length === 1) {
+    const a = m.byId[sel[0]];
+    if (!capsFor(a.subtype).rotatable) return null;
+    const obb = obbFromGeom(effGeom(m, sel[0]), a.style.strokeWidth);
+    return obb ? rotateKnob(obb.corners, ROTATE_KNOB_OFFSET) : null;
+  }
+  if (sel.length > 1 && groupCaps(m, sel).rotatable) {
+    const union = groupUnionBounds(m, pon);
+    if (union) return rotateKnob(boxCorners(union), ROTATE_KNOB_OFFSET);
+  }
+  return null;
 }
 
 export function chrome(m: Model, pon: number): ChromeNode[] {
@@ -230,19 +285,35 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
   if (sel.length === 1) {
     const a = m.byId[sel[0]];
     const g = effGeom(m, sel[0]);
-    nodes.push({ kind: 'outline', rect: selectionBounds(g, a.style.strokeWidth) });
-    // handles only for kinds that resize (box) or vertex-edit; anchored/markup show
-    // a bare outline.
     const caps = capsFor(a.subtype);
+    const rot = geomRotation(g);
+    const obb = caps.rotatable ? obbFromGeom(g, a.style.strokeWidth) : null;
+    if (obb && rot !== 0) {
+      // a tilted shape: draw the oriented box + the rotate knob off its top edge.
+      nodes.push({ kind: 'obb', corners: obb.corners, angle: obb.angle });
+    } else {
+      nodes.push({ kind: 'outline', rect: selectionBounds(g, a.style.strokeWidth) });
+    }
+    // handles for kinds that resize (box) or vertex-edit; anchored/markup show a
+    // bare outline. `geomHandles` already places them on the rotated box.
     if (caps.resizable || caps.vertexEditable) {
       for (const h of geomHandles(g)) nodes.push({ kind: 'handle', at: h.at, cursor: h.cursor });
     }
   } else if (sel.length > 1) {
-    const corners = sel.flatMap((id) =>
-      rectCorners(selectionBounds(effGeom(m, id), m.byId[id].style.strokeWidth)),
-    );
-    nodes.push({ kind: 'outline', rect: unionRect(corners) });
+    const union = groupUnionBounds(m, pon);
+    if (union) {
+      nodes.push({ kind: 'outline', rect: union });
+      const gc = groupCaps(m, sel);
+      if (gc.resizable) {
+        for (const h of rectHandlesFor(union))
+          nodes.push({ kind: 'handle', at: h.at, cursor: h.cursor });
+      }
+    }
   }
+  // The rotate knob (single shape or group) — one source of truth with the menu
+  // anchor, so the menu is always pushed clear of exactly this point.
+  const knob = selectionKnob(m, pon);
+  if (knob) nodes.push({ kind: 'rotate-knob', at: knob.at, from: knob.from });
   return nodes;
 }
 
@@ -252,13 +323,10 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
 export function selectionBoundsOnPage(m: Model, pon: number): Rect | null {
   const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
   if (sel.length === 0) return null;
-  if (sel.length === 1) {
-    const a = m.byId[sel[0]];
-    return selectionBounds(effGeom(m, sel[0]), a.style.strokeWidth);
-  }
-  const corners = sel.flatMap((id) =>
-    rectCorners(selectionBounds(effGeom(m, id), m.byId[id].style.strokeWidth)),
-  );
+  // The rotated AABB: the axis-aligned box that encloses the ORIENTED selection
+  // quad. For a tilted shape this tracks the live `rot`, so the upright floating
+  // menu floats above the whole tilted shape instead of the (fixed) unrotated box.
+  const corners = sel.flatMap((id) => selectionQuad(effGeom(m, id), m.byId[id].style.strokeWidth));
   return unionRect(corners);
 }
 
@@ -266,12 +334,17 @@ export function selectionBoundsOnPage(m: Model, pon: number): Rect | null {
  *  selectable selected id) + the union box of the selection on that page (content
  *  space). Null when nothing selectable is selected. A cross-page selection
  *  anchors to its primary page, so there is exactly one menu. */
-export function selectionAnchor(m: Model): { pon: number; bounds: Rect } | null {
+export function selectionAnchor(m: Model): { pon: number; bounds: Rect; knob?: Vec } | null {
   const id = m.selected.find((x) => isSelectable(m, x));
   if (id == null) return null;
   const pon = m.byId[id].pon;
   const bounds = selectionBoundsOnPage(m, pon);
-  return bounds ? { pon, bounds } : null;
+  if (!bounds) return null;
+  // `bounds` is the plain selection box (the menu stays centred on it). The knob
+  // rides ALONGSIDE it so the menu can nudge ONLY the edge it sits on, and only
+  // when the handle would otherwise hide under it — never shifting the centre.
+  const knob = selectionKnob(m, pon);
+  return knob ? { pon, bounds, knob: knob.at } : { pon, bounds };
 }
 
 /** Anchor for controls that finish/cancel an active multi-click creation draft.

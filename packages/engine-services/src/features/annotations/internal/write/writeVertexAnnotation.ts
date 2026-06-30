@@ -15,6 +15,7 @@ import {
 } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
 import { applyFilledStyleDraft, applyFilledStylePatch } from './writeStyle';
+import { writeVertexTransformMetadata } from './writeAnnotationTransformMetadata';
 
 export type VertexDraft = PolygonDraft | PolylineDraft;
 export type VertexPatch = PolygonPatch | PolylinePatch;
@@ -48,6 +49,8 @@ export function applyPolygonDraft(
   if (draft.cloudyIntensity !== undefined && draft.cloudyIntensity > 0) {
     setBorderEffect(fn, annotPtr, draft.cloudyIntensity);
   }
+  // Advisory rotation: the vertices are already rotated; this just records θ.
+  writeVertexTransformMetadata(fn, annotPtr, { rotation: draft.rotation });
 }
 
 export function applyPolygonPatch(
@@ -63,6 +66,8 @@ export function applyPolygonPatch(
   applyFilledStylePatch(fn, mem, annotPtr, patch);
   if (patch.vertices !== undefined) {
     setVertices(fn, mem, annotPtr, patch.vertices);
+    // Reconcile advisory rotation only when the geometry was (re)written.
+    writeVertexTransformMetadata(fn, annotPtr, { rotation: patch.rotation });
   }
   if (patch.cloudyIntensity !== undefined) {
     if (patch.cloudyIntensity > 0) {
@@ -92,6 +97,8 @@ export function applyPolylineDraft(
   applyFilledStyleDraft(fn, mem, annotPtr, draft);
   setVertices(fn, mem, annotPtr, draft.vertices);
   setLineEndings(fn, annotPtr, draft.lineEndings ?? DEFAULT_LINE_ENDINGS);
+  // Advisory rotation: the vertices are already rotated; this just records θ.
+  writeVertexTransformMetadata(fn, annotPtr, { rotation: draft.rotation });
 }
 
 export function applyPolylinePatch(
@@ -107,6 +114,8 @@ export function applyPolylinePatch(
   applyFilledStylePatch(fn, mem, annotPtr, patch);
   if (patch.vertices !== undefined) {
     setVertices(fn, mem, annotPtr, patch.vertices);
+    // Reconcile advisory rotation only when the geometry was (re)written.
+    writeVertexTransformMetadata(fn, annotPtr, { rotation: patch.rotation });
   }
   if (patch.lineEndings !== undefined) {
     setLineEndings(fn, annotPtr, patch.lineEndings);

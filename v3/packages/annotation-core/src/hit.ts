@@ -1,9 +1,27 @@
-import { geomHandles, geomHit, selectionBounds } from './geometry';
+import {
+  geomHandles,
+  geomHit,
+  obbFromGeom,
+  pointInQuad,
+  rectHandlesFor,
+  rotateKnob,
+  selectionCenter,
+  selectionQuad,
+  unionRect,
+  ROTATE_KNOB_OFFSET,
+} from './geometry';
 import { capsFor, isMarkup } from './kinds';
+import { groupCaps } from './group';
 import { type Annot, type Cursor, type Id, type Model, type Rect, type Vec } from './types';
 
 export type Target =
   | { t: 'handle'; id: Id; handle: string; cursor: Cursor }
+  // The rotate knob of the current selection (single shape or multi-target
+  // group). `pivot` is the rotation centre the gesture turns about.
+  | { t: 'rotate'; ids: Id[]; pivot: Vec }
+  // A resize handle of the multi-target group box (the union box of the
+  // selection). `box` is that union box; `ids` the members it scales.
+  | { t: 'group-handle'; ids: Id[]; handle: string; cursor: Cursor; box: Rect }
   | { t: 'annot'; id: Id }
   | { t: 'empty' };
 
@@ -43,10 +61,11 @@ const isFilled = (a: Annot): boolean => a.style.interiorColor != null || a.geom.
 const inRect = (b: Rect, p: Vec): boolean =>
   p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
 // A SELECTED annotation is grabbable from anywhere inside its SELECTION region — the
-// SAME rect the chrome outlines — so the grab area matches what you see highlighted
-// (a thin/horizontal arrow's whole outline box, arrowhead included; not a sliver).
+// SAME oriented quad the chrome outlines — so the grab area matches what you see
+// highlighted, tilt included (a rotated box is grabbable across its tilted body, not
+// just its unrotated footprint; a thin arrow's whole outline box, arrowhead and all).
 const inBounds = (a: Annot, p: Vec): boolean =>
-  inRect(selectionBounds(a.geom, a.style.strokeWidth), p);
+  pointInQuad(p, selectionQuad(a.geom, a.style.strokeWidth));
 
 /**
  * The union of the SELECTION bounds of every selected, movable annotation on a
@@ -60,19 +79,24 @@ function selectionUnionBounds(m: Model, pon: number): Rect | null {
     (id) => m.byId[id]?.pon === pon && isSelectable(m, id) && canMove(m, id),
   );
   if (sel.length < 2) return null;
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+  const corners: Vec[] = [];
   for (const id of sel) {
     const a = m.byId[id];
-    const b = selectionBounds(a.geom, a.style.strokeWidth);
-    minX = Math.min(minX, b.x);
-    minY = Math.min(minY, b.y);
-    maxX = Math.max(maxX, b.x + b.width);
-    maxY = Math.max(maxY, b.y + b.height);
+    corners.push(...selectionQuad(a.geom, a.style.strokeWidth));
   }
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+  return unionRect(corners);
+}
+
+/** The axis-aligned union of the SELECTION bounds of every selected annotation on
+ *  a page (no movable/lock filter) — the box group chrome + group rotate use. */
+export function groupUnionBounds(m: Model, pon: number): Rect | null {
+  const corners: Vec[] = [];
+  for (const id of m.selected) {
+    const a = m.byId[id];
+    if (!a || a.pon !== pon) continue;
+    corners.push(...selectionQuad(a.geom, a.style.strokeWidth));
+  }
+  return corners.length ? unionRect(corners) : null;
 }
 
 /**
@@ -92,10 +116,63 @@ export function hitTest(
 ): Target {
   if (m.selected.length === 1 && isSelectable(m, m.selected[0])) {
     const a = m.byId[m.selected[0]];
-    if (a.pon === pon && hasHandles(a.subtype)) {
-      for (const h of geomHandles(a.geom)) {
-        if (Math.abs(h.at.x - p.x) <= handleTol && Math.abs(h.at.y - p.y) <= handleTol) {
-          return { t: 'handle', id: a.id, handle: h.id, cursor: h.cursor };
+    if (a.pon === pon) {
+      // The rotate knob (checked first — it floats outside the box, clear of the
+      // handles). Only for kinds whose `caps.rotatable` is on.
+      if (capsFor(a.subtype).rotatable) {
+        const obb = obbFromGeom(a.geom, a.style.strokeWidth);
+        if (obb) {
+          const knob = rotateKnob(obb.corners, ROTATE_KNOB_OFFSET);
+          if (Math.abs(knob.at.x - p.x) <= handleTol && Math.abs(knob.at.y - p.y) <= handleTol) {
+            return {
+              t: 'rotate',
+              ids: [a.id],
+              pivot: selectionCenter(a.geom, a.style.strokeWidth),
+            };
+          }
+        }
+      }
+      if (hasHandles(a.subtype)) {
+        for (const h of geomHandles(a.geom)) {
+          if (Math.abs(h.at.x - p.x) <= handleTol && Math.abs(h.at.y - p.y) <= handleTol) {
+            return { t: 'handle', id: a.id, handle: h.id, cursor: h.cursor };
+          }
+        }
+      }
+    }
+  } else if (m.selected.length > 1) {
+    // Multi-target group: a rotate knob hanging off the union box, gated by the
+    // group caps (every member rotatable + none locked).
+    const gc = groupCaps(m, m.selected);
+    if (gc.rotatable) {
+      const union = groupUnionBounds(m, pon);
+      if (union) {
+        const corners: [Vec, Vec, Vec, Vec] = [
+          { x: union.x, y: union.y },
+          { x: union.x + union.width, y: union.y },
+          { x: union.x + union.width, y: union.y + union.height },
+          { x: union.x, y: union.y + union.height },
+        ];
+        const knob = rotateKnob(corners, ROTATE_KNOB_OFFSET);
+        if (Math.abs(knob.at.x - p.x) <= handleTol && Math.abs(knob.at.y - p.y) <= handleTol) {
+          const pivot = { x: union.x + union.width / 2, y: union.y + union.height / 2 };
+          return { t: 'rotate', ids: m.selected.filter((id) => m.byId[id]?.pon === pon), pivot };
+        }
+      }
+    }
+    if (gc.resizable) {
+      const union = groupUnionBounds(m, pon);
+      if (union) {
+        for (const h of rectHandlesFor(union)) {
+          if (Math.abs(h.at.x - p.x) <= handleTol && Math.abs(h.at.y - p.y) <= handleTol) {
+            return {
+              t: 'group-handle',
+              ids: m.selected.filter((id) => m.byId[id]?.pon === pon),
+              handle: h.id,
+              cursor: h.cursor,
+              box: union,
+            };
+          }
         }
       }
     }
@@ -138,6 +215,8 @@ export function cursorAt(
 ): Cursor | null {
   const t = hitTest(m, pon, p, handleTol, strokeMargin);
   if (t.t === 'handle') return t.cursor;
+  if (t.t === 'group-handle') return t.cursor;
+  if (t.t === 'rotate') return 'grab';
   if (t.t === 'annot') return m.selected.includes(t.id) && canMove(m, t.id) ? 'move' : 'pointer';
   return null;
 }

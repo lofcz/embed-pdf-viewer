@@ -24,12 +24,16 @@ import {
   contentToPdfPoint,
   contentToPdfRect,
   geomPdfBounds,
+  geomRotation,
+  normalizeDeg,
   pdfToContentPoint,
   pdfToContentRect,
+  rotatedAabb,
   type Annot,
   type Border,
   type Geom,
   type Quad,
+  type Rect,
   type Style,
 } from '@embedpdf-x/annotation-core';
 
@@ -65,6 +69,45 @@ const TEXT_MARKUP = new Set(['highlight', 'underline', 'squiggly', 'strikeout'])
 // Geometric kinds that carry the `/C` stroke colour + `/BS` border. Ink belongs
 // here too (it has a stroke but no `/IC`, so its interiorColor reads back null).
 const STROKE_KINDS = new Set(['square', 'circle', 'line', 'polygon', 'polyline', 'ink']);
+
+/* ── rotation seam (CW content ↔ PDF convention) ──────────────────────────────
+ * The model's `rot` is CLOCKWISE in content space (y-down). PDF user space is
+ * y-up, so the y-flip at this boundary turns a CW content tilt into a CCW PDF
+ * tilt of the same magnitude — i.e. the stored `/EMBD_Metadata/Rotation` is the
+ * NEGATION (mod 360). This is the ONE place the convention is converted; every
+ * layer above speaks CW-content and the engine/PDFium speaks the PDF angle.
+ */
+const toPdfRotation = (rotCW: number): number => normalizeDeg(-rotCW);
+const fromPdfRotation = (rotPdf: number): number => normalizeDeg(-rotPdf);
+
+/**
+ * Geometry/rotation fields for a BOX kind (square/circle/plain free-text). The
+ * model's `rect` is the UNROTATED logical box and `rot` the applied tilt, so:
+ *  - rot == 0 → `/Rect` IS the box; no rotation metadata.
+ *  - rot != 0 → `/Rect` is the rotated visual AABB (PDFium clips the baked /AP to
+ *    it), `unrotatedRect` is the logical box, and `rotation` the PDF angle. The
+ *    engine bakes a portable `/AP /Matrix` from those two.
+ */
+function boxGeomFields(
+  rect: Rect,
+  rot: number,
+  crop: PdfRect,
+): { rect: PdfRect; unrotatedRect?: PdfRect; rotation?: number } {
+  if (!rot) return { rect: contentToPdfRect(rect, crop) };
+  return {
+    rect: contentToPdfRect(rotatedAabb(rect, rot), crop),
+    unrotatedRect: contentToPdfRect(rect, crop),
+    rotation: toPdfRotation(rot),
+  };
+}
+
+/** Advisory rotation for a VERTEX kind (line/poly/ink): the points are already
+ *  rotated, so this scalar is inert for AP — it just records the applied angle so
+ *  EmbedPDF can show an oriented box + offer reset. Absent when not rotated. */
+const advisoryRotation = (g: Geom): { rotation?: number } => {
+  const rot = geomRotation(g);
+  return rot ? { rotation: toPdfRotation(rot) } : {};
+};
 
 /**
  * Engine DTO → content-space Annot. `source` decides how it renders: `'baked'`
@@ -103,15 +146,16 @@ export function fromDTO(
 function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
   switch (dto.subtype) {
     case 'square':
-      return { t: 'rect', rect: pdfToContentRect(dto.rect, crop), ellipse: false };
+      return boxGeomFromDTO(dto, dto.rotation, dto.unrotatedRect, crop, false);
     case 'circle':
-      return { t: 'rect', rect: pdfToContentRect(dto.rect, crop), ellipse: true };
+      return boxGeomFromDTO(dto, dto.rotation, dto.unrotatedRect, crop, true);
     case 'line':
       return {
         t: 'line',
         a: pdfToContentPoint(dto.linePoints.start, crop),
         b: pdfToContentPoint(dto.linePoints.end, crop),
         ends: dto.lineEndings,
+        ...rotFromDTO(dto.rotation),
       };
     case 'polyline':
       return {
@@ -119,17 +163,20 @@ function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
         points: dto.vertices.map((p) => pdfToContentPoint(p, crop)),
         closed: false,
         ends: dto.lineEndings,
+        ...rotFromDTO(dto.rotation),
       };
     case 'polygon':
       return {
         t: 'poly',
         points: dto.vertices.map((p) => pdfToContentPoint(p, crop)),
         closed: true,
+        ...rotFromDTO(dto.rotation),
       };
     case 'ink':
       return {
         t: 'ink',
         strokes: dto.inkList.map((stroke) => stroke.map((p) => pdfToContentPoint(p, crop))),
+        ...rotFromDTO(dto.rotation),
       };
     case 'free-text': {
       // A callout (`/IT free-text-callout` + a `/CL` leader): the stored `rect` is
@@ -148,7 +195,10 @@ function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
           },
         };
       }
-      return { t: 'text', rect: pdfToContentRect(dto.rect, crop) };
+      // Plain text box: a box kind — read back the unrotated box + advisory tilt.
+      const rot = dto.rotation ? fromPdfRotation(dto.rotation) : 0;
+      const box = rot && dto.unrotatedRect ? dto.unrotatedRect : dto.rect;
+      return { t: 'text', rect: pdfToContentRect(box, crop), ...(rot ? { rot } : {}) };
     }
     case 'highlight':
     case 'underline':
@@ -171,6 +221,26 @@ function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
     default:
       return { t: 'rect', rect: pdfToContentRect(dto.rect, crop), ellipse: false };
   }
+}
+
+/** Advisory `rot` for a vertex geom, from a DTO's (PDF-convention) `rotation`.
+ *  Absent → no `rot` key (kept off the geom so unrotated shapes stay clean). */
+const rotFromDTO = (rotation?: number): { rot?: number } =>
+  rotation ? { rot: fromPdfRotation(rotation) } : {};
+
+/** A box geom (square/circle) from its DTO: when rotated, the LOCAL box is the
+ *  stored `unrotatedRect` (the AABB `/Rect` is the rendered envelope) and `rot`
+ *  the converted tilt; unrotated, `/Rect` IS the box. */
+function boxGeomFromDTO(
+  dto: { rect: PdfRect },
+  rotation: number | undefined,
+  unrotatedRect: PdfRect | undefined,
+  crop: PdfRect,
+  ellipse: boolean,
+): Geom {
+  const rot = rotation ? fromPdfRotation(rotation) : 0;
+  const box = rot && unrotatedRect ? unrotatedRect : dto.rect;
+  return { t: 'rect', rect: pdfToContentRect(box, crop), ellipse, ...(rot ? { rot } : {}) };
 }
 
 /** Engine border fields (`/BS /S`, `/BS /D`, `/BE /I`) → the `Border` union. A
@@ -393,14 +463,22 @@ function quadPointsFor(a: Annot, crop: PdfRect) {
   }));
 }
 
+/** Box geometry+rotation fields for the emit side (square/circle/plain free-text):
+ *  the model's unrotated `rect` + applied `rot`, mapped to `/Rect`(+`unrotatedRect`
+ *  +`rotation`). The geom is always a box here (the callers gate on subtype). */
+const boxEmit = (a: Annot, crop: PdfRect) => {
+  const g = a.geom as Extract<Geom, { t: 'rect' } | { t: 'text' }>;
+  return boxGeomFields(g.rect, geomRotation(a.geom), crop);
+};
+
 /** Content Annot → engine create draft (square/circle/line in v1; null otherwise). */
 export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
   const f = geomFields(a, crop);
   const sf = strokeFill(a.style);
   if (a.subtype === 'square' && f && 'rect' in f)
-    return { subtype: 'square', rect: f.rect, ...sf, ...shapeExtras(a) };
+    return { subtype: 'square', ...boxEmit(a, crop), ...sf, ...shapeExtras(a) };
   if (a.subtype === 'circle' && f && 'rect' in f)
-    return { subtype: 'circle', rect: f.rect, ...sf, ...shapeExtras(a) };
+    return { subtype: 'circle', ...boxEmit(a, crop), ...sf, ...shapeExtras(a) };
   if (a.subtype === 'line' && f && 'linePoints' in f)
     return {
       subtype: 'line',
@@ -408,9 +486,16 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       lineEndings: f.lineEndings,
       rect: f.rect,
       ...sf,
+      ...advisoryRotation(a.geom),
     };
   if (a.subtype === 'polygon' && f && 'vertices' in f)
-    return { subtype: 'polygon', vertices: f.vertices, rect: f.rect, ...sf };
+    return {
+      subtype: 'polygon',
+      vertices: f.vertices,
+      rect: f.rect,
+      ...sf,
+      ...advisoryRotation(a.geom),
+    };
   if (a.subtype === 'polyline' && f && 'vertices' in f)
     return {
       subtype: 'polyline',
@@ -418,9 +503,16 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       lineEndings: f.lineEndings,
       rect: f.rect,
       ...sf,
+      ...advisoryRotation(a.geom),
     };
   if (a.subtype === 'ink' && f && 'inkList' in f)
-    return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
+    return {
+      subtype: 'ink',
+      inkList: f.inkList,
+      rect: f.rect,
+      ...geometryStyle(a.style),
+      ...advisoryRotation(a.geom),
+    };
   if (a.subtype === 'free-text' && f && 'rect' in f) {
     // text style — defaults for a fresh box; the user edits font/size later.
     const text = {
@@ -444,7 +536,12 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
         strokeWidth: a.style.strokeWidth, // /BS /W — the leader + box border weight
         ...text,
       } as AnnotationDraft;
-    return { subtype: 'free-text', intent: 'free-text', rect: f.rect, ...text } as AnnotationDraft;
+    return {
+      subtype: 'free-text',
+      intent: 'free-text',
+      ...boxEmit(a, crop),
+      ...text,
+    } as AnnotationDraft;
   }
   if (a.subtype === 'caret' && f && 'rect' in f)
     return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
@@ -459,9 +556,9 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
   const f = geomFields(a, crop);
   const sf = strokeFill(a.style);
   if (a.subtype === 'square' && f && 'rect' in f)
-    return { subtype: 'square', rect: f.rect, ...sf, ...shapeExtras(a) };
+    return { subtype: 'square', ...boxEmit(a, crop), ...sf, ...shapeExtras(a) };
   if (a.subtype === 'circle' && f && 'rect' in f)
-    return { subtype: 'circle', rect: f.rect, ...sf, ...shapeExtras(a) };
+    return { subtype: 'circle', ...boxEmit(a, crop), ...sf, ...shapeExtras(a) };
   if (a.subtype === 'line' && f && 'linePoints' in f)
     return {
       subtype: 'line',
@@ -469,9 +566,16 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
       lineEndings: f.lineEndings,
       rect: f.rect,
       ...sf,
+      ...advisoryRotation(a.geom),
     };
   if (a.subtype === 'polygon' && f && 'vertices' in f)
-    return { subtype: 'polygon', vertices: f.vertices, rect: f.rect, ...sf };
+    return {
+      subtype: 'polygon',
+      vertices: f.vertices,
+      rect: f.rect,
+      ...sf,
+      ...advisoryRotation(a.geom),
+    };
   if (a.subtype === 'polyline' && f && 'vertices' in f)
     return {
       subtype: 'polyline',
@@ -479,9 +583,16 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
       lineEndings: f.lineEndings,
       rect: f.rect,
       ...sf,
+      ...advisoryRotation(a.geom),
     };
   if (a.subtype === 'ink' && f && 'inkList' in f)
-    return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
+    return {
+      subtype: 'ink',
+      inkList: f.inkList,
+      rect: f.rect,
+      ...geometryStyle(a.style),
+      ...advisoryRotation(a.geom),
+    };
   // free-text move/resize: send the box. Text content is committed separately
   // (the debounced `update(contents)` while typing), so it's not duplicated here.
   // A callout sends the overall /Rect + the leader (/CL, /RD, /LE) on every
@@ -496,7 +607,7 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
         calloutLine: cf.calloutLine,
         lineEnding: cf.lineEnding,
       } as AnnotationPatch;
-    return { subtype: 'free-text', rect: f.rect } as AnnotationPatch;
+    return { subtype: 'free-text', ...boxEmit(a, crop) } as AnnotationPatch;
   }
   if (a.subtype === 'caret' && f && 'rect' in f)
     return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };

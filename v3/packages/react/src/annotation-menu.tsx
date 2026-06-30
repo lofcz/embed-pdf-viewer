@@ -24,7 +24,7 @@ import {
 } from './annotation';
 import { positionMenuAroundRect } from './annotation-menu-position';
 
-export function AnnotationMenu({ children, gap = 8, placement = 'top' }: AnnotationMenuProps) {
+export function AnnotationMenu({ children, gap = 15, placement = 'top' }: AnnotationMenuProps) {
   const stage = useCapability(StageToken);
   const anno = useCapability(AnnotationHostToken);
   // Reposition on pan/zoom AND rotation/layout changes. `visiblePages()` folds in
@@ -51,7 +51,17 @@ export function AnnotationMenu({ children, gap = 8, placement = 'top' }: Annotat
   if (!anchor) return null;
   const box = stage.pageRectToScreen(anchor.pon, anchor.bounds);
   if (!box) return null;
-  const pos = positionMenuAroundRect(box, placement, gap);
+  // Transform the knob via a zero-size rect so page rotation is respected; the
+  // menu then nudges only the edge it sits on (and only if the knob protrudes).
+  const kr = anchor.knob
+    ? stage.pageRectToScreen(anchor.pon, {
+        x: anchor.knob.x,
+        y: anchor.knob.y,
+        width: 0,
+        height: 0,
+      })
+    : null;
+  const pos = positionMenuAroundRect(box, placement, gap, kr ? { x: kr.x, y: kr.y } : null);
   return (
     <div
       ref={ref}
@@ -68,6 +78,8 @@ export function AnnotationMenu({ children, gap = 8, placement = 'top' }: Annotat
         deleteSelection: anno.deleteSelection,
         deselect: anno.deselect,
         updateSelection: anno.updateSelection,
+        rotate90: anno.rotateSelection90,
+        resetRotation: anno.resetSelectionRotation,
         group: anno.group,
         ungroup: anno.ungroup,
         canGroup: anno.canGroup(),

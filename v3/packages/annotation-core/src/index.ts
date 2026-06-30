@@ -14,11 +14,12 @@ export {
   textBoxes,
   selectionBoundsOnPage,
   selectionAnchor,
+  selectionKnob,
   creationDraftAnchor,
 } from './view';
 export type { TextBox } from './view';
 export { hitTest, cursorAt, isSelectable, canMove, type Target } from './hit';
-export { groupKeyOf, groupMembers, expandGroups } from './group';
+export { groupKeyOf, groupMembers, expandGroups, groupCaps, type GroupCaps } from './group';
 export { KINDS, capsFor, type KindCaps, type AnnotationKind } from './kinds';
 export {
   geomScene,
@@ -38,10 +39,29 @@ export {
   rectFromPoints,
   caretRectFromTextEnd,
   selectionBounds,
+  selectionQuad,
+  selectionCenter,
+  pointInQuad,
   shapeRectFor,
   unionRect,
   RECT_HANDLES,
   type RectHandle,
+  // rotation
+  centroidOf,
+  geomRotation,
+  geomRotateAbout,
+  geomResetRotation,
+  obbFromGeom,
+  rotateKnob,
+  rotatedAabb,
+  normalizeDeg,
+  isRotatableGeom,
+  ROTATE_KNOB_OFFSET,
+  // group scaling
+  geomScaleAbout,
+  groupResizeAnchor,
+  groupResizeBox,
+  groupResizeFactors,
 } from './geometry';
 export { cloudyPath, cloudyBorderExtent } from './cloudy';
 export { scene } from './scene';

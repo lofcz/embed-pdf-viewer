@@ -21,6 +21,10 @@ import {
   readTextAlignment,
 } from './annotationReadPrimitives';
 import { readBorderFields } from './readStyle';
+import {
+  readAnnotationRotation,
+  readAnnotationUnrotatedRect,
+} from './readAnnotationTransformMetadata';
 
 /** Default `/DA` colour (black) when an annotation has no default appearance. */
 const DEFAULT_FREETEXT_COLOR: Color = { r: 0, g: 0, b: 0 };
@@ -67,6 +71,8 @@ export function readFreeText(
   const leaderEnd = readLineEndings(fn, mem, annotPtr).end;
 
   const rd = readRectangleDifferences(fn, mem, annotPtr);
+  const rotation = readAnnotationRotation(fn, mem, annotPtr);
+  const unrotatedRect = readAnnotationUnrotatedRect(fn, mem, annotPtr);
 
   return {
     ...base,
@@ -83,5 +89,7 @@ export function readFreeText(
     ...(rd !== null ? { rectDifferences: rd } : {}),
     ...(calloutLine !== undefined ? { calloutLine } : {}),
     ...(calloutLine !== undefined && leaderEnd !== 'none' ? { lineEnding: leaderEnd } : {}),
+    ...(rotation != null ? { rotation } : {}),
+    ...(unrotatedRect ? { unrotatedRect } : {}),
   };
 }

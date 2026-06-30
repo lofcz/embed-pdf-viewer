@@ -373,6 +373,53 @@ export function matrixToCss(m: Mat2D): string {
   return `matrix(${a}, ${b}, ${c}, ${d}, ${e}, ${f})`;
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * Same-space affine builders — generic, free-angle transforms WITHIN one space
+ * (`Mat2D<S, S>`). The `rotateScaleMatrix` above is a quarter-turn, cross-space
+ * builder for page layout; these are the arbitrary-angle primitives content
+ * editing (annotation rotation/scale, future stamps/skew) composes from. They
+ * never know about annotations — they are the bottom-of-the-pyramid matrix math,
+ * so it isn't hand-rolled (and drift) in every plugin.
+ *
+ * Convention: a viewer content space is y-DOWN, so `rotate(rad)` —
+ * `[cos, sin, -sin, cos, 0, 0]` — turns CLOCKWISE on screen (matching the
+ * viewer's page-rotation direction). The PDF (y-up) flip, when one is needed,
+ * is a separate hop applied once at the engine boundary.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** Translate within a space. */
+export function translate<S extends Space>(tx: number, ty: number): Mat2D<S, S> {
+  return [1, 0, 0, 1, tx, ty] as Mat2D<S, S>;
+}
+
+/** Scale about the space origin. */
+export function scale<S extends Space>(sx: number, sy: number): Mat2D<S, S> {
+  return [sx, 0, 0, sy, 0, 0] as Mat2D<S, S>;
+}
+
+/** Rotate about the space origin (radians; clockwise in y-down content space). */
+export function rotate<S extends Space>(rad: number): Mat2D<S, S> {
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  return [c, s, -s, c, 0, 0] as Mat2D<S, S>;
+}
+
+/** Rotate about an arbitrary pivot: `T(c) · R(rad) · T(-c)`. */
+export function rotateAbout<S extends Space>(c: PointIn<S>, rad: number): Mat2D<S, S> {
+  return compose(translate<S>(c.x, c.y), compose(rotate<S>(rad), translate<S>(-c.x, -c.y)));
+}
+
+/** Scale about an arbitrary anchor: `T(a) · S(sx, sy) · T(-a)`. */
+export function scaleAbout<S extends Space>(a: PointIn<S>, sx: number, sy: number): Mat2D<S, S> {
+  return compose(translate<S>(a.x, a.y), compose(scale<S>(sx, sy), translate<S>(-a.x, -a.y)));
+}
+
+/** The rotation angle (radians) encoded in a matrix — `atan2(b, a)`. Positive is
+ *  clockwise in y-down content space (the inverse of {@link rotate}). */
+export function angleOf(m: Mat2D): number {
+  return Math.atan2(m[1], m[0]);
+}
+
 /**
  * The page's scale + integer quarter-turn as a `Mat2D`: a content point maps to
  * its place in the rotated DISPLAY box. `scale` is output units per content

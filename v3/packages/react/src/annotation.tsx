@@ -25,6 +25,7 @@ import {
   type Rect,
   type RenderItem,
   type Style,
+  type Vec,
 } from '@embedpdf-x/annotation-core';
 
 /** A tool's resolved defaults, as returned by `currentDefaults`. */
@@ -95,6 +96,10 @@ function Shape({ item, page }: { item: RenderItem; page: PageContextValue }) {
   // the viewBox keeps shrinking — decouples them, so a sub-pixel box scales content
   // up by ~1/size and a cloudy border's scallops flood the stage. No clamps here.
   const vb = `${item.box.x} ${item.box.y} ${item.box.width} ${item.box.height}`;
+  // BOX kinds (square/circle) carry an UNROTATED `box` + a `rot` angle; rotate the
+  // whole <svg> about its centre. VERTEX kinds (line/poly/ink) are already rotated
+  // in their geometry, so `rot` is advisory there — never re-applied.
+  const rot = item.geom.t === 'rect' ? (item.rot ?? 0) : 0;
   return (
     <svg
       viewBox={vb}
@@ -106,6 +111,7 @@ function Shape({ item, page }: { item: RenderItem; page: PageContextValue }) {
         height,
         overflow: 'visible',
         pointerEvents: 'none',
+        ...(rot ? { transform: `rotate(${rot}deg)`, transformOrigin: 'center' } : {}),
       }}
     >
       {scene(item).map((n, i) => {
@@ -194,6 +200,28 @@ function Chrome({ page }: { page: PageContextValue }) {
               stroke={ACCENT}
               strokeWidth={1.5}
             />
+          );
+        }
+        // An oriented selection box (a tilted shape/group): a closed quad through
+        // the four content-space corners — replaces the axis-aligned outline.
+        if (n.kind === 'obb') {
+          const pts = n.corners
+            .map((c) => {
+              const p = page.transform.pageToContent(c);
+              return `${p.x},${p.y}`;
+            })
+            .join(' ');
+          return <polygon key={i} points={pts} fill="none" stroke={ACCENT} strokeWidth={1} />;
+        }
+        // The rotate knob: a stalk from the top-edge midpoint out to a grab dot.
+        if (n.kind === 'rotate-knob') {
+          const at = page.transform.pageToContent(n.at);
+          const from = page.transform.pageToContent(n.from);
+          return (
+            <g key={i}>
+              <line x1={from.x} y1={from.y} x2={at.x} y2={at.y} stroke={ACCENT} strokeWidth={1} />
+              <circle cx={at.x} cy={at.y} r={5} fill="#fff" stroke={ACCENT} strokeWidth={1.5} />
+            </g>
           );
         }
         const b = boxOf(n.rect, page);
@@ -304,6 +332,9 @@ function FreeText({ item, page }: { item: TextItem; page: PageContextValue }) {
         overflowX: 'hidden',
         outline: item.editing ? '1px solid #3858e9' : 'none',
         cursor: item.editing ? 'text' : 'default',
+        // A plain text box rotates about its centre (the box model — same as the
+        // baked /AP). `box` is the unrotated box; CSS rotate matches our CW `rot`.
+        ...(item.rot ? { transform: `rotate(${item.rot}deg)`, transformOrigin: 'center' } : {}),
         // not editing → clicks fall through to the shape layer (select / move / resize)
         pointerEvents: item.editing ? 'auto' : 'none',
       }}
@@ -444,7 +475,7 @@ export function useAnnotationDefaults(toolId: string): ToolDefaultsResolved {
 
 /** The selection's menu anchor: the primary page + the union box of the selection
  *  on that page (content space). */
-export type SelectionAnchor = { pon: number; bounds: Rect };
+export type SelectionAnchor = { pon: number; bounds: Rect; knob?: Vec };
 
 /** Structural equality for the selection anchor — keeps the menu from re-rendering
  *  on unrelated dispatches (the capability returns a fresh object each call). */
@@ -456,7 +487,9 @@ export function sameAnchor(a: SelectionAnchor | null, b: SelectionAnchor | null)
     a.bounds.x === b.bounds.x &&
     a.bounds.y === b.bounds.y &&
     a.bounds.width === b.bounds.width &&
-    a.bounds.height === b.bounds.height
+    a.bounds.height === b.bounds.height &&
+    a.knob?.x === b.knob?.x &&
+    a.knob?.y === b.knob?.y
   );
 }
 
@@ -470,6 +503,10 @@ export interface AnnotationMenuRenderArgs {
     style?: Partial<Style>;
     endings?: Partial<LineEndings>;
   }) => Promise<void>;
+  /** Rotate the current selection a quarter-turn clockwise about its centre. */
+  rotate90: () => void;
+  /** Reset the current selection to its as-authored orientation. */
+  resetRotation: () => void;
   /** Group the current selection into one unit (selecting any member then
    *  selects all). */
   group: () => Promise<void>;
@@ -546,7 +583,8 @@ export function PageAnnotationMenu({ children, gap = 8, placement = 'top' }: Ann
       return;
     }
     const measure = () => {
-      setPos(positionMenuAroundRect(page.toClientRect(anchor.bounds), placement, gap));
+      const knob = anchor.knob ? page.toClientPoint(anchor.knob) : null;
+      setPos(positionMenuAroundRect(page.toClientRect(anchor.bounds), placement, gap, knob));
     };
     measure();
     // No camera here — the page only moves when the document scrolls or resizes.
@@ -574,6 +612,8 @@ export function PageAnnotationMenu({ children, gap = 8, placement = 'top' }: Ann
         deleteSelection: anno.deleteSelection,
         deselect: anno.deselect,
         updateSelection: anno.updateSelection,
+        rotate90: anno.rotateSelection90,
+        resetRotation: anno.resetSelectionRotation,
         group: anno.group,
         ungroup: anno.ungroup,
         canGroup: anno.canGroup(),

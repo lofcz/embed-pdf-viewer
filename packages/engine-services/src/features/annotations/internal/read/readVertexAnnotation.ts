@@ -8,6 +8,7 @@ import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime'
 
 import { readBorderEffect, readLineEndings, readVertices } from './annotationReadPrimitives';
 import { readFilledStyleExtras } from './readStyle';
+import { readAnnotationRotation } from './readAnnotationTransformMetadata';
 
 /**
  * Shared reader for the two vertex subtypes (polygon/polyline). Reads the
@@ -20,9 +21,11 @@ export function readVertexExtras(
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
 ): VertexAnnotationFields {
+  const rotation = readAnnotationRotation(fn, mem, annotPtr);
   return {
     ...readFilledStyleExtras(fn, mem, annotPtr),
     vertices: readVertices(fn, mem, annotPtr),
+    ...(rotation != null ? { rotation } : {}),
   };
 }
 
