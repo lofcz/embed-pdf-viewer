@@ -8,8 +8,10 @@ import type {
   AnnotationDTO,
   AnnotationPatch,
   AnnotationRef,
+  CalloutLine,
   Color,
   InkList,
+  LineEnding,
   LineEndings,
   LinePoints,
   PdfPoint,
@@ -17,6 +19,7 @@ import type {
   PdfRectDifferences,
 } from '@embedpdf/engine-core/runtime';
 import {
+  calloutLinePoints,
   cloudyBorderExtent,
   contentToPdfPoint,
   contentToPdfRect,
@@ -128,8 +131,25 @@ function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
         t: 'ink',
         strokes: dto.inkList.map((stroke) => stroke.map((p) => pdfToContentPoint(p, crop))),
       };
-    case 'free-text':
+    case 'free-text': {
+      // A callout (`/IT free-text-callout` + a `/CL` leader): the stored `rect` is
+      // the TEXT BOX (the overall `/Rect` inset by `/RD`); the leader's tip is
+      // `cl[0]` and the elbow `cl[1]` (a 3-point `/CL`). The connection point —
+      // `cl` last — is NOT stored; it's re-derived from the box.
+      if (dto.intent === 'free-text-callout' && dto.calloutLine && dto.calloutLine.length >= 2) {
+        const cl = dto.calloutLine;
+        return {
+          t: 'text',
+          rect: pdfToContentRect(insetPdfRectByRD(dto.rect, dto.rectDifferences), crop),
+          callout: {
+            tip: pdfToContentPoint(cl[0], crop),
+            knee: cl.length === 3 ? pdfToContentPoint(cl[1], crop) : undefined,
+            ending: dto.lineEnding ?? 'none',
+          },
+        };
+      }
       return { t: 'text', rect: pdfToContentRect(dto.rect, crop) };
+    }
     case 'highlight':
     case 'underline':
     case 'squiggly':
@@ -200,6 +220,19 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
       border: { kind: 'solid' },
     };
   }
+  if (dto.subtype === 'free-text') {
+    // `/DA` colour is the border + leader stroke; `/C` is the box background; `/BS`
+    // gives the width. A plain text box draws no vector scene, so these only matter
+    // for a callout's leader/arrow/box-border (and the style toolbar's readout).
+    const d = dto as Extract<AnnotationDTO, { subtype: 'free-text' }>;
+    return {
+      color: colorToCss(d.color),
+      interiorColor: d.interiorColor ? colorToCss(d.interiorColor) : null,
+      strokeWidth: d.strokeWidth,
+      opacity: d.opacity,
+      border: borderFromDTO(d),
+    };
+  }
   return {
     color: '#444444',
     interiorColor: null,
@@ -258,6 +291,55 @@ function shapeExtras(a: Annot): { cloudyIntensity?: number; rectDifferences?: Pd
     };
   }
   return { cloudyIntensity: 0, rectDifferences: undefined };
+}
+
+/** Inset a PdfRect by a `/RD` (PDF user space, y-up: all four are non-negative
+ *  insets from the matching `/Rect` edge). Used to recover the callout text box. */
+const insetPdfRectByRD = (r: PdfRect, rd?: PdfRectDifferences): PdfRect =>
+  rd
+    ? {
+        left: r.left + rd.left,
+        bottom: r.bottom + rd.bottom,
+        right: r.right - rd.right,
+        top: r.top - rd.top,
+      }
+    : r;
+
+/**
+ * The engine geometry for a callout: the overall `/Rect` (text box ∪ leader ∪
+ * arrow), the `/RD` inset that recovers the text box from it, the `/CL` leader
+ * (`[tip, knee, conn]` with the connection point derived), and the `/LE` ending.
+ * All in PDF user space (y-up), with every `/RD` inset clamped non-negative.
+ */
+function calloutFields(
+  a: Annot,
+  crop: PdfRect,
+): {
+  rect: PdfRect;
+  rectDifferences: PdfRectDifferences;
+  calloutLine: CalloutLine;
+  lineEnding: LineEnding;
+} | null {
+  const g = a.geom;
+  if (g.t !== 'text' || !g.callout) return null;
+  const overall = geomPdfBounds(g, a.style.strokeWidth, crop);
+  const tb = contentToPdfRect(g.rect, crop);
+  const nn = (n: number) => Math.max(0, n);
+  const pts = calloutLinePoints(g).map((p) => contentToPdfPoint(p, crop));
+  const calloutLine = (
+    pts.length === 3 ? [pts[0], pts[1], pts[2]] : [pts[0], pts[1]]
+  ) as CalloutLine;
+  return {
+    rect: overall,
+    rectDifferences: {
+      left: nn(tb.left - overall.left),
+      bottom: nn(tb.bottom - overall.bottom),
+      right: nn(overall.right - tb.right),
+      top: nn(overall.top - tb.top),
+    },
+    calloutLine,
+    lineEnding: g.callout.ending,
+  };
 }
 
 type GeomFields =
@@ -339,12 +421,9 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
     };
   if (a.subtype === 'ink' && f && 'inkList' in f)
     return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
-  if (a.subtype === 'free-text' && f && 'rect' in f)
-    return {
-      subtype: 'free-text',
-      intent: 'free-text',
-      rect: f.rect,
-      // text style — defaults for a fresh box; the user edits font/size later.
+  if (a.subtype === 'free-text' && f && 'rect' in f) {
+    // text style — defaults for a fresh box; the user edits font/size later.
+    const text = {
       fontFamily: 'helvetica',
       fontSize: 14,
       textAlign: 'left',
@@ -352,7 +431,21 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       color: cssToColor(a.style.color), // `/DA` colour (border + default text)
       interiorColor: a.style.interiorColor ? cssToColor(a.style.interiorColor) : null,
       opacity: a.style.opacity,
-    } as AnnotationDraft;
+    };
+    const cf = calloutFields(a, crop);
+    if (cf)
+      return {
+        subtype: 'free-text',
+        intent: 'free-text-callout',
+        rect: cf.rect, // overall /Rect (box ∪ leader ∪ arrow)
+        rectDifferences: cf.rectDifferences,
+        calloutLine: cf.calloutLine,
+        lineEnding: cf.lineEnding,
+        strokeWidth: a.style.strokeWidth, // /BS /W — the leader + box border weight
+        ...text,
+      } as AnnotationDraft;
+    return { subtype: 'free-text', intent: 'free-text', rect: f.rect, ...text } as AnnotationDraft;
+  }
   if (a.subtype === 'caret' && f && 'rect' in f)
     return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
   const quads = quadPointsFor(a, crop);
@@ -391,8 +484,20 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
     return { subtype: 'ink', inkList: f.inkList, rect: f.rect, ...geometryStyle(a.style) };
   // free-text move/resize: send the box. Text content is committed separately
   // (the debounced `update(contents)` while typing), so it's not duplicated here.
-  if (a.subtype === 'free-text' && f && 'rect' in f)
+  // A callout sends the overall /Rect + the leader (/CL, /RD, /LE) on every
+  // geometry/leader edit, so the box, tip, and knee all round-trip.
+  if (a.subtype === 'free-text' && f && 'rect' in f) {
+    const cf = calloutFields(a, crop);
+    if (cf)
+      return {
+        subtype: 'free-text',
+        rect: cf.rect,
+        rectDifferences: cf.rectDifferences,
+        calloutLine: cf.calloutLine,
+        lineEnding: cf.lineEnding,
+      } as AnnotationPatch;
     return { subtype: 'free-text', rect: f.rect } as AnnotationPatch;
+  }
   if (a.subtype === 'caret' && f && 'rect' in f)
     return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
   // markup: recolor / opacity only — /QuadPoints geometry isn't edited after create

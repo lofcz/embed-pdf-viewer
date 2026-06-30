@@ -33,7 +33,16 @@ export const annotationPlugin = () =>
       // (click vertices, double-click to finish), ink (freehand), and free-text
       // (drag a box, or click for a default one → opens straight into edit).
       // All share the draw handler → createPointer(activeTool.id, …).
-      for (const id of ['square', 'circle', 'line', 'polygon', 'polyline', 'ink', 'free-text']) {
+      for (const id of [
+        'square',
+        'circle',
+        'line',
+        'polygon',
+        'polyline',
+        'ink',
+        'free-text',
+        'free-text-callout',
+      ]) {
         interaction.registerTool({
           id,
           cursor: 'crosshair',
@@ -41,6 +50,12 @@ export const annotationPlugin = () =>
         });
       }
       annotation.setDefaults('ink', { style: { color: '#1d4ed8', strokeWidth: 3 } });
+      // A callout's leader + box border need a visible stroke; its arrow defaults
+      // to an open arrowhead at the called-out tip.
+      annotation.setDefaults('free-text-callout', {
+        style: { strokeWidth: 1 },
+        endings: { end: 'open-arrow' },
+      });
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createMarqueeHandler(annotation));
       interaction.registerHandler(createDrawHandler(annotation, interaction));

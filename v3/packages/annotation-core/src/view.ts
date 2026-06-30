@@ -15,7 +15,7 @@ import {
 import { isSelectable, paintOrder } from './hit';
 import { capsFor } from './kinds';
 import { blendFor } from './scene';
-import { defaultsFor } from './update';
+import { calloutBox, defaultsFor } from './update';
 import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types';
 import type { CreationDraftAnchor } from './types';
 
@@ -78,8 +78,10 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
     const a = m.byId[id];
     // Live (editing / resizing) free-text is rendered by the framework as an editable
     // element (see `textBoxes`); a baked, idle box renders as its engine /AP image —
-    // the SAME path shapes use. So only skip text while it's live.
-    if (a.geom.t === 'text' && textIsLive(m, id)) continue;
+    // the SAME path shapes use. So only skip text while it's live. A callout is the
+    // exception: even while live, its leader/arrow/box-border draw via the vector
+    // scene (only its TEXT is the DOM element), so it stays in the render list.
+    if (a.geom.t === 'text' && !a.geom.callout && textIsLive(m, id)) continue;
     const geom = effGeom(m, id);
     items.push({
       id,
@@ -134,6 +136,26 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
         source: 'ghost',
         selected: false,
       });
+  }
+  // Callout creation ghost: the in-progress leader (tip → cur, then tip → knee →
+  // box) and the text-box preview, painted through the SAME vector scene.
+  if (d?.g === 'create-callout' && d.pon === pon) {
+    const def = defaultsFor(m, d.subtype);
+    const ending = def.endings.end !== 'none' ? def.endings.end : 'open-arrow';
+    const geom: Geom =
+      d.step === 'knee'
+        ? { t: 'line', a: d.tip, b: d.cur, ends: { start: ending, end: 'none' } }
+        : { t: 'text', rect: calloutBox(d), callout: { tip: d.tip, knee: d.knee, ending } };
+    items.push({
+      id: DRAFT_ID,
+      ref: null,
+      subtype: d.subtype,
+      geom,
+      box: geomVisualBounds(geom, def.style.strokeWidth),
+      style: def.style,
+      source: 'ghost',
+      selected: false,
+    });
   }
   // Live text-markup preview: the in-progress selection rendered as the markup it
   // will become (same `scene()` paint as the committed annotation).

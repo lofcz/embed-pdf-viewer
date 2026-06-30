@@ -130,6 +130,52 @@ const expandRect = (r: Rect, pad: number): Rect => ({
   height: r.height + 2 * pad,
 });
 
+const rectCornerPoints = (r: Rect): Vec[] => [
+  { x: r.x, y: r.y },
+  { x: r.x + r.width, y: r.y },
+  { x: r.x + r.width, y: r.y + r.height },
+  { x: r.x, y: r.y + r.height },
+];
+
+/* ── callout leader ───────────────────────────────────────────────────────────
+ * A free-text callout draws a 2–3 point leader (`/CL`) from the called-out `tip`
+ * to the text box, with an arrow (`/LE`) at the tip. The point where the leader
+ * meets the box is DERIVED — never stored — so it tracks the box and knee.
+ */
+
+/** The box-edge midpoint the leader connects to: the side `ref` (the knee, else
+ *  the tip) points toward, by horizontal/vertical dominance vs the box centre.
+ *  Mirror of v2's `computeCalloutConnectionPoint`. */
+export function calloutConnection(box: Rect, ref: Vec): Vec {
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const dx = ref.x - cx;
+  const dy = ref.y - cy;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? { x: box.x + box.width, y: cy } : { x: box.x, y: cy };
+  }
+  return dy >= 0 ? { x: cx, y: box.y + box.height } : { x: cx, y: box.y };
+}
+
+/** The leader polyline `[tip, knee?, conn]`, with `conn` derived from the box. */
+export function calloutLinePoints(g: Extract<Geom, { t: 'text' }>): Vec[] {
+  const c = g.callout;
+  if (!c) return [];
+  const conn = calloutConnection(g.rect, c.knee ?? c.tip);
+  return c.knee ? [c.tip, c.knee, conn] : [c.tip, conn];
+}
+
+/** The leader's single ending segment (arrow at the tip), pointing OUT of the
+ *  body into the tip — so the arrowhead opens back along the leader. */
+function calloutEndingSeg(pts: Vec[], ending: LineEnding): EndingSeg | null {
+  if (pts.length < 2) return null;
+  return {
+    tip: pts[0],
+    angle: Math.atan2(pts[0].y - pts[1].y, pts[0].x - pts[1].x),
+    ending,
+  };
+}
+
 /** Shrink a rect inward by `pad` on every side, staying centred and never
  *  collapsing past zero (a thick stroke on a tiny shape just yields a 0-extent
  *  path rather than an inverted one). The inverse of `expandRect` for shapes. */
@@ -209,6 +255,15 @@ function endingSegs(g: Geom): EndingSeg[] {
  * `geomScene`, so the visual box and what's drawn always agree.
  */
 export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
+  if (g.t === 'text' && g.callout) {
+    // The overall /Rect: the union of the text box, the leader points, and the
+    // arrow-ending polygon at the tip (same ending math as line/poly).
+    const pts = calloutLinePoints(g);
+    const seg = calloutEndingSeg(pts, g.callout.ending);
+    const all = [...rectCornerPoints(g.rect), ...pts];
+    if (seg) all.push(...endingPoints(seg.tip, seg.angle, seg.ending, strokeWidth));
+    return expandRect(unionRect(all), strokeWidth / 2);
+  }
   if (g.t === 'rect' || g.t === 'text' || g.t === 'caret') return g.rect;
   if (g.t === 'quads') return expandRect(unionRect(g.quads.flat()), strokeWidth / 2);
   if (g.t === 'ink') return expandRect(unionRect(g.strokes.flat()), strokeWidth / 2);
@@ -239,28 +294,33 @@ export function selectionBounds(g: Geom, strokeWidth: number): Rect {
  * open one (open arrow, butt, slash) hits near its stroke. `tol` is the stroke
  * band already widened by the hit margin.
  */
-function endingHit(g: Geom, p: Vec, tol: number, strokeWidth: number): boolean {
-  for (const seg of endingSegs(g)) {
-    for (const node of endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth)) {
-      if (node.kind === 'ellipse') {
-        const r = node.rect;
-        const rx = r.width / 2;
-        const ry = r.height / 2;
-        if (rx <= 0 || ry <= 0) continue;
-        const nx = (p.x - (r.x + rx)) / rx;
-        const ny = (p.y - (r.y + ry)) / ry;
-        if (Math.hypot(nx, ny) <= 1 + tol / Math.min(rx, ry)) return true; // filled disc + band
-      } else if (node.kind === 'poly') {
-        const pts = node.points;
-        for (let i = 0; i < pts.length - 1; i++)
-          if (segDist(p, pts[i], pts[i + 1]) <= tol) return true;
-        if (node.closed) {
-          if (pts.length > 2 && segDist(p, pts[pts.length - 1], pts[0]) <= tol) return true;
-          if (pointInPoly(p, pts)) return true; // filled head interior
-        }
+function endingNodesHit(nodes: RenderNode[], p: Vec, tol: number): boolean {
+  for (const node of nodes) {
+    if (node.kind === 'ellipse') {
+      const r = node.rect;
+      const rx = r.width / 2;
+      const ry = r.height / 2;
+      if (rx <= 0 || ry <= 0) continue;
+      const nx = (p.x - (r.x + rx)) / rx;
+      const ny = (p.y - (r.y + ry)) / ry;
+      if (Math.hypot(nx, ny) <= 1 + tol / Math.min(rx, ry)) return true; // filled disc + band
+    } else if (node.kind === 'poly') {
+      const pts = node.points;
+      for (let i = 0; i < pts.length - 1; i++)
+        if (segDist(p, pts[i], pts[i + 1]) <= tol) return true;
+      if (node.closed) {
+        if (pts.length > 2 && segDist(p, pts[pts.length - 1], pts[0]) <= tol) return true;
+        if (pointInPoly(p, pts)) return true; // filled head interior
       }
     }
   }
+  return false;
+}
+
+function endingHit(g: Geom, p: Vec, tol: number, strokeWidth: number): boolean {
+  for (const seg of endingSegs(g))
+    if (endingNodesHit(endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth), p, tol))
+      return true;
   return false;
 }
 
@@ -292,7 +352,19 @@ export function geomHit(
 ): boolean {
   const tol = margin + strokeWidth / 2;
   // A text box is a solid hit target anywhere inside it (+ the click margin).
-  if (g.t === 'text' || g.t === 'caret') return rectContains(expandRect(g.rect, margin), p);
+  if (g.t === 'caret') return rectContains(expandRect(g.rect, margin), p);
+  if (g.t === 'text') {
+    if (rectContains(expandRect(g.rect, margin), p)) return true;
+    if (g.callout) {
+      const pts = calloutLinePoints(g);
+      for (let i = 0; i < pts.length - 1; i++)
+        if (segDist(p, pts[i], pts[i + 1]) <= tol) return true;
+      const seg = calloutEndingSeg(pts, g.callout.ending);
+      if (seg && endingNodesHit(endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth), p, tol))
+        return true;
+    }
+    return false;
+  }
   if (g.t === 'rect') {
     const r = g.rect;
     if (g.ellipse) {
@@ -356,11 +428,19 @@ export function geomHit(
 
 export function geomHandles(g: Geom): Handle[] {
   if (g.t === 'rect' || g.t === 'text') {
-    return RECT_HANDLES.map((h) => ({
+    const handles: Handle[] = RECT_HANDLES.map((h) => ({
       id: h,
       at: rectHandlePoint(g.rect, h),
       cursor: RECT_CURSOR[h],
     }));
+    // A callout adds vertex handles for the leader tip and (if present) knee, so
+    // the called-out point and the elbow can be dragged independently of the box.
+    if (g.t === 'text' && g.callout) {
+      handles.push({ id: 'callout-tip', at: g.callout.tip, cursor: 'crosshair' });
+      if (g.callout.knee)
+        handles.push({ id: 'callout-knee', at: g.callout.knee, cursor: 'crosshair' });
+    }
+    return handles;
   }
   if (g.t === 'line') {
     return [
@@ -376,7 +456,20 @@ export function geomHandles(g: Geom): Handle[] {
 
 export function geomTranslate(g: Geom, d: Vec): Geom {
   const mv = (p: Vec): Vec => ({ x: p.x + d.x, y: p.y + d.y });
-  if (g.t === 'rect' || g.t === 'text' || g.t === 'caret')
+  if (g.t === 'text') {
+    const rect = { ...g.rect, x: g.rect.x + d.x, y: g.rect.y + d.y };
+    if (!g.callout) return { ...g, rect };
+    return {
+      ...g,
+      rect,
+      callout: {
+        ...g.callout,
+        tip: mv(g.callout.tip),
+        knee: g.callout.knee ? mv(g.callout.knee) : undefined,
+      },
+    };
+  }
+  if (g.t === 'rect' || g.t === 'caret')
     return { ...g, rect: { ...g.rect, x: g.rect.x + d.x, y: g.rect.y + d.y } };
   if (g.t === 'line') return { ...g, a: mv(g.a), b: mv(g.b) };
   if (g.t === 'poly') return { ...g, points: g.points.map(mv) };
@@ -385,8 +478,13 @@ export function geomTranslate(g: Geom, d: Vec): Geom {
 }
 
 export function geomDragHandle(g: Geom, handle: string, to: Vec): Geom {
-  if (g.t === 'rect' || g.t === 'text')
+  if (g.t === 'text') {
+    if (handle === 'callout-tip' && g.callout) return { ...g, callout: { ...g.callout, tip: to } };
+    if (handle === 'callout-knee' && g.callout)
+      return { ...g, callout: { ...g.callout, knee: to } };
     return { ...g, rect: resizeRect(g.rect, handle as RectHandle, to) };
+  }
+  if (g.t === 'rect') return { ...g, rect: resizeRect(g.rect, handle as RectHandle, to) };
   if (g.t === 'line') return handle === 'v0' ? { ...g, a: to } : { ...g, b: to };
   if (g.t === 'poly') {
     const i = Number(handle.slice(1));
@@ -399,8 +497,18 @@ export function geomDragHandle(g: Geom, handle: string, to: Vec): Geom {
 }
 
 export function geomScene(g: Geom, strokeWidth = 0, border?: Border): RenderNode[] {
-  // A text box draws no vector nodes — the framework renders its editable element.
-  if (g.t === 'text') return [];
+  // A plain text box draws no vector nodes — the framework renders its editable
+  // element. A callout still draws its leader (open polyline) + arrow at the tip,
+  // plus a stroke-only box border (the DOM owns the text + background).
+  if (g.t === 'text') {
+    if (!g.callout) return [];
+    const pts = calloutLinePoints(g);
+    const nodes: RenderNode[] = [{ kind: 'poly', points: pts, closed: false }];
+    const seg = calloutEndingSeg(pts, g.callout.ending);
+    if (seg) nodes.push(...endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth));
+    if (strokeWidth > 0) nodes.push({ kind: 'rect', rect: g.rect });
+    return nodes;
+  }
   if (g.t === 'caret') {
     const r = g.rect;
     const midX = r.x + r.width / 2;

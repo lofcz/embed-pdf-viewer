@@ -43,6 +43,19 @@ export type Subtype =
  * on. A small closed union covers every kind: shapes (rect/ellipse), line,
  * polygon/polyline (poly), text markup (quads), and caret.
  */
+/**
+ * A free-text callout's leader: the `/CL` line + `/LE` arrow. `tip` is the
+ * called-out point (the arrow is drawn here); `knee` is the optional elbow. The
+ * point where the leader meets the text box (the third `/CL` point) is NEVER
+ * stored — it is DERIVED from the box + the knee (see `calloutConnection`), so it
+ * can't drift when the box or knee moves. Content space (y-down).
+ */
+export interface Callout {
+  tip: Vec;
+  knee?: Vec;
+  ending: LineEnding;
+}
+
 export type Geom =
   | { t: 'rect'; rect: Rect; ellipse: boolean } // square / circle
   | { t: 'line'; a: Vec; b: Vec; ends?: LineEndings } // line (optional /LE endings)
@@ -50,9 +63,9 @@ export type Geom =
   | { t: 'quads'; quads: Quad[] } // highlight / underline / squiggly / strikeout
   | { t: 'caret'; rect: Rect } // caret insertion marker
   | { t: 'ink'; strokes: Vec[][] } // freehand ink (one or more pen strokes)
-  | { t: 'text'; rect: Rect }; // free-text box — a resizable rect; its TEXT is data
-// (DTO `contents`), rendered by the framework as an
-// editable element, not by `scene()`.
+  | { t: 'text'; rect: Rect; callout?: Callout }; // free-text box (`rect` is the text box);
+// a `callout` adds a leader line + arrow. The TEXT is data (DTO `contents`),
+// rendered by the framework as an editable element, not by `scene()`.
 
 /**
  * How a shape's outline is stroked. A discriminated union so illegal combinations
@@ -150,6 +163,21 @@ export type Draft =
       closed: boolean;
     }
   | { g: 'create-ink'; subtype: Subtype; pon: PageObjectNumber; strokes: Vec[][] }
+  | {
+      // Free-text callout, built in clicks: click 1 sets `tip`, click 2 sets
+      // `knee` (advancing to `box`), then a drag/click lays the text box. `cur`
+      // is the live pointer for the leader/box preview; `boxFrom`/`boxTo` are the
+      // dragged box once the box step starts.
+      g: 'create-callout';
+      subtype: Subtype;
+      pon: PageObjectNumber;
+      step: 'knee' | 'box';
+      tip: Vec;
+      knee?: Vec;
+      cur: Vec;
+      boxFrom?: Vec;
+      boxTo?: Vec;
+    }
   | { g: 'move'; ids: Id[]; start: Vec; delta: Vec }
   | { g: 'handle'; id: Id; handle: string; base: Geom; cur: Geom }
   | { g: 'marquee'; pon: PageObjectNumber; from: Vec; to: Vec };

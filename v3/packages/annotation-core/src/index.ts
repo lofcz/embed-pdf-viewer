@@ -29,6 +29,8 @@ export {
   geomTranslate,
   geomDragHandle,
   geomPdfBounds,
+  calloutConnection,
+  calloutLinePoints,
   pdfToContentRect,
   contentToPdfRect,
   pdfToContentPoint,
@@ -46,6 +48,7 @@ export { scene } from './scene';
 export type {
   Annot,
   Border,
+  Callout,
   ChromeNode,
   Cursor,
   CreationDraftAnchor,

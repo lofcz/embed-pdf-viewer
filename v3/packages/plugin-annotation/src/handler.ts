@@ -4,6 +4,7 @@ import type { AnnotationHostCapability } from './types';
 
 const MARQUEE_DRAG_THRESHOLD_PX = 4;
 const isPolyTool = (subtype: Subtype): boolean => subtype === 'polygon' || subtype === 'polyline';
+const isCalloutTool = (subtype: Subtype): boolean => subtype === 'free-text-callout';
 
 /**
  * Ambient editing: live under the `annotation-edit` tag, which BOTH the pointer
@@ -127,8 +128,12 @@ export function createDrawHandler(
 ): InteractionHandler {
   const subtype = () => interaction.activeTool().id as Subtype;
   let drawingPoly = false;
+  // A callout is mid-creation between its tip/knee/box clicks; while it is, hover
+  // (no button) must still drive the leader/box preview, like a poly's vertices.
+  let drawingCallout = false;
   interaction.onToolChange(() => {
     drawingPoly = false;
+    drawingCallout = false;
   });
   return {
     id: 'annotation-draw',
@@ -144,11 +149,18 @@ export function createDrawHandler(
         return true;
       }
       drawingPoly = false;
+      // Each callout click advances the core's tip → knee → box state machine; the
+      // final box click/drag commits and clears the draft (so `drawingCallout`
+      // resets on the next tool change or simply idles harmlessly).
+      if (isCalloutTool(st)) drawingCallout = true;
       anno.createPointer(st, 'down', s.page.pon, s.page.point);
       return true;
     },
     onMove: (s) => {
       const st = subtype();
+      // Drag-moves (button down): rect/line/ink/free-text size their box, and a
+      // callout (a non-poly tool) sizes its text box during the box step. Poly
+      // tools take vertices by click, so they ignore drag-moves.
       if (s.page && (!isPolyTool(st) || drawingPoly)) {
         anno.createPointer(st, 'move', s.page.pon, s.page.point);
       }
@@ -159,7 +171,9 @@ export function createDrawHandler(
     },
     onHover: (s) => {
       const st = subtype();
-      if (drawingPoly && isPolyTool(st) && s.page) {
+      // Hover preview for the multi-click tools: poly (while placing vertices) and
+      // callout (while placing the tip/knee/box) follow the cursor between clicks.
+      if (s.page && ((drawingPoly && isPolyTool(st)) || (drawingCallout && isCalloutTool(st)))) {
         anno.createPointer(st, 'move', s.page.pon, s.page.point);
       }
     },

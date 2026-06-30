@@ -256,6 +256,7 @@ function createPointer(
   subtype: Subtype,
   input: PointerInput,
 ): [Model, Effect[]] {
+  if (subtype === 'free-text-callout') return calloutPointer(m, phase, input);
   if (phase === 'down') {
     if (isPolySubtype(subtype)) {
       if (input.finish) return finishPolyCreate(m);
@@ -372,6 +373,100 @@ function createPointer(
       draft: null,
       // A freshly drawn free-text box opens straight into edit (type immediately).
       editing: geom.t === 'text' ? id : m.editing,
+    },
+    [{ fx: 'create', id }],
+  ];
+}
+
+/** Default text-box size for a callout placed with a click (no box drag). */
+const CALLOUT_BOX = { width: 150, height: 40 };
+
+/**
+ * The text-box rect for an in-progress callout's `box` step — the ONE rule both
+ * the live preview and the commit use, so what you see is what you get. Only a
+ * drag past `MIN_DRAG` sizes the box; a press-without-drag (a click) keeps the
+ * default-size box anchored at the press point, so it never collapses to a sliver
+ * while you decide whether you're dragging (the "bounce"). Before the press
+ * (hover), the default box tracks the cursor.
+ */
+export function calloutBox(d: Extract<Draft, { g: 'create-callout' }>): Rect {
+  if (d.boxFrom) {
+    const dragged = d.boxTo ? rectFromPoints(d.boxFrom, d.boxTo) : null;
+    if (dragged && (dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG)) return dragged;
+    return { x: d.boxFrom.x, y: d.boxFrom.y, ...CALLOUT_BOX };
+  }
+  return { x: d.cur.x, y: d.cur.y, ...CALLOUT_BOX };
+}
+
+/**
+ * The free-text callout's multi-step creation, a v2-style 3-click flow:
+ *   click 1 (down)  → set the leader `tip`, advance to the `knee` step
+ *   hover/move      → preview the leader to the cursor
+ *   click 2 (down)  → set the `knee`, advance to the `box` step
+ *   drag/click (up) → lay the text box (dragged, or a default box on a click)
+ * Commit creates a `free-text` annotation with a `callout` geom and opens it for
+ * editing — the connection point to the box is always derived, never stored.
+ */
+function calloutPointer(
+  m: Model,
+  phase: 'down' | 'move' | 'up',
+  input: PointerInput,
+): [Model, Effect[]] {
+  const d = m.draft;
+  if (phase === 'down') {
+    if (d?.g !== 'create-callout' || d.pon !== input.pon) {
+      return [
+        {
+          ...m,
+          selected: [],
+          draft: {
+            g: 'create-callout',
+            subtype: 'free-text-callout',
+            pon: input.pon,
+            step: 'knee',
+            tip: input.point,
+            cur: input.point,
+          },
+        },
+        [],
+      ];
+    }
+    if (d.step === 'knee') {
+      return [{ ...m, draft: { ...d, knee: input.point, step: 'box', cur: input.point } }, []];
+    }
+    // box step: begin the box drag at this point
+    return [{ ...m, draft: { ...d, boxFrom: input.point, boxTo: input.point } }, []];
+  }
+  if (phase === 'move') {
+    if (d?.g !== 'create-callout') return [m, []];
+    if (d.step === 'box' && d.boxFrom) return [{ ...m, draft: { ...d, boxTo: input.point } }, []];
+    return [{ ...m, draft: { ...d, cur: input.point } }, []];
+  }
+  // up: only the box step (with a started box) commits; the tip/knee clicks no-op.
+  if (d?.g !== 'create-callout' || d.step !== 'box' || !d.boxFrom) return [m, []];
+  const rect = calloutBox(d); // the SAME box the preview showed
+  const def = defaultsFor(m, 'free-text-callout');
+  const ending = def.endings.end !== 'none' ? def.endings.end : 'open-arrow';
+  const id = `tmp:${m.seq + 1}`;
+  const annot: Annot = {
+    id,
+    ref: null,
+    pon: d.pon,
+    subtype: 'free-text',
+    geom: { t: 'text', rect, callout: { tip: d.tip, knee: d.knee, ending } },
+    style: def.style,
+    locked: false,
+    source: 'vector',
+  };
+  return [
+    {
+      ...m,
+      seq: m.seq + 1,
+      byId: { ...m.byId, [id]: annot },
+      order: [...m.order, id],
+      selected: [id],
+      draft: null,
+      editing: id,
     },
     [{ fx: 'create', id }],
   ];

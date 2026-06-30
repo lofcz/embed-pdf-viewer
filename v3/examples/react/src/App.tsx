@@ -279,6 +279,11 @@ const TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'polyline', label: '⌁ polyline', title: 'click vertices, double-click to finish' },
   { id: 'ink', label: '✎ ink', title: 'draw freehand' },
   { id: 'free-text', label: 'T text', title: 'add a text box (drag or click, then type)' },
+  {
+    id: 'free-text-callout',
+    label: '↳ callout',
+    title: 'click the tip, click the elbow, then drag/click the text box',
+  },
 ];
 // Text-selection tools create from a TEXT SELECTION (select text with the tool active).
 const MARKUP_TOOLS: { id: string; label: string; title: string }[] = [

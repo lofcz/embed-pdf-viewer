@@ -8,6 +8,11 @@ import {
   geomHit,
   geomScene,
   geomVisualBounds,
+  geomHandles,
+  geomTranslate,
+  geomDragHandle,
+  calloutConnection,
+  calloutLinePoints,
   selectionBounds,
   shapeRectFor,
   caretRectFromTextEnd,
@@ -964,5 +969,206 @@ describe('annotation-core', () => {
     expect(pageItems(m, PON).map((i) => i.id)).toEqual(['H1', 'S1']);
     // and the overlap hit-tests to the square (the top-most painted), not the highlight.
     expect(hitTest(m, PON, { x: 50, y: 50 }, 6, 6)).toEqual({ t: 'annot', id: 'S1' });
+  });
+});
+
+describe('annotation-core callout', () => {
+  const calloutPtr = (phase: 'down' | 'move' | 'up', x: number, y: number): Msg => ({
+    t: 'createPointer',
+    phase,
+    subtype: 'free-text-callout',
+    in: { pon: PON, point: { x, y }, shift: false },
+  });
+  // A committed callout geom for the pure-geometry tests: box to the right of an
+  // off-box tip, with an elbow between them.
+  const calloutGeom = (): Extract<Geom, { t: 'text' }> => ({
+    t: 'text',
+    rect: { x: 200, y: 100, width: 120, height: 40 },
+    callout: { tip: { x: 40, y: 60 }, knee: { x: 120, y: 120 }, ending: 'open-arrow' },
+  });
+
+  it('calloutConnection picks the box edge the reference point faces', () => {
+    const box = { x: 100, y: 100, width: 100, height: 60 }; // centre (150, 130)
+    // ref to the RIGHT (dx dominates, positive) → right-edge midpoint
+    expect(calloutConnection(box, { x: 400, y: 130 })).toEqual({ x: 200, y: 130 });
+    // ref to the LEFT → left-edge midpoint
+    expect(calloutConnection(box, { x: -50, y: 130 })).toEqual({ x: 100, y: 130 });
+    // ref ABOVE (dy dominates, negative) → top-edge midpoint
+    expect(calloutConnection(box, { x: 150, y: -20 })).toEqual({ x: 150, y: 100 });
+    // ref BELOW → bottom-edge midpoint
+    expect(calloutConnection(box, { x: 150, y: 300 })).toEqual({ x: 150, y: 160 });
+  });
+
+  it('calloutLinePoints is [tip, knee, derived-conn]; conn rides the box, never stored', () => {
+    const g = calloutGeom();
+    const pts = calloutLinePoints(g);
+    expect(pts).toHaveLength(3);
+    expect(pts[0]).toEqual({ x: 40, y: 60 }); // tip
+    expect(pts[1]).toEqual({ x: 120, y: 120 }); // knee
+    // knee is left of + below the box centre → left-edge midpoint of the box
+    expect(pts[2]).toEqual({ x: 200, y: 120 });
+  });
+
+  it('geomVisualBounds wraps the box, the leader, AND the arrow at the tip', () => {
+    const g = calloutGeom();
+    const b = geomVisualBounds(g, 2);
+    // the tip (x=40) sits far left of the box (x=200): the overall bounds reach it
+    expect(b.x).toBeLessThanOrEqual(40);
+    expect(b.y).toBeLessThanOrEqual(60);
+    // and still cover the right edge of the box (x=320)
+    expect(b.x + b.width).toBeGreaterThanOrEqual(320);
+    // a plain text box (no callout) is just its rect
+    expect(geomVisualBounds({ t: 'text', rect: { x: 0, y: 0, width: 10, height: 10 } }, 2)).toEqual(
+      {
+        x: 0,
+        y: 0,
+        width: 10,
+        height: 10,
+      },
+    );
+  });
+
+  it('geomHandles returns the 8 box handles PLUS the leader tip + knee', () => {
+    const ids = geomHandles(calloutGeom()).map((h) => h.id);
+    expect(ids).toContain('nw');
+    expect(ids).toContain('se');
+    expect(ids).toContain('callout-tip');
+    expect(ids).toContain('callout-knee');
+    expect(ids).toHaveLength(10);
+    // a knee-less (2-point) callout exposes only the tip
+    const noKnee = geomHandles({
+      t: 'text',
+      rect: { x: 0, y: 0, width: 50, height: 20 },
+      callout: { tip: { x: -20, y: 10 }, ending: 'open-arrow' },
+    }).map((h) => h.id);
+    expect(noKnee).toContain('callout-tip');
+    expect(noKnee).not.toContain('callout-knee');
+  });
+
+  it('geomTranslate shifts the box, the tip, AND the knee together', () => {
+    const g = geomTranslate(calloutGeom(), { x: 10, y: -5 });
+    if (g.t !== 'text' || !g.callout) throw new Error('expected callout');
+    expect(g.rect).toMatchObject({ x: 210, y: 95 });
+    expect(g.callout.tip).toEqual({ x: 50, y: 55 });
+    expect(g.callout.knee).toEqual({ x: 130, y: 115 });
+  });
+
+  it('geomDragHandle edits the tip / knee / box independently (conn re-derives)', () => {
+    const tip = geomDragHandle(calloutGeom(), 'callout-tip', { x: 5, y: 5 });
+    expect(tip.t === 'text' && tip.callout?.tip).toEqual({ x: 5, y: 5 });
+    const knee = geomDragHandle(calloutGeom(), 'callout-knee', { x: 90, y: 90 });
+    expect(knee.t === 'text' && knee.callout?.knee).toEqual({ x: 90, y: 90 });
+    // a rect handle resizes the box; the leader's connection point is never stored,
+    // so it simply re-derives off the new box on the next read.
+    const box = geomDragHandle(calloutGeom(), 'se', { x: 400, y: 300 });
+    expect(box.t === 'text' && box.rect).toMatchObject({ x: 200, y: 100, width: 200, height: 200 });
+  });
+
+  it('geomScene emits the leader polyline, the arrow node, and a stroke-only box border', () => {
+    const nodes = geomScene(calloutGeom(), 1);
+    const leader = nodes.find((n) => n.kind === 'poly' && !n.closed);
+    expect(leader).toBeDefined();
+    // the open leader carries [tip, knee, conn]
+    expect(leader && leader.kind === 'poly' && leader.points).toHaveLength(3);
+    // a box border rect is present when the stroke is visible
+    expect(nodes.some((n) => n.kind === 'rect')).toBe(true);
+    // and there is an arrow ending node beyond the bare leader + box
+    expect(nodes.length).toBeGreaterThan(2);
+    // a plain text box paints nothing
+    expect(geomScene({ t: 'text', rect: { x: 0, y: 0, width: 10, height: 10 } }, 1)).toEqual([]);
+  });
+
+  it('the 3-click flow (tip → knee → box) commits a callout and opens it for editing', () => {
+    let m = run(initialModel, [
+      calloutPtr('down', 40, 60), // click 1: tip
+      calloutPtr('up', 40, 60),
+      calloutPtr('move', 120, 120), // hover toward the knee (leader preview)
+      calloutPtr('down', 120, 120), // click 2: knee
+      calloutPtr('up', 120, 120),
+      calloutPtr('move', 200, 100), // hover toward the box
+      calloutPtr('down', 200, 100), // box drag start
+      calloutPtr('move', 320, 140),
+      calloutPtr('up', 320, 140), // commit
+    ]);
+    const a = m.byId[m.order[0]];
+    expect(a.subtype).toBe('free-text');
+    expect(a.geom.t).toBe('text');
+    if (a.geom.t !== 'text' || !a.geom.callout) throw new Error('expected callout geom');
+    expect(a.geom.callout.tip).toEqual({ x: 40, y: 60 });
+    expect(a.geom.callout.knee).toEqual({ x: 120, y: 120 });
+    expect(a.geom.callout.ending).toBe('open-arrow');
+    expect(a.geom.rect).toMatchObject({ x: 200, y: 100, width: 120, height: 40 });
+    expect(m.selected).toEqual([a.id]);
+    expect(m.editing).toBe(a.id);
+    expect(a.source).toBe('vector');
+  });
+
+  it('a click (no drag) for the box step lays a default-sized text box', () => {
+    const m = run(initialModel, [
+      calloutPtr('down', 40, 60),
+      calloutPtr('up', 40, 60),
+      calloutPtr('down', 120, 120),
+      calloutPtr('up', 120, 120),
+      calloutPtr('down', 200, 100), // box click, no travel
+      calloutPtr('up', 200, 100),
+    ]);
+    const a = m.byId[m.order[0]];
+    expect(a.geom.t === 'text' && a.geom.rect).toMatchObject({
+      x: 200,
+      y: 100,
+      width: 150,
+      height: 40,
+    });
+  });
+
+  it('the in-progress callout previews via a draft render item, before any commit', () => {
+    const m = run(initialModel, [
+      calloutPtr('down', 40, 60), // tip placed
+      calloutPtr('move', 120, 120), // knee-step preview follows the cursor
+    ]);
+    expect(m.order).toHaveLength(0); // nothing committed yet
+    const ghost = pageItems(m, PON).find((i) => i.source === 'ghost');
+    expect(ghost).toBeDefined();
+  });
+
+  // The box-step ghost geom (the in-progress text box) — drives the no-bounce check.
+  const ghostBox = (m: Model) => {
+    const g = pageItems(m, PON).find((i) => i.source === 'ghost')?.geom;
+    return g && g.t === 'text' ? g.rect : null;
+  };
+
+  it('pressing for the box keeps the DEFAULT box until a real drag (no bounce)', () => {
+    // tip → knee → press the box at (200,100); a sub-threshold jiggle must NOT
+    // collapse the preview to a sliver — it stays the 150x40 default at the press.
+    const m = run(initialModel, [
+      calloutPtr('down', 40, 60),
+      calloutPtr('up', 40, 60),
+      calloutPtr('down', 120, 120),
+      calloutPtr('up', 120, 120),
+      calloutPtr('down', 200, 100), // box press
+      calloutPtr('move', 201, 101), // 1-unit jiggle (< MIN_DRAG)
+    ]);
+    expect(ghostBox(m)).toMatchObject({ x: 200, y: 100, width: 150, height: 40 });
+  });
+
+  it('once the drag passes MIN_DRAG the box preview follows the pointer', () => {
+    const m = run(initialModel, [
+      calloutPtr('down', 40, 60),
+      calloutPtr('up', 40, 60),
+      calloutPtr('down', 120, 120),
+      calloutPtr('up', 120, 120),
+      calloutPtr('down', 200, 100), // box press
+      calloutPtr('move', 320, 150), // a real drag (>> MIN_DRAG)
+    ]);
+    // preview is now the dragged rect — and it matches what an up would commit
+    expect(ghostBox(m)).toMatchObject({ x: 200, y: 100, width: 120, height: 50 });
+    const committed = update(m, calloutPtr('up', 320, 150))[0];
+    const a = committed.byId[committed.order[0]];
+    expect(a.geom.t === 'text' && a.geom.rect).toMatchObject({
+      x: 200,
+      y: 100,
+      width: 120,
+      height: 50,
+    });
   });
 });
