@@ -18,6 +18,7 @@ import {
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
+import { expandGroups, groupKeyOf, groupMembers } from './group';
 import type { Annot, Geom, Model, Msg, RenderItem, Style, Subtype } from './types';
 
 const PON = 1 as Annot['pon'];
@@ -789,6 +790,128 @@ describe('annotation-core', () => {
     const c = chrome(m1, PON);
     expect(c.filter((n) => n.kind === 'handle')).toHaveLength(0);
     expect(c.some((n) => n.kind === 'outline')).toBe(true);
+  });
+
+  // ── group annotations ──────────────────────────────────────────────────────
+  const sq = (id: string, x: number, group?: string): Annot => ({
+    id,
+    ref: null,
+    pon: PON,
+    subtype: 'square',
+    geom: { t: 'rect', rect: { x, y: x, width: 40, height: 40 }, ellipse: false },
+    style: {
+      color: '#000000',
+      interiorColor: '#eeeeee', // filled → hittable anywhere inside
+      strokeWidth: 2,
+      opacity: 1,
+      border: { kind: 'solid' },
+    },
+    locked: false,
+    source: 'vector',
+    ...(group ? { group } : {}),
+  });
+  // A group: primary P, plus two subordinates pointing at it via `group: 'P'`.
+  const grouped = (): Model =>
+    update(initialModel, {
+      t: 'loaded',
+      annots: [sq('P', 100), sq('C1', 200, 'P'), sq('C2', 300, 'P')],
+    })[0];
+
+  it('groupMembers/groupKeyOf resolve a primary and its subordinates from either end', () => {
+    const m = grouped();
+    // from a subordinate: its `group` field is the key (the primary id)
+    expect(groupKeyOf(m, 'C1')).toBe('P');
+    // from the primary: it is the target of subordinates → key is its own id
+    expect(groupKeyOf(m, 'P')).toBe('P');
+    // membership is the same set whichever member you ask about (primary first)
+    expect(groupMembers(m, 'C2')).toEqual(['P', 'C1', 'C2']);
+    expect(groupMembers(m, 'P')).toEqual(['P', 'C1', 'C2']);
+  });
+
+  it('an ungrouped annotation is its own (singleton) group', () => {
+    const m = update(initialModel, { t: 'loaded', annots: [sq('S', 10)] })[0];
+    expect(groupKeyOf(m, 'S')).toBeNull();
+    expect(groupMembers(m, 'S')).toEqual(['S']);
+    expect(expandGroups(m, ['S'])).toEqual(['S']);
+  });
+
+  it('clicking one member selects the WHOLE group', () => {
+    let m = grouped();
+    m = update(m, editPtr('down', 215, 215))[0]; // inside C1
+    expect(m.selected).toEqual(['P', 'C1', 'C2']);
+    // a move gesture is armed across all members (every square is movable)
+    expect(m.draft).toMatchObject({ g: 'move', ids: ['P', 'C1', 'C2'] });
+  });
+
+  it('dragging one member moves every member of the group together', () => {
+    let m = grouped();
+    m = run(m, [editPtr('down', 115, 115), editPtr('move', 135, 145), editPtr('up', 135, 145)]);
+    // all three translate by the same delta (+20, +30)
+    expect(rectGeom(m.byId['P'].geom)).toMatchObject({ x: 120, y: 130 });
+    expect(rectGeom(m.byId['C1'].geom)).toMatchObject({ x: 220, y: 230 });
+    expect(rectGeom(m.byId['C2'].geom)).toMatchObject({ x: 320, y: 330 });
+  });
+
+  it('deleting with a member selected removes the whole group', () => {
+    let m = grouped();
+    m = update(m, editPtr('down', 215, 215))[0]; // selects the group
+    const [next, fx] = update(m, { t: 'delete' });
+    expect(next.order).toEqual([]);
+    expect(next.selected).toEqual([]);
+    // no engine effects here (these fixtures have no refs), but the store is cleared
+    expect(fx).toEqual([]);
+  });
+
+  it('shift-clicking a member toggles the entire group out of the selection', () => {
+    let m = grouped();
+    m = update(m, editPtr('down', 215, 215))[0]; // group selected
+    expect(m.selected).toEqual(['P', 'C1', 'C2']);
+    m = update(m, editPtr('down', 315, 315, /* shift */ true))[0]; // shift-click C2
+    expect(m.selected).toEqual([]); // the whole group dropped, not just C2
+  });
+
+  it('a marquee that touches one member takes the whole group', () => {
+    let m = grouped();
+    // box covers only C2 (around x=300..340); P and C1 sit outside it
+    m = run(m, [
+      marqueePtr('down', 295, 295),
+      marqueePtr('move', 345, 345),
+      marqueePtr('up', 345, 345),
+    ]);
+    expect(m.selected).toEqual(['P', 'C1', 'C2']);
+  });
+
+  it('the gap inside a selected group is grabbable: a drag there moves every member', () => {
+    // P=(100,100), C1=(200,200), C2=(300,300), each 40×40 → (170,170) sits inside
+    // the union box but in the empty gap between members (no member covers it).
+    let m = grouped();
+    m = run(m, [editPtr('down', 215, 215), editPtr('up', 215, 215)]); // select the whole group
+    expect(m.selected).toEqual(['P', 'C1', 'C2']);
+    // the gap is no longer "empty" — it hits a selected member so the group can drag
+    expect(hitTest(m, PON, { x: 170, y: 170 }, 6, 6).t).toBe('annot');
+    m = run(m, [editPtr('down', 170, 170), editPtr('move', 190, 200), editPtr('up', 190, 200)]);
+    // every member translated by the same delta (+20, +30)
+    expect(rectGeom(m.byId['P'].geom)).toMatchObject({ x: 120, y: 130 });
+    expect(rectGeom(m.byId['C1'].geom)).toMatchObject({ x: 220, y: 230 });
+    expect(rectGeom(m.byId['C2'].geom)).toMatchObject({ x: 320, y: 330 });
+  });
+
+  it('the gap inside a multi-selection shows the move cursor; outside the union still clears', () => {
+    let m = grouped();
+    m = run(m, [editPtr('down', 215, 215), editPtr('up', 215, 215)]); // group selected
+    expect(cursorAt(m, PON, { x: 170, y: 170 }, 6, 6)).toBe('move'); // gap → move
+    // a click well outside the union box is still empty (so it deselects)
+    expect(hitTest(m, PON, { x: 500, y: 500 }, 6, 6).t).toBe('empty');
+    expect(cursorAt(m, PON, { x: 500, y: 500 }, 6, 6)).toBeNull();
+  });
+
+  it('the union grab needs 2+ movable members: a lone selection leaves its gap empty', () => {
+    // a single selected square: a point outside its own bounds is still empty
+    // (no union fallback), so single-selection behaviour is unchanged.
+    let m = update(initialModel, { t: 'loaded', annots: [sq('S', 100)] })[0];
+    m = run(m, [editPtr('down', 115, 115), editPtr('up', 115, 115)]);
+    expect(m.selected).toEqual(['S']);
+    expect(hitTest(m, PON, { x: 300, y: 300 }, 6, 6).t).toBe('empty');
   });
 
   it('markups always sit beneath other annotations, regardless of creation order', () => {

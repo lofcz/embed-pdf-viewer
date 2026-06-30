@@ -115,6 +115,19 @@ export interface AnnotationCapability {
   /** The current selection as durable annotation refs (skips not-yet-committed drafts). */
   getSelection(): AnnotationRef[];
 
+  // ── grouping (engine `/IRT` + `/RT /Group`; selecting one member selects all) ──
+  /** Group the current selection into one unit (the bottom-most member is the
+   *  primary; the rest become `/RT /Group` subordinates). Page-local: no-op
+   *  unless 2+ committed annotations on a single page are selected. */
+  group(): Promise<void>;
+  /** Ungroup the group(s) the current selection touches — every subordinate
+   *  becomes top-level again. */
+  ungroup(): Promise<void>;
+  /** Whether {@link group} would do something for the current selection. */
+  canGroup(): boolean;
+  /** Whether {@link ungroup} would do something for the current selection. */
+  canUngroup(): boolean;
+
   // ── tool defaults (LOCAL drawing preferences — never collaborative) ──
   /** Set a tool's (subtype's) defaults for newly drawn annotations (style + endings). */
   setDefaults(subtype: Subtype, patch: ToolDefaults): void;

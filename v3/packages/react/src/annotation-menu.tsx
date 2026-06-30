@@ -68,6 +68,10 @@ export function AnnotationMenu({ children, gap = 8, placement = 'top' }: Annotat
         deleteSelection: anno.deleteSelection,
         deselect: anno.deselect,
         updateSelection: anno.updateSelection,
+        group: anno.group,
+        ungroup: anno.ungroup,
+        canGroup: anno.canGroup(),
+        canUngroup: anno.canUngroup(),
       })}
     </div>
   );

@@ -6,6 +6,7 @@
  * math is in geometry.ts. Effects (create/patch/delete) are the only impurities.
  */
 import type { AnnotationRef } from '@embedpdf/engine-core/runtime';
+import { expandGroups, groupMembers } from './group';
 import { canMove, hitTest, isSelectable } from './hit';
 import {
   caretRectFromTextEnd,
@@ -159,14 +160,16 @@ function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
     return [{ ...m, draft: { g: 'handle', id: hit.id, handle: hit.handle, base, cur: base } }, []];
   }
   if (hit.t === 'annot') {
+    // A hit on any member acts on the WHOLE group — select/toggle/drag as a unit.
+    const grp = groupMembers(m, hit.id);
     const inSel = m.selected.includes(hit.id);
     const selected = input.shift
       ? inSel
-        ? m.selected.filter((x) => x !== hit.id)
-        : [...m.selected, hit.id]
+        ? m.selected.filter((x) => !grp.includes(x)) // shift+click a member → drop the group
+        : [...m.selected, ...grp.filter((x) => !m.selected.includes(x))]
       : inSel
         ? m.selected
-        : [hit.id];
+        : grp;
     // Only arm a move gesture if every selected annotation can move; an anchored
     // kind (markup/caret) still selects, it just won't drag.
     const movable = selected.length > 0 && selected.every((id) => canMove(m, id));
@@ -232,7 +235,8 @@ function marqueePointer(
     return [{ ...m, draft: { ...m.draft, to: input.point } }, []];
   }
 
-  const hits = annotsInBox(m, m.draft.pon, m.draft.from, input.point);
+  // A marquee that touches one member takes the whole group with it.
+  const hits = expandGroups(m, annotsInBox(m, m.draft.pon, m.draft.from, input.point));
   const selected = input.shift ? toggleSelection(m.selected, hits) : hits;
   return [{ ...m, selected, draft: null }, []];
 }

@@ -83,6 +83,11 @@ export function fromDTO(
     source,
     // Carry the canonical DTO; geom/style below are derived projections of it.
     data: dto,
+    // Relationship to a parent annotation. `irt` mirrors `/IRT`; `group` is the
+    // primary's key for `/RT /Group` subordinates only (a visual group acts as a
+    // unit). `/RT /R` (comment replies) keep `irt` but are NOT a visual group.
+    ...(dto.inReplyTo ? { irt: refKey(dto.inReplyTo) } : {}),
+    ...(dto.replyType === 'group' && dto.inReplyTo ? { group: refKey(dto.inReplyTo) } : {}),
   };
   return {
     ...base,

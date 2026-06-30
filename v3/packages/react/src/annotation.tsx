@@ -466,6 +466,15 @@ export interface AnnotationMenuRenderArgs {
     style?: Partial<Style>;
     endings?: Partial<LineEndings>;
   }) => Promise<void>;
+  /** Group the current selection into one unit (selecting any member then
+   *  selects all). */
+  group: () => Promise<void>;
+  /** Ungroup the group(s) the current selection touches. */
+  ungroup: () => Promise<void>;
+  /** Whether {@link group} would do something for the current selection. */
+  canGroup: boolean;
+  /** Whether {@link ungroup} would do something for the current selection. */
+  canUngroup: boolean;
 }
 
 export interface AnnotationMenuProps {
@@ -561,6 +570,10 @@ export function PageAnnotationMenu({ children, gap = 8, placement = 'top' }: Ann
         deleteSelection: anno.deleteSelection,
         deselect: anno.deselect,
         updateSelection: anno.updateSelection,
+        group: anno.group,
+        ungroup: anno.ungroup,
+        canGroup: anno.canGroup(),
+        canUngroup: anno.canUngroup(),
       })}
     </div>,
     document.body,

@@ -910,7 +910,16 @@ function DocumentView() {
                 )}
               </AnnotationDraftMenu>
               <AnnotationMenu placement="bottom">
-                {({ selected, deleteSelection, deselect, updateSelection }) => (
+                {({
+                  selected,
+                  deleteSelection,
+                  deselect,
+                  updateSelection,
+                  group,
+                  ungroup,
+                  canGroup,
+                  canUngroup,
+                }) => (
                   <div
                     style={{
                       display: 'flex',
@@ -942,6 +951,19 @@ function DocumentView() {
                       />
                     ))}
                     <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,.18)' }} />
+                    {canGroup && (
+                      <button onClick={() => group()} style={MENU_BTN}>
+                        Group{selected.length > 1 ? ` (${selected.length})` : ''}
+                      </button>
+                    )}
+                    {canUngroup && (
+                      <button onClick={() => ungroup()} style={MENU_BTN}>
+                        Ungroup
+                      </button>
+                    )}
+                    {(canGroup || canUngroup) && (
+                      <span style={{ width: 1, height: 18, background: 'rgba(255,255,255,.18)' }} />
+                    )}
                     <button onClick={deleteSelection} style={MENU_BTN}>
                       Delete{selected.length > 1 ? ` (${selected.length})` : ''}
                     </button>

@@ -10,11 +10,14 @@ import {
   creationDraftAnchor as coreCreationDraftAnchor,
   cursorAt,
   defaultsFor,
+  expandGroups,
+  groupKeyOf,
   hitTest,
   pageItems as corePageItems,
   pdfToContentRect,
   selectionAnchor as coreSelectionAnchor,
   update,
+  type Annot,
   type ChromeNode,
   type CreationDraftAnchor,
   type Effect,
@@ -145,6 +148,34 @@ export function createAnnotationCapability(
     ctx.dispatch({ type: 'SET_MODEL', model: next });
     for (const fx of effects) perform(fx, next);
   }
+
+  /** A relationship-only engine patch (sets/clears `/IRT` + `/RT`) — geometry and
+   *  style are left untouched, so grouping never re-bakes an appearance. */
+  const relationshipPatch = (
+    subtype: AnnotationDTO['subtype'],
+    rel: { inReplyTo: AnnotationRef | null; replyType?: 'group' },
+  ): AnnotationPatch => ({ subtype, ...rel }) as AnnotationPatch;
+
+  /** Write a relationship change to one committed annotation and re-sync it from
+   *  the authoritative DTO (preserving its render source — relationships don't
+   *  change the appearance). */
+  const writeRelationship = async (
+    a: Annot,
+    rel: { inReplyTo: AnnotationRef | null; replyType?: 'group' },
+  ): Promise<void> => {
+    const doc = ctx.doc;
+    if (!doc || !a.ref || !a.data) return;
+    const res = await doc
+      .page(a.pon)
+      .annotations.update(a.ref, relationshipPatch(a.data.subtype, rel));
+    syncDTO(res.updated, a.source);
+  };
+
+  /** Committed, data-backed annotations in the current selection. */
+  const selectedCommitted = (): Annot[] => {
+    const m = model();
+    return m.selected.map((id) => m.byId[id]).filter((a): a is Annot => !!a && !!a.ref && !!a.data);
+  };
 
   function perform(fx: Effect, m: Model): void {
     const doc = ctx.doc;
@@ -320,6 +351,49 @@ export function createAnnotationCapability(
     deleteSelection: () => apply({ t: 'delete' }),
     deselect: () => apply({ t: 'deselect' }),
     cancel: () => apply({ t: 'cancel' }),
+
+    // ── grouping (engine `/IRT` + `/RT /Group`; page-local) ──
+    /** Group the current selection into one unit: the bottom-most member becomes
+     *  the primary, every other member becomes a `/RT /Group` subordinate of it.
+     *  No-op unless 2+ committed annotations on a single page are selected. */
+    group: async (): Promise<void> => {
+      const m = model();
+      const members = selectedCommitted();
+      if (members.length < 2) return;
+      const pon = members[0].pon;
+      if (members.some((a) => a.pon !== pon)) return; // groups are page-local
+      const ordered = [...members].sort((a, b) => m.order.indexOf(a.id) - m.order.indexOf(b.id));
+      const [primary, ...rest] = ordered;
+      if (!primary.ref) return;
+      await Promise.all(
+        rest.map((a) => writeRelationship(a, { inReplyTo: primary.ref, replyType: 'group' })),
+      );
+    },
+    /** Ungroup: clear `/IRT` (+ `/RT`) on every subordinate in the group(s) the
+     *  selection touches, so each member becomes top-level again. */
+    ungroup: async (): Promise<void> => {
+      const m = model();
+      const subs = expandGroups(m, m.selected)
+        .map((id) => m.byId[id])
+        .filter((a): a is Annot => !!a && !!a.ref && !!a.data && !!a.group);
+      await Promise.all(subs.map((a) => writeRelationship(a, { inReplyTo: null })));
+    },
+    canGroup: (): boolean => {
+      if (!(ctx.doc?.security.allows(ANNOTATE_MODIFY) ?? false)) return false;
+      const m = model();
+      const members = selectedCommitted();
+      if (members.length < 2) return false;
+      if (members.some((a) => a.pon !== members[0].pon)) return false;
+      // Already exactly one complete group → nothing to do.
+      const keys = new Set(m.selected.map((id) => groupKeyOf(m, id)));
+      if (keys.size === 1 && !keys.has(null)) return false;
+      return true;
+    },
+    canUngroup: (): boolean => {
+      if (!(ctx.doc?.security.allows(ANNOTATE_MODIFY) ?? false)) return false;
+      const m = model();
+      return m.selected.some((id) => groupKeyOf(m, id) != null);
+    },
 
     ensurePage: (pon) => {
       if (loaded.has(pon)) return;

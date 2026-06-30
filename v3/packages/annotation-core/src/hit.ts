@@ -1,6 +1,6 @@
 import { geomHandles, geomHit, selectionBounds } from './geometry';
 import { capsFor, isMarkup } from './kinds';
-import { type Annot, type Cursor, type Id, type Model, type Vec } from './types';
+import { type Annot, type Cursor, type Id, type Model, type Rect, type Vec } from './types';
 
 export type Target =
   | { t: 'handle'; id: Id; handle: string; cursor: Cursor }
@@ -40,13 +40,40 @@ const hasHandles = (subtype: string): boolean => {
 };
 
 const isFilled = (a: Annot): boolean => a.style.interiorColor != null || a.geom.t === 'quads';
+const inRect = (b: Rect, p: Vec): boolean =>
+  p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
 // A SELECTED annotation is grabbable from anywhere inside its SELECTION region — the
 // SAME rect the chrome outlines — so the grab area matches what you see highlighted
 // (a thin/horizontal arrow's whole outline box, arrowhead included; not a sliver).
-const inBounds = (a: Annot, p: Vec): boolean => {
-  const b = selectionBounds(a.geom, a.style.strokeWidth);
-  return p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
-};
+const inBounds = (a: Annot, p: Vec): boolean =>
+  inRect(selectionBounds(a.geom, a.style.strokeWidth), p);
+
+/**
+ * The union of the SELECTION bounds of every selected, movable annotation on a
+ * page — the SAME box `chrome` outlines for a multi-selection. Null unless 2+
+ * such annotations are selected here. This is the grab region for the gaps
+ * BETWEEN grouped/multi-selected annotations, so dragging the whole selection
+ * works from anywhere inside its visible outline (not only on a member).
+ */
+function selectionUnionBounds(m: Model, pon: number): Rect | null {
+  const sel = m.selected.filter(
+    (id) => m.byId[id]?.pon === pon && isSelectable(m, id) && canMove(m, id),
+  );
+  if (sel.length < 2) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const id of sel) {
+    const a = m.byId[id];
+    const b = selectionBounds(a.geom, a.style.strokeWidth);
+    minX = Math.min(minX, b.x);
+    minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.width);
+    maxY = Math.max(maxY, b.y + b.height);
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
 
 /**
  * What's under the content point.
@@ -86,6 +113,17 @@ export function hitTest(
         ? inBounds(a, p)
         : geomHit(a.geom, p, strokeMargin, isFilled(a), a.style.strokeWidth);
     if (hit) return { t: 'annot', id };
+  }
+  // Nothing under the point directly — but a multi-selection is grabbable across
+  // its WHOLE union box (the gaps between members included), so a drag there moves
+  // the group as a unit instead of clearing it. Resolve to the top-most selected
+  // member so `editDown` keeps the selection and arms the move.
+  const union = selectionUnionBounds(m, pon);
+  if (union && inRect(union, p)) {
+    for (let i = order.length - 1; i >= 0; i--) {
+      if (m.selected.includes(order[i]) && canMove(m, order[i]))
+        return { t: 'annot', id: order[i] };
+    }
   }
   return { t: 'empty' };
 }

@@ -18,6 +18,7 @@ export {
 } from './view';
 export type { TextBox } from './view';
 export { hitTest, cursorAt, isSelectable, canMove, type Target } from './hit';
+export { groupKeyOf, groupMembers, expandGroups } from './group';
 export { KINDS, capsFor, type KindCaps, type AnnotationKind } from './kinds';
 export {
   geomScene,
