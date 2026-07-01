@@ -587,17 +587,24 @@ export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
   // freehand hull is exact — left as-is (the freehand look must not change).
   if (g.t === 'ink') return expandRect(unionRect(g.strokes.flat()), strokeWidth / 2);
   // Line / polyline / polygon: the miter kinds. Wrap the ACTUAL stroke outline
-  // (per-join, asymmetric) instead of a flat pad, then union the endings' own box
-  // (their centre-line points grown by `h` for the ending's stroke).
+  // (per-join, asymmetric) instead of a flat pad — for the body AND each ending,
+  // so a mitred arrowhead tip is enclosed exactly (not under-covered by a flat h).
   const raw = g.t === 'line' ? [g.a, g.b] : g.points;
   const closed = g.t === 'poly' && g.closed;
-  const box = unionRect(strokeOutlinePoints(raw, closed, strokeWidth));
-  const endPts: Vec[] = [];
-  for (const seg of endingSegs(g))
-    endPts.push(...endingPoints(seg.tip, seg.angle, seg.ending, strokeWidth));
-  if (!endPts.length) return box;
-  const endBox = expandRect(unionRect(endPts), strokeWidth / 2);
-  return unionRect([...rectCornerPoints(box), ...rectCornerPoints(endBox)]);
+  const pts = strokeOutlinePoints(raw, closed, strokeWidth);
+  for (const seg of endingSegs(g)) {
+    for (const node of endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth)) {
+      if (node.kind === 'poly') {
+        // arrowheads / diamonds / squares are stroked polys: their sharp corners
+        // miter exactly like the body, so wrap the real outline (tip included).
+        pts.push(...strokeOutlinePoints(node.points, node.closed, strokeWidth));
+      } else if (node.kind === 'ellipse') {
+        // a stroked ellipse (circle ending) grows uniformly by h — no miters.
+        pts.push(...rectCornerPoints(expandRect(node.rect, strokeWidth / 2)));
+      }
+    }
+  }
+  return unionRect(pts);
 }
 
 /**

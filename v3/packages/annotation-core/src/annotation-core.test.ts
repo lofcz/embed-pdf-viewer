@@ -1664,6 +1664,21 @@ describe('annotation-core — join-aware stroke bounds', () => {
     });
   });
 
+  it('a mitred arrowhead tip is fully enclosed — the box reaches ~sw past the tip vertex', () => {
+    // Horizontal line pointing right, closed arrow at the tip (100,0).
+    const g: Geom = {
+      t: 'line',
+      a: { x: 0, y: 0 },
+      b: { x: 100, y: 0 },
+      ends: { start: 'none', end: 'closed-arrow' },
+    };
+    const sw = 6;
+    const b = geomVisualBounds(g, sw);
+    // The arrowhead tip is a 60° corner: the mitred stroke reaches h/sin(30°) = sw
+    // past the tip vertex. The right edge must clear that (old flat h/2 pad did not).
+    expect(b.x + b.width).toBeGreaterThanOrEqual(100 + sw - 1e-6);
+  });
+
   it('scene paint: only ink rounds its joins; shapes and polys stay sharp (miter)', () => {
     const mk = (subtype: Subtype, geom: Geom): RenderItem => ({
       id: 'x',
