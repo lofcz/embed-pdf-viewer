@@ -116,6 +116,9 @@ export function scene(item: RenderItem): SceneNode[] {
       n.kind === 'path' ||
       (n.kind === 'poly' && n.closed);
     const paint = shapePaint(item.style, closed);
-    return { ...n, paint: ink ? { ...paint, cap: 'round' } : paint } as SceneNode;
+    // Ink is freehand: round the pen-stroke ends AND joins. Every other kind keeps
+    // the default butt caps + sharp (miter) joins — square corners and poly knees
+    // stay crisp.
+    return { ...n, paint: ink ? { ...paint, cap: 'round', join: 'round' } : paint } as SceneNode;
   });
 }

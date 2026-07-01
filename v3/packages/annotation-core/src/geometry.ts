@@ -453,7 +453,86 @@ export function caretRectFromTextEnd(lineRect: Rect): Rect {
  * of the stroke width (matches v2): the half-stroke under the centre-line plus a
  * little extra so caps/joins are never clipped by the engine `/Rect`.
  */
-const ENDING_PAD = 1.2;
+/** Miter limit shared by the bounds math AND the SVG renderer (`stroke-miterlimit`),
+ *  so the computed box and the drawn stroke always agree on where a sharp join
+ *  bevels instead of spiking. 10 = the PDF default (also what the baked /AP uses). */
+export const MITER_LIMIT = 10;
+
+/**
+ * The outline points of a mitred, butt-capped polyline (open or closed) stroked
+ * at `strokeWidth`: each segment's two side offsets (the straight extents + both
+ * bevel corners) PLUS each interior join's OUTER miter tip — added only while the
+ * join is within `MITER_LIMIT` (past that the renderer bevels it, and the segment
+ * offsets already bound it). `unionRect` of these is the tight, ASYMMETRIC visual
+ * box: a pointy join grows the box only on the side it actually spikes.
+ *
+ * Miter kinds only (line / polyline / polygon). Ink is round-capped/round-joined,
+ * never spikes, and is bounded elsewhere by a plain `h` grow.
+ */
+function strokeOutlinePoints(pts: Vec[], closed: boolean, strokeWidth: number): Vec[] {
+  const h = strokeWidth / 2;
+  const n = pts.length;
+  if (n === 0) return [];
+  if (n === 1 || h === 0) return [...pts];
+
+  const segCount = closed ? n : n - 1;
+  const dir: Vec[] = [];
+  const nrm: Vec[] = [];
+  for (let i = 0; i < segCount; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    const len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    const ux = (b.x - a.x) / len;
+    const uy = (b.y - a.y) / len;
+    dir.push({ x: ux, y: uy });
+    nrm.push({ x: -uy, y: ux }); // a unit normal (either side; sign is re-picked below)
+  }
+
+  const out: Vec[] = [];
+  // Segment side offsets at both ends — covers the straight extents, the butt
+  // caps at open ends, and the bevel corners of any beveled join.
+  for (let i = 0; i < segCount; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    const nx = nrm[i].x * h;
+    const ny = nrm[i].y * h;
+    out.push({ x: a.x + nx, y: a.y + ny }, { x: a.x - nx, y: a.y - ny });
+    out.push({ x: b.x + nx, y: b.y + ny }, { x: b.x - nx, y: b.y - ny });
+  }
+
+  // Interior joins: the outer miter tip, gated by the miter limit.
+  const joinStart = closed ? 0 : 1;
+  const joinEnd = closed ? n : n - 1; // vertices [joinStart, joinEnd)
+  for (let v = joinStart; v < joinEnd; v++) {
+    const inIdx = closed ? (v - 1 + n) % n : v - 1;
+    const outIdx = closed ? v : v; // segment starting at v
+    const a = dir[inIdx]; // prev -> v
+    const b = dir[outIdx]; // v -> next
+    const n1 = nrm[inIdx];
+    const n2 = nrm[outIdx];
+    // Outer bisector direction: opposite the interior bisector `b - a`.
+    const bx = a.x - b.x;
+    const by = a.y - b.y;
+    if (Math.hypot(bx, by) < 1e-9) continue; // straight run: no spike beyond the offsets
+    let mhx = n1.x + n2.x;
+    let mhy = n1.y + n2.y;
+    const ml = Math.hypot(mhx, mhy);
+    if (ml < 1e-9) continue; // exact hairpin: renderer bevels
+    mhx /= ml;
+    mhy /= ml;
+    if (mhx * bx + mhy * by < 0) {
+      mhx = -mhx; // point the miter unit vector to the OUTER side
+      mhy = -mhy;
+    }
+    const cosHalf = Math.abs(mhx * n1.x + mhy * n1.y); // cos(deviation/2)
+    if (cosHalf < 1e-9) continue;
+    const miterLen = h / cosHalf;
+    if (miterLen > MITER_LIMIT * h) continue; // too sharp: renderer bevels → offsets bound it
+    const V = pts[v];
+    out.push({ x: V.x + mhx * miterLen, y: V.y + mhy * miterLen });
+  }
+  return out;
+}
 
 type EndingSeg = { tip: Vec; angle: number; ending: LineEnding | undefined };
 
@@ -504,23 +583,35 @@ export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
   }
   if (g.t === 'rect' || g.t === 'text' || g.t === 'caret') return g.rect;
   if (g.t === 'quads') return expandRect(unionRect(g.quads.flat()), strokeWidth / 2);
+  // Ink is round-capped/round-joined: it never spikes, so a plain `h` grow of the
+  // freehand hull is exact — left as-is (the freehand look must not change).
   if (g.t === 'ink') return expandRect(unionRect(g.strokes.flat()), strokeWidth / 2);
-  const pts: Vec[] = g.t === 'line' ? [g.a, g.b] : [...g.points];
+  // Line / polyline / polygon: the miter kinds. Wrap the ACTUAL stroke outline
+  // (per-join, asymmetric) instead of a flat pad, then union the endings' own box
+  // (their centre-line points grown by `h` for the ending's stroke).
+  const raw = g.t === 'line' ? [g.a, g.b] : g.points;
+  const closed = g.t === 'poly' && g.closed;
+  const box = unionRect(strokeOutlinePoints(raw, closed, strokeWidth));
+  const endPts: Vec[] = [];
   for (const seg of endingSegs(g))
-    pts.push(...endingPoints(seg.tip, seg.angle, seg.ending, strokeWidth));
-  return expandRect(unionRect(pts), strokeWidth / 2 + ENDING_PAD * strokeWidth);
+    endPts.push(...endingPoints(seg.tip, seg.angle, seg.ending, strokeWidth));
+  if (!endPts.length) return box;
+  const endBox = expandRect(unionRect(endPts), strokeWidth / 2);
+  return unionRect([...rectCornerPoints(box), ...rectCornerPoints(endBox)]);
 }
 
 /**
  * The rect the SELECTION wraps — and the region a SELECTED annotation can be grabbed
- * from. Centre-line geometries (line / open polyline / ink) straddle their path, so
- * this is their VISUAL bounds (stroke + endings); shapes and closed polygons sit
- * tight on their box (so the 8 handles land on the corners). The chrome outline AND
- * the selected hit-test both call this, so what you see highlighted is exactly what
- * you can grab — they can never drift.
+ * from. Centre-line geometries (line / polyline / polygon / ink) straddle their path,
+ * so this is their VISUAL bounds (the join-aware stroke outline + endings) — a
+ * polygon's outline wraps its stroke exactly like a polyline. Box kinds (square /
+ * circle / free-text) sit tight on their `rect` (their stroke draws INSIDE the box,
+ * so the 8 resize handles land on the corners). The chrome outline AND the selected
+ * hit-test both call this, so what you see highlighted is exactly what you can grab —
+ * they can never drift.
  */
 export function selectionBounds(g: Geom, strokeWidth: number): Rect {
-  return g.t === 'line' || g.t === 'ink' || (g.t === 'poly' && !g.closed)
+  return g.t === 'line' || g.t === 'ink' || g.t === 'poly'
     ? geomVisualBounds(g, strokeWidth)
     : geomBounds(g);
 }

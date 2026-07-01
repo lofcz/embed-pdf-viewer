@@ -39,7 +39,7 @@ import {
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
 import { expandGroups, groupKeyOf, groupMembers } from './group';
-import type { Annot, Geom, Model, Msg, RenderItem, Style, Subtype } from './types';
+import type { Annot, Geom, Model, Msg, RenderItem, Style, Subtype, Vec } from './types';
 
 const PON = 1 as Annot['pon'];
 const editPtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift = false): Msg => ({
@@ -1567,5 +1567,161 @@ describe('annotation-core — selectionAnchor carries the knob alongside a centr
     expect(anchor).not.toBeNull();
     expect(anchor!.bounds).toEqual(selectionBoundsOnPage(m, PON));
     expect(anchor!.knob).toBeUndefined();
+  });
+});
+
+describe('annotation-core — join-aware stroke bounds', () => {
+  const poly = (points: Vec[], closed: boolean): Geom => ({ t: 'poly', points, closed });
+
+  it('a sharp join sticks out only on the spike side — the box is NOT symmetric', () => {
+    // A tent "^" with a sharp apex at (50,0); arms come down to y=100.
+    const g = poly(
+      [
+        { x: 0, y: 100 },
+        { x: 50, y: 0 },
+        { x: 100, y: 100 },
+      ],
+      false,
+    );
+    const sw = 10;
+    const h = sw / 2;
+    const b = geomVisualBounds(g, sw);
+
+    // The mitred apex spikes ABOVE y=0 by h/cos(delta/2) = h*sqrt(5) ≈ 11.18.
+    const spike = h * Math.sqrt(5);
+    expect(b.y).toBeCloseTo(-spike, 3);
+
+    // The far (bottom) side gets only a thin offset (h/sqrt(5)), NOT the same pad —
+    // the whole point: a pointy join grows only its own side.
+    const topPad = 0 - b.y;
+    const botPad = b.y + b.height - 100;
+    expect(botPad).toBeCloseTo(h / Math.sqrt(5), 3);
+    expect(topPad).toBeGreaterThan(botPad * 3);
+  });
+
+  it('the miter limit bevels a near-reversal join instead of exploding the box', () => {
+    // A hairpin at (100,0): the outgoing segment doubles almost straight back, so an
+    // ungated miter would shoot out ~190*h. The limit must clamp it to the bevel.
+    const g = poly(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 2, y: 1 },
+      ],
+      false,
+    );
+    const sw = 10;
+    const h = sw / 2;
+    const b = geomVisualBounds(g, sw);
+    // Bounded by the vertex hull grown by the bevel (~h), nowhere near the ~190*h spike.
+    expect(b.width).toBeLessThan(100 + 4 * h);
+    expect(b.height).toBeLessThan(20 * h);
+  });
+
+  it('a closed polygon wraps its stroke (parity with a polyline), not tight to the vertices', () => {
+    const g = poly(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 0 },
+        { x: 100, y: 100 },
+        { x: 0, y: 100 },
+      ],
+      true,
+    );
+    const sw = 8;
+    const h = sw / 2;
+    const sb = selectionBounds(g, sw);
+    // selectionBounds now routes polygons through the stroke-aware visual bounds…
+    expect(sb).toEqual(geomVisualBounds(g, sw));
+    // …so the outline sits OUTSIDE the tight vertex box (a 90° corner miters to -h).
+    const tight = geomBounds(g);
+    expect(sb.x).toBeCloseTo(-h, 3);
+    expect(sb.y).toBeCloseTo(-h, 3);
+    expect(sb.width).toBeGreaterThan(tight.width);
+    expect(sb.height).toBeGreaterThan(tight.height);
+  });
+
+  it('ink bounds are unchanged — a plain h grow of the freehand hull (round, never spikes)', () => {
+    const g: Geom = {
+      t: 'ink',
+      strokes: [
+        [
+          { x: 10, y: 10 },
+          { x: 60, y: 15 },
+          { x: 40, y: 90 },
+        ],
+      ],
+    };
+    const sw = 6;
+    const h = sw / 2;
+    const b = geomVisualBounds(g, sw);
+    const hull = geomBounds(g);
+    expect(b).toEqual({
+      x: hull.x - h,
+      y: hull.y - h,
+      width: hull.width + sw,
+      height: hull.height + sw,
+    });
+  });
+
+  it('scene paint: only ink rounds its joins; shapes and polys stay sharp (miter)', () => {
+    const mk = (subtype: Subtype, geom: Geom): RenderItem => ({
+      id: 'x',
+      ref: null,
+      subtype,
+      geom,
+      box: geomVisualBounds(geom, 4),
+      style: {
+        color: '#000000',
+        interiorColor: null,
+        strokeWidth: 4,
+        opacity: 1,
+        border: { kind: 'solid' },
+      },
+      source: 'vector',
+      selected: false,
+    });
+    const square = mk('square', {
+      t: 'rect',
+      rect: { x: 0, y: 0, width: 50, height: 40 },
+      ellipse: false,
+    });
+    const polyline = mk(
+      'polyline',
+      poly(
+        [
+          { x: 0, y: 0 },
+          { x: 40, y: 0 },
+          { x: 40, y: 40 },
+        ],
+        false,
+      ),
+    );
+    const polygon = mk(
+      'polygon',
+      poly(
+        [
+          { x: 0, y: 0 },
+          { x: 40, y: 0 },
+          { x: 40, y: 40 },
+        ],
+        true,
+      ),
+    );
+    const ink = mk('ink', {
+      t: 'ink',
+      strokes: [
+        [
+          { x: 0, y: 0 },
+          { x: 20, y: 10 },
+          { x: 40, y: 0 },
+        ],
+      ],
+    });
+
+    expect(scene(square)[0].paint.join).toBeUndefined();
+    expect(scene(polyline)[0].paint.join).toBeUndefined();
+    expect(scene(polygon)[0].paint.join).toBeUndefined();
+    expect(scene(ink)[0].paint.join).toBe('round');
   });
 });

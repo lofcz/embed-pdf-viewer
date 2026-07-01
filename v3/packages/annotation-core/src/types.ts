@@ -370,6 +370,7 @@ export interface Paint {
   dash?: number[]; // stroke dash (content units)
   blend?: 'multiply'; // mix-blend-mode (text-highlight)
   cap?: 'round'; // stroke-linecap; omitted = the default butt. Round for freehand ink.
+  join?: 'round'; // stroke-linejoin; omitted = the default miter. Round for freehand ink.
 }
 
 /**

@@ -18,6 +18,7 @@ import { AnnotationToken, refKey, type TextItem } from '@embedpdf-x/plugin-annot
 import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annotation/internal';
 import {
   scene,
+  MITER_LIMIT,
   type Border,
   type CreationDraftAnchor,
   type LineEndings,
@@ -73,7 +74,8 @@ function paintAttrs(p: Paint) {
     stroke: p.stroke ?? 'none',
     strokeWidth: p.width,
     opacity: p.opacity,
-    strokeLinejoin: 'round' as const,
+    strokeLinejoin: p.join ?? ('miter' as const), // undefined → sharp miter; 'round' only for ink
+    strokeMiterlimit: MITER_LIMIT, // must match the bounds math so spike vs bevel agree
     strokeLinecap: p.cap, // undefined → SVG default (butt); 'round' only for ink
     strokeDasharray: p.dash ? p.dash.join(' ') : undefined,
     ...(p.blend ? { style: { mixBlendMode: p.blend } } : {}),

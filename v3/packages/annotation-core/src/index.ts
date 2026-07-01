@@ -57,6 +57,7 @@ export {
   normalizeDeg,
   isRotatableGeom,
   ROTATE_KNOB_OFFSET,
+  MITER_LIMIT,
   // group scaling
   geomScaleAbout,
   groupResizeAnchor,
