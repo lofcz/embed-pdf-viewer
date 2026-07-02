@@ -18,6 +18,29 @@
  */
 import type { Geom, Subtype } from './types';
 
+/**
+ * One editable property of a kind, as a UI contract: which {@link AnnotationProps}
+ * key, rendered how (the union arm fixes the control + its constraints), labelled
+ * what by default. A property sidebar is a `switch (spec.key)` over these — the
+ * per-kind lists below are the v2 snippet's hand-rolled `TOOL_PROPERTIES` schema,
+ * promoted into the library so every consumer gets it for free.
+ *
+ * `label` is a default (English) display name — apps with i18n map `key`s to
+ * their own strings and ignore it. Array ORDER is display order.
+ */
+export type PropSpec =
+  | { key: 'color'; label: string }
+  | { key: 'interiorColor'; label: string }
+  | { key: 'fontColor'; label: string }
+  | { key: 'opacity'; label: string; min: number; max: number; step: number }
+  | { key: 'strokeWidth'; label: string; min: number; max: number; step: number }
+  | { key: 'fontSize'; label: string; min: number; max: number; step: number }
+  /** Border style picker; `cloudy` says whether this kind honours a cloudy border. */
+  | { key: 'border'; label: string; cloudy: boolean }
+  | { key: 'lineEndings'; label: string }
+  | { key: 'fontFamily'; label: string }
+  | { key: 'textAlign'; label: string };
+
 /** Orthogonal capability flags. Static data — `locked` is the one runtime override
  *  (a locked annotation is never editable regardless of these). */
 export interface KindCaps {
@@ -53,6 +76,9 @@ export interface KindCaps {
   hasEndings: boolean;
   /** Can take a cloudy border effect (`/BE` — shapes). */
   hasCloudy: boolean;
+  /** The whole body is visible content, so hit-testing grabs anywhere inside
+   *  the box (stamp images) — NOT just the stroke/fill like outline shapes. */
+  opaqueBody: boolean;
 }
 
 export interface AnnotationKind {
@@ -61,7 +87,44 @@ export interface AnnotationKind {
   intent?: string;
   variant: Geom['t'];
   caps: KindCaps;
+  /** The kind's editable properties, in DISPLAY ORDER — the contract a property
+   *  sidebar renders from (see {@link PropSpec}). Empty = nothing to edit. */
+  props: PropSpec[];
 }
+
+/* Shared spec entries — plain data, spread into the per-kind lists below. */
+const OPACITY: PropSpec = { key: 'opacity', label: 'Opacity', min: 0.1, max: 1, step: 0.05 };
+const STROKE: PropSpec = { key: 'color', label: 'Stroke' };
+const FILL: PropSpec = { key: 'interiorColor', label: 'Fill' };
+const STROKE_WIDTH: PropSpec = {
+  key: 'strokeWidth',
+  label: 'Stroke width',
+  min: 0.5,
+  max: 30,
+  step: 0.5,
+};
+const BORDER_CLOUDY: PropSpec = { key: 'border', label: 'Border', cloudy: true };
+const BORDER_PLAIN: PropSpec = { key: 'border', label: 'Border', cloudy: false };
+const LINE_ENDINGS: PropSpec = { key: 'lineEndings', label: 'Line endings' };
+
+/** Shapes with a fill + a (possibly cloudy) border: square / circle / polygon. */
+const SHAPE_PROPS: PropSpec[] = [STROKE, FILL, OPACITY, STROKE_WIDTH, BORDER_CLOUDY];
+/** Stroked vertex kinds with `/LE` endings: line / polyline. The fill colours a
+ *  CLOSED ending (closed arrow / circle / square / diamond). */
+const LINE_PROPS: PropSpec[] = [STROKE, FILL, OPACITY, STROKE_WIDTH, BORDER_PLAIN, LINE_ENDINGS];
+/** Text markup + caret: one colour + opacity, anchored to text. */
+const MARK_PROPS: PropSpec[] = [{ key: 'color', label: 'Color' }, OPACITY];
+/** Free text: font first (the primary surface), then box background + border. */
+const TEXT_PROPS: PropSpec[] = [
+  { key: 'fontFamily', label: 'Font' },
+  { key: 'fontSize', label: 'Font size', min: 4, max: 96, step: 1 },
+  { key: 'fontColor', label: 'Text color' },
+  { key: 'textAlign', label: 'Align' },
+  OPACITY,
+  { key: 'interiorColor', label: 'Background' },
+  { key: 'color', label: 'Border' },
+  { key: 'strokeWidth', label: 'Border width', min: 0, max: 12, step: 0.5 },
+];
 
 /** Build caps from a sparse override — everything not named is `false`. */
 const caps = (c: Partial<KindCaps>): KindCaps => ({
@@ -80,6 +143,7 @@ const caps = (c: Partial<KindCaps>): KindCaps => ({
   hasFill: false,
   hasEndings: false,
   hasCloudy: false,
+  opaqueBody: false,
   ...c,
 });
 
@@ -104,6 +168,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       commentable: true,
       hasFill: true, // `/C` box background
     }),
+    props: TEXT_PROPS,
   },
   square: {
     subtype: 'square',
@@ -120,6 +185,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       hasFill: true,
       hasCloudy: true,
     }),
+    props: SHAPE_PROPS,
   },
   circle: {
     subtype: 'circle',
@@ -136,6 +202,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       hasFill: true,
       hasCloudy: true,
     }),
+    props: SHAPE_PROPS,
   },
   line: {
     subtype: 'line',
@@ -151,6 +218,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       commentable: true,
       hasEndings: true,
     }),
+    props: LINE_PROPS,
   },
   polygon: {
     subtype: 'polygon',
@@ -167,6 +235,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       hasFill: true,
       hasCloudy: true,
     }),
+    props: SHAPE_PROPS,
   },
   polyline: {
     subtype: 'polyline',
@@ -182,6 +251,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       commentable: true,
       hasEndings: true,
     }),
+    props: LINE_PROPS,
   },
   // Ink: freehand strokes. Selectable + movable as a whole; no single-shape
   // resize/vertex handles (the strokes are the geometry), but rotatable and
@@ -198,6 +268,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       groupRotatable: true,
       commentable: true,
     }),
+    props: [{ key: 'color', label: 'Color' }, OPACITY, STROKE_WIDTH],
   },
   // Text markup: selectable + anchored (bound to text — recolor/delete, never
   // move/resize). Created from a text selection, not a drag (see the markup tool).
@@ -205,31 +276,62 @@ export const KINDS: Record<string, AnnotationKind> = {
     subtype: 'highlight',
     variant: 'quads',
     caps: caps({ selectable: true, anchored: true, commentable: true }),
+    props: MARK_PROPS,
   },
   underline: {
     subtype: 'underline',
     variant: 'quads',
     caps: caps({ selectable: true, anchored: true, commentable: true }),
+    props: MARK_PROPS,
   },
   squiggly: {
     subtype: 'squiggly',
     variant: 'quads',
     caps: caps({ selectable: true, anchored: true, commentable: true }),
+    props: MARK_PROPS,
   },
   strikeout: {
     subtype: 'strikeout',
     variant: 'quads',
     caps: caps({ selectable: true, anchored: true, commentable: true }),
+    props: MARK_PROPS,
   },
   caret: {
     subtype: 'caret',
     variant: 'caret',
     caps: caps({ selectable: true, anchored: true, commentable: true }),
+    props: MARK_PROPS,
+  },
+  // Stamp: a rect-variant kind whose visual is ALWAYS the engine-baked /AP
+  // (image or vector appearance authored at create time) — never a vector
+  // re-render, so it declares no editable style props. Geometry edits
+  // (move/resize/rotate) re-fit the appearance natively on the engine side.
+  stamp: {
+    subtype: 'stamp',
+    variant: 'rect',
+    caps: caps({
+      selectable: true,
+      movable: true,
+      resizable: true,
+      rotatable: true,
+      groupMovable: true,
+      groupResizable: true,
+      groupRotatable: true,
+      commentable: true,
+      opaqueBody: true,
+    }),
+    props: [],
   },
 };
 
 /** The capabilities of a subtype, or the read-only default for unknown kinds. */
 export const capsFor = (subtype: string): KindCaps => KINDS[subtype]?.caps ?? READONLY;
+
+const NO_PROPS: PropSpec[] = [];
+
+/** A kind's editable properties in display order — empty for unknown kinds.
+ *  Stable references, so selectors can compare by identity. */
+export const propsFor = (subtype: string): PropSpec[] => KINDS[subtype]?.props ?? NO_PROPS;
 
 /** A text-markup kind (highlight/underline/squiggly/strikeout). These are drawn
  *  on the text layer, which always sits beneath every other annotation. */

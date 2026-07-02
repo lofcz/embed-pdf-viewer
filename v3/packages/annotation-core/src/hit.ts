@@ -57,7 +57,12 @@ const hasHandles = (subtype: string): boolean => {
   return c.resizable || c.vertexEditable;
 };
 
-const isFilled = (a: Annot): boolean => a.style.interiorColor != null || a.geom.t === 'quads';
+// `opaqueBody` kinds (stamp images) are visible across their whole box, so they
+// hit like a filled shape. NOT keyed on `source: 'baked'` — every annotation
+// loaded from a PDF starts baked, and an unfilled square must still be grabbed
+// only on its outline.
+const isFilled = (a: Annot): boolean =>
+  a.style.interiorColor != null || a.geom.t === 'quads' || capsFor(a.subtype).opaqueBody;
 const inRect = (b: Rect, p: Vec): boolean =>
   p.x >= b.x && p.x <= b.x + b.width && p.y >= b.y && p.y <= b.y + b.height;
 // A SELECTED annotation is grabbable from anywhere inside its SELECTION region — the

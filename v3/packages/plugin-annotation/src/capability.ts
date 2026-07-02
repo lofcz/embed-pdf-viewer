@@ -1,12 +1,17 @@
 import type { DocCapability, PluginContext } from '@embedpdf-x/kernel';
-import type {
-  AnnotationDraft,
-  AnnotationDTO,
-  AnnotationPatch,
-  AnnotationRef,
+import {
+  resolveBinarySource,
+  sniffBinaryMetadata,
+  type AnnotationDraft,
+  type AnnotationDTO,
+  type AnnotationPatch,
+  type AnnotationRef,
+  type BinarySource,
 } from '@embedpdf/engine-core/runtime';
+import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import {
   chrome as coreChrome,
+  contentToPdfPoint,
   creationDraftAnchor as coreCreationDraftAnchor,
   cursorAt,
   defaultsFor,
@@ -15,18 +20,21 @@ import {
   hitTest,
   pageItems as corePageItems,
   pdfToContentRect,
+  propsFor,
+  readProp,
   selectionAnchor as coreSelectionAnchor,
+  sharedProps,
   update,
   type Annot,
+  type AnnotationProps,
   type ChromeNode,
   type CreationDraftAnchor,
   type Effect,
-  type LineEndings,
   type Model,
   type Msg,
+  type PropKey,
   type Rect,
   type RenderItem,
-  type Style,
   type Vec,
 } from '@embedpdf-x/annotation-core';
 import { fromDTO, refKey, toCreateDraft, toPatch } from './repository';
@@ -36,6 +44,7 @@ import type {
   AnnotationHostCapability,
   AnnotationState,
   Behavior,
+  SelectionProps,
   TextItem,
 } from './types';
 
@@ -46,9 +55,14 @@ const HANDLE_TOL = 6; // content units (PDF points)
  *  UI mirror of the coarse gate. */
 const ANNOTATE_MODIFY: DocCapability = 'doc.annotate.modify';
 
-const NO_ENDINGS: LineEndings = { start: 'none', end: 'none' };
-
 const TEXT_COMMIT_DEBOUNCE_MS = 250;
+
+/** Tools whose target KIND has a different id (the props/defaults lens for a
+ *  tool resolves through this: a callout edits free-text properties). */
+const TOOL_KIND: Record<string, string> = {
+  'free-text-callout': 'free-text',
+  'insert-text': 'caret',
+};
 
 /**
  * The annotation shell. The pure `update` runs HERE (so it can emit effects);
@@ -106,6 +120,27 @@ export function createAnnotationCapability(
     draftAnchorCache = { model: m, v };
     return v;
   };
+  // The selection's property schema + values — memoized by model identity so a
+  // subscribed sidebar re-renders only when the model actually changed.
+  let selPropsCache: { model: Model; v: SelectionProps } | null = null;
+  const memoSelectionProps = (): SelectionProps => {
+    const m = model();
+    if (selPropsCache && selPropsCache.model === m) return selPropsCache.v;
+    const members = m.selected.map((id) => m.byId[id]).filter((a): a is Annot => !!a);
+    const specs = sharedProps(members.map((a) => a.subtype));
+    const values: Partial<AnnotationProps> = {};
+    const mixed: PropKey[] = [];
+    for (const spec of specs) {
+      const first = readProp(members[0], spec.key);
+      (values as Record<PropKey, unknown>)[spec.key] = first;
+      const firstJson = JSON.stringify(first);
+      if (members.some((a) => JSON.stringify(readProp(a, spec.key)) !== firstJson))
+        mixed.push(spec.key);
+    }
+    const v: SelectionProps = { specs, values, mixed };
+    selPropsCache = { model: m, v };
+    return v;
+  };
   const textsCache = new Map<number, { model: Model; v: TextItem[] }>();
   const memoTexts = (pon: number): TextItem[] => {
     const m = model();
@@ -117,6 +152,56 @@ export function createAnnotationCapability(
   };
   const cropOf = (pon: number) =>
     ctx.document()?.pages.find((p) => p.pageObjectNumber === pon)?.boxes.crop ?? null;
+
+  /**
+   * The armed stamp-tool payload: the bytes the next click places, plus the
+   * PDF-point placement size (derived from the sniffed intrinsic aspect).
+   * Transient tool state — deliberately NOT in the model: it is never
+   * rendered, never synced, and dies with the tool.
+   */
+  let armedStamp: { source: BinarySource; width: number; height: number } | null = null;
+
+  const armStamp = async (input: { source: BinarySource; targetWidth?: number }): Promise<void> => {
+    // Resolve + sniff up front: a bad payload fails HERE (at the button),
+    // not at the click. The original `source` is kept for the create call —
+    // normalization inside the engine handles it again from scratch.
+    const resolved = await resolveBinarySource(input.source);
+    const meta = sniffBinaryMetadata(resolved.bytes);
+    if (!meta) {
+      throw new Error('[annotation] stamp source must be PNG, JPEG, or single-page PDF bytes');
+    }
+    const width = input.targetWidth ?? 150;
+    const aspect = 'width' in meta && meta.width > 0 ? meta.height / meta.width : 1;
+    armedStamp = { source: input.source, width, height: width * aspect };
+    ctx.tryGet(InteractionToken)?.activateTool('stamp');
+  };
+
+  const disarmStamp = (): void => {
+    armedStamp = null;
+  };
+
+  const placeArmedStamp = (pon: number, point: Vec): boolean => {
+    const armed = armedStamp;
+    const doc = ctx.doc;
+    const crop = cropOf(pon);
+    if (!armed || !doc || !crop) return false;
+    const c = contentToPdfPoint(point, crop);
+    const rect = {
+      left: c.x - armed.width / 2,
+      bottom: c.y - armed.height / 2,
+      right: c.x + armed.width / 2,
+      top: c.y + armed.height / 2,
+    };
+    doc
+      .page(pon)
+      .annotations.create({ subtype: 'stamp', rect, source: armed.source, fit: 'contain' })
+      .then(
+        // A stamp has no vector render — the engine-baked /AP IS the visual.
+        (res) => syncDTO(res.created, 'baked'),
+        (err) => console.error('[annotation] stamp placement failed:', err),
+      );
+    return true;
+  };
 
   /** The page a ref lives on: from the loaded model first (covers obj/nm refs
    *  that don't carry a pon), else the ref itself (index refs do). */
@@ -238,41 +323,19 @@ export function createAnnotationCapability(
       const doc = ctx.doc;
       if (!doc) throw new Error('[annotation] no document bound');
       const res = await doc.page(pon).annotations.create(draft);
-      syncDTO(res.created, 'vector');
+      // Stamps have no vector render — their engine-baked /AP is the visual.
+      syncDTO(res.created, res.created.subtype === 'stamp' ? 'baked' : 'vector');
       return res.created.ref;
     },
+    armStamp,
+    disarmStamp,
+    placeArmedStamp,
     update: (ref: AnnotationRef, patch: AnnotationPatch) => updateOne(ref, patch),
-    /**
-     * Sugar: restyle the current selection. For each selected annotation it
-     * applies the change to a copy, runs it through the full content→engine
-     * converter (so cloudy `/RD`, endings, and per-kind fields are all handled
-     * correctly), and issues one engine `update`. Pure convenience over
-     * {@link update}; the model re-syncs from each authoritative DTO.
-     */
-    updateSelection: async (patch: {
-      style?: Partial<Style>;
-      endings?: Partial<LineEndings>;
-    }): Promise<void> => {
-      const m = model();
-      const writes: Array<Promise<void>> = [];
-      for (const id of m.selected) {
-        const a = m.byId[id];
-        if (!a?.ref) continue;
-        const crop = cropOf(a.pon);
-        if (!crop) continue;
-        let next = a;
-        if (patch.style) next = { ...next, style: { ...next.style, ...patch.style } };
-        if (patch.endings && (next.geom.t === 'line' || next.geom.t === 'poly')) {
-          next = {
-            ...next,
-            geom: { ...next.geom, ends: { ...(next.geom.ends ?? NO_ENDINGS), ...patch.endings } },
-          };
-        }
-        const ep = toPatch(next, crop);
-        if (ep) writes.push(updateOne(a.ref, ep));
-      }
-      await Promise.all(writes);
-    },
+    // Restyle the selection: ONE flat props patch through the pure core (the
+    // same `update → patch effect → toPatch` path every gesture takes). Each
+    // member takes the keys its kind declares and ignores the rest; the model
+    // updates optimistically, the engine writes fire per member and re-sync.
+    updateSelection: (patch) => apply({ t: 'setProps', patch }),
     delete: async (ref: AnnotationRef): Promise<void> => {
       const doc = ctx.doc;
       if (!doc) throw new Error('[annotation] no document bound');
@@ -307,6 +370,10 @@ export function createAnnotationCapability(
       return m.selected.map((id) => m.byId[id]?.data).filter((d): d is AnnotationDTO => d != null);
     },
 
+    // ── property introspection (the schema a sidebar renders from) ──
+    getSelectionProps: () => memoSelectionProps(),
+    propsForTool: (toolId) => propsFor(TOOL_KIND[toolId] ?? toolId),
+
     // selectors
     pageItems: (pon) => memoItems(pon),
     chrome: (pon) => memoChrome(pon),
@@ -317,6 +384,23 @@ export function createAnnotationCapability(
     cursorAt: (pon, point) => cursorAt(model(), pon, point, HANDLE_TOL, model().hitMargin),
     behaviorFor: (a) => behaviors.find((b) => b.matches(a) && b.engaged()) ?? null,
 
+    appearanceEpoch: (pon) => {
+      const m = model();
+      const parts: string[] = [];
+      for (const id of m.order) {
+        const a = m.byId[id];
+        if (!a || a.pon !== pon || a.source !== 'baked' || !a.ref) continue;
+        const b = a.apBox;
+        // 1dp rounding: the gesture-committed box and the DTO-synced box may
+        // differ by float noise — that must not read as a second epoch.
+        parts.push(
+          b
+            ? `${id}@${b.x.toFixed(1)},${b.y.toFixed(1)},${b.width.toFixed(1)},${b.height.toFixed(1)}`
+            : id,
+        );
+      }
+      return parts.sort().join('|');
+    },
     appearances: (pon, scale, signal) => {
       const doc = ctx.doc;
       if (!doc) return Promise.resolve([]);

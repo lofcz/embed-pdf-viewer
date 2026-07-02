@@ -25,6 +25,7 @@ import {
   contentToPdfRect,
   geomPdfBounds,
   geomRotation,
+  initialTextStyle,
   normalizeDeg,
   pdfToContentPoint,
   pdfToContentRect,
@@ -35,6 +36,7 @@ import {
   type Quad,
   type Rect,
   type Style,
+  type TextStyle,
 } from '@embedpdf-x/annotation-core';
 
 export function refKey(ref: AnnotationRef): string {
@@ -135,17 +137,42 @@ export function fromDTO(
     ...(dto.inReplyTo ? { irt: refKey(dto.inReplyTo) } : {}),
     ...(dto.replyType === 'group' && dto.inReplyTo ? { group: refKey(dto.inReplyTo) } : {}),
   };
+  const geom = geomFromDTO(dto, crop);
+  // Rotation-stripped appearances (mirrors the engine's EXACT condition — see
+  // AnnotationAppearanceReader): only when the DTO carries BOTH `rotation` and
+  // `unrotatedRect` (box-family kinds) is the raster flat and placed by the
+  // unrotated box, with the stripped rotation re-applied as a view transform
+  // (`apRot`). Vertex kinds pre-rotate their geometry and never carry
+  // `unrotatedRect` — their rasters stay placed by `/Rect`, untransformed.
+  const strippedRect =
+    'unrotatedRect' in dto && 'rotation' in dto && dto.rotation ? dto.unrotatedRect : undefined;
   return {
     ...base,
-    geom: geomFromDTO(dto, crop),
+    geom,
     style: styleFromDTO(dto),
-    apBox: pdfToContentRect(dto.rect, crop),
+    // Text styling is a content projection of the DTO, exactly like `style` —
+    // present only for text-editable kinds. The colour seam is crossed HERE.
+    ...(dto.subtype === 'free-text' ? { text: textFromDTO(dto) } : {}),
+    apBox: pdfToContentRect(strippedRect ?? dto.rect, crop),
+    ...(strippedRect ? { apRot: geomRotation(geom) } : {}),
+  };
+}
+
+/** Free-text `/DA` fields → content {@link TextStyle}. An absent `fontColor`
+ *  falls back to the `/DA` colour — the same rule the CPVT renderer applies. */
+function textFromDTO(dto: Extract<AnnotationDTO, { subtype: 'free-text' }>): TextStyle {
+  return {
+    fontFamily: dto.fontFamily,
+    fontSize: dto.fontSize,
+    fontColor: colorToCss(dto.fontColor ?? dto.color),
+    textAlign: dto.textAlign,
   };
 }
 
 function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
   switch (dto.subtype) {
     case 'square':
+    case 'stamp':
       return boxGeomFromDTO(dto, dto.rotation, dto.unrotatedRect, crop, false);
     case 'circle':
       return boxGeomFromDTO(dto, dto.rotation, dto.unrotatedRect, crop, true);
@@ -331,6 +358,24 @@ const strokeFill = (style: Style) => ({
   interiorColor: style.interiorColor ? cssToColor(style.interiorColor) : null,
 });
 
+/**
+ * The FULL free-text styling: `/DA` colour (border + leader stroke), `/C` box
+ * background, `/BS` border, `/CA` opacity, plus the font fields from the content
+ * `text` projection. Emitted by every free-text draft AND patch, so a style or
+ * font edit round-trips — geometry-only patches were how sidebar edits used to
+ * vanish. `contents` stays out: the debounced text-edit write owns it.
+ */
+const freeTextStyle = (a: Annot) => {
+  const t = a.text ?? initialTextStyle;
+  return {
+    ...strokeFill(a.style),
+    fontFamily: t.fontFamily,
+    fontSize: t.fontSize,
+    textAlign: t.textAlign,
+    fontColor: cssToColor(t.fontColor),
+  };
+};
+
 /** Text markup carries a single `/C` colour (our model keeps stroke==fill) + `/CA`
  *  opacity. Geometry is the `/QuadPoints`, set on create and never patched. */
 const markupColor = (style: Style) => ({
@@ -514,16 +559,9 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       ...advisoryRotation(a.geom),
     };
   if (a.subtype === 'free-text' && f && 'rect' in f) {
-    // text style — defaults for a fresh box; the user edits font/size later.
-    const text = {
-      fontFamily: 'helvetica',
-      fontSize: 14,
-      textAlign: 'left',
-      contents: a.data?.contents ?? '',
-      color: cssToColor(a.style.color), // `/DA` colour (border + default text)
-      interiorColor: a.style.interiorColor ? cssToColor(a.style.interiorColor) : null,
-      opacity: a.style.opacity,
-    };
+    // The full style+font set (from the content `text` projection — seeded from
+    // the tool defaults at draw time) plus the initial contents.
+    const text = { ...freeTextStyle(a), contents: a.data?.contents ?? '' };
     const cf = calloutFields(a, crop);
     if (cf)
       return {
@@ -533,7 +571,6 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
         rectDifferences: cf.rectDifferences,
         calloutLine: cf.calloutLine,
         lineEnding: cf.lineEnding,
-        strokeWidth: a.style.strokeWidth, // /BS /W — the leader + box border weight
         ...text,
       } as AnnotationDraft;
     return {
@@ -593,10 +630,11 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
       ...geometryStyle(a.style),
       ...advisoryRotation(a.geom),
     };
-  // free-text move/resize: send the box. Text content is committed separately
-  // (the debounced `update(contents)` while typing), so it's not duplicated here.
-  // A callout sends the overall /Rect + the leader (/CL, /RD, /LE) on every
-  // geometry/leader edit, so the box, tip, and knee all round-trip.
+  // free-text: geometry + the full style/font set (see `freeTextStyle`) — one
+  // complete patch whether the edit was a move, a restyle, or a font change.
+  // Text content is committed separately (the debounced `update(contents)`
+  // while typing), so it's never duplicated here. A callout sends the overall
+  // /Rect + the leader (/CL, /RD, /LE), so box, tip, and knee all round-trip.
   if (a.subtype === 'free-text' && f && 'rect' in f) {
     const cf = calloutFields(a, crop);
     if (cf)
@@ -606,11 +644,16 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
         rectDifferences: cf.rectDifferences,
         calloutLine: cf.calloutLine,
         lineEnding: cf.lineEnding,
+        ...freeTextStyle(a),
       } as AnnotationPatch;
-    return { subtype: 'free-text', ...boxEmit(a, crop) } as AnnotationPatch;
+    return { subtype: 'free-text', ...boxEmit(a, crop), ...freeTextStyle(a) } as AnnotationPatch;
   }
   if (a.subtype === 'caret' && f && 'rect' in f)
     return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
+  // stamp: geometry only — the visual is the engine-baked /AP, re-fit natively
+  // when /Rect changes. Content replacement carries bytes and goes through
+  // `capability.update` with an inline `source`, never through this path.
+  if (a.subtype === 'stamp' && f && 'rect' in f) return { subtype: 'stamp', ...boxEmit(a, crop) };
   // markup: recolor / opacity only — /QuadPoints geometry isn't edited after create
   if (TEXT_MARKUP.has(a.subtype))
     return { subtype: a.subtype, ...markupColor(a.style) } as AnnotationPatch;

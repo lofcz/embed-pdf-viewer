@@ -6,10 +6,11 @@ import {
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
   type AnnotationDTO,
-  type AnnotationDraft,
+  type WireAnnotationDraft,
   type AnnotationListMutationMeta,
   type AnnotationMoveResult,
-  type AnnotationPatch,
+  type WireAnnotationPatch,
+  type WireResourceMap,
   type AnnotationRef,
   type AnnotationStableId,
   type AnnotationUpdateResult,
@@ -78,19 +79,24 @@ export class AnnotationMutator {
     private readonly fonts?: FontRegistrar,
   ) {}
 
-  /** Build the per-write context handed to subtype writers. Only the FreeText
-   *  writer consumes it (for registered-font `/DA`). */
-  private writeContext(): AnnotationWriteContext | undefined {
-    if (!this.fonts) return undefined;
+  /** Build the per-write context handed to subtype writers: font resolver
+   *  (FreeText `/DA`), doc/page pointers and binary resources (stamp). */
+  private writeContext(pagePtr: Ptr, resources?: WireResourceMap): AnnotationWriteContext {
     const fonts = this.fonts;
-    return { resolveRegisteredFontId: (key) => fonts.idFor(key) };
+    return {
+      ...(fonts ? { resolveRegisteredFontId: (key: string) => fonts.idFor(key) } : {}),
+      docPtr: this.session.requireDocPtr(),
+      pagePtr,
+      ...(resources ? { resources } : {}),
+    };
   }
 
   create(
     pageObjectNumber: PageObjectNumber,
-    draft: AnnotationDraft,
+    draft: WireAnnotationDraft,
     signal: AbortSignal,
     actor?: AnnotationActor,
+    resources?: WireResourceMap,
   ): AnnotationCreateResult {
     throwIfAborted(signal);
     const { fn, mem } = this.runtime;
@@ -123,7 +129,7 @@ export class AnnotationMutator {
       let newIndex: number;
       let linkedParentId: AnnotationStableId | null = null;
       try {
-        applyDraft(fn, mem, annotPtr, draft, this.writeContext());
+        applyDraft(fn, mem, annotPtr, draft, this.writeContext(pagePtr, resources));
         // Link to an /IRT parent when the draft asks for one. This may
         // promote a weak/direct parent to an indirect object (non-structural,
         // no index shift); the strengthened parent id is folded into
@@ -203,9 +209,10 @@ export class AnnotationMutator {
 
   update(
     ref: AnnotationRef,
-    patch: AnnotationPatch,
+    patch: WireAnnotationPatch,
     signal: AbortSignal,
     actor?: AnnotationActor,
+    resources?: WireResourceMap,
   ): AnnotationUpdateResult {
     throwIfAborted(signal);
     const { fn, mem } = this.runtime;
@@ -226,7 +233,7 @@ export class AnnotationMutator {
       const stableId = this.captureOrStampStableId(annotPtr);
 
       // Apply caller-supplied subtype-specific writes.
-      applyPatch(fn, mem, annotPtr, patch, this.writeContext());
+      applyPatch(fn, mem, annotPtr, patch, this.writeContext(pagePtr, resources));
       // Apply /IRT + /RT changes (set/relink/clear, or RT-only). Setting a
       // link may promote a weak parent to indirect (non-structural); the
       // strengthened parent id is folded into `meta.changed` below.

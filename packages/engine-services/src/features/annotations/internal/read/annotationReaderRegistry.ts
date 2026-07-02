@@ -11,6 +11,7 @@ import { readFreeText } from './readFreeTextAnnotation';
 import { readInk } from './readInkAnnotation';
 import { readLine } from './readLineAnnotation';
 import { readCircle, readSquare } from './readShapeAnnotation';
+import { readStamp } from './readStampAnnotation';
 import {
   readHighlight,
   readSquiggly,
@@ -51,6 +52,7 @@ const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationSubtypeRead
   ink: readInk,
   'free-text': readFreeText,
   caret: readCaret,
+  stamp: readStamp,
   unsupported: readUnsupported,
 };
 

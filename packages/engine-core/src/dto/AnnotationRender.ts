@@ -58,8 +58,18 @@ export interface AnnotationAppearancesQuery {
 
 /**
  * One rendered appearance: the raw RGBA raster plus the metadata needed to
- * position and identify it. `rect` is the annotation's `/Rect` in PDF user
- * space (y-up), so the consumer can place the bitmap without a second read.
+ * position and identify it. `rect` is the placement box in PDF user space
+ * (y-up), so the consumer can place the bitmap without a second read.
+ *
+ * Rotation convention: for annotations whose rotation lives in the AP
+ * `/Matrix` — box-family kinds (square/circle/free-text/stamp) whose DTO
+ * carries BOTH `rotation` and `unrotatedRect` — the raster renders
+ * ROTATION-STRIPPED and `rect` is the logical `unrotatedRect`; the consumer
+ * re-applies the DTO's `rotation` as a view transform about the box centre
+ * (e.g. CSS `rotate`), which makes the raster rotation-invariant (rotating
+ * never re-renders). Everything else — vertex kinds, whose rotation is
+ * pre-baked into their geometry, and foreign PDFs with arbitrary AP
+ * matrices — renders as-is with `rect` = `/Rect` and needs no transform.
  */
 export interface AnnotationAppearanceRaster {
   /** Full wire identity (durable or weak), including index-only annotations. */
@@ -88,6 +98,8 @@ export interface AnnotationAppearancesResult {
 export interface AnnotationAppearanceImage {
   ref: AnnotationRef;
   mode: AnnotationAppearanceMode;
+  /** Placement box (unrotated for rotation-stripped renders) — see
+   *  {@link AnnotationAppearanceRaster}. */
   rect: PdfRect;
   image: PageImageHandle;
 }

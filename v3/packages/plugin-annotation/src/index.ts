@@ -16,8 +16,23 @@ export type {
   AnnotationState,
   AnnotationAction,
   Behavior,
+  SelectionProps,
+  StampToolInput,
   TextItem,
 } from './types';
+// The property vocabulary + schema (defined in the portable core; re-exported so
+// app code building property UIs needs only this package).
+export { propsFor } from '@embedpdf-x/annotation-core';
+export type {
+  AnnotationProps,
+  AnnotationPropsPatch,
+  Border,
+  LineEnding,
+  LineEndings,
+  PropKey,
+  PropSpec,
+  TextAlign,
+} from '@embedpdf-x/annotation-core';
 
 /**
  * App-facing annotation token: resolves the public {@link AnnotationCapability}.

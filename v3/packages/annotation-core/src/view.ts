@@ -25,6 +25,7 @@ import { groupCaps } from './group';
 import { groupUnionBounds, isSelectable, paintOrder } from './hit';
 import { capsFor } from './kinds';
 import { blendFor } from './scene';
+import { styleFromProps } from './props';
 import { calloutBox, defaultsFor } from './update';
 import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types';
 import type { CreationDraftAnchor } from './types';
@@ -59,10 +60,19 @@ function effGeom(m: Model, id: Id): Geom {
 }
 
 /** The annotation's AP-raster box with the live move applied, so a baked bitmap
- *  follows a drag. Undefined for non-baked annotations. */
+ *  follows a drag. Undefined for non-baked annotations.
+ *
+ *  `opaqueBody` kinds (stamp images) go further: their raster IS the visual, so
+ *  the box follows EVERY live gesture — the unrotated rect of the effective
+ *  geometry covers move, resize, and group-scale in one rule (rotation is a
+ *  separate view transform via `RenderItem.rot`; rasters render unrotated). */
 function effApBox(m: Model, id: Id): Rect | undefined {
   const a = m.byId[id];
   if (!a.apBox) return undefined;
+  if (capsFor(a.subtype).opaqueBody) {
+    const g = effGeom(m, id);
+    return 'rect' in g ? g.rect : a.apBox;
+  }
   const d = m.draft;
   if (d?.g === 'move' && d.ids.includes(id)) {
     return { ...a.apBox, x: a.apBox.x + d.delta.x, y: a.apBox.y + d.delta.y };
@@ -75,6 +85,10 @@ function effApBox(m: Model, id: Id): Rect | undefined {
  *  yet — so the drag is crisp and a no-op grab can revert to baked. */
 function effSource(m: Model, id: Id): 'baked' | 'vector' {
   const a = m.byId[id];
+  // `opaqueBody` kinds have NO vector render: they stay baked through every
+  // gesture — the bitmap stretches with `effApBox` and tilts via the item's
+  // live `rot`, then the engine's re-fit appearance replaces it on commit.
+  if (capsFor(a.subtype).opaqueBody) return a.source;
   const d = m.draft;
   // A live resize/rotate/group transform must render LIVE — the baked raster
   // can't stretch or tilt — even before the commit flips `source`.
@@ -104,6 +118,12 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
     // scene (only its TEXT is the DOM element), so it stays in the render list.
     if (a.geom.t === 'text' && !a.geom.callout && textIsLive(m, id)) continue;
     const geom = effGeom(m, id);
+    // Blit rotation for the baked raster: opaqueBody kinds render their AP
+    // rotation-free by construction, so the LIVE geometry rotation drives the
+    // view transform (a stamp spins with the rotate gesture). Other kinds
+    // re-apply exactly what the engine stripped (`apRot` from the DTO) —
+    // vertex kinds have none, their rasters already contain the rotation.
+    const apRot = capsFor(a.subtype).opaqueBody ? geomRotation(geom) : a.apRot;
     items.push({
       id,
       ref: a.ref,
@@ -115,6 +135,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       source: effSource(m, id),
       selected: m.selected.includes(id),
       rot: geomRotation(geom),
+      ...(apRot ? { apRot } : {}),
       blend: blendFor(a.subtype),
     });
   }
@@ -131,20 +152,21 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
     // cloudy rect stores the OUTER box (see `shapeRectFor`), so the cloud grows out
     // from the cursor; a 0-drag draws nothing (skipped, like a solid 0×0).
     const def = defaultsFor(m, d.subtype);
+    const style = styleFromProps(def);
     const dragged = d.g === 'create-rect' ? rectFromPoints(d.from, d.to) : null;
     const geom: Geom | null =
       d.g === 'create-rect'
         ? dragged && (dragged.width > 0 || dragged.height > 0)
-          ? { t: 'rect', rect: shapeRectFor(dragged, d.ellipse, def.style), ellipse: d.ellipse }
+          ? { t: 'rect', rect: shapeRectFor(dragged, d.ellipse, style), ellipse: d.ellipse }
           : null
         : d.g === 'create-line'
-          ? { t: 'line', a: d.from, b: d.to, ends: def.endings }
+          ? { t: 'line', a: d.from, b: d.to, ends: def.lineEndings }
           : d.g === 'create-poly'
             ? {
                 t: 'poly',
                 points: polyPreviewPoints(d.points, d.cur),
                 closed: d.closed,
-                ends: d.closed ? undefined : def.endings,
+                ends: d.closed ? undefined : def.lineEndings,
               }
             : { t: 'ink', strokes: d.strokes };
     if (geom)
@@ -153,8 +175,8 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
         ref: null,
         subtype: d.subtype,
         geom,
-        box: geomVisualBounds(geom, def.style.strokeWidth),
-        style: def.style,
+        box: geomVisualBounds(geom, style.strokeWidth),
+        style,
         source: 'ghost',
         selected: false,
       });
@@ -163,7 +185,8 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
   // box) and the text-box preview, painted through the SAME vector scene.
   if (d?.g === 'create-callout' && d.pon === pon) {
     const def = defaultsFor(m, d.subtype);
-    const ending = def.endings.end !== 'none' ? def.endings.end : 'open-arrow';
+    const style = styleFromProps(def);
+    const ending = def.lineEndings.end !== 'none' ? def.lineEndings.end : 'open-arrow';
     const geom: Geom =
       d.step === 'knee'
         ? { t: 'line', a: d.tip, b: d.cur, ends: { start: ending, end: 'none' } }
@@ -173,8 +196,8 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       ref: null,
       subtype: d.subtype,
       geom,
-      box: geomVisualBounds(geom, def.style.strokeWidth),
-      style: def.style,
+      box: geomVisualBounds(geom, style.strokeWidth),
+      style,
       source: 'ghost',
       selected: false,
     });
@@ -190,7 +213,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       subtype: m.preview.subtype,
       geom,
       box: geomVisualBounds(geom, 0),
-      style: defaultsFor(m, m.preview.subtype).style,
+      style: styleFromProps(defaultsFor(m, m.preview.subtype)),
       source: 'ghost',
       selected: false,
     });

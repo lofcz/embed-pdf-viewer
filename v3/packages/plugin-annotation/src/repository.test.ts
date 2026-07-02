@@ -325,3 +325,53 @@ describe('repository — free-text callout mapping', () => {
     expect(patch.rect!.left).toBeLessThanOrEqual(40);
   });
 });
+
+describe('repository — free-text style + font round-trip', () => {
+  it('fromDTO projects the /DA font fields into `text` (fontColor falls back to /DA colour)', () => {
+    const a = fromDTO(calloutDTO(), CROP);
+    expect(a.text).toEqual({
+      fontFamily: 'helvetica',
+      fontSize: 14,
+      fontColor: '#c80000', // no explicit fontColor → the /DA colour {200,0,0}
+      textAlign: 'left',
+    });
+  });
+
+  it('toPatch carries the FULL style + font set for free-text (a sidebar edit round-trips)', () => {
+    const a = fromDTO(plainFreeTextDTO(), CROP);
+    // a props edit: restyle + refont the box (what updateSelection applies)
+    const edited = {
+      ...a,
+      style: { ...a.style, color: '#0000ff', interiorColor: '#ffff00', opacity: 0.5 },
+      text: { ...a.text!, fontSize: 22, fontColor: '#00ff00', textAlign: 'center' as const },
+    };
+    const patch = toPatch(edited, CROP) as Extract<AnnotationPatch, { subtype: 'free-text' }>;
+    expect(patch.color).toEqual({ r: 0, g: 0, b: 255 });
+    expect(patch.interiorColor).toEqual({ r: 255, g: 255, b: 0 });
+    expect(patch.opacity).toBe(0.5);
+    expect(patch.fontSize).toBe(22);
+    expect(patch.fontColor).toEqual({ r: 0, g: 255, b: 0 });
+    expect(patch.textAlign).toBe('center');
+    expect(patch.fontFamily).toBe('helvetica');
+    // contents is owned by the debounced text-edit write — never duplicated here
+    expect(patch).not.toHaveProperty('contents');
+  });
+
+  it('toPatch carries style + font for a callout too, alongside the leader fields', () => {
+    const a = fromDTO(calloutDTO(), CROP);
+    const edited = { ...a, text: { ...a.text!, fontFamily: 'courier' } };
+    const patch = toPatch(edited, CROP) as Extract<AnnotationPatch, { subtype: 'free-text' }>;
+    expect(patch.calloutLine).toHaveLength(3); // geometry still round-trips
+    expect(patch.fontFamily).toBe('courier');
+    expect(patch.strokeWidth).toBe(1);
+  });
+
+  it('toCreateDraft seeds the draft from `text` (the tool font defaults), not hardcoded values', () => {
+    const a = fromDTO(plainFreeTextDTO(), CROP);
+    const seeded = { ...a, text: { ...a.text!, fontSize: 18, textAlign: 'right' as const } };
+    const draft = toCreateDraft(seeded, CROP) as Extract<AnnotationDraft, { subtype: 'free-text' }>;
+    expect(draft.fontSize).toBe(18);
+    expect(draft.textAlign).toBe('right');
+    expect(draft.contents).toBe('see here');
+  });
+});

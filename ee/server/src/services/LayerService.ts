@@ -11,9 +11,10 @@ import {
   type AnnotationActor,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
-  type AnnotationDraft,
+  type WireAnnotationDraft,
   type AnnotationMoveResult,
-  type AnnotationPatch,
+  type WireAnnotationPatch,
+  type WireResourceMap,
   type AnnotationRef,
   type AnnotationUpdateResult,
   type IdentityClaims,
@@ -158,7 +159,7 @@ export class LayerService {
       docId: string;
       layerName: string;
       pageObjectNumber: PageObjectNumber;
-      draft: AnnotationDraft;
+      draft: WireAnnotationDraft;
       /**
        * Optional actor override. When supplied, replaces the actor
        * built from `ctx.jwt.identity`. Routes pass this so that the
@@ -166,6 +167,8 @@ export class LayerService {
        * the capability check. The service trusts what arrives here.
        */
       actor?: AnnotationActor;
+      /** Binary payloads referenced by the draft (multipart `resource:{key}` parts). */
+      resources?: WireResourceMap;
     },
     signal?: AbortSignal,
   ): Promise<AnnotationCreateResult> {
@@ -181,6 +184,7 @@ export class LayerService {
             layerName: input.layerName,
             pageObjectNumber: input.pageObjectNumber,
             draft: input.draft,
+            ...(input.resources ? { resources: input.resources } : {}),
             artifactPath,
             ...(actor ? { actor } : {}),
           });
@@ -205,7 +209,9 @@ export class LayerService {
       docId: string;
       layerName: string;
       ref: AnnotationRef;
-      patch: AnnotationPatch;
+      patch: WireAnnotationPatch;
+      /** Binary payloads referenced by the patch (multipart `resource:{key}` parts). */
+      resources?: WireResourceMap;
       /**
        * Optional actor override. For UPDATE this is typically built
        * from the caller's JWT identity (for /UpdatedBy) PLUS any
@@ -235,6 +241,7 @@ export class LayerService {
             layerName: input.layerName,
             ref,
             patch: input.patch,
+            ...(input.resources ? { resources: input.resources } : {}),
             artifactPath,
             ...(actor ? { actor } : {}),
           });

@@ -36,18 +36,14 @@ export function wireMarkup(
       cursor: 'text',
       enables: new Set(['text-select', 'annotation-edit']),
     });
-    annotation.setDefaults(id, {
-      style: { color: MARKUP_DEFAULTS[id] },
-    });
+    annotation.setDefaults(id, { color: MARKUP_DEFAULTS[id] });
   }
   interaction.registerTool({
     id: INSERT_TEXT_TOOL,
     cursor: 'text',
     enables: new Set(['text-select', 'annotation-edit']),
   });
-  annotation.setDefaults('caret', {
-    style: { color: '#ef4444', strokeWidth: 1 },
-  });
+  annotation.setDefaults('caret', { color: '#ef4444', strokeWidth: 1 });
 
   // Keep the live preview + the selection's own visual in sync with (active tool,
   // selection). While a markup tool is active the blue highlight is suppressed and

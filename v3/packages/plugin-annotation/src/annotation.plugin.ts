@@ -3,7 +3,12 @@ import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import { SelectionToken } from '@embedpdf-x/plugin-selection';
 import { createAnnotationCapability } from './capability';
 import { registerAnnotationEffects } from './effects';
-import { createDrawHandler, createEditHandler, createMarqueeHandler } from './handler';
+import {
+  createDrawHandler,
+  createEditHandler,
+  createMarqueeHandler,
+  createStampHandler,
+} from './handler';
 import { wireMarkup } from './markup';
 import { annotationReducer, initialAnnotationState } from './reducer';
 import { AnnotationToken } from './types';
@@ -49,17 +54,31 @@ export const annotationPlugin = () =>
           enables: new Set(['annotation-draw', 'annotation-edit']),
         });
       }
-      annotation.setDefaults('ink', { style: { color: '#1d4ed8', strokeWidth: 3 } });
+      annotation.setDefaults('ink', { color: '#1d4ed8', strokeWidth: 3 });
       // A callout's leader + box border need a visible stroke; its arrow defaults
       // to an open arrowhead at the called-out tip.
       annotation.setDefaults('free-text-callout', {
-        style: { strokeWidth: 1 },
-        endings: { end: 'open-arrow' },
+        strokeWidth: 1,
+        lineEndings: { end: 'open-arrow' },
       });
+      // Stamp: click-to-place (no drag) — armed via `annotation.armStamp(...)`,
+      // which also activates this tool. Editing stays live so placed stamps
+      // can be selected/moved without switching tools.
+      interaction.registerTool({
+        id: 'stamp',
+        cursor: 'copy',
+        enables: new Set(['annotation-stamp', 'annotation-edit']),
+      });
+      interaction.registerHandler(createStampHandler(annotation));
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createMarqueeHandler(annotation));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
-      interaction.onToolChange(() => annotation.cancel());
+      interaction.onToolChange(() => {
+        annotation.cancel();
+        // Leaving the stamp tool drops its armed payload — bytes are tool
+        // state, not document state.
+        if (interaction.activeToolId() !== 'stamp') annotation.disarmStamp();
+      });
 
       // Markup is opt-in: only when a selection plugin is installed.
       const selection = ctx.tryGet(SelectionToken);

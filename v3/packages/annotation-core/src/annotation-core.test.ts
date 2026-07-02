@@ -6,6 +6,7 @@ import {
   pageItems,
   selectionAnchor,
   selectionBoundsOnPage,
+  selectionKnob,
 } from './view';
 import { cursorAt, groupUnionBounds, hitTest } from './hit';
 import { capsFor } from './kinds';
@@ -53,7 +54,7 @@ const marqueePtr = (phase: 'down' | 'move' | 'up', x: number, y: number, shift =
   in: { pon: PON, point: { x, y }, shift },
 });
 const createPtr = (
-  subtype: Extract<Subtype, 'square' | 'circle' | 'line' | 'polygon' | 'polyline'>,
+  subtype: Extract<Subtype, 'square' | 'circle' | 'line' | 'polygon' | 'polyline'> | 'free-text',
   phase: 'down' | 'move' | 'up',
   x: number,
   y: number,
@@ -753,7 +754,7 @@ describe('annotation-core', () => {
     let m = update(initialModel, {
       t: 'setDefaults',
       subtype: 'square',
-      patch: { style: { color: '#123456' } },
+      patch: { color: '#123456' },
     })[0];
     // mid-draw (down + move, no up yet) → the ghost is live
     m = run(m, [createPtr('square', 'down', 10, 10), createPtr('square', 'move', 60, 60)]);
@@ -768,9 +769,72 @@ describe('annotation-core', () => {
       createPtr('square', 'up', 60, 60),
     ]);
     const baseBefore = m.style.color;
-    m = update(m, { t: 'setStyle', patch: { color: '#00ff00' } })[0];
+    m = update(m, { t: 'setProps', patch: { color: '#00ff00' } })[0];
     expect(m.byId[m.order[0]].style.color).toBe('#00ff00'); // the selected square changed
     expect(m.style.color).toBe(baseBefore); // …the base/default is untouched
+  });
+
+  it('setProps routes each key by kind: a mixed selection takes what applies', () => {
+    // a square + a line, both selected
+    let m = run(initialModel, [
+      createPtr('square', 'down', 10, 10),
+      createPtr('square', 'move', 60, 60),
+      createPtr('square', 'up', 60, 60),
+      createPtr('line', 'down', 100, 10),
+      createPtr('line', 'move', 160, 60),
+      createPtr('line', 'up', 160, 60),
+    ]);
+    const [sq, ln] = m.order;
+    m = { ...m, selected: [sq, ln] };
+    const [next, fx] = update(m, {
+      t: 'setProps',
+      patch: { strokeWidth: 7, lineEndings: { end: 'closed-arrow' } },
+    });
+    // strokeWidth applies to both; endings only to the line (the square ignores it)
+    expect(next.byId[sq].style.strokeWidth).toBe(7);
+    expect(next.byId[ln].style.strokeWidth).toBe(7);
+    const lnGeom = next.byId[ln].geom;
+    expect(lnGeom.t === 'line' && lnGeom.ends?.end).toBe('closed-arrow');
+    expect(fx).toEqual([
+      { fx: 'patch', id: sq },
+      { fx: 'patch', id: ln },
+    ]);
+  });
+
+  it('setProps skips locked annotations and keys the kind does not declare', () => {
+    let m = run(initialModel, [
+      createPtr('square', 'down', 10, 10),
+      createPtr('square', 'move', 60, 60),
+      createPtr('square', 'up', 60, 60),
+    ]);
+    const id = m.order[0];
+    m = { ...m, byId: { ...m.byId, [id]: { ...m.byId[id], locked: true } } };
+    const [locked, lockedFx] = update(m, { t: 'setProps', patch: { color: '#00ff00' } });
+    expect(locked.byId[id].style.color).not.toBe('#00ff00');
+    expect(lockedFx).toEqual([]);
+    // a font key on a square: not declared → no change, no effect
+    m = { ...m, byId: { ...m.byId, [id]: { ...m.byId[id], locked: false } } };
+    const [next, fx] = update(m, { t: 'setProps', patch: { fontSize: 24 } });
+    expect(next).toBe(m);
+    expect(fx).toEqual([]);
+  });
+
+  it('a drawn free-text box carries the tool font defaults from birth', () => {
+    let m = update(initialModel, {
+      t: 'setDefaults',
+      subtype: 'free-text',
+      patch: { fontSize: 22, fontColor: '#112233' },
+    })[0];
+    m = run(m, [
+      createPtr('free-text', 'down', 10, 10),
+      createPtr('free-text', 'up', 10, 10), // a click → default-size box
+    ]);
+    const a = m.byId[m.order[0]];
+    expect(a.text?.fontSize).toBe(22);
+    expect(a.text?.fontColor).toBe('#112233');
+    // …and setProps edits it (free-text declares font keys)
+    const [next] = update(m, { t: 'setProps', patch: { textAlign: 'center' } });
+    expect(next.byId[m.order[0]].text?.textAlign).toBe('center');
   });
 
   it('markup is selectable but anchored: it selects, shows a bare outline (no handles), and will not move', () => {
@@ -1738,5 +1802,77 @@ describe('annotation-core — join-aware stroke bounds', () => {
     expect(scene(polyline)[0].paint.join).toBeUndefined();
     expect(scene(polygon)[0].paint.join).toBeUndefined();
     expect(scene(ink)[0].paint.join).toBe('round');
+  });
+});
+
+describe('annotation-core opaqueBody (stamp) gestures', () => {
+  const STAMP_RECT = { x: 100, y: 100, width: 100, height: 50 };
+  const stamp = (): Annot => ({
+    id: 'S1',
+    ref: { kind: 'objectNumber', pageObjectNumber: PON, annotObjectNumber: 900 },
+    pon: PON,
+    subtype: 'stamp',
+    geom: { t: 'rect', rect: { ...STAMP_RECT }, ellipse: false },
+    style: {
+      color: '#000000',
+      interiorColor: null,
+      strokeWidth: 1,
+      opacity: 1,
+      border: { kind: 'solid' },
+    },
+    locked: false,
+    source: 'baked',
+    apBox: { ...STAMP_RECT },
+  });
+  const loadStamp = (): Model => update(initialModel, { t: 'loaded', annots: [stamp()] })[0];
+
+  it('stays baked MID-resize with the raster box following the live geometry', () => {
+    // select (body click — opaqueBody hits anywhere inside), then grab the SE
+    // handle at (200,150) and drag WITHOUT releasing.
+    let m = run(loadStamp(), [editPtr('down', 150, 125), editPtr('up', 150, 125)]);
+    m = run(m, [editPtr('down', 200, 150), editPtr('move', 260, 180)]);
+    const item = pageItems(m, PON).find((i) => i.subtype === 'stamp')!;
+    expect(item.source).toBe('baked'); // never flips: there is no vector render
+    expect(item.apBox).toMatchObject({ x: 100, y: 100, width: 160, height: 80 });
+  });
+
+  it('stays baked AFTER the resize commits, apBox at the new rect', () => {
+    let m = run(loadStamp(), [editPtr('down', 150, 125), editPtr('up', 150, 125)]);
+    m = run(m, [editPtr('down', 200, 150), editPtr('move', 260, 180), editPtr('up', 260, 180)]);
+    const a = m.byId['S1'];
+    expect(a.source).toBe('baked');
+    expect(a.apBox).toMatchObject({ x: 100, y: 100, width: 160, height: 80 });
+    const item = pageItems(m, PON).find((i) => i.subtype === 'stamp')!;
+    expect(item.source).toBe('baked');
+  });
+
+  it('stays baked MID-rotate with the live rotation exposed as apRot (view transform)', () => {
+    // select the stamp, grab its rotate knob, and drag WITHOUT releasing
+    let m = run(loadStamp(), [editPtr('down', 150, 125), editPtr('up', 150, 125)]);
+    const knob = selectionKnob(m, PON)!;
+    expect(knob).toBeTruthy();
+    // rotate the grab point 30° about the stamp centre
+    const c = { x: 150, y: 125 };
+    const a0 = Math.atan2(knob.at.y - c.y, knob.at.x - c.x);
+    const a1 = a0 + (30 * Math.PI) / 180;
+    const r0 = Math.hypot(knob.at.x - c.x, knob.at.y - c.y);
+    m = run(m, [
+      editPtr('down', knob.at.x, knob.at.y),
+      editPtr('move', c.x + r0 * Math.cos(a1), c.y + r0 * Math.sin(a1)),
+    ]);
+    const item = pageItems(m, PON).find((i) => i.subtype === 'stamp')!;
+    expect(item.source).toBe('baked'); // the bitmap never disappears mid-rotate
+    expect(Math.abs((item.apRot ?? 0) - 30)).toBeLessThan(1); // ...and spins live
+  });
+
+  it('a square mid-resize still flips to vector (unchanged behaviour)', () => {
+    let m = run(initialModel, [
+      createPtr('square', 'down', 100, 100),
+      createPtr('square', 'move', 200, 200),
+      createPtr('square', 'up', 200, 200),
+    ]);
+    m = run(m, [editPtr('down', 200, 200), editPtr('move', 260, 240)]);
+    const item = pageItems(m, PON)[0];
+    expect(item.source).toBe('vector');
   });
 });

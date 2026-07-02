@@ -242,6 +242,17 @@ export class HttpClient {
     return await this.parseJsonResponse(res, parser);
   }
 
+  /** PATCH counterpart of {@link postMultipartJson} (binary-carrying mutations). */
+  async patchMultipartJson<T>(
+    path: string,
+    body: FormData,
+    parser: (raw: unknown) => T,
+    signal: AbortSignal,
+  ): Promise<T> {
+    const res = await this.request(path, { method: 'PATCH', body, signal });
+    return await this.parseJsonResponse(res, parser);
+  }
+
   async postJson<T>(
     path: string,
     body: unknown,

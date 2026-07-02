@@ -48,6 +48,8 @@ interface ServerState {
 interface CallLog {
   method: string;
   path: string;
+  /** The request body as handed to fetch (FormData for multipart mutations). */
+  body?: BodyInit | null;
 }
 
 interface StubbedFixture {
@@ -105,6 +107,8 @@ function annotation(index: number) {
     author: null,
     created: null,
     modified: null,
+    inReplyTo: null,
+    replyType: null,
     rawSubtypeCode: 0,
     rawSubtypeName: null,
   };
@@ -187,7 +191,7 @@ function buildStub(initial: ServerState): StubbedFixture {
       typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     const path = url.startsWith('http') ? new URL(url).pathname + new URL(url).search : url;
     const method = init?.method ?? 'GET';
-    calls.push({ method, path });
+    calls.push({ method, path, body: init?.body ?? null });
 
     const headMatch = path.match(/^\/v1\/docs\/([^/]+)\/layers\/([^/]+)\/head$/);
     if (headMatch && method === 'GET') {
@@ -876,6 +880,87 @@ describe('CloudEngine schema parity — DocumentHeadSchema / DocumentManifestSch
       ],
     });
     expect(manifest.success).toBe(true);
+  });
+});
+
+describe('CloudPageAnnotationsService — binary payload wire shape', () => {
+  const freshStub = () =>
+    buildStub({
+      docVersion: 1,
+      layoutVersion: 1,
+      metadataVersion: 1,
+      pageContentVersion: 1,
+      pageAnnotationVersion: 1,
+      annotationCount: 0,
+      text: 'initial',
+      title: 'initial-title',
+    });
+
+  /** Minimal valid PNG (8-byte signature is all the client-side sniff needs
+   *  to pass... but ship a real one so dimensions parse too). */
+  const TINY_PNG = (() => {
+    // 1×1 RGBA PNG, bytes verified by the engine-core sniffer in this test.
+    const b64 =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    return Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+  })();
+
+  test('a stamp create ships as multipart: `body` JSON part + `resource:{key}` file part', async () => {
+    const fx = freshStub();
+    const doc = new CloudDocumentHandle(fx.http, DOC_ID);
+    try {
+      await doc.page(PAGE_OBJECT_NUMBER).annotations.create({
+        subtype: 'stamp',
+        rect: { left: 10, bottom: 10, right: 110, top: 60 },
+        source: TINY_PNG,
+        fit: 'contain',
+      });
+
+      const post = fx.calls.find((c) => c.method === 'POST' && c.path.endsWith('/items'));
+      expect(post).toBeDefined();
+      expect(post!.body).toBeInstanceOf(FormData);
+      const form = post!.body as FormData;
+
+      const wire = JSON.parse(String(form.get('body')));
+      expect(wire).toMatchObject({
+        subtype: 'stamp',
+        fit: 'contain',
+        source: { resource: 'r0' },
+      });
+      expect(wire.source.resource).toBe('r0'); // never inline bytes on the wire
+
+      const part = form.get('resource:r0');
+      expect(part).toBeInstanceOf(Blob);
+      expect((part as Blob).type).toBe('image/png'); // sniffed, not declared
+      const bytes = new Uint8Array(await (part as Blob).arrayBuffer());
+      expect(bytes).toEqual(TINY_PNG);
+    } finally {
+      await doc.close();
+    }
+  });
+
+  test('drafts without binaries still POST plain JSON (no multipart envelope)', async () => {
+    const fx = freshStub();
+    const doc = new CloudDocumentHandle(fx.http, DOC_ID);
+    try {
+      await doc.page(PAGE_OBJECT_NUMBER).annotations.create({
+        subtype: 'highlight',
+        quadPoints: [
+          {
+            p1: { x: 0, y: 0 },
+            p2: { x: 10, y: 0 },
+            p3: { x: 0, y: 10 },
+            p4: { x: 10, y: 10 },
+          },
+        ],
+      });
+      const post = fx.calls.find((c) => c.method === 'POST' && c.path.endsWith('/items'));
+      expect(post).toBeDefined();
+      expect(typeof post!.body).toBe('string');
+      expect(JSON.parse(post!.body as string).subtype).toBe('highlight');
+    } finally {
+      await doc.close();
+    }
   });
 });
 

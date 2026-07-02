@@ -36,6 +36,7 @@ export type Subtype =
   | 'polyline'
   | 'caret'
   | 'ink'
+  | 'stamp'
   | (string & {});
 
 /**
@@ -105,15 +106,41 @@ export interface Style {
   border: Border;
 }
 
+export type TextAlign = 'left' | 'center' | 'right';
+
 /**
- * Per-tool (keyed by subtype) defaults for newly drawn annotations — the v2
- * "tool defaults" idea: a partial style override plus line endings (for the line
- * / polyline tools). Resolved against the model's base `style` at create time.
+ * Content-space text styling for a text-editable kind (free text) — the text
+ * counterpart of {@link Style}, projected from the DTO's `/DA` fields the same
+ * way `style` is projected from `/C`/`/CA`/`/BS`. CSS colour string; the engine
+ * `Color` seam is crossed only in the plugin repository.
  */
-export interface ToolDefaults {
-  style?: Partial<Style>;
-  endings?: Partial<LineEndings>;
+export interface TextStyle {
+  /** A PDF standard font name or a registered font key. */
+  fontFamily: string;
+  /** Content units (PDF points). */
+  fontSize: number;
+  fontColor: string;
+  textAlign: TextAlign;
 }
+
+/**
+ * The ONE flat vocabulary for editable appearance properties — what property
+ * sidebars/toolbars read and write, regardless of where each property is stored
+ * internally (`style`, `geom.ends`, or `text`). Which keys apply to a kind, and
+ * in what UI order, is declared per kind in the KIND table (`propsFor`).
+ */
+export interface AnnotationProps extends Style, TextStyle {
+  /** `/LE` endings (line / polyline). */
+  lineEndings: LineEndings;
+}
+
+export type PropKey = keyof AnnotationProps;
+
+/** A partial property write. `lineEndings` merges per side (set just `end`
+ *  without knowing `start`); every other key overwrites. */
+export type AnnotationPropsPatch = {
+  [K in PropKey]?: K extends 'lineEndings' ? Partial<LineEndings> : AnnotationProps[K];
+};
 
 export interface Annot {
   id: Id;
@@ -122,6 +149,9 @@ export interface Annot {
   subtype: Subtype;
   geom: Geom;
   style: Style;
+  /** Text styling — present only for text-editable kinds (free text). Like
+   *  `style`, a content-space projection of `data`, editable via `setProps`. */
+  text?: TextStyle;
   locked: boolean;
   source: 'baked' | 'vector';
   /**
@@ -132,6 +162,15 @@ export interface Annot {
    * Ignored once `source === 'vector'`.
    */
   apBox?: Rect;
+  /**
+   * Rotation (deg, CW) that was STRIPPED from the baked raster — present only
+   * when the engine rendered this appearance rotation-free (a box-family kind
+   * whose DTO carries BOTH `rotation` and `unrotatedRect`; `apBox` is then the
+   * unrotated box). The blit re-applies it as a view transform about the box
+   * centre. Vertex kinds pre-rotate their geometry, so this stays unset there
+   * and their rasters blit untransformed.
+   */
+  apRot?: number;
   /**
    * The canonical engine DTO this annotation was derived from (PDF-space, sRGB)
    * — the single source of truth for its data. `geom` and `style` are
@@ -244,8 +283,10 @@ export interface Model {
   seq: number;
   /** The base style new annotations inherit (per-tool `defaults` layer on top). */
   style: Style;
-  /** Per-subtype default overrides for newly drawn annotations. */
-  defaults: Record<string, ToolDefaults>;
+  /** Per-tool (keyed by subtype / tool id) property overrides for newly drawn
+   *  annotations — the SAME flat vocabulary `setProps` uses. `lineEndings` is
+   *  stored fully resolved (merged at `setDefaults` time). */
+  defaults: Record<string, AnnotationPropsPatch>;
   /** Extra clickable margin (content units) around a stroke — bump it for touch. */
   hitMargin: number;
   /** The free-text annotation currently in TEXT-EDIT mode (its `contentEditable`
@@ -274,9 +315,11 @@ export type Msg =
   | { t: 'setMarkupPreview'; subtype: Subtype; rectsByPage: Record<number, Rect[]> }
   | { t: 'clearMarkupPreview' }
   | { t: 'deselect' }
-  | { t: 'setStyle'; patch: Partial<Style> }
-  | { t: 'setEndings'; patch: Partial<LineEndings> }
-  | { t: 'setDefaults'; subtype: Subtype; patch: ToolDefaults }
+  // Apply a flat property patch to the current selection. Each member takes the
+  // keys its KIND declares (`propsFor`) and ignores the rest, so one message
+  // restyles a mixed selection. Members flip to `vector`; one patch effect each.
+  | { t: 'setProps'; patch: AnnotationPropsPatch }
+  | { t: 'setDefaults'; subtype: Subtype; patch: AnnotationPropsPatch }
   // Rotate the current selection by a fixed quarter-turn (clockwise) about its
   // centre — the toolbar "rotate 90°" affordance. Works for a single shape or a
   // multi-target group (about the union-box centre).
@@ -326,6 +369,13 @@ export interface RenderItem {
    * a drag. Only meaningful when `source === 'baked'`; absent otherwise.
    */
   apBox?: Rect;
+  /**
+   * Rotation (deg, CW) to apply to the baked raster as a view transform —
+   * exactly the rotation the engine STRIPPED from it (see `Annot.apRot`).
+   * Live for `opaqueBody` kinds (a stamp spins with the rotate gesture);
+   * absent when the raster already contains its rotation (vertex kinds).
+   */
+  apRot?: number;
   style: Style;
   source: 'baked' | 'vector' | 'ghost';
   selected: boolean;

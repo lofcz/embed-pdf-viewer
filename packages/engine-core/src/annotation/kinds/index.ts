@@ -11,6 +11,8 @@ import { PolygonKind } from './polygon';
 import { PolylineKind } from './polyline';
 import { SquareKind } from './square';
 import { SquigglyKind } from './squiggly';
+import type { StampDraft, StampPatch, StampWireDraft, StampWirePatch } from './stamp';
+import { StampKind } from './stamp';
 import { StrikeoutKind } from './strikeout';
 import { UnderlineKind } from './underline';
 import { UnsupportedKind } from './unsupported';
@@ -27,6 +29,7 @@ export * from './line';
 export * from './ink';
 export * from './free-text';
 export * from './caret';
+export * from './stamp';
 export * from './unsupported';
 export * from './text-markup.shared';
 export * from './shape.shared';
@@ -60,6 +63,7 @@ export const ANNOTATION_KINDS = [
   InkKind,
   FreeTextKind,
   CaretKind,
+  StampKind,
   UnsupportedKind,
 ] as const;
 
@@ -91,13 +95,22 @@ type PatchFromKind<K> =
 export type AnnotationDTO = DTOFromKind<AnnotationKind>;
 
 /**
- * Drafts that callers may pass to `create()`. `never` from
- * `UnsupportedKind` is dropped automatically by the union.
+ * WIRE drafts/patches: pure JSON, what the worker protocol and HTTP
+ * surface carry and what the Zod schemas below validate. Kind modules are
+ * wire-typed, so these derive straight from the registry.
  */
-export type AnnotationDraft = Exclude<DraftFromKind<AnnotationKind>, never>;
+export type WireAnnotationDraft = Exclude<DraftFromKind<AnnotationKind>, never>;
+export type WireAnnotationPatch = Exclude<PatchFromKind<AnnotationKind>, never>;
 
-/** Patches that callers may pass to `update()`. */
-export type AnnotationPatch = Exclude<PatchFromKind<AnnotationKind>, never>;
+/**
+ * AUTHORING drafts/patches: what callers pass to `create()`/`update()`.
+ * Identical to the wire forms except for binary-carrying kinds, whose
+ * inline-`BinarySource` authoring types are swapped in here. Engines
+ * bridge the two via `annotation/normalize.ts` — see that module for the
+ * uniform binary rule.
+ */
+export type AnnotationDraft = Exclude<WireAnnotationDraft, StampWireDraft> | StampDraft;
+export type AnnotationPatch = Exclude<WireAnnotationPatch, StampWirePatch> | StampPatch;
 
 /**
  * Runtime zod schema for the discriminated union. The cast unwinds the
@@ -118,44 +131,58 @@ export const AnnotationDTOSchema: z.ZodType<AnnotationDTO> = z.discriminatedUnio
   InkKind.dtoSchema,
   FreeTextKind.dtoSchema,
   CaretKind.dtoSchema,
+  StampKind.dtoSchema,
   UnsupportedKind.dtoSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
   ...z.ZodDiscriminatedUnionOption<'subtype'>[],
 ]) as unknown as z.ZodType<AnnotationDTO>;
 
-export const AnnotationDraftSchema: z.ZodType<AnnotationDraft> = z.discriminatedUnion('subtype', [
-  HighlightKind.draftSchema,
-  UnderlineKind.draftSchema,
-  SquigglyKind.draftSchema,
-  StrikeoutKind.draftSchema,
-  CircleKind.draftSchema,
-  SquareKind.draftSchema,
-  PolygonKind.draftSchema,
-  PolylineKind.draftSchema,
-  LineKind.draftSchema,
-  InkKind.draftSchema,
-  FreeTextKind.draftSchema,
-  CaretKind.draftSchema,
-] as unknown as [
-  z.ZodDiscriminatedUnionOption<'subtype'>,
-  ...z.ZodDiscriminatedUnionOption<'subtype'>[],
-]) as unknown as z.ZodType<AnnotationDraft>;
+/**
+ * Validates the WIRE draft form (post-normalization) — binary-carrying
+ * kinds appear here with `{ resource }` refs, never inline bytes.
+ */
+export const AnnotationDraftSchema: z.ZodType<WireAnnotationDraft> = z.discriminatedUnion(
+  'subtype',
+  [
+    HighlightKind.draftSchema,
+    UnderlineKind.draftSchema,
+    SquigglyKind.draftSchema,
+    StrikeoutKind.draftSchema,
+    CircleKind.draftSchema,
+    SquareKind.draftSchema,
+    PolygonKind.draftSchema,
+    PolylineKind.draftSchema,
+    LineKind.draftSchema,
+    InkKind.draftSchema,
+    FreeTextKind.draftSchema,
+    CaretKind.draftSchema,
+    StampKind.draftSchema,
+  ] as unknown as [
+    z.ZodDiscriminatedUnionOption<'subtype'>,
+    ...z.ZodDiscriminatedUnionOption<'subtype'>[],
+  ],
+) as unknown as z.ZodType<WireAnnotationDraft>;
 
-export const AnnotationPatchSchema: z.ZodType<AnnotationPatch> = z.discriminatedUnion('subtype', [
-  HighlightKind.patchSchema,
-  UnderlineKind.patchSchema,
-  SquigglyKind.patchSchema,
-  StrikeoutKind.patchSchema,
-  CircleKind.patchSchema,
-  SquareKind.patchSchema,
-  PolygonKind.patchSchema,
-  PolylineKind.patchSchema,
-  LineKind.patchSchema,
-  InkKind.patchSchema,
-  FreeTextKind.patchSchema,
-  CaretKind.patchSchema,
-] as unknown as [
-  z.ZodDiscriminatedUnionOption<'subtype'>,
-  ...z.ZodDiscriminatedUnionOption<'subtype'>[],
-]) as unknown as z.ZodType<AnnotationPatch>;
+/** Validates the WIRE patch form (post-normalization). */
+export const AnnotationPatchSchema: z.ZodType<WireAnnotationPatch> = z.discriminatedUnion(
+  'subtype',
+  [
+    HighlightKind.patchSchema,
+    UnderlineKind.patchSchema,
+    SquigglyKind.patchSchema,
+    StrikeoutKind.patchSchema,
+    CircleKind.patchSchema,
+    SquareKind.patchSchema,
+    PolygonKind.patchSchema,
+    PolylineKind.patchSchema,
+    LineKind.patchSchema,
+    InkKind.patchSchema,
+    FreeTextKind.patchSchema,
+    CaretKind.patchSchema,
+    StampKind.patchSchema,
+  ] as unknown as [
+    z.ZodDiscriminatedUnionOption<'subtype'>,
+    ...z.ZodDiscriminatedUnionOption<'subtype'>[],
+  ],
+) as unknown as z.ZodType<WireAnnotationPatch>;

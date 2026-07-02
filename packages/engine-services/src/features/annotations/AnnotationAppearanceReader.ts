@@ -16,9 +16,22 @@ import { throwIfAborted } from '../../shared/abort';
 import { FPDF_REVERSE_BYTE_ORDER, rasterize } from '../render/deviceRaster';
 import { readAnnotRect } from './internal/read/annotationReadPrimitives';
 import { readAnnotationIdentity } from './internal/read/readAnnotationIdentity';
+import {
+  readAnnotationRotation,
+  readAnnotationUnrotatedRect,
+} from './internal/read/readAnnotationTransformMetadata';
 
 /** `FPDF_ANNOT_WIDGET` — form-field annotation subtype code. */
 const ANNOT_SUBTYPE_WIDGET = 20;
+
+/**
+ * BOX-family subtypes (free-text 3, square 5, circle 6, stamp 13): the kinds
+ * whose v3 writers put rotation in the AP `/Matrix` + `/EMBD_Metadata`
+ * `/UnrotatedRect`. Only these are eligible for rotation-stripped appearance
+ * rendering — vertex kinds (line/polyline/polygon/ink) pre-rotate their
+ * geometry, so their rasters must stay on the classic path.
+ */
+const BOX_FAMILY_SUBTYPES: ReadonlySet<number> = new Set([3, 5, 6, 13]);
 
 /**
  * Maps an `AnnotationAppearanceMode` onto the PDFium appearance-mode int and
@@ -85,9 +98,24 @@ export class AnnotationAppearanceReader {
           if (!available) continue;
 
           const identity = readAnnotationIdentity(fn, mem, annotPtr, pageObjectNumber, i, revision);
+          // Rotation-stripped rendering (see AnnotationRender.ts) applies ONLY
+          // where the rotation demonstrably lives in the AP Matrix: a BOX-family
+          // kind carrying BOTH `/EMBD_Metadata` `/Rotation` and `/UnrotatedRect`.
+          // There the raster renders flat, `rect` is the logical unrotated box,
+          // and the DTO's `rotation` (same two fields, surfaced by the box
+          // readers) is the consumer's view transform. Everything else — vertex
+          // kinds (rotation pre-baked into their geometry), foreign PDFs with
+          // arbitrary AP matrices — renders on the classic path, placed by
+          // `/Rect`, bit-identical to before.
+          const stripRotation =
+            BOX_FAMILY_SUBTYPES.has(fn.FPDFAnnot_GetSubtype(annotPtr)) &&
+            readAnnotationRotation(fn, mem, annotPtr) !== undefined;
+          const unrotatedRect = stripRotation
+            ? readAnnotationUnrotatedRect(fn, mem, annotPtr)
+            : undefined;
           // Normalize once at the read boundary — the wire `rect` and the render
           // matrix both rely on the normalized invariant.
-          const rect = normalizePdfRect(readAnnotRect(fn, mem, annotPtr));
+          const rect = normalizePdfRect(unrotatedRect ?? readAnnotRect(fn, mem, annotPtr));
 
           for (const mode of modes) {
             if (!(available & mode.bit)) continue;
@@ -99,6 +127,7 @@ export class AnnotationAppearanceReader {
               page,
               rotation,
               scale,
+              unrotatedRect !== undefined,
             );
             if (!raster) continue;
             appearances.push({
@@ -132,6 +161,7 @@ export class AnnotationAppearanceReader {
     page: { width: number; height: number },
     rotation: PdfRotation,
     scale: number,
+    stripRotation: boolean,
   ): PageRaster | null {
     const { fn } = this.runtime;
 
@@ -157,8 +187,11 @@ export class AnnotationAppearanceReader {
       rotation,
       viewport: { kind: 'scale', scale },
       background: 'transparent',
+      // `stripRotation` (EmbedPDF box-kind rotation only): render the AP form
+      // content WITHOUT its rotation Matrix, MatchRect-mapped to the unrotated
+      // box — the consumer re-applies the DTO's `rotation` as a view transform.
       draw: (bitmapPtr, matrixPtr) =>
-        fn.EPDF_RenderAnnotBitmap(
+        (stripRotation ? fn.EPDF_RenderAnnotBitmapUnrotated : fn.EPDF_RenderAnnotBitmap)(
           bitmapPtr,
           pagePtr,
           annotPtr,

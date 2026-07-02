@@ -11,7 +11,12 @@
 import * as React from 'react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AnnotationToken, refKey, type TextItem } from '@embedpdf-x/plugin-annotation';
+import {
+  AnnotationToken,
+  refKey,
+  type SelectionProps,
+  type TextItem,
+} from '@embedpdf-x/plugin-annotation';
 // The render layer is framework code, so it resolves the FULL host lens
 // (pageItems/chrome/appearances/…). Same runtime token as the public one — only
 // the type differs. App code never imports this.
@@ -19,18 +24,14 @@ import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annot
 import {
   scene,
   MITER_LIMIT,
-  type Border,
+  type AnnotationProps,
+  type AnnotationPropsPatch,
   type CreationDraftAnchor,
-  type LineEndings,
   type Paint,
   type Rect,
   type RenderItem,
-  type Style,
   type Vec,
 } from '@embedpdf-x/annotation-core';
-
-/** A tool's resolved defaults, as returned by `currentDefaults`. */
-type ToolDefaultsResolved = { style: Style; endings: LineEndings };
 
 export type {
   RenderItem,
@@ -39,7 +40,14 @@ export type {
   LineEndings,
   Border,
   Style,
+  AnnotationProps,
+  AnnotationPropsPatch,
+  PropKey,
+  PropSpec,
+  TextAlign,
+  TextStyle,
 } from '@embedpdf-x/annotation-core';
+export type { SelectionProps } from '@embedpdf-x/plugin-annotation';
 import { shallowArray, useCapability, usePage, useSelector } from './runtime';
 import type { PageContextValue } from './runtime';
 import {
@@ -159,11 +167,17 @@ function BakedImage({
   url,
   page,
   blend,
+  rot,
 }: {
   box: Rect;
   url: string;
   page: PageContextValue;
   blend?: 'multiply';
+  /** The rotation (deg, CW) the engine STRIPPED from this raster
+   *  (`RenderItem.apRot`) — re-applied here as a view transform, so a live
+   *  rotate gesture spins the bitmap with zero engine re-renders. Unset for
+   *  rasters that already contain their rotation (vertex kinds). */
+  rot?: number;
 }) {
   const b = boxOf(box, page);
   return (
@@ -179,6 +193,8 @@ function BakedImage({
         height: b.height,
         pointerEvents: 'none',
         mixBlendMode: blend, // highlights multiply with the page beneath
+        // Same CW convention as the free-text element: rotate about the centre.
+        ...(rot ? { transform: `rotate(${rot}deg)`, transformOrigin: 'center' } : {}),
       }}
     />
   );
@@ -355,6 +371,12 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
     anno.ensurePage(page.pon);
   }, [anno, page.pon]);
 
+  // Baked annotations render from engine rasters — refetch when the COMMITTED
+  // baked set or geometry changes (a freshly placed stamp, a stamp resize whose
+  // AP the engine re-fit), not only on zoom. The epoch ignores live gesture
+  // previews, so a drag never spams renders mid-gesture.
+  const bakedKey = useSelector(AnnotationHostToken, (c) => c.appearanceEpoch(page.pon));
+
   useEffect(() => {
     const controller = new AbortController();
     const revokers: Array<() => void> = [];
@@ -388,7 +410,7 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
       controller.abort();
       revokers.forEach((r) => r());
     };
-  }, [anno, page.pon, page.transform.renderScale]);
+  }, [anno, page.pon, page.transform.renderScale, bakedKey]);
 
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -408,6 +430,7 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
               url={baked.url}
               page={page}
               blend={item.blend}
+              rot={item.apRot}
             />
           ) : null;
         } else {
@@ -437,36 +460,32 @@ export function useAnnotationSelected() {
   return useSelector(AnnotationToken, (c) => c.getSelected(), shallowArray);
 }
 
-/** Structural equality for a tool's resolved defaults (style + endings) — keeps the
- *  subscription from re-rendering on unrelated dispatches, since `currentDefaults`
- *  returns a fresh object each call. */
-function sameDefaults(a: ToolDefaultsResolved, b: ToolDefaultsResolved): boolean {
-  const x = a.style;
-  const y = b.style;
-  return (
-    x.color === y.color &&
-    x.interiorColor === y.interiorColor &&
-    x.strokeWidth === y.strokeWidth &&
-    x.opacity === y.opacity &&
-    x.border.kind === y.border.kind &&
-    (x.border.kind === 'cloudy'
-      ? x.border.intensity === (y.border as Extract<Border, { kind: 'cloudy' }>).intensity
-      : x.border.kind === 'dashed'
-        ? x.border.dash.join() === (y.border as Extract<Border, { kind: 'dashed' }>).dash.join()
-        : true) &&
-    a.endings.start === b.endings.start &&
-    a.endings.end === b.endings.end
-  );
+/** Structural equality for a resolved props bag — keeps the subscription from
+ *  re-rendering on unrelated dispatches, since `currentDefaults` returns a fresh
+ *  object each call. Small flat objects; JSON compare is exact and cheap here. */
+const sameProps = (a: AnnotationProps, b: AnnotationProps): boolean =>
+  a === b || JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * A tool's RESOLVED defaults (base + per-tool override) as a full flat props
+ * bag, subscribed so a `setDefaults` re-renders the consumer. Use this — not the
+ * imperative `useAnnotation().currentDefaults(id)` — to drive default-editing
+ * controls, so they reflect changes live. Pair with `propsForTool(id)` for the
+ * specs to render.
+ */
+export function useAnnotationDefaults(toolId: string): AnnotationProps {
+  return useSelector(AnnotationToken, (c) => c.currentDefaults(toolId), sameProps);
 }
 
 /**
- * A tool's RESOLVED defaults (base style + per-subtype override), subscribed so a
- * `setDefaults` re-renders the consumer. Use this — not the imperative
- * `useAnnotation().currentDefaults(id)` — to drive default-editing controls, so they
- * reflect changes live.
+ * The selection's editable properties — ordered specs shared by every selected
+ * kind, current values, and which keys are mixed. THE hook a property sidebar
+ * renders from; write back with `useAnnotation().updateSelection({ [key]: v })`.
+ * Reference-stable between model changes (the capability memoizes by model
+ * identity), so the default equality is enough.
  */
-export function useAnnotationDefaults(toolId: string): ToolDefaultsResolved {
-  return useSelector(AnnotationToken, (c) => c.currentDefaults(toolId), sameDefaults);
+export function useSelectionProps(): SelectionProps {
+  return useSelector(AnnotationToken, (c) => c.getSelectionProps());
 }
 
 // ── Selection menu ────────────────────────────────────────────────────────────
@@ -501,10 +520,8 @@ export interface AnnotationMenuRenderArgs {
   selected: ReturnType<typeof useAnnotationSelected>;
   deleteSelection: () => void;
   deselect: () => void;
-  updateSelection: (patch: {
-    style?: Partial<Style>;
-    endings?: Partial<LineEndings>;
-  }) => Promise<void>;
+  /** Restyle the selection with a flat props patch (see `useSelectionProps`). */
+  updateSelection: (patch: AnnotationPropsPatch) => void;
   /** Rotate the current selection a quarter-turn clockwise about its centre. */
   rotate90: () => void;
   /** Reset the current selection to its as-authored orientation. */

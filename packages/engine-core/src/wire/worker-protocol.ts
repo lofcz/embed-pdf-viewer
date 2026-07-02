@@ -2,8 +2,9 @@ import type {
   AnnotationListPageSnapshot,
   AnnotationListSnapshotAllPages,
 } from '../annotation/AnnotationListSnapshot';
-import type { AnnotationDraft, AnnotationPatch } from '../annotation/kinds';
+import type { WireAnnotationDraft, WireAnnotationPatch } from '../annotation/kinds';
 import type { AnnotationActor } from '../auth/scope';
+import type { WireResourceMap } from '../resource/BinarySource';
 import type {
   AnnotationAppearanceRenderOptions,
   AnnotationAppearancesResult,
@@ -151,7 +152,14 @@ export interface AnnotationsCreateWorkerRequest {
   docId: string;
   layerName?: string;
   pageObjectNumber: PageObjectNumber;
-  draft: AnnotationDraft;
+  /** WIRE form — binary fields hold `{ resource }` refs into {@link resources}. */
+  draft: WireAnnotationDraft;
+  /**
+   * Binary payloads referenced by the draft, keyed by resource key. The
+   * producer puts each `bytes` buffer on the wirePack transfer list
+   * (zero-copy, same convention as `PageRaster`).
+   */
+  resources?: WireResourceMap;
   artifactPath?: string;
   /**
    * Identity to stamp on the newly created annotation:
@@ -170,7 +178,10 @@ export interface AnnotationsUpdateWorkerRequest {
   docId: string;
   layerName?: string;
   ref: AnnotationRef;
-  patch: AnnotationPatch;
+  /** WIRE form — see {@link AnnotationsCreateWorkerRequest.draft}. */
+  patch: WireAnnotationPatch;
+  /** Binary payloads referenced by the patch — see the create request. */
+  resources?: WireResourceMap;
   artifactPath?: string;
   /**
    * Identity of the editor. Drives /EMBD_Metadata/UpdatedBy refresh on

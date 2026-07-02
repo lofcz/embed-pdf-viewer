@@ -139,6 +139,20 @@ export {
 } from './annotation/subtype';
 export type { AnnotationSubtype } from './annotation/subtype';
 
+// Inline binary payloads (stamp images, future embedded files) — zod-free.
+export type {
+  BinarySource,
+  BinaryPayload,
+  WireResource,
+  WireResourceMap,
+  ResourceRef,
+} from './resource/BinarySource';
+export { resolveBinarySource } from './resource/BinarySource';
+export type { BinaryMetadata, BinaryMimeType } from './resource/binaryMetadata';
+export { sniffBinaryMetadata } from './resource/binaryMetadata';
+export { normalizeAnnotationDraft, normalizeAnnotationPatch } from './annotation/normalize';
+export type { NormalizedDraft, NormalizedPatch } from './annotation/normalize';
+
 export type {
   AnnotationKindModule,
   DTOOfKind,
@@ -151,6 +165,8 @@ export type {
   AnnotationDTO,
   AnnotationDraft,
   AnnotationPatch,
+  WireAnnotationDraft,
+  WireAnnotationPatch,
   HighlightAnnotationDTO,
   HighlightDraft,
   HighlightPatch,
@@ -187,6 +203,12 @@ export type {
   CaretAnnotationDTO,
   CaretDraft,
   CaretPatch,
+  StampAnnotationDTO,
+  StampDraft,
+  StampPatch,
+  StampWireDraft,
+  StampWirePatch,
+  StampFit,
   ShapeAnnotationFields,
   ShapeDraftFields,
   ShapePatchFields,

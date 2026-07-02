@@ -14,7 +14,7 @@ import type {
 } from '@embedpdf-x/plugin-stage';
 import { interactionPlugin } from '@embedpdf-x/plugin-interaction';
 import { selectionPlugin } from '@embedpdf-x/plugin-selection';
-import { annotationPlugin, styleFromDTO } from '@embedpdf-x/plugin-annotation';
+import { annotationPlugin } from '@embedpdf-x/plugin-annotation';
 import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
 import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
@@ -32,8 +32,8 @@ import {
   AnnotationMenu,
   useAnnotation,
   useAnnotationSelection,
-  useAnnotationSelected,
   useAnnotationDefaults,
+  useSelectionProps,
   usePage,
   useTool,
   useZoom,
@@ -46,7 +46,14 @@ import {
   useMetadata,
   useSelector,
 } from '@embedpdf-x/react';
-import type { Border } from '@embedpdf-x/react';
+import type {
+  AnnotationProps,
+  AnnotationPropsPatch,
+  Border,
+  LineEndings,
+  PropSpec,
+  TextAlign,
+} from '@embedpdf-x/react';
 import type { DocumentMetadata, MetadataPatch, OpenInput, PdfSaveMode } from '@embedpdf-x/kernel';
 import { bootstrap, engineMode, newDocument, SAMPLES, fetchBytes } from './engine';
 
@@ -296,6 +303,38 @@ const MARKUP_TOOLS: { id: string; label: string; title: string }[] = [
 const MARKUP_SUBTYPES = new Set(['highlight', 'underline', 'squiggly', 'strikeout']);
 
 /**
+ * The stamp tool button: opens a file picker (PNG / JPEG / single-page PDF)
+ * and arms the payload — every subsequent page click places one stamp until
+ * the tool changes. One line of integration: `annotation.armStamp({ source })`.
+ */
+function StampButton({ active }: { active: boolean }) {
+  const annotation = useAnnotation();
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button
+        onClick={() => fileRef.current?.click()}
+        title="pick an image (or single-page PDF), then click a page to place it"
+        style={toolBtn(active)}
+      >
+        🖼 stamp
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void annotation.armStamp({ source: file });
+          e.target.value = ''; // allow re-picking the same file later
+        }}
+      />
+    </>
+  );
+}
+
+/**
  * The tool band: the interaction hub's single active tool, switched in one place
  * (select / pan + the draw tools). The "styles" button opens the property sidebar —
  * it's opt-in, so the canvas stays full-width until you actually want to edit.
@@ -315,8 +354,8 @@ function AnnotationBar({
   // box; stroke and fill stay independently editable.
   useEffect(() => {
     annotation.setDefaults('line', {
-      style: { interiorColor: '#e5484d' },
-      endings: { start: 'none', end: 'open-arrow' },
+      interiorColor: '#e5484d',
+      lineEndings: { start: 'none', end: 'open-arrow' },
     });
   }, [annotation]);
   return (
@@ -332,6 +371,9 @@ function AnnotationBar({
             {t.label}
           </button>
         ))}
+        {/* stamp: pick an image (or single-page PDF), then click a page to place it —
+            `armStamp` validates the bytes and activates the stamp tool itself */}
+        <StampButton active={activeToolId === 'stamp'} />
       </div>
       <Divider />
       {/* text-selection tools: created by selecting text with the tool active */}
@@ -375,101 +417,226 @@ function SideField({
   );
 }
 
+// The standard PDF fonts the demo offers (any registered font key works too).
+const FONT_OPTIONS: { v: string; label: string }[] = [
+  { v: 'helvetica', label: 'Helvetica' },
+  { v: 'helvetica-bold', label: 'Helvetica Bold' },
+  { v: 'times-roman', label: 'Times Roman' },
+  { v: 'courier', label: 'Courier' },
+];
+
 /**
- * The annotation style inspector — a right-docked sidebar, opened from the tool band.
- * With a selection it edits the selected annotations; with none it edits the ACTIVE
- * TOOL's defaults (so the next drawn annotation inherits them). Line endings show for
- * a selected line/polyline or the line tool, and changing one re-derives the engine
- * /Rect (the plugin recomputes visual bounds), so the baked appearance is never
- * clipped. It reads its own state from hooks — no prop-drilling from the toolbar.
+ * ONE control for ONE property spec — the entire per-property UI. The spec's
+ * `key` fixes the control type and its constraints (min/max/step, cloudy);
+ * `onChange` emits a flat `{ [key]: value }` patch. This switch is the whole
+ * surface an app customizes — the plugin decides WHICH controls show, in what
+ * order, per kind (see `useSelectionProps` / `propsForTool`).
+ */
+function PropControl({
+  spec,
+  value,
+  mixed,
+  onChange,
+}: {
+  spec: PropSpec;
+  value: AnnotationProps[PropSpec['key']] | undefined;
+  mixed: boolean;
+  onChange: (patch: AnnotationPropsPatch) => void;
+}) {
+  const colorInput = (v: string, set: (c: string) => void) => (
+    <input
+      type="color"
+      value={v}
+      onChange={(e) => set(e.target.value)}
+      style={{ width: 36, height: 24, padding: 0, border: '1px solid #ccc', borderRadius: 4 }}
+    />
+  );
+  const label = mixed ? `${spec.label} (mixed)` : spec.label;
+
+  switch (spec.key) {
+    case 'color':
+    case 'fontColor':
+      return (
+        <SideField label={label}>
+          {colorInput((value as string) ?? '#000000', (c) => onChange({ [spec.key]: c }))}
+        </SideField>
+      );
+    case 'interiorColor': {
+      const fill = (value as string | null) ?? null;
+      return (
+        <SideField label={label} title="toggle off for transparent">
+          <input
+            type="checkbox"
+            checked={fill != null}
+            onChange={(e) => onChange({ interiorColor: e.target.checked ? '#ffffff' : null })}
+            style={{ margin: 0 }}
+          />
+          {colorInput(fill ?? '#ffffff', (c) => onChange({ interiorColor: c }))}
+        </SideField>
+      );
+    }
+    case 'opacity':
+      return (
+        <SideField label={label}>
+          <input
+            type="range"
+            min={spec.min}
+            max={spec.max}
+            step={spec.step}
+            value={(value as number) ?? 1}
+            onChange={(e) => onChange({ opacity: Number(e.target.value) })}
+            style={{ width: '100%' }}
+          />
+        </SideField>
+      );
+    case 'strokeWidth':
+    case 'fontSize':
+      return (
+        <SideField label={label}>
+          <input
+            type="number"
+            min={spec.min}
+            max={spec.max}
+            step={spec.step}
+            value={(value as number) ?? spec.min}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n)) onChange({ [spec.key]: n });
+            }}
+            style={{ ...tbSelect, width: '100%' }}
+          />
+        </SideField>
+      );
+    case 'border': {
+      const border = (value as Border) ?? { kind: 'solid' };
+      const opts = spec.cloudy
+        ? BORDER_OPTS
+        : BORDER_OPTS.filter((o) => !o.key.startsWith('cloudy'));
+      return (
+        <SideField label={label} title="cloudy scallops bulge out to the box edge">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, width: '100%' }}>
+            {opts.map((o) => (
+              <button
+                key={o.key}
+                onClick={() => onChange({ border: o.make() })}
+                style={toolBtn(borderKey(border) === o.key)}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </SideField>
+      );
+    }
+    case 'lineEndings': {
+      const ends = (value as LineEndings) ?? { start: 'none', end: 'none' };
+      const side = (which: 'start' | 'end') => (
+        <select
+          value={ends[which]}
+          onChange={(e) => onChange({ lineEndings: { [which]: e.target.value as LineEndingName } })}
+          style={{ ...tbSelect, width: '100%' }}
+        >
+          {LINE_ENDINGS.map((o) => (
+            <option key={o.v} value={o.v}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      );
+      return (
+        <>
+          <SideField label={`${label} · start`}>{side('start')}</SideField>
+          <SideField label={`${label} · end`}>{side('end')}</SideField>
+        </>
+      );
+    }
+    case 'fontFamily':
+      return (
+        <SideField label={label}>
+          <select
+            value={(value as string) ?? 'helvetica'}
+            onChange={(e) => onChange({ fontFamily: e.target.value })}
+            style={{ ...tbSelect, width: '100%' }}
+          >
+            {FONT_OPTIONS.map((o) => (
+              <option key={o.v} value={o.v}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </SideField>
+      );
+    case 'textAlign':
+      return (
+        <SideField label={label}>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {(['left', 'center', 'right'] as TextAlign[]).map((al) => (
+              <button
+                key={al}
+                onClick={() => onChange({ textAlign: al })}
+                style={toolBtn(value === al)}
+              >
+                {al === 'left' ? '⇤' : al === 'center' ? '☰' : '⇥'}
+              </button>
+            ))}
+          </div>
+        </SideField>
+      );
+  }
+}
+
+/**
+ * The annotation style inspector — a right-docked sidebar, opened from the tool
+ * band. FULLY SCHEMA-DRIVEN: with a selection it renders the properties every
+ * selected kind shares (`useSelectionProps`) and writes via `updateSelection`;
+ * with none it renders the active tool's properties (`propsForTool`) over the
+ * live defaults (`useAnnotationDefaults`) and writes via `setDefaults`. No
+ * per-subtype branching here — new kinds get a working sidebar for free.
  */
 function AnnotationSidebar({ onClose }: { onClose: () => void }) {
   const annotation = useAnnotation();
   const { activeToolId } = useTool();
-  const annoSelected = useAnnotationSelection();
-  const selDtos = useAnnotationSelected();
-  // SUBSCRIBED defaults (not an imperative read) — so editing a tool default
-  // re-renders these controls live. See useAnnotationDefaults.
-  const toolDefaults = useAnnotationDefaults(activeToolId);
+  const sel = useSelectionProps();
+  const defaults = useAnnotationDefaults(activeToolId);
+  const selCount = useAnnotationSelection().length;
 
-  const hasSel = annoSelected.length > 0;
-  const isDrawTool = DRAW_TOOLS.has(activeToolId);
-  const isMarkupTool = MARKUP_SUBTYPES.has(activeToolId);
-  const editing = hasSel || isDrawTool || isMarkupTool;
+  const hasSel = sel.specs.length > 0;
+  const specs = hasSel ? sel.specs : annotation.propsForTool(activeToolId);
+  const values: Partial<AnnotationProps> = hasSel ? sel.values : defaults;
+  const write = (patch: AnnotationPropsPatch) =>
+    hasSel ? annotation.updateSelection(patch) : annotation.setDefaults(activeToolId, patch);
 
-  const head = (
-    <header style={annoSidebarHead}>
-      <span>
-        {!editing
-          ? 'Styles'
-          : hasSel
-            ? `${annoSelected.length} selected`
-            : `${activeToolId} defaults`}
-      </span>
-      <button onClick={onClose} title="close" style={annoSidebarClose}>
-        ✕
-      </button>
-    </header>
-  );
-
-  if (!editing)
-    return (
-      <aside style={annoSidebar}>
-        {head}
+  return (
+    <aside style={annoSidebar}>
+      <header style={annoSidebarHead}>
+        <span>
+          {hasSel ? `${selCount} selected` : specs.length ? `${activeToolId} defaults` : 'Styles'}
+        </span>
+        <button onClick={onClose} title="close" style={annoSidebarClose}>
+          ✕
+        </button>
+      </header>
+      {specs.length === 0 ? (
         <p style={annoSidebarEmpty}>
           Pick a draw tool or select an annotation to edit its appearance.
         </p>
-      </aside>
-    );
-
-  // The selected annotation as a DTO + its content-space style projection (the
-  // read side now reads the canonical engine DTO; writes go through the API).
-  const first = selDtos[0];
-  const firstStyle = first ? styleFromDTO(first) : undefined;
-
-  // Text markup: anchored to text — a single colour + opacity, no stroke/fill/box.
-  const isMarkup = hasSel ? (first ? MARKUP_SUBTYPES.has(first.subtype) : false) : isMarkupTool;
-  if (isMarkup) {
-    const color = (hasSel ? firstStyle?.color : undefined) ?? toolDefaults.style.color ?? '#ffe16a';
-    const opacity = (hasSel ? firstStyle?.opacity : undefined) ?? toolDefaults.style.opacity ?? 1;
-    const setMarkupColor = (c: string) =>
-      hasSel
-        ? annotation.updateSelection({ style: { color: c } })
-        : annotation.setDefaults(activeToolId, { style: { color: c } });
-    const setMarkupOpacity = (o: number) =>
-      hasSel
-        ? annotation.updateSelection({ style: { opacity: o } })
-        : annotation.setDefaults(activeToolId, { style: { opacity: o } });
-    return (
-      <aside style={annoSidebar}>
-        {head}
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 12 }}>
-          <SideField label="color" title="markup colour">
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => setMarkupColor(e.target.value)}
-              style={{
-                width: 36,
-                height: 24,
-                padding: 0,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-              }}
+          {specs.map((spec) => (
+            <PropControl
+              key={spec.key}
+              spec={spec}
+              value={values[spec.key]}
+              mixed={hasSel && sel.mixed.includes(spec.key)}
+              onChange={write}
             />
-          </SideField>
-          <SideField label="opacity" title="opacity (0.1–1)">
-            <input
-              type="range"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={opacity}
-              onChange={(e) => setMarkupOpacity(Number(e.target.value))}
-              style={{ width: '100%' }}
-            />
-          </SideField>
-          {hasSel ? (
+          ))}
+          {!hasSel && MARKUP_SUBTYPES.has(activeToolId) && (
+            <p style={{ margin: 0, color: '#999', fontSize: 11, lineHeight: 1.5 }}>
+              Select text on the page to {activeToolId} it.
+            </p>
+          )}
+          {hasSel && (
             <button
               onClick={() => annotation.deleteSelection()}
               title="delete selected"
@@ -477,167 +644,9 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
             >
               🗑 Delete selection
             </button>
-          ) : (
-            <p style={{ margin: 0, color: '#999', fontSize: 11, lineHeight: 1.5 }}>
-              Select text on the page to {activeToolId} it.
-            </p>
           )}
         </div>
-      </aside>
-    );
-  }
-
-  const strokeColor = (hasSel ? firstStyle?.color : undefined) ?? toolDefaults.style.color;
-  const strokeWidth =
-    (hasSel ? firstStyle?.strokeWidth : undefined) ?? toolDefaults.style.strokeWidth;
-  const setColor = (c: string) =>
-    hasSel
-      ? annotation.updateSelection({ style: { color: c } })
-      : annotation.setDefaults(activeToolId, { style: { color: c } });
-  const setWidth = (w: number) =>
-    hasSel
-      ? annotation.updateSelection({ style: { strokeWidth: w } })
-      : annotation.setDefaults(activeToolId, { style: { strokeWidth: w } });
-
-  const fillColor =
-    (hasSel ? firstStyle?.interiorColor : undefined) ?? toolDefaults.style.interiorColor ?? null;
-  const setFill = (c: string | null) =>
-    hasSel
-      ? annotation.updateSelection({ style: { interiorColor: c } })
-      : annotation.setDefaults(activeToolId, { style: { interiorColor: c } });
-
-  // Ink is stroke-only (freehand) — no fill / border / endings controls.
-  const isInk = hasSel ? first?.subtype === 'ink' : activeToolId === 'ink';
-  // Border style applies to the shapes (square/circle); cloudy is shape-only.
-  const isShape = hasSel
-    ? first?.subtype === 'square' || first?.subtype === 'circle'
-    : activeToolId === 'square' || activeToolId === 'circle';
-  const border: Border = (hasSel ? firstStyle?.border : undefined) ??
-    toolDefaults.style.border ?? { kind: 'solid' };
-  const setBorder = (b: Border) =>
-    hasSel
-      ? annotation.updateSelection({ style: { border: b } })
-      : annotation.setDefaults(activeToolId, { style: { border: b } });
-
-  const lineSel = selDtos.find((d) => d.subtype === 'line' || d.subtype === 'polyline');
-  const showEndings = hasSel ? !!lineSel : activeToolId === 'line';
-  const ends =
-    lineSel && (lineSel.subtype === 'line' || lineSel.subtype === 'polyline')
-      ? (lineSel.lineEndings ?? NO_ENDS)
-      : toolDefaults.endings; // line tool active → these are the line defaults' endings
-  const setEnding = (side: 'start' | 'end', v: LineEndingName) => {
-    const endings = side === 'start' ? { start: v } : { end: v };
-    if (hasSel) annotation.updateSelection({ endings });
-    else annotation.setDefaults('line', { endings });
-  };
-
-  return (
-    <aside style={annoSidebar}>
-      {head}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: 12 }}>
-        <SideField label="stroke" title="stroke colour">
-          <input
-            type="color"
-            value={strokeColor}
-            onChange={(e) => setColor(e.target.value)}
-            style={{ width: 36, height: 24, padding: 0, border: '1px solid #ccc', borderRadius: 4 }}
-          />
-        </SideField>
-        {!isInk && (
-          <SideField label="fill" title="fill colour (separate from stroke)">
-            <input
-              type="checkbox"
-              checked={fillColor != null}
-              onChange={(e) => setFill(e.target.checked ? (fillColor ?? strokeColor) : null)}
-              title="toggle fill"
-              style={{ margin: 0 }}
-            />
-            <input
-              type="color"
-              value={fillColor ?? '#ffffff'}
-              disabled={fillColor == null}
-              onChange={(e) => setFill(e.target.value)}
-              style={{
-                width: 36,
-                height: 24,
-                padding: 0,
-                border: '1px solid #ccc',
-                borderRadius: 4,
-                opacity: fillColor == null ? 0.4 : 1,
-              }}
-            />
-          </SideField>
-        )}
-        <SideField label="stroke width" title="stroke width">
-          <input
-            type="number"
-            min={0}
-            max={40}
-            step={0.5}
-            value={strokeWidth}
-            onChange={(e) => setWidth(Number(e.target.value))}
-            style={{ ...tbSelect, width: '100%' }}
-          />
-        </SideField>
-        {isShape && (
-          <SideField
-            label="border"
-            title="outline style — cloudy scallops bulge out to the box edge"
-          >
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, width: '100%' }}>
-              {BORDER_OPTS.map((o) => (
-                <button
-                  key={o.key}
-                  onClick={() => setBorder(o.make())}
-                  title={o.label}
-                  style={toolBtn(borderKey(border) === o.key)}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </SideField>
-        )}
-        {showEndings && (
-          <>
-            <SideField label="line start" title="line start ending">
-              <select
-                value={ends.start}
-                onChange={(e) => setEnding('start', e.target.value as LineEndingName)}
-                style={{ ...tbSelect, width: '100%' }}
-              >
-                {LINE_ENDINGS.map((o) => (
-                  <option key={o.v} value={o.v}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </SideField>
-            <SideField label="line end" title="line end ending">
-              <select
-                value={ends.end}
-                onChange={(e) => setEnding('end', e.target.value as LineEndingName)}
-                style={{ ...tbSelect, width: '100%' }}
-              >
-                {LINE_ENDINGS.map((o) => (
-                  <option key={o.v} value={o.v}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </SideField>
-          </>
-        )}
-        {hasSel && (
-          <button
-            onClick={() => annotation.deleteSelection()}
-            title="delete selected"
-            style={{ ...tbBtn, color: '#c0322b', borderColor: '#e3b3b0' }}
-          >
-            🗑 Delete selection
-          </button>
-        )}
-      </div>
+      )}
     </aside>
   );
 }
@@ -943,7 +952,7 @@ function DocumentView() {
                       <button
                         key={c}
                         title={c}
-                        onClick={() => updateSelection({ style: { color: c } })}
+                        onClick={() => updateSelection({ color: c })}
                         style={{
                           width: 18,
                           height: 18,

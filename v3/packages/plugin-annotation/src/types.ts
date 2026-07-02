@@ -5,19 +5,21 @@ import type {
   AnnotationDTO,
   AnnotationPatch,
   AnnotationRef,
+  BinarySource,
   PdfRect,
 } from '@embedpdf/engine-core/runtime';
 import type {
+  AnnotationProps,
+  AnnotationPropsPatch,
   ChromeNode,
   CreationDraftAnchor,
   Id,
-  LineEndings,
   Model,
+  PropKey,
+  PropSpec,
   Rect,
   RenderItem,
-  Style,
   Subtype,
-  ToolDefaults,
   Vec,
 } from '@embedpdf-x/annotation-core';
 
@@ -32,6 +34,19 @@ export interface Behavior {
   id: string;
   matches(a: { subtype: Subtype; ref: AnnotationRef | null }): boolean;
   engaged(): boolean;
+}
+
+/**
+ * The current selection's editable properties, ready to render: the ordered
+ * {@link PropSpec}s EVERY selected kind declares (a mixed selection shows the
+ * shared subset, in the first kind's order), the first member's `values`, and
+ * which keys differ across members (`mixed` — render an indeterminate control).
+ * Empty `specs` = nothing selected / nothing editable.
+ */
+export interface SelectionProps {
+  specs: PropSpec[];
+  values: Partial<AnnotationProps>;
+  mixed: PropKey[];
 }
 
 /**
@@ -92,12 +107,26 @@ export interface AnnotationCapability {
   /** Delete an annotation by ref. */
   delete(ref: AnnotationRef): Promise<void>;
   /**
-   * Restyle the current selection — sugar over {@link update}. Applies a
-   * content-space style/endings change to each selected annotation through the
-   * full converter (cloudy borders, line endings, and per-kind fields are all
-   * handled), issuing one engine write per annotation.
+   * Restyle the current selection with ONE flat property patch — the write half
+   * of {@link getSelectionProps}. Each selected annotation takes the keys its
+   * kind declares (`propsFor`) and ignores the rest, so a single patch restyles
+   * a mixed selection. Optimistic: the model updates immediately; one engine
+   * write per changed member re-syncs from the authoritative DTO.
    */
-  updateSelection(patch: { style?: Partial<Style>; endings?: Partial<LineEndings> }): Promise<void>;
+  updateSelection(patch: AnnotationPropsPatch): void;
+
+  // ── property introspection (the machine-readable "what can I edit here") ──
+  /**
+   * The selection's editable properties: ordered specs shared by every selected
+   * kind + current values + which keys are mixed. THE way to build a property
+   * sidebar/toolbar — render `specs` in order, write back via
+   * {@link updateSelection}. Stable reference between model changes.
+   */
+  getSelectionProps(): SelectionProps;
+  /** The ordered property specs a TOOL's target kind declares (callout → the
+   *  free-text kind). Drives the same sidebar when nothing is selected, paired
+   *  with {@link currentDefaults}/{@link setDefaults}. */
+  propsForTool(toolId: string): PropSpec[];
 
   // ── authorization (mirrors the engine's own enforcement; the engine still
   //    independently enforces, and per-owner collab rules are checked there) ──
@@ -132,20 +161,43 @@ export interface AnnotationCapability {
   canUngroup(): boolean;
 
   // ── tool defaults (LOCAL drawing preferences — never collaborative) ──
-  /** Set a tool's (subtype's) defaults for newly drawn annotations (style + endings). */
-  setDefaults(subtype: Subtype, patch: ToolDefaults): void;
-  /** The resolved defaults (style + endings) a tool will use for new annotations. */
-  currentDefaults(subtype: Subtype): { style: Style; endings: LineEndings };
+  /** Patch a tool's defaults for newly drawn annotations — the SAME flat
+   *  vocabulary {@link updateSelection} writes. */
+  setDefaults(subtype: Subtype, patch: AnnotationPropsPatch): void;
+  /** The RESOLVED full props bag a tool will use for new annotations. */
+  currentDefaults(subtype: Subtype): AnnotationProps;
   // ── rotation (selection-scoped; rotatable kinds only) ──
   /** Rotate the current selection a quarter-turn clockwise about its centre
    *  (a single shape's own centre / the union-box centre for a group). */
   rotateSelection90(): void;
   /** Reset the current selection to its as-authored orientation (rotation → 0). */
   resetSelectionRotation(): void;
+  // ── stamp tool (click-to-place with an armed binary payload) ──
+  /**
+   * Arm the stamp tool: `source` (PNG, JPEG, or single-page PDF bytes —
+   * format sniffed, never trusted) becomes the content of the next stamp(s)
+   * placed by clicking a page. The placement rect is sized from the image's
+   * intrinsic aspect ratio around `targetWidth` (PDF points, default 150)
+   * and centred on the click. Also activates the `'stamp'` interaction tool;
+   * the payload stays armed for repeat placement until the tool changes or
+   * {@link disarmStamp} is called. Resolves once the payload is validated.
+   */
+  armStamp(input: StampToolInput): Promise<void>;
+  /** Drop the armed stamp payload (a tool change away from 'stamp' does this too). */
+  disarmStamp(): void;
+
   // ── lifecycle ──
   deleteSelection(): void;
   deselect(): void;
   cancel(): void;
+}
+
+/** Payload for {@link AnnotationCapability.armStamp}. */
+export interface StampToolInput {
+  /** PNG, JPEG, or single-page PDF bytes (`Blob | Uint8Array | BinaryPayload`). */
+  source: BinarySource;
+  /** Placed width in PDF points (height follows the intrinsic aspect). Default 150. */
+  targetWidth?: number;
 }
 
 /**
@@ -164,6 +216,11 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   selectionAnchor(): { pon: PageObjectNumber; bounds: Rect; knob?: Vec } | null;
   /** The anchor + action state for a live multi-click creation draft, or null. */
   creationDraftAnchor(): CreationDraftAnchor | null;
+  /** Cache key for a page's baked appearances: the COMMITTED id + AP box of every
+   *  baked annotation (gesture previews excluded). Changes exactly once per
+   *  committed create/geometry-edit, so the render layer refetches rasters then —
+   *  and only then (a stamp resize re-fits its AP engine-side, for example). */
+  appearanceEpoch(pon: PageObjectNumber): string;
   /** The engine's rendered /AP appearance images for a page — the `baked` visual. */
   appearances(
     pon: PageObjectNumber,
@@ -230,6 +287,10 @@ export interface AnnotationHostCapability extends AnnotationCapability {
    *  ghost that looks like the markup it will become). */
   previewMarkup(subtype: Subtype, rectsByPage: Record<number, Rect[]>): void;
   clearMarkupPreview(): void;
+  // ── stamp placement (consumed by the interaction stamp handler) ──
+  /** Place the armed stamp centred on a content point. Returns false (no
+   *  capture) when nothing is armed. */
+  placeArmedStamp(pon: PageObjectNumber, point: Vec): boolean;
   // ── extension point for sibling plugins (forms, links) ──
   registerBehavior(b: Behavior): () => void;
 }

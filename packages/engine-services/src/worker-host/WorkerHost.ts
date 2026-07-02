@@ -350,7 +350,13 @@ export class WorkerHost {
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
     const mutator = new AnnotationMutator(this.runtime, session, this.fonts);
-    const result = mutator.create(req.pageObjectNumber, req.draft, signal, req.actor);
+    const result = mutator.create(
+      req.pageObjectNumber,
+      req.draft,
+      signal,
+      req.actor,
+      req.resources,
+    );
     return this.finishMutation(session, { tag: 'annotations.create', result }, req.artifactPath);
   }
 
@@ -360,7 +366,7 @@ export class WorkerHost {
   ): WirePack<WorkerResultPayload> {
     const session = this.requireSession(req);
     const mutator = new AnnotationMutator(this.runtime, session, this.fonts);
-    const result = mutator.update(req.ref, req.patch, signal, req.actor);
+    const result = mutator.update(req.ref, req.patch, signal, req.actor, req.resources);
     return this.finishMutation(session, { tag: 'annotations.update', result }, req.artifactPath);
   }
 

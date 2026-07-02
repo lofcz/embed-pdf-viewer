@@ -213,6 +213,27 @@ describe('annotation rotation (local engine) — save + reopen', () => {
       expect(ink.rotation).toBe(60);
       expect('unrotatedRect' in ink && ink.unrotatedRect).toBeFalsy();
     }
+
+    // Appearances for vertex kinds stay on the CLASSIC render path: their
+    // rotation is baked into the vertices (advisory /Rotation only), so the
+    // entry's rect is the annotation's own /Rect — never remapped to an
+    // unrotated box — and the raster contains the drawn strokes.
+    const rendered = await doc.page(PAGE).annotations.renderAppearances();
+    for (const dto of [polyline!, line!, ink!]) {
+      const ap = rendered.appearances.find(
+        (a) =>
+          a.ref.kind === 'objectNumber' &&
+          dto.ref.kind === 'objectNumber' &&
+          a.ref.annotObjectNumber === dto.ref.annotObjectNumber,
+      );
+      expect(ap, `appearance for ${dto.subtype}`).toBeDefined();
+      expect(ap!.rect.left).toBeCloseTo(dto.rect.left, 0);
+      expect(ap!.rect.bottom).toBeCloseTo(dto.rect.bottom, 0);
+      expect(ap!.rect.right).toBeCloseTo(dto.rect.right, 0);
+      expect(ap!.rect.top).toBeCloseTo(dto.rect.top, 0);
+      const data = new Uint8Array(ap!.raster.data);
+      expect(data.some((_, idx) => idx % 4 === 3 && data[idx] > 0)).toBe(true); // non-empty
+    }
     await doc.close();
   });
 });

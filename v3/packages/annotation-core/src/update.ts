@@ -27,8 +27,11 @@ import {
   shapeRectFor,
   unionRect,
 } from './geometry';
+import { applyProps, initialTextStyle, styleFromProps, textStyleFromProps } from './props';
 import type {
   Annot,
+  AnnotationProps,
+  AnnotationPropsPatch,
   Draft,
   Effect,
   Geom,
@@ -41,7 +44,6 @@ import type {
   Rect,
   Style,
   Subtype,
-  ToolDefaults,
   Vec,
 } from './types';
 
@@ -73,19 +75,36 @@ export const initialModel: Model = {
   editing: null,
 };
 
-/** Resolve a tool's effective defaults: the base `style` + endings, with the
- *  per-subtype override layered on top. */
-export function defaultsFor(m: Model, subtype: Subtype): { style: Style; endings: LineEndings } {
+/**
+ * Resolve a tool's effective defaults as a FULL flat props bag: the base `style`
+ * + the font/endings base, with the per-tool override layered on top. This is
+ * what a defaults-editing UI reads, and what creation projects `style`/`text`
+ * from (`styleFromProps` / `textStyleFromProps`).
+ */
+export function defaultsFor(m: Model, subtype: Subtype): AnnotationProps {
   const d = m.defaults[subtype];
   return {
-    style: { ...m.style, ...d?.style },
-    endings: { ...NO_ENDINGS, ...d?.endings },
+    ...m.style,
+    ...initialTextStyle,
+    ...d,
+    lineEndings: { ...NO_ENDINGS, ...d?.lineEndings },
   };
 }
 
 /** Flip an annotation to live (vector) rendering — we now own its appearance, so
  *  the engine's baked AP is no longer authoritative. Idempotent. */
 const toVector = (a: Annot): Annot => (a.source === 'vector' ? a : { ...a, source: 'vector' });
+/**
+ * Take ownership of the appearance after a GEOMETRY edit. Vector kinds flip to
+ * live rendering; `opaqueBody` kinds (stamp images) have NO vector render — they
+ * stay `baked`, with the raster box following the committed geometry (the bitmap
+ * shows stretched until the engine's natively re-fit appearance arrives with the
+ * DTO sync). Call with the NEW geometry already applied.
+ */
+const ownGeometry = (a: Annot): Annot => {
+  if (!capsFor(a.subtype).opaqueBody) return toVector(a);
+  return 'rect' in a.geom ? { ...a, apBox: a.geom.rect } : a;
+};
 const sub = (a: Vec, b: Vec): Vec => ({ x: a.x - b.x, y: a.y - b.y });
 const translateRect = (r: Rect, d: Vec): Rect => ({ ...r, x: r.x + d.x, y: r.y + d.y });
 const geomEqual = (a: Geom, b: Geom): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -120,10 +139,8 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return m.preview ? [{ ...m, preview: null }, []] : [m, []];
     case 'deselect':
       return m.selected.length ? [{ ...m, selected: [] }, []] : [m, []];
-    case 'setStyle':
-      return setStyle(m, msg.patch);
-    case 'setEndings':
-      return setEndings(m, msg.patch);
+    case 'setProps':
+      return setProps(m, msg.patch);
     case 'setDefaults':
       return setDefaults(m, msg.subtype, msg.patch);
     case 'rotate90':
@@ -255,8 +272,9 @@ function editUp(m: Model): [Model, Effect[]] {
     // A grab that didn't actually resize leaves the appearance untouched → keep
     // it baked, no engine write.
     if (geomEqual(d.base, d.cur)) return [{ ...m, draft: null }, []];
-    // A resize changes the appearance: we own it now → live (vector) render.
-    const a = toVector({ ...m.byId[d.id], geom: d.cur });
+    // A resize changes the appearance: we own it now → live (vector) render
+    // (opaque-body kinds stay baked; the engine re-fits their AP natively).
+    const a = ownGeometry({ ...m.byId[d.id], geom: d.cur });
     return [{ ...m, byId: { ...m.byId, [d.id]: a }, draft: null }, [{ fx: 'patch', id: d.id }]];
   }
   if (d.g === 'rotate') {
@@ -268,7 +286,7 @@ function editUp(m: Model): [Model, Effect[]] {
       const a = byId[id];
       if (!a) continue;
       // rotation re-bakes the appearance → live (vector) render + patch.
-      byId[id] = toVector({ ...a, geom: geomRotateAbout(a.geom, d.pivot, delta) });
+      byId[id] = ownGeometry({ ...a, geom: geomRotateAbout(a.geom, d.pivot, delta) });
       fx.push({ fx: 'patch', id });
     }
     return [{ ...m, byId, draft: null }, fx];
@@ -281,7 +299,7 @@ function editUp(m: Model): [Model, Effect[]] {
     for (const id of d.ids) {
       const a = byId[id];
       if (!a) continue;
-      byId[id] = toVector({ ...a, geom: geomScaleAbout(a.geom, d.anchor, sx, sy) });
+      byId[id] = ownGeometry({ ...a, geom: geomScaleAbout(a.geom, d.anchor, sx, sy) });
       fx.push({ fx: 'patch', id });
     }
     return [{ ...m, byId, draft: null }, fx];
@@ -413,6 +431,7 @@ function createPointer(
   if (d?.g !== 'create-rect' && d?.g !== 'create-line' && d?.g !== 'create-ink') return [m, []];
 
   const def = defaultsFor(m, d.subtype);
+  const style = styleFromProps(def);
   let geom: Geom | null = null;
   if (d.g === 'create-rect' && d.subtype === 'free-text') {
     // Free-text: a dragged box, or — on a mere click — a sensible default box you
@@ -427,10 +446,10 @@ function createPointer(
     const dragged = rectFromPoints(d.from, d.to);
     if (dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG)
       // cloudy stores the OUTER box (dragged + extent) so the dragged box is its inner edge
-      geom = { t: 'rect', rect: shapeRectFor(dragged, d.ellipse, def.style), ellipse: d.ellipse };
+      geom = { t: 'rect', rect: shapeRectFor(dragged, d.ellipse, style), ellipse: d.ellipse };
   } else if (d.g === 'create-line') {
     if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG)
-      geom = { t: 'line', a: d.from, b: d.to, ends: def.endings };
+      geom = { t: 'line', a: d.from, b: d.to, ends: def.lineEndings };
   } else {
     // create-ink: keep it only if the pen actually travelled (not a stray click)
     const b = unionRect(d.strokes.flat());
@@ -446,7 +465,10 @@ function createPointer(
     pon: d.pon,
     subtype: d.subtype,
     geom,
-    style: def.style,
+    style,
+    // A text kind carries its text styling from birth, so the tool's font
+    // defaults actually apply to what you draw.
+    ...(geom.t === 'text' ? { text: textStyleFromProps(def) } : {}),
     locked: false,
     source: 'vector',
   };
@@ -533,7 +555,7 @@ function calloutPointer(
   if (d?.g !== 'create-callout' || d.step !== 'box' || !d.boxFrom) return [m, []];
   const rect = calloutBox(d); // the SAME box the preview showed
   const def = defaultsFor(m, 'free-text-callout');
-  const ending = def.endings.end !== 'none' ? def.endings.end : 'open-arrow';
+  const ending = def.lineEndings.end !== 'none' ? def.lineEndings.end : 'open-arrow';
   const id = `tmp:${m.seq + 1}`;
   const annot: Annot = {
     id,
@@ -541,7 +563,8 @@ function calloutPointer(
     pon: d.pon,
     subtype: 'free-text',
     geom: { t: 'text', rect, callout: { tip: d.tip, knee: d.knee, ending } },
-    style: def.style,
+    style: styleFromProps(def),
+    text: textStyleFromProps(def),
     locked: false,
     source: 'vector',
   };
@@ -570,7 +593,7 @@ function finishPolyCreate(m: Model): [Model, Effect[]] {
     t: 'poly',
     points: d.points,
     closed: d.closed,
-    ends: d.closed ? undefined : def.endings,
+    ends: d.closed ? undefined : def.lineEndings,
   };
   const id = `tmp:${m.seq + 1}`;
   const annot: Annot = {
@@ -579,7 +602,7 @@ function finishPolyCreate(m: Model): [Model, Effect[]] {
     pon: d.pon,
     subtype: d.subtype,
     geom,
-    style: def.style,
+    style: styleFromProps(def),
     locked: false,
     source: 'vector',
   };
@@ -628,7 +651,7 @@ function createMarkup(
     pon,
     subtype,
     geom: { t: 'quads', quads },
-    style: defaultsFor(m, subtype).style,
+    style: styleFromProps(defaultsFor(m, subtype)),
     locked: false,
     source: 'vector',
   };
@@ -656,7 +679,7 @@ function createCaret(m: Model, pon: Annot['pon'], textEndRect: Rect): [Model, Ef
     pon,
     subtype: 'caret',
     geom: { t: 'caret', rect: caretRectFromTextEnd(textEndRect) },
-    style: def.style,
+    style: styleFromProps(def),
     locked: false,
     source: 'vector',
   };
@@ -688,43 +711,34 @@ function setMarkupPreview(
   return [{ ...m, preview: { subtype, byPage } }, []];
 }
 
-function setStyle(m: Model, patch: Partial<Style>): [Model, Effect[]] {
-  // No selection → set the base style new annotations inherit (the "current style").
-  if (!m.selected.length) return [{ ...m, style: { ...m.style, ...patch } }, []];
-  // With a selection → restyle ONLY those annotations. Crucially, leave the base
-  // style untouched: editing existing annotations must not change what the next
-  // drawn annotation looks like (the base is the fallback under every tool default).
-  const byId = { ...m.byId };
-  const fx: Effect[] = [];
-  for (const id of m.selected) {
-    byId[id] = toVector({ ...byId[id], style: { ...byId[id].style, ...patch } });
-    fx.push({ fx: 'patch', id });
-  }
-  return [{ ...m, byId }, fx];
-}
-
-function setEndings(m: Model, patch: Partial<LineEndings>): [Model, Effect[]] {
+/**
+ * Apply a flat property patch to the current selection. Each member takes only
+ * the keys its KIND declares (see `applyProps` — routing to `style`, `geom.ends`
+ * or `text` happens there) and ignores the rest, so one patch restyles a mixed
+ * selection. Changed members flip to `vector` (we own the appearance now) and
+ * emit one engine patch each. The base style / tool defaults are NEVER touched:
+ * editing existing annotations must not change what the next drawn one looks like.
+ */
+function setProps(m: Model, patch: AnnotationPropsPatch): [Model, Effect[]] {
   if (!m.selected.length) return [m, []];
   const byId = { ...m.byId };
   const fx: Effect[] = [];
   for (const id of m.selected) {
     const a = byId[id];
-    const g = a?.geom;
-    if (!g || (g.t !== 'line' && g.t !== 'poly')) continue;
-    if (g.t === 'poly' && g.closed) continue; // polygons carry no /LE endings
-    const ends: LineEndings = { ...(g.ends ?? NO_ENDINGS), ...patch };
-    byId[id] = toVector({ ...a, geom: { ...g, ends } });
+    if (!a) continue;
+    const next = applyProps(a, patch);
+    if (!next) continue; // locked, or no declared key in the patch
+    byId[id] = toVector(next);
     fx.push({ fx: 'patch', id });
   }
-  return [{ ...m, byId }, fx];
+  return fx.length ? [{ ...m, byId }, fx] : [m, []];
 }
 
-function setDefaults(m: Model, subtype: Subtype, patch: ToolDefaults): [Model, Effect[]] {
+function setDefaults(m: Model, subtype: Subtype, patch: AnnotationPropsPatch): [Model, Effect[]] {
   const prev = m.defaults[subtype] ?? {};
-  const next: ToolDefaults = {
-    style: { ...prev.style, ...patch.style },
-    endings: { ...prev.endings, ...patch.endings },
-  };
+  const next: AnnotationPropsPatch = { ...prev, ...patch };
+  // Endings merge per side, so `{ end: 'open-arrow' }` keeps a configured start.
+  if (patch.lineEndings) next.lineEndings = { ...prev.lineEndings, ...patch.lineEndings };
   return [{ ...m, defaults: { ...m.defaults, [subtype]: next } }, []];
 }
 
@@ -755,7 +769,7 @@ function rotateSelection(m: Model, deltaDeg: number): [Model, Effect[]] {
   const byId = { ...m.byId };
   const fx: Effect[] = [];
   for (const id of ids) {
-    byId[id] = toVector({ ...byId[id], geom: geomRotateAbout(byId[id].geom, pivot, deltaDeg) });
+    byId[id] = ownGeometry({ ...byId[id], geom: geomRotateAbout(byId[id].geom, pivot, deltaDeg) });
     fx.push({ fx: 'patch', id });
   }
   return [{ ...m, byId }, fx];
@@ -768,7 +782,7 @@ function resetRotation(m: Model): [Model, Effect[]] {
   for (const id of m.selected) {
     const a = byId[id];
     if (!a || a.locked || geomRotation(a.geom) === 0) continue;
-    byId[id] = toVector({ ...a, geom: geomResetRotation(a.geom) });
+    byId[id] = ownGeometry({ ...a, geom: geomResetRotation(a.geom) });
     fx.push({ fx: 'patch', id });
   }
   return fx.length ? [{ ...m, byId }, fx] : [m, []];

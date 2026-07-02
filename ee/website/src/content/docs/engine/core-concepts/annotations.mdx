@@ -140,6 +140,62 @@ await page.annotations.update(note.ref, { subtype: note.subtype, flags: { readOn
 Available flags: `invisible`, `hidden`, `print`, `noZoom`, `noRotate`, `noView`,
 `readOnly`, `locked`, `toggleNoView`, `lockedContents`.
 
+## Rendering annotations
+
+Every annotation carries its visual as an appearance stream inside the PDF. To display
+them, batch-render a page's appearances into images:
+
+```ts
+const { appearances } = await page.annotations.renderAppearanceImages({ scale: 2 });
+
+for (const ap of appearances) {
+  // ap.ref   — which annotation this is
+  // ap.rect  — WHERE to place it (PDF points, y-up)
+  // ap.image — a lazy image handle; ap.image.objectUrl() gives you a blob: URL
+}
+```
+
+**One convention to know:** when an annotation's DTO carries **both** `rotation` and
+`unrotatedRect` (the box-family kinds — square, circle, free text, stamp), its
+appearance renders **rotation-stripped**: `ap.rect` is the logical `unrotatedRect` and
+the image is the flat content mapped into it. You re-apply that `rotation` as a
+transform about the box centre. Everything else — line, polyline, polygon, ink (their
+rotation is pre-baked into the geometry) and annotations from other tools — comes back
+as-is, placed by `ap.rect`, no transform needed.
+
+```tsx
+const { url } = await ap.image.objectUrl();
+// `annotation` is the matching entry from list() — ref, rotation, etc.
+const stripped = 'unrotatedRect' in annotation && annotation.unrotatedRect && annotation.rotation;
+<img
+  src={url}
+  style={{
+    position: 'absolute',
+    /* place by ap.rect, converted to your view coordinates */
+    transform: stripped ? `rotate(${annotation.rotation}deg)` : undefined,
+    transformOrigin: 'center',
+  }}
+/>;
+```
+
+This split is what makes interactions cheap:
+
+- **Rotating** an annotation never needs a re-render — the image is rotation-invariant;
+  only your transform changes.
+- **Moving** never needs a re-render — only the placement changes.
+- **Resizing** can stretch the existing image live during the gesture, then fetch once
+  after committing the new `rect` (the engine re-fits the appearance natively).
+
+Re-render appearances when the *content* changed — a committed geometry edit, a style
+patch, a replaced stamp `source` — or when your zoom level changes and you want a
+sharper raster (`scale`).
+
+<Callout type="info">
+  If you use the viewer packages (`plugin-annotation` + a framework adapter), all of
+  this is wired for you. This section is for rendering annotations yourself against the
+  raw engine.
+</Callout>
+
 ## Edit sessions (cloud)
 
 On the cloud, structural edits addressed by **index** (a delete or move that shifts the

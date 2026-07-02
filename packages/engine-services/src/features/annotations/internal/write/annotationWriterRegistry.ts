@@ -1,8 +1,8 @@
 import {
   EngineError,
   EngineErrorCode,
-  type AnnotationDraft,
-  type AnnotationPatch,
+  type WireAnnotationDraft,
+  type WireAnnotationPatch,
 } from '@embedpdf/engine-core/runtime';
 import type {
   CaretDraft,
@@ -17,6 +17,8 @@ import type {
   PolygonPatch,
   PolylineDraft,
   PolylinePatch,
+  StampWireDraft,
+  StampWirePatch,
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
@@ -28,6 +30,7 @@ import {
   isFreeTextSubtype,
 } from './writeFreeTextAnnotation';
 import { applyInkDraft, applyInkPatch, isInkSubtype } from './writeInkAnnotation';
+import { applyStampDraft, applyStampPatch, isStampSubtype } from './writeStampAnnotation';
 import { applyLineDraft, applyLinePatch, isLineSubtype } from './writeLineAnnotation';
 import {
   applyShapeDraft,
@@ -64,7 +67,7 @@ export function applyDraft(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
-  draft: AnnotationDraft,
+  draft: WireAnnotationDraft,
   ctx?: AnnotationWriteContext,
 ): void {
   if (isTextMarkupSubtype(draft.subtype)) {
@@ -99,6 +102,10 @@ export function applyDraft(
     applyCaretDraft(fn, mem, annotPtr, draft as CaretDraft);
     return;
   }
+  if (isStampSubtype(draft.subtype)) {
+    applyStampDraft(fn, mem, annotPtr, draft as StampWireDraft, ctx);
+    return;
+  }
   // Should be unreachable: AnnotationDraft is the closed union of writable
   // subtypes (which today is exactly the four text-markup kinds — the
   // unsupported kind has Draft = never). The check is here so a future
@@ -114,7 +121,7 @@ export function applyPatch(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
   annotPtr: Ptr,
-  patch: AnnotationPatch,
+  patch: WireAnnotationPatch,
   ctx?: AnnotationWriteContext,
 ): void {
   if (isTextMarkupSubtype(patch.subtype)) {
@@ -147,6 +154,10 @@ export function applyPatch(
   }
   if (isCaretSubtype(patch.subtype)) {
     applyCaretPatch(fn, mem, annotPtr, patch as CaretPatch);
+    return;
+  }
+  if (isStampSubtype(patch.subtype)) {
+    applyStampPatch(fn, mem, annotPtr, patch as StampWirePatch, ctx);
     return;
   }
   throw new EngineError(

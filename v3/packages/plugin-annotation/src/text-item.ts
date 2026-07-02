@@ -5,9 +5,7 @@
  * the plugin (not the portable core) because the font→CSS stack mapping and the
  * engine `Color`→CSS seam are web concerns, shared across every web framework.
  */
-import { textBoxes, type Model } from '@embedpdf-x/annotation-core';
-import type { FreeTextAnnotationDTO } from '@embedpdf/engine-core/runtime';
-import { colorToCss } from './repository';
+import { initialTextStyle, textBoxes, type Model } from '@embedpdf-x/annotation-core';
 import type { TextItem } from './types';
 
 /** Map a free-text `/DA` font to a CSS font-family. A standard PDF font → a web
@@ -29,9 +27,9 @@ const cssFontFor = (font: string): string => STANDARD_FONT_CSS[font] ?? `"${font
 export function buildTextItems(m: Model, pon: number): TextItem[] {
   return textBoxes(m, pon).map((tb) => {
     const a = m.byId[tb.id];
-    // Narrow the canonical DTO union by subtype — no ad-hoc cast.
-    const ft = a?.data?.subtype === 'free-text' ? (a.data as FreeTextAnnotationDTO) : undefined;
-    const size = ft?.fontSize ?? 14;
+    // `text`/`style` are the OPTIMISTIC content projections (a props edit lands
+    // here before the engine round-trips), so the editor restyles instantly.
+    const t = a?.text ?? initialTextStyle;
     return {
       id: tb.id,
       ref: a?.ref ?? null,
@@ -40,13 +38,13 @@ export function buildTextItems(m: Model, pon: number): TextItem[] {
       editing: tb.editing,
       ...(tb.rot ? { rot: tb.rot } : {}),
       css: {
-        fontFamily: cssFontFor(ft?.fontFamily ?? 'helvetica'),
-        fontSize: size,
-        lineHeight: size, // CPVT lays out free-text at line-height ≈ font size
-        color: colorToCss(ft?.fontColor ?? ft?.color ?? { r: 0, g: 0, b: 0 }),
-        align: ft?.textAlign ?? 'left',
+        fontFamily: cssFontFor(t.fontFamily),
+        fontSize: t.fontSize,
+        lineHeight: t.fontSize, // CPVT lays out free-text at line-height ≈ font size
+        color: t.fontColor,
+        align: t.textAlign,
         padding: 2,
-        background: ft?.interiorColor ? colorToCss(ft.interiorColor) : null,
+        background: a?.style.interiorColor ?? null,
       },
     };
   });

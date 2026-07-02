@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { deflateSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
@@ -743,6 +744,107 @@ describe('Phase 5 layer mutation pipeline', () => {
     }
   });
 
+  test('multipart stamp create: body part + resource part → parsed, persisted, version bumped', async () => {
+    const tenantId = 'tenant-layer-multipart';
+    const docId = 'doclayermut010';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 2 });
+
+    const form = new FormData();
+    form.append(
+      'body',
+      JSON.stringify({
+        subtype: 'stamp',
+        rect: { left: 100, bottom: 500, right: 260, top: 580 },
+        source: { resource: 'r0' },
+        fit: 'contain',
+      }),
+    );
+    form.append('resource:r0', new Blob([tinyPng()], { type: 'image/png' }), 'stamp.png');
+
+    const res = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
+        body: form,
+      },
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe(NO_STORE);
+    const body = (await res.json()) as { meta: { cacheDelta: { docVersion: number } } };
+    expect(body.meta.cacheDelta.docVersion).toBe(2);
+
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirstOrThrow();
+    expect(layer.current_version).toBe(1); // artifact persisted
+  });
+
+  test('multipart create: resource that sniffs to no supported format → 400, nothing committed', async () => {
+    const tenantId = 'tenant-layer-multipart';
+    const docId = 'doclayermut011';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+
+    const form = new FormData();
+    form.append(
+      'body',
+      JSON.stringify({
+        subtype: 'stamp',
+        rect: { left: 0, bottom: 0, right: 10, top: 10 },
+        source: { resource: 'r0' },
+      }),
+    );
+    form.append(
+      'resource:r0',
+      new Blob([new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])], { type: 'image/png' }),
+      'not-a-png.png',
+    );
+
+    const res = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
+        body: form,
+      },
+    );
+    expect(res.status).toBe(400);
+
+    const layer = await fx.db
+      .selectFrom('layers')
+      .selectAll()
+      .where('doc_id', '=', docId)
+      .where('name', '=', layerName)
+      .executeTakeFirst();
+    expect(layer?.doc_version ?? 1).toBe(1); // nothing advanced
+  });
+
+  test('multipart create without a body part → 400', async () => {
+    const tenantId = 'tenant-layer-multipart';
+    const docId = 'doclayermut012';
+    const layerName = 'alice';
+    await seedDocument(fx, tenantId, docId, { pageCount: 1 });
+
+    const form = new FormData();
+    form.append('resource:r0', new Blob([tinyPng()], { type: 'image/png' }), 'stamp.png');
+
+    const res = await fetch(
+      `${fx.baseUrl}/v1/docs/${docId}/layers/${layerName}/annotations/pages/1/items`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${docToken(tenantId, docId, layerName)}` },
+        body: form,
+      },
+    );
+    expect(res.status).toBe(400);
+  });
+
   test('deleting every page is rejected and commits nothing', async () => {
     const tenantId = 'tenant-layer-pages';
     const docId = 'doclayermut008';
@@ -936,6 +1038,55 @@ async function seedLayerPage(
       updated_at: now,
     })
     .execute();
+}
+
+/** Minimal valid 2×2 RGBA PNG built from scratch (must pass the server's magic-byte sniff). */
+function tinyPng(): Uint8Array {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc32 = (bytes: Uint8Array) => {
+    let c = 0xffffffff;
+    for (const b of bytes) c = crcTable[(c ^ b) & 0xff]! ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type: string, data: Uint8Array) => {
+    const out = new Uint8Array(12 + data.length);
+    const view = new DataView(out.buffer);
+    view.setUint32(0, data.length);
+    out.set(
+      [...type].map((ch) => ch.charCodeAt(0)),
+      4,
+    );
+    out.set(data, 8);
+    view.setUint32(8 + data.length, crc32(out.subarray(4, 8 + data.length)));
+    return out;
+  };
+  const ihdr = new Uint8Array(13);
+  const ihdrView = new DataView(ihdr.buffer);
+  ihdrView.setUint32(0, 2);
+  ihdrView.setUint32(4, 2);
+  ihdr.set([8, 6, 0, 0, 0], 8);
+  const raw = new Uint8Array(2 * (1 + 2 * 4));
+  raw.set([255, 0, 0, 255, 255, 0, 0, 255], 1);
+  raw.set([255, 0, 0, 255, 255, 0, 0, 255], 1 + 1 + 8);
+  const signature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const idat = new Uint8Array(deflateSync(raw));
+  const parts = [
+    signature,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', idat),
+    chunk('IEND', new Uint8Array(0)),
+  ];
+  const png = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+  let offset = 0;
+  for (const p of parts) {
+    png.set(p, offset);
+    offset += p.length;
+  }
+  return png;
 }
 
 function highlightDraft(): unknown {

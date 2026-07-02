@@ -3,6 +3,8 @@ import {
   EngineError,
   EngineErrorCode,
   createPageImageHandle,
+  normalizeAnnotationDraft,
+  normalizeAnnotationPatch,
   wirePack,
   type AnnotationAppearanceImage,
   type AnnotationAppearanceImageOptions,
@@ -199,21 +201,30 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
 
     const docId = this.docId;
     const pon = this.pageObjectNumber;
-    const submission = this.queue.enqueue<WorkerResultPayload>(
-      {
-        buildPack: (jobId: JobId) =>
-          wirePack({
-            kind: 'annotations.create',
-            jobId,
-            docId,
-            pageObjectNumber: pon,
-            draft,
-            ...(actor ? { actor } : {}),
-          }),
-      },
-      { priority: Priority.HIGH },
-    );
     return AbortablePromise.run<AnnotationCreateResult>(async (signal) => {
+      // Split inline BinarySource fields (stamp images, …) into the wire
+      // draft + resource buffers. Async because Blob bytes resolve async;
+      // the buffers ride the wirePack transfer list zero-copy.
+      const { wire, resources } = await normalizeAnnotationDraft(draft);
+      const resourceBuffers = Object.values(resources).map((r) => r.bytes);
+      const submission = this.queue.enqueue<WorkerResultPayload>(
+        {
+          buildPack: (jobId: JobId) =>
+            wirePack(
+              {
+                kind: 'annotations.create',
+                jobId,
+                docId,
+                pageObjectNumber: pon,
+                draft: wire,
+                ...(resourceBuffers.length > 0 ? { resources } : {}),
+                ...(actor ? { actor } : {}),
+              },
+              resourceBuffers,
+            ),
+        },
+        { priority: Priority.HIGH },
+      );
       const onAbort = () => submission.abort(signal.reason);
       if (signal.aborted) onAbort();
       else signal.addEventListener('abort', onAbort, { once: true });
@@ -255,17 +266,24 @@ export class LocalPageAnnotationsService implements PageAnnotationsService {
       const actor = this.guard.actorForUpdate(target.groupId, patchGroupId);
 
       const docId = this.docId;
+      // Same binary split as create(): wire patch + transferable buffers.
+      const { wire, resources } = await normalizeAnnotationPatch(patch);
+      const resourceBuffers = Object.values(resources).map((r) => r.bytes);
       const submission = this.queue.enqueue<WorkerResultPayload>(
         {
           buildPack: (jobId: JobId) =>
-            wirePack({
-              kind: 'annotations.update',
-              jobId,
-              docId,
-              ref,
-              patch,
-              ...(actor ? { actor } : {}),
-            }),
+            wirePack(
+              {
+                kind: 'annotations.update',
+                jobId,
+                docId,
+                ref,
+                patch: wire,
+                ...(resourceBuffers.length > 0 ? { resources } : {}),
+                ...(actor ? { actor } : {}),
+              },
+              resourceBuffers,
+            ),
         },
         { priority: Priority.HIGH },
       );

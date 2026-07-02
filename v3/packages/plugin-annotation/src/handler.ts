@@ -7,6 +7,26 @@ const isPolyTool = (subtype: Subtype): boolean => subtype === 'polygon' || subty
 const isCalloutTool = (subtype: Subtype): boolean => subtype === 'free-text-callout';
 
 /**
+ * Click-to-place for the stamp tool. The payload is armed via
+ * `capability.armStamp(...)`; each click places one stamp centred on the
+ * point (the tool stays active for repeat placement — v2 rubber-stamp
+ * behaviour). No drag gesture: a stamp's size comes from its content's
+ * intrinsic aspect, not the pointer. Priority above the edit handler so a
+ * click over an existing annotation still places rather than selects.
+ */
+export function createStampHandler(anno: AnnotationHostCapability): InteractionHandler {
+  return {
+    id: 'annotation-stamp',
+    priority: 110,
+    enabledFor: (t) => t.enables.has('annotation-stamp'),
+    onDown: (s) => {
+      if (!s.page) return false;
+      return anno.placeArmedStamp(s.page.pon, s.page.point);
+    },
+  };
+}
+
+/**
  * Ambient editing: live under the `annotation-edit` tag, which BOTH the pointer
  * and pan tools enable — so you select/move/resize in any navigation mode (Adobe
  * behaviour). It captures only over an annotation/handle; over empty it

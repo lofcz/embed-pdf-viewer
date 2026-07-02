@@ -1,16 +1,18 @@
 import { randomBytes } from 'node:crypto';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   EngineError,
   EngineErrorCode,
   checkSetGroup,
+  sniffBinaryMetadata,
   wirePack,
   type AnnotationActor,
   type AnnotationAppearanceImageOptions,
   type AnnotationAppearanceManifest,
   type AnnotationAppearanceManifestEntry,
-  type AnnotationDraft,
-  type AnnotationPatch,
+  type WireAnnotationDraft,
+  type WireAnnotationPatch,
+  type WireResourceMap,
   type AnnotationRef,
   type CollabTarget,
   type PageNetworkRenderFormat,
@@ -300,9 +302,10 @@ export async function registerAnnotationRoutes(
     // no create-collab filter is present.
     const target = targetForSelfCreate(accessCtx.jwt);
     const ctx = requireLayerCollabAction(req, docId, layerName, 'create', target, pdfBits);
-    const draft = parseOrInvalidArg<AnnotationDraft>(
-      AnnotationDraftSchema as unknown as SchemaLike<AnnotationDraft>,
-      req.body,
+    const { body, resources } = await readMutationEnvelope(req);
+    const draft = parseOrInvalidArg<WireAnnotationDraft>(
+      AnnotationDraftSchema as unknown as SchemaLike<WireAnnotationDraft>,
+      body,
       'request body',
     );
     const actor = actorFromJwt(ctx.jwt);
@@ -310,7 +313,14 @@ export async function registerAnnotationRoutes(
     setNoStore(reply);
     return layerService.createAnnotation(
       ctx,
-      { docId, layerName, pageObjectNumber, draft, actor },
+      {
+        docId,
+        layerName,
+        pageObjectNumber,
+        draft,
+        actor,
+        ...(resources ? { resources } : {}),
+      },
       abortSignalFromRequest(req),
     );
   });
@@ -373,7 +383,9 @@ export async function registerAnnotationRoutes(
       const pageObjectNumber = parsePageObjectNumber(pon);
       const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
       const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
-      const body = req.body as Record<string, unknown> | null | undefined;
+      const envelope = await readMutationEnvelope(req);
+      const body = envelope.body as Record<string, unknown> | null | undefined;
+      const resources = envelope.resources;
       const signal = abortSignalFromRequest(req);
 
       if (annotKey === 'index') {
@@ -406,14 +418,18 @@ export async function registerAnnotationRoutes(
           return layerService.deleteAnnotation(ctx, { docId, layerName, ref }, signal);
         }
 
-        const patch = parseOrInvalidArg<AnnotationPatch>(
-          AnnotationPatchSchema as unknown as SchemaLike<AnnotationPatch>,
+        const patch = parseOrInvalidArg<WireAnnotationPatch>(
+          AnnotationPatchSchema as unknown as SchemaLike<WireAnnotationPatch>,
           body?.patch,
           'body.patch',
         );
         const actor = buildUpdateActor(ctx.jwt, target, patch, pdfBits);
         setNoStore(reply);
-        return layerService.updateAnnotation(ctx, { docId, layerName, ref, patch, actor }, signal);
+        return layerService.updateAnnotation(
+          ctx,
+          { docId, layerName, ref, patch, actor, ...(resources ? { resources } : {}) },
+          signal,
+        );
       }
 
       const ref = refFromKey(annotKey, pageObjectNumber);
@@ -426,14 +442,18 @@ export async function registerAnnotationRoutes(
         signal,
       );
       const ctx = requireLayerCollabAction(req, docId, layerName, 'update', target, pdfBits);
-      const patch = parseOrInvalidArg<AnnotationPatch>(
-        AnnotationPatchSchema as unknown as SchemaLike<AnnotationPatch>,
+      const patch = parseOrInvalidArg<WireAnnotationPatch>(
+        AnnotationPatchSchema as unknown as SchemaLike<WireAnnotationPatch>,
         body?.patch,
         'body.patch',
       );
       const actor = buildUpdateActor(ctx.jwt, target, patch, pdfBits);
       setNoStore(reply);
-      return layerService.updateAnnotation(ctx, { docId, layerName, ref, patch, actor }, signal);
+      return layerService.updateAnnotation(
+        ctx,
+        { docId, layerName, ref, patch, actor, ...(resources ? { resources } : {}) },
+        signal,
+      );
     },
   );
 
@@ -532,6 +552,92 @@ function targetForSelfCreate(jwt: RequestJwtContext): CollabTarget {
  * (anonymous tenant tokens) — the worker still stamps /M but skips /T
  * and /EMBD_Metadata.
  */
+/** Hard cap on binary parts per mutation (a stamp carries exactly one). */
+const MAX_MUTATION_RESOURCES = 8;
+
+interface MutationEnvelope {
+  body: unknown;
+  resources?: WireResourceMap;
+}
+
+/**
+ * Read a mutation request body in either of its two accepted forms:
+ *
+ *   - `application/json` — the body IS the JSON payload (unchanged fast
+ *     path; `resources` stays undefined).
+ *   - `multipart/form-data` — a `body` field holding that exact same JSON,
+ *     plus `resource:{key}` file parts carrying binary payloads (stamp
+ *     images today). The mirror of the appearance-render response shape.
+ *
+ * Every resource is magic-byte sniffed here — the declared content type is
+ * never trusted, and the sniffed mime type is what travels to the worker.
+ * Today's allowlist (PNG/JPEG/PDF) matches the only binary-carrying kind;
+ * when file-attachment lands this check moves to a per-kind policy.
+ * Oversize parts are rejected by `@fastify/multipart`'s `fileSize` limit
+ * (thrown from `toBuffer()`).
+ */
+async function readMutationEnvelope(req: FastifyRequest): Promise<MutationEnvelope> {
+  if (!req.isMultipart()) {
+    return { body: req.body };
+  }
+  let body: unknown;
+  let sawBody = false;
+  const resources: WireResourceMap = {};
+  let resourceCount = 0;
+  for await (const part of req.parts()) {
+    if (part.type === 'field') {
+      if (part.fieldname !== 'body') continue;
+      try {
+        body = JSON.parse(String(part.value));
+        sawBody = true;
+      } catch {
+        throw new EngineError(EngineErrorCode.InvalidArg, `multipart 'body' part: invalid JSON`);
+      }
+      continue;
+    }
+    if (!part.fieldname.startsWith('resource:')) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `unexpected multipart file part '${part.fieldname}' (expected 'resource:{key}')`,
+      );
+    }
+    const key = part.fieldname.slice('resource:'.length);
+    if (!key) {
+      throw new EngineError(EngineErrorCode.InvalidArg, 'multipart resource part with empty key');
+    }
+    if (++resourceCount > MAX_MUTATION_RESOURCES) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `too many resource parts (max ${MAX_MUTATION_RESOURCES})`,
+      );
+    }
+    const buf = await part.toBuffer();
+    const bytes = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+    const meta = sniffBinaryMetadata(bytes);
+    if (!meta) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `resource '${key}': unsupported binary format (expected PNG, JPEG, or PDF)`,
+      );
+    }
+    resources[key] = {
+      bytes,
+      mimeType: meta.mimeType,
+      ...(part.filename ? { name: part.filename } : {}),
+    };
+  }
+  if (!sawBody) {
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      `multipart mutation requires a 'body' JSON part`,
+    );
+  }
+  return {
+    body,
+    ...(resourceCount > 0 ? { resources } : {}),
+  };
+}
+
 function actorFromJwt(jwt: RequestJwtContext): AnnotationActor | undefined {
   const id = jwt.identity;
   const actor: AnnotationActor = {
@@ -562,7 +668,7 @@ function actorFromJwt(jwt: RequestJwtContext): AnnotationActor | undefined {
 function buildUpdateActor(
   jwt: RequestJwtContext,
   currentTarget: CollabTarget,
-  patch: AnnotationPatch,
+  patch: WireAnnotationPatch,
   pdfBits: PdfBits,
 ): AnnotationActor | undefined {
   const patchedGroupId = (patch as { groupId?: string }).groupId;

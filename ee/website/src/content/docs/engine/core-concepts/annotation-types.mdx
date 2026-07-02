@@ -297,6 +297,53 @@ await page.annotations.create({
 | `opacity` | Transparency `0`–`1` | no | `1` |
 | `rectDifferences` | Inset of the drawn caret from `rect` | no | none |
 
+## Stamp
+
+A `stamp` places an image — or a vector appearance — inside `rect`. You pass the bytes
+inline as `source`; there is no separate upload or attachment step. The format is
+detected from the bytes themselves (never from a declared mime type), and each format
+takes the best path into the PDF:
+
+- **PNG** — decoded natively, transparency preserved.
+- **JPEG** — embedded as-is (no re-encoding).
+- **Single-page PDF** — cloned in as a *vector* appearance that stays crisp at any zoom.
+
+```ts
+// From a file input, a fetch, or raw bytes — Blob and Uint8Array both work.
+await page.annotations.create({
+  subtype: 'stamp',
+  rect: { left: 72, bottom: 640, right: 222, top: 715 },
+  source: file, // PNG, JPEG, or single-page PDF bytes
+  fit: 'contain',
+});
+```
+
+| Field | What it is | Required | Default |
+| :--- | :--- | :--- | :--- |
+| `rect` | Bounding box | yes | — |
+| `source` | The content bytes: `Blob`, `Uint8Array`, or `{ data, mimeType?, name? }` | yes | — |
+| `fit` | How the content maps into `rect` (see below) | no | `'contain'` |
+| `name` | Standard stamp label (`'Approved'`, `'Draft'`, `'Confidential'`, …) | no | none |
+
+`fit` uses the CSS `object-fit` vocabulary: `'contain'` preserves the aspect ratio and
+keeps the content fully visible, `'cover'` preserves the aspect ratio and fills the box
+(may crop), `'fill'` stretches to the box.
+
+The bytes are written into the stamp's appearance stream, so the document stays fully
+self-contained — it renders in any PDF viewer and survives download and re-open with no
+side-car storage. The call is identical on the local and cloud engines.
+
+Changing the geometry later (an `update` with a new `rect`, or a resize in the viewer)
+re-fits the existing appearance — the image is never re-uploaded or re-encoded. Sending
+a new `source` in an `update` replaces the content:
+
+```ts
+await page.annotations.update(ref, { subtype: 'stamp', source: otherImage });
+```
+
+Unsupported bytes (anything that isn't PNG, JPEG, or PDF) reject with `InvalidArg`
+before any work happens.
+
 ## Cloudy borders
 
 `square`, `circle`, and `polygon` support a cloudy (scalloped) border instead of a

@@ -20,7 +20,22 @@ export {
 export type { TextBox } from './view';
 export { hitTest, cursorAt, isSelectable, canMove, type Target } from './hit';
 export { groupKeyOf, groupMembers, expandGroups, groupCaps, type GroupCaps } from './group';
-export { KINDS, capsFor, type KindCaps, type AnnotationKind } from './kinds';
+export {
+  KINDS,
+  capsFor,
+  propsFor,
+  type KindCaps,
+  type AnnotationKind,
+  type PropSpec,
+} from './kinds';
+export {
+  applyProps,
+  initialTextStyle,
+  readProp,
+  sharedProps,
+  styleFromProps,
+  textStyleFromProps,
+} from './props';
 export {
   geomScene,
   geomBounds,
@@ -68,6 +83,8 @@ export { cloudyPath, cloudyBorderExtent } from './cloudy';
 export { scene } from './scene';
 export type {
   Annot,
+  AnnotationProps,
+  AnnotationPropsPatch,
   Border,
   Callout,
   ChromeNode,
@@ -81,6 +98,7 @@ export type {
   Model,
   Msg,
   PointerInput,
+  PropKey,
   Quad,
   Rect,
   LineEnding,
@@ -91,6 +109,7 @@ export type {
   SceneNode,
   Style,
   Subtype,
-  ToolDefaults,
+  TextAlign,
+  TextStyle,
   Vec,
 } from './types';

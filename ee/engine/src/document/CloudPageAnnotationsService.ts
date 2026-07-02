@@ -4,6 +4,9 @@ import {
   EngineErrorCode,
   createPageImageHandle,
   encodeStableIdKey,
+  normalizeAnnotationDraft,
+  normalizeAnnotationPatch,
+  type WireResourceMap,
   type AnnotationAppearanceImage,
   type AnnotationAppearanceImageOptions,
   type AnnotationAppearanceImagesResult,
@@ -153,12 +156,21 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       );
     }
     return AbortablePromise.run<AnnotationCreateResult>(async (signal) => {
-      const result = await this.http.postJson(
-        wirePaths.layerPageAnnotationsCreate(this.docId, this.layerName, this.pageObjectNumber),
-        draft,
-        (raw) => AnnotationCreateResultSchema.parse(raw),
-        signal,
+      // Split inline BinarySource fields (stamp images, …) into the wire
+      // draft + binary resources. Without resources the request is the
+      // plain JSON POST it has always been; with resources it becomes
+      // multipart: a `body` JSON part + one `resource:{key}` part each —
+      // the mirror image of the appearance-render response.
+      const { wire, resources } = await normalizeAnnotationDraft(draft);
+      const path = wirePaths.layerPageAnnotationsCreate(
+        this.docId,
+        this.layerName,
+        this.pageObjectNumber,
       );
+      const parse = (raw: unknown) => AnnotationCreateResultSchema.parse(raw);
+      const result = hasResources(resources)
+        ? await this.http.postMultipartJson(path, buildMutationForm(wire, resources), parse, signal)
+        : await this.http.postJson(path, wire, parse, signal);
       return this.absorbMutation(result, 'annotation.created');
     });
   }
@@ -188,12 +200,8 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
         'index',
       );
       return AbortablePromise.run<AnnotationUpdateResult>(async (signal) => {
-        const result = await this.http.patchJson(
-          path,
-          { ref, patch },
-          (raw) => AnnotationUpdateResultSchema.parse(raw),
-          signal,
-        );
+        const { wire, resources } = await normalizeAnnotationPatch(patch);
+        const result = await this.patchMutation(path, { ref, patch: wire }, resources, signal);
         return this.absorbMutation(result, 'annotation.updated');
       });
     }
@@ -205,14 +213,24 @@ export class CloudPageAnnotationsService implements PageAnnotationsService {
       stableKey,
     );
     return AbortablePromise.run<AnnotationUpdateResult>(async (signal) => {
-      const result = await this.http.patchJson(
-        path,
-        { patch },
-        (raw) => AnnotationUpdateResultSchema.parse(raw),
-        signal,
-      );
+      const { wire, resources } = await normalizeAnnotationPatch(patch);
+      const result = await this.patchMutation(path, { patch: wire }, resources, signal);
       return this.absorbMutation(result, 'annotation.updated');
     });
+  }
+
+  /** PATCH as plain JSON, or as multipart when the patch carried binaries. */
+  private patchMutation(
+    path: string,
+    body: unknown,
+    resources: WireResourceMap,
+    signal: AbortSignal,
+  ): Promise<AnnotationUpdateResult> {
+    const parse = (raw: unknown) => AnnotationUpdateResultSchema.parse(raw);
+    if (hasResources(resources)) {
+      return this.http.patchMultipartJson(path, buildMutationForm(body, resources), parse, signal);
+    }
+    return this.http.patchJson(path, body, parse, signal);
   }
 
   delete(ref: AnnotationRef): AbortablePromise<AnnotationDeleteResult> {
@@ -394,4 +412,27 @@ function refToStableId(
     return { kind: 'objectNumber', value: ref.annotObjectNumber };
   }
   return { kind: 'nm', value: ref.nm };
+}
+
+function hasResources(resources: WireResourceMap): boolean {
+  return Object.keys(resources).length > 0;
+}
+
+/**
+ * Multipart envelope for mutations that carry binaries: part `body` holds
+ * the exact JSON the plain request would have been, plus one
+ * `resource:{key}` file part per binary payload. Mirrors the appearance
+ * response protocol (`manifest` part + named image parts) in reverse.
+ */
+function buildMutationForm(body: unknown, resources: WireResourceMap): FormData {
+  const form = new FormData();
+  form.append('body', JSON.stringify(body));
+  for (const [key, resource] of Object.entries(resources)) {
+    form.append(
+      `resource:${key}`,
+      new Blob([resource.bytes], { type: resource.mimeType ?? 'application/octet-stream' }),
+      resource.name ?? key,
+    );
+  }
+  return form;
 }
