@@ -129,7 +129,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       ref: a.ref,
       subtype: a.subtype,
       geom,
-      box: geomVisualBounds(geom, a.style.strokeWidth),
+      box: geomVisualBounds(geom, a.style.strokeWidth, a.style.border),
       apBox: effApBox(m, id),
       style: a.style,
       source: effSource(m, id),
@@ -175,7 +175,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
         ref: null,
         subtype: d.subtype,
         geom,
-        box: geomVisualBounds(geom, style.strokeWidth),
+        box: geomVisualBounds(geom, style.strokeWidth, style.border),
         style,
         source: 'ghost',
         selected: false,
@@ -196,7 +196,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       ref: null,
       subtype: d.subtype,
       geom,
-      box: geomVisualBounds(geom, style.strokeWidth),
+      box: geomVisualBounds(geom, style.strokeWidth, style.border),
       style,
       source: 'ghost',
       selected: false,
@@ -260,7 +260,7 @@ export function selectedItems(m: Model): RenderItem[] {
       ref: a.ref,
       subtype: a.subtype,
       geom,
-      box: geomVisualBounds(geom, a.style.strokeWidth),
+      box: geomVisualBounds(geom, a.style.strokeWidth, a.style.border),
       style: a.style,
       source: a.source,
       selected: true,
@@ -289,7 +289,7 @@ export function selectionKnob(m: Model, pon: number): { at: Vec; from: Vec } | n
   if (sel.length === 1) {
     const a = m.byId[sel[0]];
     if (!capsFor(a.subtype).rotatable) return null;
-    const obb = obbFromGeom(effGeom(m, sel[0]), a.style.strokeWidth);
+    const obb = obbFromGeom(effGeom(m, sel[0]), a.style.strokeWidth, a.style.border);
     return obb ? rotateKnob(obb.corners, ROTATE_KNOB_OFFSET) : null;
   }
   if (sel.length > 1 && groupCaps(m, sel).rotatable) {
@@ -310,12 +310,15 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
     const g = effGeom(m, sel[0]);
     const caps = capsFor(a.subtype);
     const rot = geomRotation(g);
-    const obb = caps.rotatable ? obbFromGeom(g, a.style.strokeWidth) : null;
+    const obb = caps.rotatable ? obbFromGeom(g, a.style.strokeWidth, a.style.border) : null;
     if (obb && rot !== 0) {
       // a tilted shape: draw the oriented box + the rotate knob off its top edge.
       nodes.push({ kind: 'obb', corners: obb.corners, angle: obb.angle });
     } else {
-      nodes.push({ kind: 'outline', rect: selectionBounds(g, a.style.strokeWidth) });
+      nodes.push({
+        kind: 'outline',
+        rect: selectionBounds(g, a.style.strokeWidth, a.style.border),
+      });
     }
     // handles for kinds that resize (box) or vertex-edit; anchored/markup show a
     // bare outline. `geomHandles` already places them on the rotated box.
@@ -349,7 +352,9 @@ export function selectionBoundsOnPage(m: Model, pon: number): Rect | null {
   // The rotated AABB: the axis-aligned box that encloses the ORIENTED selection
   // quad. For a tilted shape this tracks the live `rot`, so the upright floating
   // menu floats above the whole tilted shape instead of the (fixed) unrotated box.
-  const corners = sel.flatMap((id) => selectionQuad(effGeom(m, id), m.byId[id].style.strokeWidth));
+  const corners = sel.flatMap((id) =>
+    selectionQuad(effGeom(m, id), m.byId[id].style.strokeWidth, m.byId[id].style.border),
+  );
   return unionRect(corners);
 }
 

@@ -687,6 +687,55 @@ describe('annotation-core', () => {
       paint: { fill: '#eeeeee', stroke: '#000000', width: 3 },
     });
     expect(scene(item)[0].paint.cap).toBeUndefined(); // shapes stay sharp (only ink rounds)
+    expect(scene(item)[0].paint.join).toBeUndefined(); // solid border → default miter joins
+  });
+
+  it('scene() strokes a cloudy border with ROUND joins (PDFium `1 j` parity) — polygon and box alike', () => {
+    // The curl tails reverse direction by design; a miter join spikes at every
+    // seam. PDFium bakes cloudy APs with `1 j`, so the live paint must match.
+    const cloudyStyle = {
+      color: '#e5484d',
+      interiorColor: null,
+      strokeWidth: 4,
+      opacity: 1,
+      border: { kind: 'cloudy' as const, intensity: 2 },
+    };
+    const polygon: RenderItem = {
+      id: 'p',
+      ref: null,
+      subtype: 'polygon',
+      geom: {
+        t: 'poly',
+        points: [
+          { x: 20, y: 20 },
+          { x: 180, y: 40 },
+          { x: 100, y: 160 },
+        ],
+        closed: true,
+      },
+      box: { x: 0, y: 0, width: 200, height: 180 },
+      style: cloudyStyle,
+      source: 'vector',
+      selected: false,
+    };
+    const polyNodes = scene(polygon);
+    expect(polyNodes).toHaveLength(1); // ONE scalloped ring replaces the plain poly
+    expect(polyNodes[0].kind).toBe('path');
+    expect(polyNodes[0].paint.join).toBe('round');
+
+    const square: RenderItem = {
+      id: 's',
+      ref: null,
+      subtype: 'square',
+      geom: { t: 'rect', rect: { x: 0, y: 0, width: 120, height: 100 }, ellipse: false },
+      box: { x: 0, y: 0, width: 120, height: 100 },
+      style: cloudyStyle,
+      source: 'vector',
+      selected: false,
+    };
+    const sqNodes = scene(square);
+    expect(sqNodes[0].kind).toBe('path');
+    expect(sqNodes[0].paint.join).toBe('round');
   });
 
   it('freehand creates an ink annotation from a pointer drag; scene paints it stroke-only', () => {

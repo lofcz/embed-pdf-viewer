@@ -16,7 +16,7 @@
  * The internal math runs in PDFBox's y-UP frame; `PathBuilder` flips back to
  * y-down and translates into the box's content-space origin on the way out.
  */
-import type { Rect } from './types';
+import type { Rect, Vec } from './types';
 
 const ANGLE_180 = Math.PI;
 const ANGLE_90 = Math.PI / 2;
@@ -503,6 +503,32 @@ export function cloudyBorderExtent(
     ? ellipseCloudRadius(intensity, strokeWidth)
     : polygonCloudRadius(intensity, strokeWidth);
   return cr + strokeWidth / 2;
+}
+
+/**
+ * SVG path data for a cloudy POLYGON border, in ABSOLUTE content coordinates.
+ * Unlike the box kinds (whose scallops inset back INTO the outer box), a
+ * polygon's curls are centred ON the vertex path and reach OUTWARD by the cloud
+ * radius — the same rule PDFium's `GenerateCloudyPolygonPath` bakes into the
+ * /AP, so the live preview and the saved appearance agree. The visual therefore
+ * extends `cloudyBorderExtent` beyond the vertices (see `geomVisualBounds`).
+ *
+ * The v3 counterpart of v2's `generateCloudyPolygonPath` (same steps: y-flip,
+ * close the ring, run the polygon core). Stroke it with ROUND joins — the curl
+ * tails reverse direction by design, and `scene()` sets `join: 'round'` to
+ * match PDFium's `1 j`; a miter join turns every seam into a spike.
+ */
+export function cloudyPolyPath(points: Vec[], intensity: number, strokeWidth: number): string {
+  const out = new PathBuilder(0, 0);
+  // Content space is y-down; the PDFBox core runs y-up (PathBuilder flips back).
+  const ring = points.map((p) => ({ x: p.x, y: -p.y }));
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  // The impl walks edges of a CLOSED ring (first vertex repeated at the end).
+  if (first && (first.x !== last.x || first.y !== last.y)) ring.push({ ...first });
+  cloudyPolygonImpl(ring, false, intensity, strokeWidth, out);
+  out.close();
+  return out.build();
 }
 
 /**

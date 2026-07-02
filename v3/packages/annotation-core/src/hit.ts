@@ -70,7 +70,7 @@ const inRect = (b: Rect, p: Vec): boolean =>
 // highlighted, tilt included (a rotated box is grabbable across its tilted body, not
 // just its unrotated footprint; a thin arrow's whole outline box, arrowhead and all).
 const inBounds = (a: Annot, p: Vec): boolean =>
-  pointInQuad(p, selectionQuad(a.geom, a.style.strokeWidth));
+  pointInQuad(p, selectionQuad(a.geom, a.style.strokeWidth, a.style.border));
 
 /**
  * The union of the SELECTION bounds of every selected, movable annotation on a
@@ -87,7 +87,7 @@ function selectionUnionBounds(m: Model, pon: number): Rect | null {
   const corners: Vec[] = [];
   for (const id of sel) {
     const a = m.byId[id];
-    corners.push(...selectionQuad(a.geom, a.style.strokeWidth));
+    corners.push(...selectionQuad(a.geom, a.style.strokeWidth, a.style.border));
   }
   return unionRect(corners);
 }
@@ -99,7 +99,7 @@ export function groupUnionBounds(m: Model, pon: number): Rect | null {
   for (const id of m.selected) {
     const a = m.byId[id];
     if (!a || a.pon !== pon) continue;
-    corners.push(...selectionQuad(a.geom, a.style.strokeWidth));
+    corners.push(...selectionQuad(a.geom, a.style.strokeWidth, a.style.border));
   }
   return corners.length ? unionRect(corners) : null;
 }
@@ -125,7 +125,7 @@ export function hitTest(
       // The rotate knob (checked first — it floats outside the box, clear of the
       // handles). Only for kinds whose `caps.rotatable` is on.
       if (capsFor(a.subtype).rotatable) {
-        const obb = obbFromGeom(a.geom, a.style.strokeWidth);
+        const obb = obbFromGeom(a.geom, a.style.strokeWidth, a.style.border);
         if (obb) {
           const knob = rotateKnob(obb.corners, ROTATE_KNOB_OFFSET);
           if (Math.abs(knob.at.x - p.x) <= handleTol && Math.abs(knob.at.y - p.y) <= handleTol) {

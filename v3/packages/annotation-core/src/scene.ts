@@ -32,6 +32,11 @@ function shapePaint(style: Style, closed: boolean): Paint {
     width: style.strokeWidth,
     opacity: style.opacity,
     dash: style.border.kind === 'dashed' ? style.border.dash : undefined,
+    // Cloud curls end in deliberate direction reversals (the 22° curl-back
+    // tails), which a miter join blows up into spikes. PDFium bakes cloudy
+    // borders with `1 j` (round join) for exactly this reason — match it, so
+    // the live path and the baked /AP render the same seams.
+    ...(style.border.kind === 'cloudy' ? { join: 'round' as const } : {}),
   };
 }
 

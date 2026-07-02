@@ -15,7 +15,7 @@ import {
   type PointIn,
   type RectIn,
 } from '@embedpdf-x/geometry';
-import { cloudyBorderExtent, cloudyPath } from './cloudy';
+import { cloudyBorderExtent, cloudyPath, cloudyPolyPath } from './cloudy';
 import { endingNodes, endingPoints } from './endings';
 import type {
   Border,
@@ -268,6 +268,7 @@ export function geomResetRotation(g: Geom): Geom {
 export function obbFromGeom(
   g: Geom,
   strokeWidth: number,
+  border?: Border,
 ): { corners: [Vec, Vec, Vec, Vec]; angle: number } | null {
   if (!isRotatableGeom(g)) return null;
   const rot = geomRotation(g);
@@ -279,7 +280,7 @@ export function obbFromGeom(
   // vertex: reconstruct the local (as-authored) box from rot about the centroid.
   const c = centroidOf(g);
   const unrotated = rot ? geomRotateAbout(g, c, -rot) : g;
-  const localBox = selectionBounds(unrotated, strokeWidth);
+  const localBox = selectionBounds(unrotated, strokeWidth, border);
   const corners = rectCornerPoints(localBox).map((p) => rotatePoint(p, c, rot));
   return { corners: corners as [Vec, Vec, Vec, Vec], angle: rot };
 }
@@ -570,8 +571,22 @@ function endingSegs(g: Geom): EndingSeg[] {
  * the cloud thickens inward, never spilling past the handles. Lines / polylines /
  * ink have no box, so they expand by the stroke (+ endings) — the SAME math feeds
  * `geomScene`, so the visual box and what's drawn always agree.
+ *
+ * `border` matters for ONE case: a CLOSED poly with a cloudy border, whose curls
+ * are centred on the vertex path and reach OUTWARD (there is no outer box to
+ * inset into) — the bounds grow by the cloud extent, and the engine `/Rect`
+ * (via `geomPdfBounds`) grows with them so the baked scallops are never clipped.
  */
-export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
+export function geomVisualBounds(g: Geom, strokeWidth: number, border?: Border): Rect {
+  if (g.t === 'poly' && g.closed && border?.kind === 'cloudy') {
+    // Corner curls are arcs of the cloud radius centred at the vertices, and the
+    // stroke straddles them — so ink reaches radius + strokeWidth/2 beyond the
+    // vertex hull on every side: exactly `cloudyBorderExtent`.
+    return expandRect(
+      unionRect(g.points),
+      cloudyBorderExtent(border.intensity, strokeWidth, false),
+    );
+  }
   if (g.t === 'text' && g.callout) {
     // The overall /Rect: the union of the text box, the leader points, and the
     // arrow-ending polygon at the tip (same ending math as line/poly).
@@ -617,9 +632,9 @@ export function geomVisualBounds(g: Geom, strokeWidth: number): Rect {
  * hit-test both call this, so what you see highlighted is exactly what you can grab —
  * they can never drift.
  */
-export function selectionBounds(g: Geom, strokeWidth: number): Rect {
+export function selectionBounds(g: Geom, strokeWidth: number, border?: Border): Rect {
   return g.t === 'line' || g.t === 'ink' || g.t === 'poly'
-    ? geomVisualBounds(g, strokeWidth)
+    ? geomVisualBounds(g, strokeWidth, border)
     : geomBounds(g);
 }
 
@@ -632,10 +647,10 @@ export function selectionBounds(g: Geom, strokeWidth: number): Rect {
  * all consume this, so what you can grab / where the menu sits never drifts from
  * the outline you see.
  */
-export function selectionQuad(g: Geom, strokeWidth: number): [Vec, Vec, Vec, Vec] {
-  const obb = obbFromGeom(g, strokeWidth);
+export function selectionQuad(g: Geom, strokeWidth: number, border?: Border): [Vec, Vec, Vec, Vec] {
+  const obb = obbFromGeom(g, strokeWidth, border);
   if (obb) return obb.corners;
-  return rectCornerPoints(selectionBounds(g, strokeWidth)) as [Vec, Vec, Vec, Vec];
+  return rectCornerPoints(selectionBounds(g, strokeWidth, border)) as [Vec, Vec, Vec, Vec];
 }
 
 /** Is the point inside the (convex) selection quad? Even-odd ring test. */
@@ -969,6 +984,11 @@ export function geomScene(g: Geom, strokeWidth = 0, border?: Border): RenderNode
     return nodes;
   }
   if (g.t === 'poly') {
+    // A closed poly takes a cloudy border: curls centred on the vertex path,
+    // reaching outward — the same geometry PDFium bakes (no /RD, unlike boxes).
+    if (g.closed && border?.kind === 'cloudy' && g.points.length >= 3) {
+      return [{ kind: 'path', d: cloudyPolyPath(g.points, border.intensity, strokeWidth) }];
+    }
     const nodes: RenderNode[] = [{ kind: 'poly', points: g.points, closed: g.closed }];
     for (const seg of endingSegs(g))
       nodes.push(...endingNodes(seg.tip, seg.angle, seg.ending, strokeWidth));
@@ -1012,5 +1032,9 @@ export const contentToPdfRect = (r: Rect, crop: PdfRect): PdfRect =>
 
 /** A geom's VISUAL bounding box (geometry + stroke + line endings) as a PdfRect —
  *  the engine requires an explicit `rect` that encloses the baked /AP. */
-export const geomPdfBounds = (g: Geom, strokeWidth: number, crop: PdfRect): PdfRect =>
-  contentToPdfRect(geomVisualBounds(g, strokeWidth), crop);
+export const geomPdfBounds = (
+  g: Geom,
+  strokeWidth: number,
+  crop: PdfRect,
+  border?: Border,
+): PdfRect => contentToPdfRect(geomVisualBounds(g, strokeWidth, border), crop);

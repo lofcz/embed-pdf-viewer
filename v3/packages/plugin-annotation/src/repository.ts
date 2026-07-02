@@ -397,15 +397,27 @@ const caretStyle = (style: Style) => ({
  * patch removes the effect rather than leaving stale entries.
  */
 function shapeExtras(a: Annot): { cloudyIntensity?: number; rectDifferences?: PdfRectDifferences } {
-  if (a.geom.t !== 'rect') return {};
-  if (a.style.border.kind === 'cloudy') {
-    const inset = cloudyBorderExtent(a.style.border.intensity, a.style.strokeWidth, a.geom.ellipse);
-    return {
-      cloudyIntensity: a.style.border.intensity,
-      rectDifferences: { left: inset, top: inset, right: inset, bottom: inset },
-    };
+  if (a.geom.t === 'rect') {
+    if (a.style.border.kind === 'cloudy') {
+      const inset = cloudyBorderExtent(
+        a.style.border.intensity,
+        a.style.strokeWidth,
+        a.geom.ellipse,
+      );
+      return {
+        cloudyIntensity: a.style.border.intensity,
+        rectDifferences: { left: inset, top: inset, right: inset, bottom: inset },
+      };
+    }
+    return { cloudyIntensity: 0, rectDifferences: undefined };
   }
-  return { cloudyIntensity: 0, rectDifferences: undefined };
+  // A closed poly (polygon): the curls are generated from /Vertices + /BE alone —
+  // per ISO 32000 no /RD applies — and the /Rect (geomPdfBounds with the border)
+  // already includes the outward cloud extent. 0 clears the effect on a patch.
+  if (a.geom.t === 'poly' && a.geom.closed) {
+    return { cloudyIntensity: a.style.border.kind === 'cloudy' ? a.style.border.intensity : 0 };
+  }
+  return {};
 }
 
 /** Inset a PdfRect by a `/RD` (PDF user space, y-up: all four are non-negative
@@ -482,7 +494,9 @@ function geomFields(a: Annot, crop: PdfRect): GeomFields | null {
     return {
       vertices: g.points.map((p) => contentToPdfPoint(p, crop)),
       lineEndings: g.ends,
-      rect: geomPdfBounds(g, sw, crop),
+      // border matters here: a cloudy polygon's curls reach OUTWARD beyond the
+      // vertices, and the /Rect must enclose them or the baked /AP clips.
+      rect: geomPdfBounds(g, sw, crop, a.style.border),
     };
   }
   if (g.t === 'ink') {
@@ -539,6 +553,7 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
       vertices: f.vertices,
       rect: f.rect,
       ...sf,
+      ...shapeExtras(a),
       ...advisoryRotation(a.geom),
     };
   if (a.subtype === 'polyline' && f && 'vertices' in f)
@@ -611,6 +626,7 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
       vertices: f.vertices,
       rect: f.rect,
       ...sf,
+      ...shapeExtras(a),
       ...advisoryRotation(a.geom),
     };
   if (a.subtype === 'polyline' && f && 'vertices' in f)

@@ -375,3 +375,78 @@ describe('repository — free-text style + font round-trip', () => {
     expect(draft.contents).toBe('see here');
   });
 });
+
+/* ── polygon cloudy border round-trip ─────────────────────────────────────────
+ * A polygon's cloud curls are generated from /Vertices + /BE alone (no /RD; the
+ * curls reach OUTWARD), so the patch must carry `cloudyIntensity` and a /Rect
+ * grown by the cloud extent — the regression here was a patch with NEITHER, so
+ * the engine round-trip snapped the border back to solid.
+ */
+function polygonDTO(cloudyIntensity: number | undefined, annotObjectNumber = 40): AnnotationDTO {
+  const ref: AnnotationRef = { kind: 'objectNumber', pageObjectNumber: 1, annotObjectNumber };
+  return {
+    ref,
+    pageObjectNumber: 1,
+    index: 0,
+    identityQuality: 'durable',
+    nm: null,
+    flags: NO_FLAGS,
+    rect: { left: 100, bottom: 100, right: 300, top: 300 },
+    contents: null,
+    author: null,
+    created: null,
+    modified: null,
+    inReplyTo: null,
+    replyType: null,
+    subtype: 'polygon',
+    color: { r: 0, g: 0, b: 0 },
+    interiorColor: null,
+    strokeWidth: 2,
+    opacity: 1,
+    borderStyle: 'solid',
+    vertices: [
+      { x: 120, y: 120 },
+      { x: 200, y: 260 },
+      { x: 280, y: 140 },
+    ],
+    cloudyIntensity,
+  } as AnnotationDTO;
+}
+
+describe('repository — polygon cloudy border', () => {
+  it('fromDTO reads /BE intensity into a cloudy border', () => {
+    const a = fromDTO(polygonDTO(2), CROP);
+    expect(a.style.border).toEqual({ kind: 'cloudy', intensity: 2 });
+  });
+
+  it('toPatch carries cloudyIntensity and grows /Rect by the outward cloud extent', () => {
+    const a = fromDTO(polygonDTO(2), CROP);
+    const patch = toPatch(a, CROP) as Extract<AnnotationPatch, { subtype: 'polygon' }>;
+    expect(patch.cloudyIntensity).toBe(2);
+    // vertex hull is x:[120,280]; the /Rect must reach beyond it by the cloud
+    // radius (4·intensity + 0.5·stroke) + stroke/2 = 8 + 1 + 1 = 10
+    expect(patch.rect!.left).toBeLessThanOrEqual(120 - 9);
+    expect(patch.rect!.right).toBeGreaterThanOrEqual(280 + 9);
+    // no /RD for polygons — the curls are derived from /Vertices + /BE alone
+    expect(patch).not.toHaveProperty('rectDifferences');
+  });
+
+  it('toPatch clears the effect with cloudyIntensity 0 when the border is solid again', () => {
+    const a = fromDTO(polygonDTO(2), CROP);
+    const solid = { ...a, style: { ...a.style, border: { kind: 'solid' as const } } };
+    const patch = toPatch(solid, CROP) as Extract<AnnotationPatch, { subtype: 'polygon' }>;
+    expect(patch.cloudyIntensity).toBe(0);
+    // and the /Rect shrinks back to the stroke-only bounds
+    expect(patch.rect!.left).toBeGreaterThanOrEqual(118);
+  });
+
+  it('an open polyline never carries cloudy fields', () => {
+    const a = fromDTO(rotatedPolylineDTO(0, 41), CROP);
+    const cloudyStyled = {
+      ...a,
+      style: { ...a.style, border: { kind: 'cloudy' as const, intensity: 2 } },
+    };
+    const patch = toPatch(cloudyStyled, CROP) as Extract<AnnotationPatch, { subtype: 'polyline' }>;
+    expect(patch).not.toHaveProperty('cloudyIntensity');
+  });
+});

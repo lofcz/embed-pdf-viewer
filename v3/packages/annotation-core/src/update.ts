@@ -807,7 +807,12 @@ export function annotsInBox(m: Model, pon: number, a: Vec, b: Vec): Id[] {
       isSelectable(m, id) &&
       // intersect against the ROTATED extent (AABB of the oriented quad), so a
       // marquee catches a tilted shape by what's actually drawn, not its footprint.
-      rectsIntersect(unionRect(selectionQuad(m.byId[id].geom, m.byId[id].style.strokeWidth)), box),
+      rectsIntersect(
+        unionRect(
+          selectionQuad(m.byId[id].geom, m.byId[id].style.strokeWidth, m.byId[id].style.border),
+        ),
+        box,
+      ),
   );
 }
 
