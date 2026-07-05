@@ -1925,3 +1925,141 @@ describe('annotation-core opaqueBody (stamp) gestures', () => {
     expect(item.source).toBe('vector');
   });
 });
+
+/**
+ * Annotations are page-bound; the pointer isn't. Two rules (see update.ts):
+ *  FRAME — a gesture is anchored to the page it started on; a sample resolved
+ *  against another page is a different coordinate frame and must be ignored
+ *  (regression: crossing onto page 2 teleported the annotation to the top of
+ *  page 1 and COMMITTED it there).
+ *  CLAMP — with `pageBox` on the input, geometry pins to the page per axis, so
+ *  an overshooting pointer slides the shape along the edge (v2 behaviour).
+ */
+describe('page-bound gestures', () => {
+  const PON2 = 2 as Annot['pon'];
+  // US-Letter content box, origin at the crop top-left.
+  const BOX = { x: 0, y: 0, width: 612, height: 792 };
+  const edit = (
+    phase: 'down' | 'move' | 'up',
+    x: number,
+    y: number,
+    pon: Annot['pon'] = PON,
+  ): Msg => ({ t: 'editPointer', phase, in: { pon, point: { x, y }, shift: false, pageBox: BOX } });
+  const create = (phase: 'down' | 'move' | 'up', x: number, y: number): Msg => ({
+    t: 'createPointer',
+    phase,
+    subtype: 'square',
+    in: { pon: PON, point: { x, y }, shift: false, pageBox: BOX },
+  });
+  const marquee = (
+    phase: 'down' | 'move' | 'up',
+    x: number,
+    y: number,
+    pon: Annot['pon'] = PON,
+  ): Msg => ({
+    t: 'marqueePointer',
+    phase,
+    in: { pon, point: { x, y }, shift: false, pageBox: BOX },
+  });
+
+  /** A committed, selected 100×60 square near the page bottom (rect y 700..760). */
+  const nearBottom = (): Model =>
+    run(initialModel, [
+      createPtr('square', 'down', 250, 700),
+      createPtr('square', 'move', 350, 760),
+      createPtr('square', 'up', 350, 760),
+    ]);
+  const moveDraft = (m: Model) => (m.draft?.g === 'move' ? m.draft : null);
+
+  it('THE regression: a move sample from another page is a foreign frame — ignored', () => {
+    // Grab the square (body, clear of the handles), then feed the exact sample
+    // the old bug produced: pon=page-2, y≈18 (page-2-local, near its top).
+    let m = run(nearBottom(), [edit('down', 270, 710)]);
+    expect(moveDraft(m)).toBeTruthy();
+    m = run(m, [edit('move', 270, 18, PON2)]);
+    expect(moveDraft(m)!.delta).toEqual({ x: 0, y: 0 }); // NOT {x:0, y:-692}
+    // …and the gesture keeps working on its home page afterwards.
+    m = run(m, [edit('move', 280, 720)]);
+    expect(moveDraft(m)!.delta).toEqual({ x: 10, y: 10 });
+  });
+
+  it('a move clamps to the page box and SLIDES along the edge (free axis keeps tracking)', () => {
+    // Drag far past the bottom edge while also moving right: y pins, x follows.
+    let m = run(nearBottom(), [edit('down', 270, 710), edit('move', 320, 900)]);
+    const d = moveDraft(m)!;
+    expect(d.delta.x).toBe(50); // x unaffected by the y overshoot
+    expect(d.delta.y).toBeGreaterThan(0);
+    expect(d.delta.y).toBeLessThan(40); // pinned at the edge, not 190
+    const [done, fx] = update(m, edit('up', 320, 900));
+    expect(fx).toEqual([{ fx: 'patch', id: done.selected[0] }]);
+    const r = rectGeom(done.byId[done.selected[0]].geom)!;
+    expect(r.x).toBe(300); // slid right by the full 50
+    // Bottom rests ON the page edge (± the stroke's visual inflation).
+    expect(r.y + r.height).toBeGreaterThan(788);
+    expect(r.y + r.height).toBeLessThanOrEqual(792);
+  });
+
+  it('an up after an off-page move still COMMITS the clamped position', () => {
+    // The handler always dispatches `up` now (a release over the gap used to
+    // strand the draft and the annotation snapped back on the next click).
+    const [done, fx] = update(
+      run(nearBottom(), [edit('down', 270, 710), edit('move', 270, 900)]),
+      edit('up', 270, 900),
+    );
+    expect(done.draft).toBeNull();
+    expect(fx).toEqual([{ fx: 'patch', id: done.selected[0] }]);
+    const r = rectGeom(done.byId[done.selected[0]].geom)!;
+    expect(r.y).toBeGreaterThan(700); // it moved…
+    expect(r.y + r.height).toBeLessThanOrEqual(792); // …but stayed on the page
+  });
+
+  it('a resize handle pins to the page edge', () => {
+    // Grab the SE corner handle and drag way off the page: the dragged corner
+    // clamps to (612, 792), so the geometry never leaves the page.
+    const m = run(nearBottom(), [edit('down', 350, 760), edit('move', 700, 900)]);
+    expect(m.draft?.g).toBe('handle');
+    const cur = m.draft?.g === 'handle' ? m.draft.cur : null;
+    const r = cur && 'rect' in cur ? cur.rect : null;
+    expect(r).toBeTruthy();
+    expect(r!.x + r!.width).toBe(612);
+    expect(r!.y + r!.height).toBe(792);
+  });
+
+  it('a creation drag clips at the page edge', () => {
+    const m = run(initialModel, [
+      create('down', 500, 700),
+      create('move', 700, 900),
+      create('up', 700, 900),
+    ]);
+    const r = rectGeom(m.byId[m.order[0]].geom)!;
+    expect(r.x + r.width).toBe(612);
+    expect(r.y + r.height).toBe(792);
+  });
+
+  it('an in-progress creation ignores samples from another page', () => {
+    let m = run(initialModel, [create('down', 500, 700), create('move', 550, 750)]);
+    const before = m.draft;
+    m = run(m, [
+      {
+        t: 'createPointer',
+        phase: 'move',
+        subtype: 'square',
+        in: { pon: PON2, point: { x: 10, y: 10 }, shift: false, pageBox: BOX },
+      },
+    ]);
+    expect(m.draft).toEqual(before);
+  });
+
+  it('a marquee pins to the page box and ignores foreign-page samples', () => {
+    let m = run(initialModel, [marquee('down', 500, 700), marquee('move', 700, 900)]);
+    expect(m.draft?.g === 'marquee' && m.draft.to).toEqual({ x: 612, y: 792 });
+    m = run(m, [marquee('move', 10, 10, PON2)]);
+    expect(m.draft?.g === 'marquee' && m.draft.to).toEqual({ x: 612, y: 792 });
+  });
+
+  it('gestures without a pageBox behave as before (no clamp, same-frame only)', () => {
+    // Adapters that don't supply pageBox lose the clamp but keep correctness.
+    let m = run(nearBottom(), [editPtr('down', 270, 710), editPtr('move', 270, 900)]);
+    expect(moveDraft(m)!.delta).toEqual({ x: 0, y: 190 });
+  });
+});

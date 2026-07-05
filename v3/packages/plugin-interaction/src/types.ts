@@ -44,6 +44,15 @@ export interface PointerSample {
    * do word/line selection without re-implementing timing. Defaults to 1.
    */
   clickCount?: number;
+  /**
+   * Project this event onto a SPECIFIC page's content space, unclamped — valid
+   * (and expected) outside the page's bounds. `page` answers "what is under the
+   * cursor" and re-resolves per event; `project` answers "where is the cursor
+   * in MY page's frame" for a gesture anchored to the page it started on (an
+   * annotation drag sliding along the page edge). Null when the source can't
+   * project onto that page (not laid out / a per-page source's foreign page).
+   */
+  project?(pon: PageObjectNumber): Point | null;
 }
 
 /**

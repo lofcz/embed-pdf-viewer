@@ -107,6 +107,56 @@ const ownGeometry = (a: Annot): Annot => {
 };
 const sub = (a: Vec, b: Vec): Vec => ({ x: a.x - b.x, y: a.y - b.y });
 const translateRect = (r: Rect, d: Vec): Rect => ({ ...r, x: r.x + d.x, y: r.y + d.y });
+
+/* ── page-bound gestures ──────────────────────────────────────────────────────
+ * Annotations are page-bound; the pointer isn't. Two rules keep them apart:
+ *  1. FRAME: a gesture is anchored to the page it started on. A sample resolved
+ *     against another page is in a different coordinate frame (each page's
+ *     content space has its own origin) — subtracting across frames produced
+ *     the teleport-to-page-top bug, so foreign-page samples are ignored.
+ *  2. CLAMP: within the home frame, geometry pins to the page box (v2 rule):
+ *     an overshooting pointer slides the shape along the edge; a shape larger
+ *     than the page pins to the page's top/left (lo wins when lo > hi).
+ */
+const clampAxis = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+const clampPointToBox = (p: Vec, box: Rect | undefined): Vec =>
+  box
+    ? {
+        x: clampAxis(p.x, box.x, box.x + box.width),
+        y: clampAxis(p.y, box.y, box.y + box.height),
+      }
+    : p;
+
+/** The union of the ids' SELECTION bounds (the outline the user sees) — the box
+ *  the page-clamp keeps inside the page during a move. */
+function unionBoundsOf(m: Model, ids: Id[]): Rect | null {
+  const corners: Vec[] = [];
+  for (const id of ids) {
+    const a = m.byId[id];
+    if (!a) continue;
+    corners.push(...selectionQuad(a.geom, a.style.strokeWidth, a.style.border));
+  }
+  return corners.length ? unionRect(corners) : null;
+}
+
+/** Clamp a move delta so the selection's union bounds stay inside the page.
+ *  Per-axis, so a pointer past the bottom edge still slides the selection
+ *  horizontally along that edge. */
+function clampMoveDelta(m: Model, ids: Id[], delta: Vec, page: Rect | undefined): Vec {
+  if (!page) return delta;
+  const b = unionBoundsOf(m, ids);
+  if (!b) return delta;
+  return {
+    x: clampAxis(delta.x, page.x - b.x, page.x + page.width - (b.x + b.width)),
+    y: clampAxis(delta.y, page.y - b.y, page.y + page.height - (b.y + b.height)),
+  };
+}
+
+/** The page an edit draft is anchored to — every edit gesture lives on ONE page. */
+function editDraftPon(m: Model, d: Draft): number | null {
+  const id = d.g === 'handle' ? d.id : 'ids' in d && d.ids.length ? d.ids[0] : null;
+  return id != null ? (m.byId[id]?.pon ?? null) : null;
+}
 const geomEqual = (a: Geom, b: Geom): boolean => JSON.stringify(a) === JSON.stringify(b);
 const RAD2DEG = 180 / Math.PI;
 
@@ -255,13 +305,22 @@ function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
 
 function editMove(m: Model, input: PointerInput): [Model, Effect[]] {
   const d = m.draft!;
-  if (d.g === 'move') return [{ ...m, draft: { ...d, delta: sub(input.point, d.start) } }, []];
+  // Foreign coordinate frame (see the page-bound gesture rules above) — ignore.
+  const home = editDraftPon(m, d);
+  if (home != null && input.pon !== home) return [m, []];
+  if (d.g === 'move') {
+    const raw = sub(input.point, d.start);
+    return [{ ...m, draft: { ...d, delta: clampMoveDelta(m, d.ids, raw, input.pageBox) } }, []];
+  }
+  const point = clampPointToBox(input.point, input.pageBox);
   if (d.g === 'handle')
-    return [{ ...m, draft: { ...d, cur: geomDragHandle(d.base, d.handle, input.point) } }, []];
+    return [{ ...m, draft: { ...d, cur: geomDragHandle(d.base, d.handle, point) } }, []];
+  // Rotation reads the pointer as an ANGLE about the pivot — the raw point is
+  // valid (and better) outside the page; the geometry itself never translates.
   if (d.g === 'rotate') return [{ ...m, draft: { ...d, cur: input.point } }, []];
   if (d.g === 'group') {
     const iso = selectionHasRotation(m, d.ids);
-    return [{ ...m, draft: { ...d, cur: groupResizeBox(d.base, d.handle, input.point, iso) } }, []];
+    return [{ ...m, draft: { ...d, cur: groupResizeBox(d.base, d.handle, point, iso) } }, []];
   }
   return [m, []];
 }
@@ -329,19 +388,19 @@ function marqueePointer(
   phase: 'down' | 'move' | 'up',
   input: PointerInput,
 ): [Model, Effect[]] {
+  // The marquee lives on one page and pins to its box (same rules as editMove).
+  const point = clampPointToBox(input.point, input.pageBox);
   if (phase === 'down') {
-    return [
-      { ...m, draft: { g: 'marquee', pon: input.pon, from: input.point, to: input.point } },
-      [],
-    ];
+    return [{ ...m, draft: { g: 'marquee', pon: input.pon, from: point, to: point } }, []];
   }
   if (m.draft?.g !== 'marquee') return [m, []];
+  if (m.draft.pon !== input.pon) return [m, []]; // foreign frame — ignore
   if (phase === 'move') {
-    return [{ ...m, draft: { ...m.draft, to: input.point } }, []];
+    return [{ ...m, draft: { ...m.draft, to: point } }, []];
   }
 
   // A marquee that touches one member takes the whole group with it.
-  const hits = expandGroups(m, annotsInBox(m, m.draft.pon, m.draft.from, input.point));
+  const hits = expandGroups(m, annotsInBox(m, m.draft.pon, m.draft.from, point));
   const selected = input.shift ? toggleSelection(m.selected, hits) : hits;
   return [{ ...m, selected, draft: null }, []];
 }
@@ -361,6 +420,12 @@ function createPointer(
   subtype: Subtype,
   input: PointerInput,
 ): [Model, Effect[]] {
+  // An in-progress creation is anchored to its page: a move/up sample from
+  // another page is a foreign frame — ignore it. (A DOWN on another page is a
+  // fresh intent: the per-subtype branches below start/restart the draft there.)
+  if (phase !== 'down' && m.draft && 'pon' in m.draft && m.draft.pon !== input.pon) return [m, []];
+  // Shapes can't be drawn past the page edge — the pointer pins to it.
+  if (input.pageBox) input = { ...input, point: clampPointToBox(input.point, input.pageBox) };
   if (subtype === 'free-text-callout') return calloutPointer(m, phase, input);
   if (phase === 'down') {
     if (isPolySubtype(subtype)) {

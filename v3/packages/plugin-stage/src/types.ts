@@ -230,6 +230,15 @@ export interface StageCapability {
    */
   pageAt(screen: Point): { pon: PageObjectNumber; point: Point } | null;
   /**
+   * Screen point → `pon`'s content space, UNCLAMPED — valid even when the point
+   * is outside the page's bounds (coordinates then fall outside `[0, size]`).
+   * The frame-stable projection a page-anchored gesture (annotation move/resize)
+   * tracks with, where `pageAt` would re-resolve to whatever page is under the
+   * cursor (what a cross-page drag like text selection wants). Null when the
+   * page isn't currently laid out.
+   */
+  pointOnPage(pon: PageObjectNumber, screen: Point): Point | null;
+  /**
    * Page space (intrinsic PDF points) → world space. Applies the page's placed
    * origin and contentScale — the transform sizing policies introduce. Compose
    * with toScreen for viewport-space overlays anchored to page content.

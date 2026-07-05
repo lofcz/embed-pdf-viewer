@@ -59,6 +59,10 @@ export function PagePointerSource() {
         phase,
         viewport: { x: e.clientX - r.left, y: e.clientY - r.top },
         page: { pon: page.pon, point: page.toPagePoint(e.clientX, e.clientY) },
+        // A per-page source can only project onto its OWN page — toPagePoint is
+        // already unclamped (the drag listener lives on window), so a gesture
+        // anchored here keeps tracking past the page bounds.
+        project: (pon) => (pon === page.pon ? page.toPagePoint(e.clientX, e.clientY) : null),
         modifiers: mods(e),
         clickCount,
       };

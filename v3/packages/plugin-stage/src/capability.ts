@@ -568,6 +568,13 @@ export function createStageCapability(
       }
       return null;
     },
+    pointOnPage: (pon, screen) => {
+      // `pageAt` minus the containment check: project onto ONE page's plane,
+      // valid outside its bounds — the same inverse transform, so no drift.
+      const p = visiblePages().find((v) => v.pon === pon);
+      if (!p) return null;
+      return p.transform.viewToPage({ x: screen.x - p.screenX, y: screen.y - p.screenY });
+    },
     pageToWorld: (pon, pt) => {
       const pr = api.pageRect(pon);
       if (!pr) return null;

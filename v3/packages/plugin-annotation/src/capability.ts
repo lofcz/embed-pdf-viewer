@@ -152,6 +152,14 @@ export function createAnnotationCapability(
   };
   const cropOf = (pon: number) =>
     ctx.document()?.pages.find((p) => p.pageObjectNumber === pon)?.boxes.crop ?? null;
+  /** The page's box in content space (origin at the crop top-left) — the box
+   *  pointer gestures clamp to, so annotations stay page-bound. */
+  const pageBoxOf = (pon: number): Rect | undefined => {
+    const crop = cropOf(pon);
+    return crop
+      ? { x: 0, y: 0, width: crop.right - crop.left, height: crop.top - crop.bottom }
+      : undefined;
+  };
 
   /**
    * The armed stamp-tool payload: the bytes the next click places, plus the
@@ -421,11 +429,16 @@ export function createAnnotationCapability(
 
     // intents
     editPointer: (phase, pon, point, shift) =>
-      apply({ t: 'editPointer', phase, in: { pon, point, shift } }),
+      apply({ t: 'editPointer', phase, in: { pon, point, shift, pageBox: pageBoxOf(pon) } }),
     marqueePointer: (phase, pon, point, shift) =>
-      apply({ t: 'marqueePointer', phase, in: { pon, point, shift } }),
+      apply({ t: 'marqueePointer', phase, in: { pon, point, shift, pageBox: pageBoxOf(pon) } }),
     createPointer: (subtype, phase, pon, point, finish = false) =>
-      apply({ t: 'createPointer', phase, subtype, in: { pon, point, shift: false, finish } }),
+      apply({
+        t: 'createPointer',
+        phase,
+        subtype,
+        in: { pon, point, shift: false, finish, pageBox: pageBoxOf(pon) },
+      }),
     finishCreationDraft: () => apply({ t: 'finishCreationDraft' }),
     cancelCreationDraft: () => apply({ t: 'cancel' }),
     createMarkup: (subtype, pon, rects) => apply({ t: 'createMarkup', subtype, pon, rects }),

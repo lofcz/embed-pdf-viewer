@@ -1,10 +1,25 @@
-import type { InteractionCapability, InteractionHandler } from '@embedpdf-x/plugin-interaction';
+import type {
+  InteractionCapability,
+  InteractionHandler,
+  PointerSample,
+} from '@embedpdf-x/plugin-interaction';
 import type { Subtype, Vec } from '@embedpdf-x/annotation-core';
 import type { AnnotationHostCapability } from './types';
 
 const MARQUEE_DRAG_THRESHOLD_PX = 4;
 const isPolyTool = (subtype: Subtype): boolean => subtype === 'polygon' || subtype === 'polyline';
 const isCalloutTool = (subtype: Subtype): boolean => subtype === 'free-text-callout';
+
+/**
+ * Resolve a sample against a gesture's HOME page. Annotation gestures are
+ * page-anchored: they track the page they started on, even when the cursor
+ * wanders off it — `s.page` re-resolves per event (a page-2 point is a
+ * DIFFERENT coordinate frame, the teleport bug), so prefer the source's
+ * unclamped projection and fall back to the page hit only when it's the same
+ * page. Null → this sample can't speak for the home page; ignore it.
+ */
+const pointOn = (s: PointerSample, pon: number): Vec | null =>
+  s.project?.(pon) ?? (s.page?.pon === pon ? s.page.point : null);
 
 /**
  * Click-to-place for the stamp tool. The payload is armed via
@@ -37,6 +52,11 @@ export function createEditHandler(
   anno: AnnotationHostCapability,
   interaction: InteractionCapability,
 ): InteractionHandler {
+  // The gesture's home page + last resolved point, armed on down. Every
+  // move/up resolves against THIS page (the annotation slides along its edge
+  // when the cursor overshoots — the core clamps), never against whatever
+  // page the sample happens to hit.
+  let origin: { pon: number; point: Vec } | null = null;
   return {
     id: 'annotation-edit',
     priority: 100,
@@ -65,13 +85,23 @@ export function createEditHandler(
         return true;
       }
       anno.editPointer('down', s.page.pon, s.page.point, s.modifiers.shift);
+      origin = { pon: s.page.pon, point: s.page.point };
       return true;
     },
     onMove: (s) => {
-      if (s.page) anno.editPointer('move', s.page.pon, s.page.point, s.modifiers.shift);
+      if (!origin) return;
+      const point = pointOn(s, origin.pon);
+      if (!point) return;
+      origin.point = point;
+      anno.editPointer('move', origin.pon, point, s.modifiers.shift);
     },
     onUp: (s) => {
-      if (s.page) anno.editPointer('up', s.page.pon, s.page.point, false);
+      if (!origin) return;
+      // ALWAYS close the gesture — a release over a page gap or outside the
+      // window must still commit (a dangling draft leaves a ghost that snaps
+      // back on the next interaction). `editUp` doesn't read the point.
+      anno.editPointer('up', origin.pon, pointOn(s, origin.pon) ?? origin.point, false);
+      origin = null;
     },
     onHover: (s) => {
       // priority 20 → beats text-select's 'text' (10) over an annotation; null clears.
@@ -117,8 +147,13 @@ export function createMarqueeHandler(anno: AnnotationHostCapability): Interactio
       return true;
     },
     onMove: (s) => {
-      if (!anchor || !s.page || s.page.pon !== anchor.pon) return;
-      last = { pon: s.page.pon, point: s.page.point };
+      if (!anchor) return;
+      // Anchored to the page the drag started on; the projected point keeps the
+      // marquee growing along the page edge when the cursor overshoots (the
+      // core clamps it to the page box).
+      const point = pointOn(s, anchor.pon);
+      if (!point) return;
+      last = { pon: anchor.pon, point };
       if (!dragging) {
         if (
           Math.hypot(s.viewport.x - anchor.vx, s.viewport.y - anchor.vy) < MARQUEE_DRAG_THRESHOLD_PX
@@ -128,7 +163,7 @@ export function createMarqueeHandler(anno: AnnotationHostCapability): Interactio
         dragging = true;
         anno.marqueePointer('down', anchor.pon, anchor.point, anchor.shift);
       }
-      anno.marqueePointer('move', s.page.pon, s.page.point, anchor.shift);
+      anno.marqueePointer('move', anchor.pon, point, anchor.shift);
     },
     onUp: () => {
       if (dragging && anchor && last) {
@@ -151,9 +186,13 @@ export function createDrawHandler(
   // A callout is mid-creation between its tip/knee/box clicks; while it is, hover
   // (no button) must still drive the leader/box preview, like a poly's vertices.
   let drawingCallout = false;
+  // The active drag's home page (down→up): moves/ups resolve against it, so a
+  // shape keeps sizing along the page edge when the cursor overshoots.
+  let origin: { pon: number; point: Vec } | null = null;
   interaction.onToolChange(() => {
     drawingPoly = false;
     drawingCallout = false;
+    origin = null;
   });
   return {
     id: 'annotation-draw',
@@ -162,6 +201,9 @@ export function createDrawHandler(
     onDown: (s) => {
       if (!s.page) return false;
       const st = subtype();
+      // A down is a fresh intent — it may legitimately start on another page
+      // (the core restarts the draft there), so it re-anchors the gesture.
+      origin = { pon: s.page.pon, point: s.page.point };
       if (isPolyTool(st)) {
         const finish = (s.clickCount ?? 1) >= 2;
         anno.createPointer(st, 'down', s.page.pon, s.page.point, finish);
@@ -181,13 +223,19 @@ export function createDrawHandler(
       // Drag-moves (button down): rect/line/ink/free-text size their box, and a
       // callout (a non-poly tool) sizes its text box during the box step. Poly
       // tools take vertices by click, so they ignore drag-moves.
-      if (s.page && (!isPolyTool(st) || drawingPoly)) {
-        anno.createPointer(st, 'move', s.page.pon, s.page.point);
-      }
+      if (!origin || (isPolyTool(st) && !drawingPoly)) return;
+      const point = pointOn(s, origin.pon);
+      if (!point) return;
+      origin.point = point;
+      anno.createPointer(st, 'move', origin.pon, point);
     },
     onUp: (s) => {
       const st = subtype();
-      if (s.page && !isPolyTool(st)) anno.createPointer(st, 'up', s.page.pon, s.page.point);
+      if (origin && !isPolyTool(st)) {
+        // ALWAYS commit the drag, even released off-page (point pins in core).
+        anno.createPointer(st, 'up', origin.pon, pointOn(s, origin.pon) ?? origin.point);
+      }
+      origin = null;
     },
     onHover: (s) => {
       const st = subtype();

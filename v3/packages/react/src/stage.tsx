@@ -225,6 +225,9 @@ export function Stage({
           phase,
           viewport: vpt,
           page: stage.pageAt(vpt) ?? undefined,
+          // Page-anchored gestures (annotation move/resize) track the origin
+          // page's frame through this even when the cursor is off that page.
+          project: (pon) => stage.pointOnPage(pon, vpt),
           modifiers: { shift: e.shiftKey, alt: e.altKey, ctrl: e.ctrlKey, meta: e.metaKey },
           clickCount,
         });

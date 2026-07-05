@@ -300,6 +300,13 @@ export interface PointerInput {
   point: Vec;
   shift: boolean;
   finish?: boolean;
+  /**
+   * The page's content box (`{0, 0, crop.width, crop.height}`) — when present,
+   * gestures are CLAMPED to it: a move keeps the selection's bounds inside the
+   * page (sliding along the edge when the pointer overshoots), resize/create
+   * points pin to the edge. Annotations are page-bound; the pointer isn't.
+   */
+  pageBox?: Rect;
 }
 
 export type Msg =
