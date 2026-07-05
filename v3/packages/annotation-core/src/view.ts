@@ -26,12 +26,9 @@ import { groupUnionBounds, isSelectable, paintOrder } from './hit';
 import { capsFor } from './kinds';
 import { blendFor } from './scene';
 import { styleFromProps } from './props';
-import { calloutBox, defaultsFor } from './update';
+import { calloutBox, defaultsFor, rotateDraftDelta } from './update';
 import type { ChromeNode, Geom, Id, Model, Rect, RenderItem, Vec } from './types';
 import type { CreationDraftAnchor } from './types';
-
-const RAD2DEG = 180 / Math.PI;
-const angleAt = (pivot: Vec, p: Vec): number => Math.atan2(p.y - pivot.y, p.x - pivot.x) * RAD2DEG;
 
 const DRAFT_ID = '__draft__';
 const PREVIEW_ID = '__markup_preview__';
@@ -48,8 +45,8 @@ function effGeom(m: Model, id: Id): Geom {
     if (d.g === 'move' && d.ids.includes(id)) return geomTranslate(a.geom, d.delta);
     if (d.g === 'handle' && d.id === id) return d.cur;
     if (d.g === 'rotate' && d.ids.includes(id)) {
-      const delta = angleAt(d.pivot, d.cur) - angleAt(d.pivot, d.start);
-      return geomRotateAbout(a.geom, d.pivot, delta);
+      // The SAME snapped angle rule the commit uses (see `rotateDraftDelta`).
+      return geomRotateAbout(a.geom, d.pivot, rotateDraftDelta(m, d).delta);
     }
     if (d.g === 'group' && d.ids.includes(id)) {
       const { sx, sy } = groupResizeFactors(d.base, d.cur);
@@ -304,6 +301,17 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
   if (m.draft?.g === 'marquee' && m.draft.pon === pon) {
     nodes.push({ kind: 'marquee', rect: rectFromPoints(m.draft.from, m.draft.to) });
   }
+  // Live alignment guides of a snapped move (the gesture lives on ONE page —
+  // its members' page).
+  if (m.draft?.g === 'move' && m.draft.guides.length && m.byId[m.draft.ids[0]]?.pon === pon) {
+    for (const g of m.draft.guides)
+      nodes.push({ kind: 'guide', axis: g.axis, at: g.at, lo: g.lo, hi: g.hi });
+  }
+  // Live rotation readout: the selection's absolute angle, riding the pointer.
+  if (m.draft?.g === 'rotate' && m.byId[m.draft.ids[0]]?.pon === pon) {
+    const { angle } = rotateDraftDelta(m, m.draft);
+    nodes.push({ kind: 'angle-chip', at: m.draft.cur, angle: Math.round(angle) });
+  }
   const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
   if (sel.length === 1) {
     const a = m.byId[sel[0]];
@@ -321,9 +329,11 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
       });
     }
     // handles for kinds that resize (box) or vertex-edit; anchored/markup show a
-    // bare outline. `geomHandles` already places them on the rotated box.
+    // bare outline. `geomHandles` already places them on the rotated box; `rot`
+    // additionally tilts each handle GLYPH so it rides the box's orientation.
     if (caps.resizable || caps.vertexEditable) {
-      for (const h of geomHandles(g)) nodes.push({ kind: 'handle', at: h.at, cursor: h.cursor });
+      for (const h of geomHandles(g))
+        nodes.push({ kind: 'handle', at: h.at, cursor: h.cursor, ...(rot ? { rot } : {}) });
     }
   } else if (sel.length > 1) {
     const union = groupUnionBounds(m, pon);

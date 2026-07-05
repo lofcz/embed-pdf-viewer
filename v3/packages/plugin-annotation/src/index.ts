@@ -13,6 +13,7 @@ export { annotationPlugin } from './annotation.plugin';
 export { fromDTO, toCreateDraft, toPatch, refKey, styleFromDTO } from './repository';
 export type {
   AnnotationCapability,
+  AnnotationConfig,
   AnnotationState,
   AnnotationAction,
   Behavior,
@@ -31,6 +32,7 @@ export type {
   LineEndings,
   PropKey,
   PropSpec,
+  SnapSettings,
   TextAlign,
 } from '@embedpdf-x/annotation-core';
 

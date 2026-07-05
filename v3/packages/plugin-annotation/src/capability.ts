@@ -447,6 +447,9 @@ export function createAnnotationCapability(
     clearMarkupPreview: () => apply({ t: 'clearMarkupPreview' }),
     setDefaults: (subtype, patch) => apply({ t: 'setDefaults', subtype, patch }),
     currentDefaults: (subtype) => defaultsFor(model(), subtype),
+    // Live-adjustable snapping (a UI toggle); seeded by the registration config.
+    setSnap: (patch) => apply({ t: 'setSnap', patch }),
+    snapSettings: () => model().snap,
     deleteSelection: () => apply({ t: 'delete' }),
     deselect: () => apply({ t: 'deselect' }),
     cancel: () => apply({ t: 'cancel' }),

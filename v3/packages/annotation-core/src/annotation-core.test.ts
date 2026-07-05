@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { initialModel, update } from './update';
+import { initialModel, rotateDraftDelta, update } from './update';
+import { computeMoveSnap } from './snap';
 import {
   chrome,
   creationDraftAnchor,
@@ -34,6 +35,7 @@ import {
   obbFromGeom,
   rotatedAabb,
   normalizeDeg,
+  rotatedHandleCursor,
   selectionQuad,
   selectionCenter,
 } from './geometry';
@@ -1974,7 +1976,10 @@ describe('page-bound gestures', () => {
   it('THE regression: a move sample from another page is a foreign frame — ignored', () => {
     // Grab the square (body, clear of the handles), then feed the exact sample
     // the old bug produced: pon=page-2, y≈18 (page-2-local, near its top).
-    let m = run(nearBottom(), [edit('down', 270, 710)]);
+    // Guides off: this tests the FRAME rule, and the (10,10) move below would
+    // otherwise land the centre within snap range of the page centre.
+    const seeded = { ...nearBottom(), snap: { ...initialModel.snap, guides: false } };
+    let m = run(seeded, [edit('down', 270, 710)]);
     expect(moveDraft(m)).toBeTruthy();
     m = run(m, [edit('move', 270, 18, PON2)]);
     expect(moveDraft(m)!.delta).toEqual({ x: 0, y: 0 }); // NOT {x:0, y:-692}
@@ -2061,5 +2066,228 @@ describe('page-bound gestures', () => {
     // Adapters that don't supply pageBox lose the clamp but keep correctness.
     let m = run(nearBottom(), [editPtr('down', 270, 710), editPtr('move', 270, 900)]);
     expect(moveDraft(m)!.delta).toEqual({ x: 0, y: 190 });
+  });
+});
+
+/* ── snapping: alignment guides (move) + rotation snap ──────────────────────
+ * Guides: the moving selection's edges/centers snap to other annotations on the
+ * page (and the page box) within `snap.guideThreshold`, nudging the delta and
+ * reporting guide lines. Rotation: the selection's ABSOLUTE angle locks onto
+ * `snap.rotationAngles` within `snap.rotationThreshold`. Shift bypasses both.
+ */
+describe('annotation-core — snapping', () => {
+  const seededSquare = (
+    id: string,
+    rect: { x: number; y: number; width: number; height: number },
+    rot?: number,
+  ): Annot => ({
+    id,
+    ref: {
+      kind: 'objectNumber',
+      pageObjectNumber: 1,
+      annotObjectNumber: Number(id.slice(1)),
+    } as Annot['ref'],
+    pon: PON,
+    subtype: 'square',
+    geom: { t: 'rect', rect, ellipse: false, ...(rot ? { rot } : {}) },
+    style: initialModel.style,
+    locked: false,
+    source: 'baked',
+  });
+  const seeded = (...annots: Annot[]): Model => update(initialModel, { t: 'loaded', annots })[0];
+  const moveDraft = (m: Model) => (m.draft?.g === 'move' ? m.draft : null);
+  /** `start - pivot` spun by `deg` CW (y-down), re-anchored at the pivot — the
+   *  pointer position that makes the rotate draft's raw delta exactly `deg`. */
+  const curFor = (pivot: Vec, start: Vec, deg: number): Vec => {
+    const r = (deg * Math.PI) / 180;
+    const v = { x: start.x - pivot.x, y: start.y - pivot.y };
+    return {
+      x: pivot.x + v.x * Math.cos(r) - v.y * Math.sin(r),
+      y: pivot.y + v.x * Math.sin(r) + v.y * Math.cos(r),
+    };
+  };
+
+  it('computeMoveSnap: an in-threshold edge pair nudges the delta and yields a guide', () => {
+    // s1 right edge at 200; s2 dragged so its left edge lands at 203 (diff -3 < 5).
+    const m = seeded(
+      seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }),
+      seededSquare('s2', { x: 300, y: 300, width: 50, height: 50 }),
+    );
+    const { delta, guides } = computeMoveSnap(m, ['s2'], PON, { x: -97, y: 0 }, 5, undefined);
+    expect(delta).toEqual({ x: -100, y: 0 }); // 203 → 200
+    expect(guides).toHaveLength(1);
+    expect(guides[0]).toMatchObject({ axis: 'x', at: 200 });
+    // the guide spans both shapes (plus the through-line overshoot)
+    expect(guides[0].lo).toBeLessThan(100);
+    expect(guides[0].hi).toBeGreaterThan(350);
+  });
+
+  it('computeMoveSnap: outside the threshold nothing snaps', () => {
+    const m = seeded(
+      seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }),
+      seededSquare('s2', { x: 300, y: 300, width: 50, height: 50 }),
+    );
+    const { delta, guides } = computeMoveSnap(m, ['s2'], PON, { x: -93, y: 0 }, 5, undefined);
+    expect(delta).toEqual({ x: -93, y: 0 }); // left edge at 207: diff 7 ≥ 5
+    expect(guides).toEqual([]);
+  });
+
+  it('computeMoveSnap: the closest target wins the axis', () => {
+    // moving left edge lands at 204: s1 right edge 200 (diff -4) vs s3 left edge
+    // 202 (diff -2) — the nearer 202 wins.
+    const m = seeded(
+      seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }),
+      seededSquare('s3', { x: 202, y: 500, width: 60, height: 60 }),
+      seededSquare('s2', { x: 300, y: 300, width: 50, height: 50 }),
+    );
+    const { delta, guides } = computeMoveSnap(m, ['s2'], PON, { x: -96, y: 0 }, 5, undefined);
+    expect(delta).toEqual({ x: -98, y: 0 }); // 204 → 202
+    expect(guides[0]).toMatchObject({ axis: 'x', at: 202 });
+  });
+
+  it('computeMoveSnap: the page box snaps edges and centre', () => {
+    const m = seeded(seededSquare('s1', { x: 10, y: 10, width: 50, height: 50 }));
+    const page = { x: 0, y: 0, width: 600, height: 800 };
+    // top edge dragged to 2 → pins to the page top (0).
+    const up = computeMoveSnap(m, ['s1'], PON, { x: 0, y: -8 }, 5, page);
+    expect(up.delta).toEqual({ x: 0, y: -10 });
+    expect(up.guides[0]).toMatchObject({ axis: 'y', at: 0 });
+    // horizontal centre starts at 35; raw +262 puts it at 297, 3 from the page
+    // centre (300) → snaps onto it.
+    const mid = computeMoveSnap(m, ['s1'], PON, { x: 262, y: 0 }, 5, page);
+    expect(mid.delta).toEqual({ x: 265, y: 0 });
+    expect(mid.guides[0]).toMatchObject({ axis: 'x', at: 300 });
+  });
+
+  it('a move gesture snaps live (guides in the draft + chrome) and commits snapped', () => {
+    const m0 = seeded(
+      seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }),
+      seededSquare('s2', { x: 300, y: 300, width: 50, height: 50 }),
+    );
+    // grab s2 on its left stroke (an unfilled square hits on its outline).
+    const dragging = run(m0, [editPtr('down', 300, 325), editPtr('move', 203, 325)]);
+    expect(moveDraft(dragging)!.delta).toEqual({ x: -100, y: 0 });
+    expect(moveDraft(dragging)!.guides).toHaveLength(1);
+    expect(chrome(dragging, PON).some((n) => n.kind === 'guide')).toBe(true);
+    const m = run(dragging, [editPtr('up', 203, 325)]);
+    expect(rectGeom(m.byId['s2'].geom)).toMatchObject({ x: 200, y: 300 });
+    expect(chrome(m, PON).some((n) => n.kind === 'guide')).toBe(false); // cleared
+  });
+
+  it('shift bypasses guide snapping; setSnap({guides:false}) disables it', () => {
+    const m0 = seeded(
+      seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }),
+      seededSquare('s2', { x: 300, y: 300, width: 50, height: 50 }),
+    );
+    const shifted = run(m0, [editPtr('down', 300, 325), editPtr('move', 203, 325, true)]);
+    expect(moveDraft(shifted)!.delta).toEqual({ x: -97, y: 0 });
+    expect(moveDraft(shifted)!.guides).toEqual([]);
+
+    const off = update(m0, { t: 'setSnap', patch: { guides: false } })[0];
+    expect(off.snap.guides).toBe(false);
+    const dragged = run(off, [editPtr('down', 300, 325), editPtr('move', 203, 325)]);
+    expect(moveDraft(dragged)!.delta).toEqual({ x: -97, y: 0 });
+    expect(moveDraft(dragged)!.guides).toEqual([]);
+  });
+
+  it('rotateDraftDelta snaps the ABSOLUTE angle onto 0/90/180/270 within 4°', () => {
+    const m = seeded(seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }));
+    const pivot = { x: 150, y: 150 };
+    const start = { x: 150, y: 50 };
+    const at = (deg: number, free?: boolean) =>
+      rotateDraftDelta(m, {
+        g: 'rotate',
+        ids: ['s1'],
+        pivot,
+        start,
+        cur: curFor(pivot, start, deg),
+        ...(free ? { free } : {}),
+      });
+    const snapped = at(87);
+    expect(snapped.snapped).toBe(true);
+    expect(snapped.angle).toBe(90);
+    expect(snapped.delta).toBeCloseTo(90);
+    const freeSpin = at(84);
+    expect(freeSpin.snapped).toBe(false);
+    expect(freeSpin.angle).toBeCloseTo(84);
+    // shift (free) bypasses even in range
+    expect(at(87, true).snapped).toBe(false);
+  });
+
+  it('rotation snap targets the absolute angle: base 45° + raw 43° locks to 90°', () => {
+    const m = seeded(seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }, 45));
+    const pivot = { x: 150, y: 150 };
+    const start = { x: 150, y: 50 };
+    const r = rotateDraftDelta(m, {
+      g: 'rotate',
+      ids: ['s1'],
+      pivot,
+      start,
+      cur: curFor(pivot, start, 43),
+    });
+    expect(r.angle).toBe(90);
+    expect(r.delta).toBeCloseTo(45); // raw 43 + adjust 2
+  });
+
+  it('a rotate gesture commits the snapped angle and shows the chip while live', () => {
+    const m0 = seeded(seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }));
+    const pivot = { x: 150, y: 150 };
+    const start = { x: 150, y: 50 };
+    const live: Model = {
+      ...m0,
+      selected: ['s1'],
+      draft: { g: 'rotate', ids: ['s1'], pivot, start, cur: curFor(pivot, start, 88) },
+    };
+    const chip = chrome(live, PON).find((n) => n.kind === 'angle-chip');
+    expect(chip).toMatchObject({ kind: 'angle-chip', angle: 90 });
+    const [m, fx] = update(live, editPtr('up', 0, 0));
+    expect(fx).toEqual([{ fx: 'patch', id: 's1' }]);
+    expect(geomRotation(m.byId['s1'].geom)).toBeCloseTo(90);
+    expect(chrome(m, PON).some((n) => n.kind === 'angle-chip')).toBe(false);
+  });
+
+  it('custom rotation angles + threshold are honoured; rotation:false disables', () => {
+    const base = seeded(seededSquare('s1', { x: 100, y: 100, width: 100, height: 100 }));
+    const pivot = { x: 150, y: 150 };
+    const start = { x: 150, y: 50 };
+    const draft = (deg: number) => ({
+      g: 'rotate' as const,
+      ids: ['s1'],
+      pivot,
+      start,
+      cur: curFor(pivot, start, deg),
+    });
+    const m30 = { ...base, snap: { ...base.snap, rotationAngles: [30], rotationThreshold: 3 } };
+    expect(rotateDraftDelta(m30, draft(28)).angle).toBe(30);
+    expect(rotateDraftDelta(m30, draft(88)).snapped).toBe(false);
+    const off = update(base, { t: 'setSnap', patch: { rotation: false } })[0];
+    expect(rotateDraftDelta(off, draft(89)).snapped).toBe(false);
+  });
+
+  it('rotatedHandleCursor: rot 0 reproduces the axis-aligned map, then turns with the box', () => {
+    // at 0° the sector mapping IS the old RECT_CURSOR table
+    expect(rotatedHandleCursor('n', 0)).toBe('ns-resize');
+    expect(rotatedHandleCursor('s', 0)).toBe('ns-resize');
+    expect(rotatedHandleCursor('e', 0)).toBe('ew-resize');
+    expect(rotatedHandleCursor('w', 0)).toBe('ew-resize');
+    expect(rotatedHandleCursor('nw', 0)).toBe('nwse-resize');
+    expect(rotatedHandleCursor('se', 0)).toBe('nwse-resize');
+    expect(rotatedHandleCursor('ne', 0)).toBe('nesw-resize');
+    expect(rotatedHandleCursor('sw', 0)).toBe('nesw-resize');
+    // at 90° the box's east handle points SOUTH on screen → vertical resize
+    expect(rotatedHandleCursor('e', 90)).toBe('ns-resize');
+    expect(rotatedHandleCursor('n', 90)).toBe('ew-resize');
+    // at 45° the corners land on the axes, the edges on the diagonals
+    expect(rotatedHandleCursor('nw', 45)).toBe('ns-resize');
+    expect(rotatedHandleCursor('n', 45)).toBe('nesw-resize');
+  });
+
+  it('geomHandles carries rotation-aware cursors (the hover-cursor fix)', () => {
+    const g: Geom = { t: 'rect', rect: { x: 0, y: 0, width: 100, height: 50 }, ellipse: false };
+    const flat = Object.fromEntries(geomHandles(g).map((h) => [h.id, h.cursor]));
+    expect(flat['e']).toBe('ew-resize');
+    const turned = Object.fromEntries(geomHandles({ ...g, rot: 90 }).map((h) => [h.id, h.cursor]));
+    expect(turned['e']).toBe('ns-resize'); // physically at the bottom now
+    expect(turned['n']).toBe('ew-resize'); // physically at the right now
   });
 });

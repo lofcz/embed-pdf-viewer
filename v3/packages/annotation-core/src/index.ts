@@ -6,7 +6,8 @@
  * hit-testing, cursors, the select + create tools. No DOM, no engine, no
  * framework — the part that ports to Rust/Crux.
  */
-export { update, initialModel, initialStyle, defaultsFor } from './update';
+export { update, initialModel, initialStyle, defaultsFor, rotateDraftDelta } from './update';
+export { computeMoveSnap, type SnapResult } from './snap';
 export {
   pageItems,
   chrome,
@@ -60,6 +61,7 @@ export {
   shapeRectFor,
   unionRect,
   RECT_HANDLES,
+  rotatedHandleCursor,
   type RectHandle,
   // rotation
   centroidOf,
@@ -93,6 +95,7 @@ export type {
   Draft,
   Effect,
   Geom,
+  Guide,
   Handle,
   Id,
   Model,
@@ -107,6 +110,7 @@ export type {
   RenderItem,
   RenderNode,
   SceneNode,
+  SnapSettings,
   Style,
   Subtype,
   TextAlign,

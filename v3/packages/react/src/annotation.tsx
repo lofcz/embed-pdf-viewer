@@ -202,62 +202,113 @@ function BakedImage({
 
 function Chrome({ page }: { page: PageContextValue }) {
   const nodes = useSelector(AnnotationHostToken, (c) => c.chrome(page.pon), shallowArray);
+  // The live rotation readout — an HTML chip (rounded box + padded text beats
+  // hand-rolling it in SVG), riding the pointer like v2's.
+  const chip = nodes.find((n) => n.kind === 'angle-chip');
+  const chipAt = chip ? page.transform.pageToContent(chip.at) : null;
   return (
-    <svg style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
-      {nodes.map((n, i) => {
-        if (n.kind === 'handle') {
-          const p = page.transform.pageToContent(n.at);
+    <>
+      <svg style={{ position: 'absolute', inset: 0, overflow: 'visible', pointerEvents: 'none' }}>
+        {nodes.map((n, i) => {
+          if (n.kind === 'angle-chip') return null; // rendered as HTML below
+          if (n.kind === 'handle') {
+            const p = page.transform.pageToContent(n.at);
+            return (
+              <rect
+                key={i}
+                x={p.x - 4}
+                y={p.y - 4}
+                width={8}
+                height={8}
+                fill="#fff"
+                stroke={ACCENT}
+                strokeWidth={1.5}
+                // The square rides a rotated box's orientation (spin about itself).
+                {...(n.rot ? { transform: `rotate(${n.rot} ${p.x} ${p.y})` } : {})}
+              />
+            );
+          }
+          // A live alignment guide of a snapped move: a through-line at the snapped
+          // edge/center, spanning both shapes.
+          if (n.kind === 'guide') {
+            const a = page.transform.pageToContent(
+              n.axis === 'x' ? { x: n.at, y: n.lo } : { x: n.lo, y: n.at },
+            );
+            const b = page.transform.pageToContent(
+              n.axis === 'x' ? { x: n.at, y: n.hi } : { x: n.hi, y: n.at },
+            );
+            return (
+              <line
+                key={i}
+                x1={a.x}
+                y1={a.y}
+                x2={b.x}
+                y2={b.y}
+                stroke="#e91e63"
+                strokeWidth={1.5}
+                shapeRendering="crispEdges"
+              />
+            );
+          }
+          // An oriented selection box (a tilted shape/group): a closed quad through
+          // the four content-space corners — replaces the axis-aligned outline.
+          if (n.kind === 'obb') {
+            const pts = n.corners
+              .map((c) => {
+                const p = page.transform.pageToContent(c);
+                return `${p.x},${p.y}`;
+              })
+              .join(' ');
+            return <polygon key={i} points={pts} fill="none" stroke={ACCENT} strokeWidth={1} />;
+          }
+          // The rotate knob: a stalk from the top-edge midpoint out to a grab dot.
+          if (n.kind === 'rotate-knob') {
+            const at = page.transform.pageToContent(n.at);
+            const from = page.transform.pageToContent(n.from);
+            return (
+              <g key={i}>
+                <line x1={from.x} y1={from.y} x2={at.x} y2={at.y} stroke={ACCENT} strokeWidth={1} />
+                <circle cx={at.x} cy={at.y} r={5} fill="#fff" stroke={ACCENT} strokeWidth={1.5} />
+              </g>
+            );
+          }
+          const b = boxOf(n.rect, page);
           return (
             <rect
               key={i}
-              x={p.x - 4}
-              y={p.y - 4}
-              width={8}
-              height={8}
-              fill="#fff"
+              x={b.left}
+              y={b.top}
+              width={b.width}
+              height={b.height}
+              fill={n.kind === 'marquee' ? 'rgba(56,88,233,0.08)' : 'none'}
               stroke={ACCENT}
-              strokeWidth={1.5}
+              strokeWidth={1}
+              strokeDasharray="4 3"
             />
           );
-        }
-        // An oriented selection box (a tilted shape/group): a closed quad through
-        // the four content-space corners — replaces the axis-aligned outline.
-        if (n.kind === 'obb') {
-          const pts = n.corners
-            .map((c) => {
-              const p = page.transform.pageToContent(c);
-              return `${p.x},${p.y}`;
-            })
-            .join(' ');
-          return <polygon key={i} points={pts} fill="none" stroke={ACCENT} strokeWidth={1} />;
-        }
-        // The rotate knob: a stalk from the top-edge midpoint out to a grab dot.
-        if (n.kind === 'rotate-knob') {
-          const at = page.transform.pageToContent(n.at);
-          const from = page.transform.pageToContent(n.from);
-          return (
-            <g key={i}>
-              <line x1={from.x} y1={from.y} x2={at.x} y2={at.y} stroke={ACCENT} strokeWidth={1} />
-              <circle cx={at.x} cy={at.y} r={5} fill="#fff" stroke={ACCENT} strokeWidth={1.5} />
-            </g>
-          );
-        }
-        const b = boxOf(n.rect, page);
-        return (
-          <rect
-            key={i}
-            x={b.left}
-            y={b.top}
-            width={b.width}
-            height={b.height}
-            fill={n.kind === 'marquee' ? 'rgba(56,88,233,0.08)' : 'none'}
-            stroke={ACCENT}
-            strokeWidth={1}
-            strokeDasharray="4 3"
-          />
-        );
-      })}
-    </svg>
+        })}
+      </svg>
+      {chip && chipAt && (
+        <div
+          style={{
+            position: 'absolute',
+            left: chipAt.x + 16,
+            top: chipAt.y - 28,
+            background: 'rgba(0,0,0,0.8)',
+            color: '#fff',
+            padding: '2px 6px',
+            borderRadius: 4,
+            fontSize: 12,
+            fontFamily: 'monospace',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 1,
+          }}
+        >
+          {chip.angle}°
+        </div>
+      )}
+    </>
   );
 }
 

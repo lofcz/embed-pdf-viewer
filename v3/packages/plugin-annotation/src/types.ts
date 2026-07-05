@@ -19,12 +19,31 @@ import type {
   PropSpec,
   Rect,
   RenderItem,
+  SnapSettings,
   Subtype,
   Vec,
 } from '@embedpdf-x/annotation-core';
 
 export interface AnnotationState {
   model: Model;
+}
+
+/** Registration options for {@link annotationPlugin} — the initial values of the
+ *  live-adjustable {@link AnnotationCapability.setSnap} settings. */
+export interface AnnotationConfig {
+  snap?: {
+    /** Alignment guides while moving (snap to other annotations + the page).
+     *  Default true. */
+    guides?: boolean;
+    /** Guide snap tolerance, content units (PDF pt). Default 5. */
+    guideThreshold?: number;
+    /** Snap the rotate gesture onto `rotationAngles`. Default true. */
+    rotation?: boolean;
+    /** Default `[0, 90, 180, 270]`. */
+    rotationAngles?: number[];
+    /** Rotation snap tolerance, degrees. Default 4. */
+    rotationThreshold?: number;
+  };
 }
 export type AnnotationAction = { type: 'SET_MODEL'; model: Model };
 
@@ -166,6 +185,13 @@ export interface AnnotationCapability {
   setDefaults(subtype: Subtype, patch: AnnotationPropsPatch): void;
   /** The RESOLVED full props bag a tool will use for new annotations. */
   currentDefaults(subtype: Subtype): AnnotationProps;
+  // ── snapping (alignment guides while moving + rotation snap) ──
+  /** Live-adjust snapping — wire a UI toggle here (e.g.
+   *  `setSnap({ guides: false })`). Initial values come from the plugin's
+   *  registration config ({@link AnnotationConfig}). */
+  setSnap(patch: Partial<SnapSettings>): void;
+  /** The current snap settings. */
+  snapSettings(): SnapSettings;
   // ── rotation (selection-scoped; rotatable kinds only) ──
   /** Rotate the current selection a quarter-turn clockwise about its centre
    *  (a single shape's own centre / the union-box centre for a group). */

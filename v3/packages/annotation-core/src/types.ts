@@ -198,6 +198,29 @@ export interface Handle {
   cursor: Cursor;
 }
 
+/** An alignment guide produced by move-snapping: a vertical (`axis: 'x'`) or
+ *  horizontal (`axis: 'y'`) line at `at`, spanning `lo..hi` (content units). */
+export interface Guide {
+  axis: 'x' | 'y';
+  at: number;
+  lo: number;
+  hi: number;
+}
+
+/** Snapping behaviour — seeded from the plugin config, live-adjustable via the
+ *  `setSnap` msg (so an app can wire a UI toggle). */
+export interface SnapSettings {
+  /** Alignment guides while moving (snap to other annotations + the page). */
+  guides: boolean;
+  /** Guide snap tolerance, content units (PDF pt) — the `hitMargin` convention. */
+  guideThreshold: number;
+  /** Snap the rotate gesture onto `rotationAngles`. */
+  rotation: boolean;
+  rotationAngles: number[];
+  /** Rotation snap tolerance, degrees. */
+  rotationThreshold: number;
+}
+
 export type Draft =
   | {
       g: 'create-rect';
@@ -232,14 +255,17 @@ export type Draft =
       boxFrom?: Vec;
       boxTo?: Vec;
     }
-  | { g: 'move'; ids: Id[]; start: Vec; delta: Vec }
+  // `guides` are the live alignment guides of a snapped move (empty when
+  // snapping is off, bypassed, or nothing is in range) — drawn by `chrome`.
+  | { g: 'move'; ids: Id[]; start: Vec; delta: Vec; guides: Guide[] }
   | { g: 'handle'; id: Id; handle: string; base: Geom; cur: Geom }
   // Rotate gesture (single OR multi-target). `pivot` is the rotation centre
   // (a single shape's own centre / the union-box centre for a group); `ids` are
   // the members being turned; `start`/`cur` are the pointer at grab and now, so
   // the live angle is `angle(cur - pivot) - angle(start - pivot)`. The base
   // geometry stays in `m.byId` until commit, so `effGeom` rotates from there.
-  | { g: 'rotate'; ids: Id[]; pivot: Vec; start: Vec; cur: Vec }
+  // `free` (shift held) bypasses rotation snapping for this sample.
+  | { g: 'rotate'; ids: Id[]; pivot: Vec; start: Vec; cur: Vec; free?: boolean }
   // Multi-target box transform (move/resize) computed as one Mat2D about the
   // union box. `anchor` is the fixed point of a resize (the opposite corner);
   // `sx`/`sy` the live scale; for `move` the scale is 1 and `delta` carries the
@@ -293,6 +319,8 @@ export interface Model {
    *  is focused), or null. Distinct from `selected`: you select to move/resize,
    *  you edit to type. */
   editing: Id | null;
+  /** Snapping behaviour (alignment guides + rotation). */
+  snap: SnapSettings;
 }
 
 export interface PointerInput {
@@ -327,6 +355,8 @@ export type Msg =
   // restyles a mixed selection. Members flip to `vector`; one patch effect each.
   | { t: 'setProps'; patch: AnnotationPropsPatch }
   | { t: 'setDefaults'; subtype: Subtype; patch: AnnotationPropsPatch }
+  // Live-adjust snapping (a UI toggle) — merges into `Model.snap`.
+  | { t: 'setSnap'; patch: Partial<SnapSettings> }
   // Rotate the current selection by a fixed quarter-turn (clockwise) about its
   // centre — the toolbar "rotate 90°" affordance. Works for a single shape or a
   // multi-target group (about the union-box centre).
@@ -450,8 +480,14 @@ export type ChromeNode =
   // lets it orient resize cursors. Replaces the axis-aligned `outline` whenever a
   // shape (or group) carries rotation.
   | { kind: 'obb'; corners: [Vec, Vec, Vec, Vec]; angle: number }
-  | { kind: 'handle'; at: Vec; cursor: Cursor }
+  // `rot` (deg, CW) tilts the handle glyph itself so it rides a rotated box.
+  | { kind: 'handle'; at: Vec; cursor: Cursor; rot?: number }
   // The rotate knob: `at` is where the grab dot sits (hanging off the top edge),
   // `from` the edge anchor the connector stalk draws to.
   | { kind: 'rotate-knob'; at: Vec; from: Vec }
+  // A live alignment guide (see `Guide`) — drawn while a snapped move is active.
+  | { kind: 'guide'; axis: 'x' | 'y'; at: number; lo: number; hi: number }
+  // The live rotation readout while a rotate gesture is active: `at` is the
+  // pointer (content space), `angle` the selection's absolute angle (deg, CW).
+  | { kind: 'angle-chip'; at: Vec; angle: number }
   | { kind: 'marquee'; rect: Rect };

@@ -46,6 +46,33 @@ const RECT_CURSOR: Record<RectHandle, Cursor> = {
   e: 'ew-resize',
   w: 'ew-resize',
 };
+/** Each handle's compass direction (deg CW from north) on the unrotated box. */
+const HANDLE_BASE_ANGLE: Record<RectHandle, number> = {
+  n: 0,
+  ne: 45,
+  e: 90,
+  se: 135,
+  s: 180,
+  sw: 225,
+  w: 270,
+  nw: 315,
+};
+/** The resize cursor per 45° compass sector (index = sector, 0 = north). */
+const SECTOR_CURSORS: Cursor[] = [
+  'ns-resize',
+  'nesw-resize',
+  'ew-resize',
+  'nwse-resize',
+  'ns-resize',
+  'nesw-resize',
+  'ew-resize',
+  'nwse-resize',
+];
+/** The resize cursor for a handle on a box tilted by `rot` deg: rotate the
+ *  handle's compass direction with the box and pick the nearest 45° sector.
+ *  At `rot = 0` this reproduces {@link RECT_CURSOR} exactly. */
+export const rotatedHandleCursor = (h: RectHandle, rot: number): Cursor =>
+  SECTOR_CURSORS[Math.round(normalizeDeg(HANDLE_BASE_ANGLE[h] + rot) / 45) % 8];
 const rectEdges = (h: RectHandle) => ({
   w: h === 'nw' || h === 'w' || h === 'sw',
   e: h === 'ne' || h === 'e' || h === 'se',
@@ -822,9 +849,10 @@ export function geomHandles(g: Geom): Handle[] {
     const handles: Handle[] = RECT_HANDLES.map((h) => ({
       id: h,
       // box handles sit on the UNROTATED rect; rotate each into place so they
-      // ride the tilted box.
+      // ride the tilted box. The cursor rotates WITH the handle (the visually
+      // right-edge handle of a 90°-tilted box resizes horizontally).
       at: rot ? rotatePoint(rectHandlePoint(g.rect, h), c, rot) : rectHandlePoint(g.rect, h),
-      cursor: RECT_CURSOR[h],
+      cursor: rotatedHandleCursor(h, rot),
     }));
     // A callout adds vertex handles for the leader tip and (if present) knee, so
     // the called-out point and the elbow can be dragged independently of the box.

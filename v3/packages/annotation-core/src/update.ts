@@ -20,6 +20,7 @@ import {
   groupResizeAnchor,
   groupResizeBox,
   groupResizeFactors,
+  normalizeDeg,
   rectFromPoints,
   rectsIntersect,
   selectionCenter,
@@ -28,6 +29,7 @@ import {
   unionRect,
 } from './geometry';
 import { applyProps, initialTextStyle, styleFromProps, textStyleFromProps } from './props';
+import { computeMoveSnap } from './snap';
 import type {
   Annot,
   AnnotationProps,
@@ -73,6 +75,13 @@ export const initialModel: Model = {
   defaults: {},
   hitMargin: 6,
   editing: null,
+  snap: {
+    guides: true,
+    guideThreshold: 5,
+    rotation: true,
+    rotationAngles: [0, 90, 180, 270],
+    rotationThreshold: 4,
+  },
 };
 
 /**
@@ -163,6 +172,34 @@ const RAD2DEG = 180 / Math.PI;
 /** The signed CW angle (deg) of `p` relative to `pivot`, in content space (y-down). */
 const angleAt = (pivot: Vec, p: Vec): number => Math.atan2(p.y - pivot.y, p.x - pivot.x) * RAD2DEG;
 
+/** Shortest signed arc from `a` to `b` (deg), in (-180, 180]. */
+const arcTo = (a: number, b: number): number => ((b - a + 540) % 360) - 180;
+
+/**
+ * The live rotation of a rotate draft, snapping applied — the ONE angle rule
+ * shared by the preview (`effGeom`), the commit (`editUp`) and the angle chip,
+ * so they can never disagree. The selection's ABSOLUTE angle (a single member's
+ * `rot` + the raw pointer delta; a group's raw delta from 0) locks onto the
+ * configured angles within the threshold; `free` (shift held) bypasses.
+ * `delta` is what `geomRotateAbout` applies; `angle` is what the chip shows.
+ */
+export function rotateDraftDelta(
+  m: Model,
+  d: Extract<Draft, { g: 'rotate' }>,
+): { delta: number; angle: number; snapped: boolean } {
+  const raw = angleAt(d.pivot, d.cur) - angleAt(d.pivot, d.start);
+  const one = d.ids.length === 1 ? m.byId[d.ids[0]] : null;
+  const base = one ? geomRotation(one.geom) : 0;
+  const angle = normalizeDeg(base + raw);
+  if (!m.snap.rotation || d.free) return { delta: raw, angle, snapped: false };
+  for (const target of m.snap.rotationAngles) {
+    const adjust = arcTo(angle, normalizeDeg(target));
+    if (Math.abs(adjust) <= m.snap.rotationThreshold)
+      return { delta: raw + adjust, angle: normalizeDeg(target), snapped: true };
+  }
+  return { delta: raw, angle, snapped: false };
+}
+
 /** A group resize is isotropic (uniform) when ANY selected member is rotated —
  *  an off-axis scale across a rotated rect+rot is a shear it can't represent. A
  *  vertex member's advisory `rot` counts (preserves obbFromTheta + reset). */
@@ -193,6 +230,8 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return setProps(m, msg.patch);
     case 'setDefaults':
       return setDefaults(m, msg.subtype, msg.patch);
+    case 'setSnap':
+      return [{ ...m, snap: { ...m.snap, ...msg.patch } }, []];
     case 'rotate90':
       return rotateSelection(m, 90);
     case 'resetRotation':
@@ -296,7 +335,7 @@ function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
     // kind (markup/caret) still selects, it just won't drag.
     const movable = selected.length > 0 && selected.every((id) => canMove(m, id));
     const draft: Draft | null = movable
-      ? { g: 'move', ids: selected, start: input.point, delta: { x: 0, y: 0 } }
+      ? { g: 'move', ids: selected, start: input.point, delta: { x: 0, y: 0 }, guides: [] }
       : null;
     return [{ ...m, selected, draft }, []];
   }
@@ -309,15 +348,25 @@ function editMove(m: Model, input: PointerInput): [Model, Effect[]] {
   const home = editDraftPon(m, d);
   if (home != null && input.pon !== home) return [m, []];
   if (d.g === 'move') {
-    const raw = sub(input.point, d.start);
-    return [{ ...m, draft: { ...d, delta: clampMoveDelta(m, d.ids, raw, input.pageBox) } }, []];
+    const raw = clampMoveDelta(m, d.ids, sub(input.point, d.start), input.pageBox);
+    if (!m.snap.guides || input.shift)
+      return [{ ...m, draft: { ...d, delta: raw, guides: [] } }, []];
+    const snap = computeMoveSnap(m, d.ids, input.pon, raw, m.snap.guideThreshold, input.pageBox);
+    // A snap adjusts by ≤ threshold, but never past the page edge: re-clamp, and
+    // drop the guide on an axis the clamp took back (its line would be a lie).
+    const delta = clampMoveDelta(m, d.ids, snap.delta, input.pageBox);
+    const guides = snap.guides.filter((g) =>
+      g.axis === 'x' ? delta.x === snap.delta.x : delta.y === snap.delta.y,
+    );
+    return [{ ...m, draft: { ...d, delta, guides } }, []];
   }
   const point = clampPointToBox(input.point, input.pageBox);
   if (d.g === 'handle')
     return [{ ...m, draft: { ...d, cur: geomDragHandle(d.base, d.handle, point) } }, []];
   // Rotation reads the pointer as an ANGLE about the pivot — the raw point is
   // valid (and better) outside the page; the geometry itself never translates.
-  if (d.g === 'rotate') return [{ ...m, draft: { ...d, cur: input.point } }, []];
+  // `free` (shift) records the snap bypass for this sample.
+  if (d.g === 'rotate') return [{ ...m, draft: { ...d, cur: input.point, free: input.shift } }, []];
   if (d.g === 'group') {
     const iso = selectionHasRotation(m, d.ids);
     return [{ ...m, draft: { ...d, cur: groupResizeBox(d.base, d.handle, point, iso) } }, []];
@@ -337,7 +386,7 @@ function editUp(m: Model): [Model, Effect[]] {
     return [{ ...m, byId: { ...m.byId, [d.id]: a }, draft: null }, [{ fx: 'patch', id: d.id }]];
   }
   if (d.g === 'rotate') {
-    const delta = angleAt(d.pivot, d.cur) - angleAt(d.pivot, d.start);
+    const { delta } = rotateDraftDelta(m, d);
     if (Math.abs(delta) < 0.01) return [{ ...m, draft: null }, []];
     const byId = { ...m.byId };
     const fx: Effect[] = [];

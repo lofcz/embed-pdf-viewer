@@ -12,21 +12,26 @@ import {
 import { wireMarkup } from './markup';
 import { annotationReducer, initialAnnotationState } from './reducer';
 import { AnnotationToken } from './types';
-import type { AnnotationAction, AnnotationHostCapability, AnnotationState } from './types';
+import type {
+  AnnotationAction,
+  AnnotationConfig,
+  AnnotationHostCapability,
+  AnnotationState,
+} from './types';
 
 /**
  * The annotation plugin. Document-scoped; requires the interaction hub and
  * OPTIONALLY uses the selection plugin. Shapes/ink work with no selection; text
  * markup lights up only when a selection plugin is present.
  */
-export const annotationPlugin = () =>
+export const annotationPlugin = (config: AnnotationConfig = {}) =>
   definePlugin<AnnotationState, AnnotationAction, AnnotationHostCapability>({
     id: 'annotation',
     token: AnnotationToken,
     scope: 'document',
     requires: [InteractionToken],
     optional: [SelectionToken],
-    initialState: initialAnnotationState,
+    initialState: () => initialAnnotationState(config),
     reduce: annotationReducer,
     capability: createAnnotationCapability,
     // Fold in remote collaborators' edits (own edits flow through the capability).

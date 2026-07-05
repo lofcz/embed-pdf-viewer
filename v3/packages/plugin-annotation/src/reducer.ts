@@ -1,12 +1,15 @@
 import { initialModel } from '@embedpdf-x/annotation-core';
-import type { AnnotationAction, AnnotationState } from './types';
+import type { AnnotationAction, AnnotationConfig, AnnotationState } from './types';
 
 /**
  * The slice just holds the annotation-core Model. The pure `update` runs in the
  * capability (the shell, which also performs effects); the reducer only stores
  * the new model — keeping the kernel store a dumb, serializable container.
+ * The registration config seeds the model's snap settings.
  */
-export const initialAnnotationState: AnnotationState = { model: initialModel };
+export const initialAnnotationState = (config: AnnotationConfig = {}): AnnotationState => ({
+  model: { ...initialModel, snap: { ...initialModel.snap, ...config.snap } },
+});
 
 export const annotationReducer = (
   state: AnnotationState,
