@@ -20,6 +20,7 @@ import { EventHub, SessionEventPublisher } from '@embedpdf/engine-services';
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
 import type { ScopeGuard } from '../scope';
 import { LocalDocumentAnnotationsService } from './LocalDocumentAnnotationsService';
+import { LocalDocumentFormsService } from './LocalDocumentFormsService';
 import { LocalDocumentPagesService } from './LocalDocumentPagesService';
 import { LocalDocumentSecurityService } from './LocalDocumentSecurityService';
 import { LocalMetadataService } from './LocalMetadataService';
@@ -35,6 +36,7 @@ export class LocalDocumentHandle implements DocumentHandle {
   } as const;
   readonly metadata: MetadataService;
   readonly annotations: DocumentAnnotationsService;
+  readonly forms: LocalDocumentFormsService;
   readonly pages: DocumentPagesService;
   readonly security: DocumentSecurityService;
   readonly events: DocumentEventStream;
@@ -58,6 +60,7 @@ export class LocalDocumentHandle implements DocumentHandle {
     this.security = new LocalDocumentSecurityService(initialSecurity, id, queue, view, guard);
     this.metadata = new LocalMetadataService(id, queue, view, guard, this.publisher);
     this.annotations = new LocalDocumentAnnotationsService(id, queue, view, guard);
+    this.forms = new LocalDocumentFormsService(id, queue, view, guard, this.publisher);
     this.pages = new LocalDocumentPagesService(id, queue, view, guard, this.publisher);
   }
 

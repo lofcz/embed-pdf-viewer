@@ -6,6 +6,7 @@ import type {
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 
 import { pickReader } from './annotationReaderRegistry';
+import { joinWidgetFieldNumbers } from './joinWidgetField';
 import { readAnnotationBase } from './readAnnotationBase';
 import type { DocumentSession } from '../../../../document-session/DocumentSession';
 import { throwIfAborted } from '../../../../shared/abort';
@@ -52,6 +53,7 @@ export function collectPageAnnotations(input: {
     }
   }
 
+  joinWidgetFieldNumbers(runtime, session, annotations);
   session.recordWeakFlag(pageObjectNumber, hasWeak);
   return { pageState: session.pageState(pageObjectNumber), annotations };
 }

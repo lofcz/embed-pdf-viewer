@@ -15,6 +15,7 @@ import {
   type AnnotationStableId,
   type AnnotationUpdateResult,
   type PageObjectNumber,
+  PdfAnnotationSubtypeCode,
 } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 
@@ -27,6 +28,10 @@ import { resolveAnnotPtr } from './internal/identity/resolveAnnotationPointer';
 import { computeMutationImpact } from './internal/mutations/computeMutationImpact';
 import { readAnnotString } from './internal/read/annotationReadPrimitives';
 import { readAnnotationFromPtr } from './internal/read/readAnnotationFromPtr';
+import {
+  joinWidgetFieldNumbers,
+  resolveWidgetFieldObjectNumber,
+} from './internal/read/joinWidgetField';
 import { applyDraft, applyPatch } from './internal/write/annotationWriterRegistry';
 import {
   writeAnnotationAuthor,
@@ -184,6 +189,7 @@ export class AnnotationMutator {
           newIndex,
           pageStateBefore.revision,
         );
+        joinWidgetFieldNumbers(this.runtime, this.session, [dto]);
       } finally {
         fn.FPDFPage_CloseAnnot(annotPtr);
       }
@@ -276,6 +282,7 @@ export class AnnotationMutator {
         newIndex,
         pageStateBefore.revision,
       );
+      joinWidgetFieldNumbers(this.runtime, this.session, [dto]);
 
       this.recordWeakStateFromPage(ref.pageObjectNumber, pagePtr);
       const pageStateAfter = this.session.pageState(ref.pageObjectNumber);
@@ -290,6 +297,24 @@ export class AnnotationMutator {
       if (annotPtr !== null) fn.FPDFPage_CloseAnnot(annotPtr);
       pool.release(ref.pageObjectNumber);
     }
+  }
+
+  /**
+   * Attached widgets are views of a form field: deleting one here would
+   * orphan the field's /Kids (the corruption class doc.forms.repair
+   * exists to fix). Detach first, or use the forms-plane cascade.
+   */
+  private assertNotAttachedWidget(annotPtr: Ptr): void {
+    const { fn } = this.runtime;
+    if (fn.FPDFAnnot_GetSubtype(annotPtr) !== PdfAnnotationSubtypeCode.WIDGET) return;
+    const annotObjectNumber = fn.EPDFAnnot_GetObjectNumber(annotPtr);
+    if (resolveWidgetFieldObjectNumber(this.runtime, this.session, annotObjectNumber) === 0) {
+      return; // inert widget: an ordinary annotation, ordinary delete
+    }
+    throw new EngineError(
+      EngineErrorCode.InvalidArg,
+      'widget is attached to a form field - use doc.forms.detachWidget or doc.forms.deleteField',
+    );
   }
 
   delete(ref: AnnotationRef, signal: AbortSignal): AnnotationDeleteResult {
@@ -318,7 +343,11 @@ export class AnnotationMutator {
               `no annotation with object number ${ref.annotObjectNumber} on page ${ref.pageObjectNumber}`,
             );
           }
-          fn.FPDFPage_CloseAnnot(probe);
+          try {
+            this.assertNotAttachedWidget(probe);
+          } finally {
+            fn.FPDFPage_CloseAnnot(probe);
+          }
           bumpRequested = true;
           ok = fn.EPDFPage_RemoveAnnotByObjectNumber(pagePtr, ref.annotObjectNumber);
           deleted = { kind: 'objectNumber', value: ref.annotObjectNumber };
@@ -334,7 +363,11 @@ export class AnnotationMutator {
                 `no annotation with /NM '${ref.nm}' on page ${ref.pageObjectNumber}`,
               );
             }
-            fn.FPDFPage_CloseAnnot(probe);
+            try {
+              this.assertNotAttachedWidget(probe);
+            } finally {
+              fn.FPDFPage_CloseAnnot(probe);
+            }
             bumpRequested = true;
             ok = fn.EPDFPage_RemoveAnnotByName(pagePtr, namePtr);
           } finally {

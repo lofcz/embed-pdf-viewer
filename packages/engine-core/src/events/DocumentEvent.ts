@@ -6,6 +6,15 @@ import type {
   AnnotationMoveResult,
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
+import type {
+  FormFieldCreateResult,
+  FormFieldDeleteResult,
+  FormFieldUpdateResult,
+  FormImportResult,
+  FormRepairResult,
+  FormSetValueResult,
+  FormWidgetLinkResult,
+} from '../mutation/FormMutationResults';
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { PageDeleteResult } from '../mutation/PageDeleteResult';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
@@ -101,7 +110,15 @@ export type DocumentEvent =
       pageObjectNumbers: PageObjectNumber[];
       origin: EventOrigin;
     } & PageDeleteResult)
-  | ({ type: 'metadata.updated'; origin: EventOrigin } & MetadataUpdateResult);
+  | ({ type: 'metadata.updated'; origin: EventOrigin } & MetadataUpdateResult)
+  | ({ type: 'form.valueChanged'; origin: EventOrigin } & FormSetValueResult)
+  | ({ type: 'form.imported'; origin: EventOrigin } & FormImportResult)
+  | ({ type: 'form.repaired'; origin: EventOrigin } & FormRepairResult)
+  | ({ type: 'form.fieldCreated'; origin: EventOrigin } & FormFieldCreateResult)
+  | ({ type: 'form.fieldUpdated'; origin: EventOrigin } & FormFieldUpdateResult)
+  | ({ type: 'form.fieldDeleted'; origin: EventOrigin } & FormFieldDeleteResult)
+  | ({ type: 'form.widgetAttached'; origin: EventOrigin } & FormWidgetLinkResult)
+  | ({ type: 'form.widgetDetached'; origin: EventOrigin } & FormWidgetLinkResult);
 
 export type DocumentEventType = DocumentEvent['type'];
 

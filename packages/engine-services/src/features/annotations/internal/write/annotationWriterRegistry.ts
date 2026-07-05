@@ -7,6 +7,8 @@ import {
 import type {
   CaretDraft,
   CaretPatch,
+  WidgetDraft,
+  WidgetPatch,
   FreeTextDraft,
   FreeTextPatch,
   InkDraft,
@@ -53,6 +55,7 @@ import {
   applyPolylinePatch,
   isVertexSubtype,
 } from './writeVertexAnnotation';
+import { applyWidgetDraft, applyWidgetPatch, isWidgetSubtype } from './writeWidgetAnnotation';
 
 /**
  * Per-subtype write dispatch, mirroring the read-side registry. Adding a
@@ -104,6 +107,10 @@ export function applyDraft(
   }
   if (isStampSubtype(draft.subtype)) {
     applyStampDraft(fn, mem, annotPtr, draft as StampWireDraft, ctx);
+    return;
+  }
+  if (isWidgetSubtype(draft.subtype)) {
+    applyWidgetDraft(fn, mem, annotPtr, draft as WidgetDraft);
     return;
   }
   // Should be unreachable: AnnotationDraft is the closed union of writable
@@ -158,6 +165,10 @@ export function applyPatch(
   }
   if (isStampSubtype(patch.subtype)) {
     applyStampPatch(fn, mem, annotPtr, patch as StampWirePatch, ctx);
+    return;
+  }
+  if (isWidgetSubtype(patch.subtype)) {
+    applyWidgetPatch(fn, mem, annotPtr, patch as WidgetPatch);
     return;
   }
   throw new EngineError(

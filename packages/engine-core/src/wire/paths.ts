@@ -28,6 +28,15 @@
  *   /v1/docs/{id}/layers/{L}/pages/move                           — batch page reorder
  *   /v1/docs/{id}/layers/{L}/pages/rotate                         — batch absolute rotation
  *   /v1/docs/{id}/layers/{L}/pages/delete                         — batch page delete
+ *   /v1/docs/{id}/layers/{L}/form                                 — reconciled snapshot (read)
+ *   /v1/docs/{id}/layers/{L}/form/fields                          — field collection (create)
+ *   /v1/docs/{id}/layers/{L}/form/fields/{key}                    — field member (read/patch/delete)
+ *   /v1/docs/{id}/layers/{L}/form/fields/{key}/value              — value write (fill)
+ *   /v1/docs/{id}/layers/{L}/form/fields/{key}/reset              — reset to /DV (fill)
+ *   /v1/docs/{id}/layers/{L}/form/fields/{key}/widgets            — adopt a widget (attach)
+ *   /v1/docs/{id}/layers/{L}/form/fields/{key}/widgets/detach     — release a widget
+ *   /v1/docs/{id}/layers/{L}/form/data                            — FDF/XFDF export (GET) / import (POST)
+ *   /v1/docs/{id}/layers/{L}/form/repair                          — durable reconciliation
  *   /v1/docs/{id}/layers/{L}/download@{ver}
  *
  * `items` appears on both the read collection (`items@{ver}`) and
@@ -232,6 +241,62 @@ export const wirePaths = {
 
   layerPageAnnotationsMove: (docId: string, layerName: string, pageObjectNumber: number) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/annotations/pages/${pageObjectNumber}/items/move`,
+
+  /**
+   * GET: the reconciled form snapshot (field tree + widget joins) for the
+   * layer's CURRENT state. Forms are document-scoped (one AcroForm per
+   * document), so there is no per-page collection and — unlike annotations —
+   * no content-addressed `@version` variant: the snapshot is always served
+   * `no-store`. Mutation results carry the per-page `cacheDelta` that keeps
+   * annotation/render caches coherent when widget appearances change.
+   */
+  layerForm: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form`,
+
+  /** POST: create a field (optionally with styled widget placements). */
+  layerFormFields: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/fields`,
+
+  /**
+   * Field member: GET (single field) / PATCH (updateField) / DELETE
+   * (deleteField + widget cascade). `fieldKey` is an encoded `FormFieldRef`
+   * (`encodeFieldRefKey`): `obj:12` or `fqn:billing.name`.
+   */
+  layerFormFieldByKey: (docId: string, layerName: string, fieldKey: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/fields/${encodeURIComponent(fieldKey)}`,
+
+  /** POST: replace the field's value (`{ value: FormFieldValue }`). */
+  layerFormFieldValue: (docId: string, layerName: string, fieldKey: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/fields/${encodeURIComponent(fieldKey)}/value`,
+
+  /** POST: reset the field to /DV (or clear). Empty body. */
+  layerFormFieldReset: (docId: string, layerName: string, fieldKey: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/fields/${encodeURIComponent(fieldKey)}/reset`,
+
+  /** POST: adopt an inert widget annotation (`{ widget, onState? }`). */
+  layerFormFieldWidgets: (docId: string, layerName: string, fieldKey: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/fields/${encodeURIComponent(fieldKey)}/widgets`,
+
+  /**
+   * POST: release a widget back to the inert annotation plane
+   * (`{ widget }`). An action POST rather than a member DELETE because a
+   * widget ref is a (page, annotation) pair — carrying it in the body keeps
+   * one codec instead of inventing a second composite key syntax.
+   */
+  layerFormFieldWidgetsDetach: (docId: string, layerName: string, fieldKey: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/fields/${encodeURIComponent(fieldKey)}/widgets/detach`,
+
+  /**
+   * GET: serialized form data (`?format=fdf|xfdf`, default `xfdf`).
+   * POST: import an FDF/XFDF payload (raw bytes body; format sniffed
+   * server-side unless `?format=` pins it).
+   */
+  layerFormData: (docId: string, layerName: string, format?: 'fdf' | 'xfdf') =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/data${format ? `?format=${format}` : ''}`,
+
+  /** POST: durable reconciliation (`{ bakeAppearances? }`). */
+  layerFormRepair: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/repair`,
 
   layerPagesMove: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/move`,

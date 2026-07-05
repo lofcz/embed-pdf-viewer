@@ -11,6 +11,11 @@ export type {
   AnnotationConformanceOptions,
 } from './conformance/runAnnotationReadConformance';
 export { runAnnotationMutationConformance } from './conformance/runAnnotationMutationConformance';
+export { runFormConformance } from './conformance/runFormConformance';
+export type {
+  FormConformanceFixtures,
+  FormConformanceOptions,
+} from './conformance/runFormConformance';
 export type {
   AnnotationMutationConformanceFixture,
   AnnotationMutationConformanceOptions,

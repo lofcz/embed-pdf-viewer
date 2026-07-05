@@ -263,6 +263,22 @@ export class HttpClient {
     return await this.parseJsonResponse(res, parser);
   }
 
+  /** POST a raw binary body (FDF/XFDF import) and parse the JSON response. */
+  async postBytesJson<T>(
+    path: string,
+    bytes: Uint8Array,
+    contentType: string,
+    parser: (raw: unknown) => T,
+    signal: AbortSignal,
+  ): Promise<T> {
+    const headers = new Headers({ 'Content-Type': contentType });
+    // Copy into a fresh ArrayBuffer: `bytes` may be a view over a larger
+    // (or SharedArrayBuffer-backed) buffer, which fetch bodies reject.
+    const body = new Uint8Array(bytes).buffer as ArrayBuffer;
+    const res = await this.request(path, { method: 'POST', body, headers, signal });
+    return await this.parseJsonResponse(res, parser);
+  }
+
   async patchJson<T>(
     path: string,
     body: unknown,

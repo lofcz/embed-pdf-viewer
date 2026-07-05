@@ -9,7 +9,16 @@ export type AuditMutationKind =
   | 'pages.move'
   | 'pages.rotate'
   | 'pages.delete'
-  | 'metadata.update';
+  | 'metadata.update'
+  | 'form.setValue'
+  | 'form.reset'
+  | 'form.import'
+  | 'form.repair'
+  | 'form.createField'
+  | 'form.updateField'
+  | 'form.deleteField'
+  | 'form.attachWidget'
+  | 'form.detachWidget';
 
 export interface AppendAuditLogInput {
   tenantId: string;

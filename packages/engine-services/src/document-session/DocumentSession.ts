@@ -44,6 +44,7 @@ export class DocumentSession {
   private fullyEnumerated = false;
 
   private revisions: RevisionAuthority | null = null;
+  private mutationSeqCounter = 0;
   private pages: PagePtrPool | null = null;
 
   constructor(
@@ -202,6 +203,23 @@ export class DocumentSession {
   /** Bump and return the new revision token; called by mutation paths. */
   bumpRevision(pageObjectNumber: PageObjectNumber): RevisionToken {
     return this.requireRevisions().bump(pageObjectNumber);
+  }
+
+  /**
+   * Monotonic count of successful document mutations in this session.
+   * Version key for detached-snapshot caches (e.g. the forms model):
+   * a cache entry built at sequence N is exactly valid while the
+   * sequence is still N. Coarse on purpose — widgets are annotations
+   * and page ops move widgets, so ANY mutation may affect derived
+   * form state; per-domain counters are a later optimization.
+   */
+  mutationSeq(): number {
+    return this.mutationSeqCounter;
+  }
+
+  /** Record one successful mutation; called by mutation paths. */
+  noteMutation(): void {
+    this.mutationSeqCounter++;
   }
 
   /**

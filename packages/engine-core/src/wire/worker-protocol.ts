@@ -19,6 +19,20 @@ import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
+import type { FormFieldRef, FormWidgetRef } from '../identity/FormFieldRef';
+import type { FormFieldDraft } from '../forms/draft';
+import type { FormFieldPatch } from '../forms/patch';
+import type { FormSnapshot } from '../forms/snapshot';
+import type { FormDataFormat, FormFieldValue } from '../forms/value';
+import type {
+  FormFieldCreateResult,
+  FormFieldDeleteResult,
+  FormFieldUpdateResult,
+  FormImportResult,
+  FormRepairResult,
+  FormSetValueResult,
+  FormWidgetLinkResult,
+} from '../mutation/FormMutationResults';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type {
   AnnotationCreateResult,
@@ -216,6 +230,115 @@ export interface AnnotationsMoveWorkerRequest {
   artifactPath?: string;
 }
 
+/**
+ * Complete reconciled form snapshot. Cheap between mutations: the worker
+ * caches the underlying EPDFForm model keyed on the session's mutation
+ * counter and rebuilds only after a write.
+ */
+export interface FormsListWorkerRequest {
+  kind: 'forms.list';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+}
+
+export interface FormsSetValueWorkerRequest {
+  kind: 'forms.setValue';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  ref: FormFieldRef;
+  value: FormFieldValue;
+  artifactPath?: string;
+}
+
+export interface FormsResetWorkerRequest {
+  kind: 'forms.reset';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  ref: FormFieldRef;
+  artifactPath?: string;
+}
+
+export interface FormsExportWorkerRequest {
+  kind: 'forms.export';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  format: FormDataFormat;
+}
+
+export interface FormsImportWorkerRequest {
+  kind: 'forms.import';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  /** FDF or XFDF payload; goes on the wirePack transfer list (zero-copy). */
+  data: ArrayBuffer;
+  /** Sniffed from the bytes when omitted. */
+  format?: FormDataFormat;
+  artifactPath?: string;
+}
+
+export interface FormsRepairWorkerRequest {
+  kind: 'forms.repair';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  bakeAppearances?: boolean;
+  artifactPath?: string;
+}
+
+export interface FormsCreateFieldWorkerRequest {
+  kind: 'forms.createField';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  draft: FormFieldDraft;
+  artifactPath?: string;
+}
+
+export interface FormsUpdateFieldWorkerRequest {
+  kind: 'forms.updateField';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  ref: FormFieldRef;
+  patch: FormFieldPatch;
+  artifactPath?: string;
+}
+
+export interface FormsDeleteFieldWorkerRequest {
+  kind: 'forms.deleteField';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  ref: FormFieldRef;
+  artifactPath?: string;
+}
+
+export interface FormsAttachWidgetWorkerRequest {
+  kind: 'forms.attachWidget';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  ref: FormFieldRef;
+  widget: FormWidgetRef;
+  onState?: string;
+  artifactPath?: string;
+}
+
+export interface FormsDetachWidgetWorkerRequest {
+  kind: 'forms.detachWidget';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  ref: FormFieldRef;
+  widget: FormWidgetRef;
+  artifactPath?: string;
+}
+
 export interface PagesListWorkerRequest {
   kind: 'pages.list';
   jobId: WorkerJobId;
@@ -409,6 +532,17 @@ export type WorkerRequest =
   | AnnotationsUpdateWorkerRequest
   | AnnotationsDeleteWorkerRequest
   | AnnotationsMoveWorkerRequest
+  | FormsListWorkerRequest
+  | FormsSetValueWorkerRequest
+  | FormsResetWorkerRequest
+  | FormsExportWorkerRequest
+  | FormsImportWorkerRequest
+  | FormsRepairWorkerRequest
+  | FormsCreateFieldWorkerRequest
+  | FormsUpdateFieldWorkerRequest
+  | FormsDeleteFieldWorkerRequest
+  | FormsAttachWidgetWorkerRequest
+  | FormsDetachWidgetWorkerRequest
   | PagesListWorkerRequest
   | PagesMoveWorkerRequest
   | PagesRotateWorkerRequest
@@ -463,6 +597,62 @@ export type WorkerResultPayload =
   | {
       tag: 'annotations.move';
       result: AnnotationMoveResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | { tag: 'forms.list'; snapshot: FormSnapshot }
+  | {
+      tag: 'forms.setValue';
+      result: FormSetValueResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'forms.reset';
+      result: FormSetValueResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | { tag: 'forms.export'; format: FormDataFormat; bytes: ArrayBuffer }
+  | {
+      tag: 'forms.import';
+      result: FormImportResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'forms.repair';
+      result: FormRepairResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'forms.createField';
+      result: FormFieldCreateResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'forms.updateField';
+      result: FormFieldUpdateResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'forms.deleteField';
+      result: FormFieldDeleteResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'forms.attachWidget';
+      result: FormWidgetLinkResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | {
+      tag: 'forms.detachWidget';
+      result: FormWidgetLinkResult;
       artifact?: LayerArtifactWorkerPayload;
       artifactFile?: LayerArtifactFileWorkerPayload;
     }

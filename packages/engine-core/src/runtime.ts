@@ -50,6 +50,7 @@ export type { DocumentCapabilities } from './engine/DocumentHandle';
 export type { MetadataService } from './engine/MetadataService';
 export type { PageHandle } from './engine/PageHandle';
 export type { DocumentAnnotationsService } from './engine/DocumentAnnotationsService';
+export type { DocumentFormsService, FormRepairOptions } from './engine/DocumentFormsService';
 export type { WeakAnnotationEditSession } from './engine/DocumentAnnotationsService';
 export type { DocumentPagesService } from './engine/DocumentPagesService';
 export type { PageAnnotationsService } from './engine/PageAnnotationsService';
@@ -94,6 +95,17 @@ export type {
   PagesTextWorkerRequest,
   PagesGeometryWorkerRequest,
   PagesRenderWorkerRequest,
+  FormsListWorkerRequest,
+  FormsSetValueWorkerRequest,
+  FormsResetWorkerRequest,
+  FormsExportWorkerRequest,
+  FormsImportWorkerRequest,
+  FormsRepairWorkerRequest,
+  FormsCreateFieldWorkerRequest,
+  FormsUpdateFieldWorkerRequest,
+  FormsDeleteFieldWorkerRequest,
+  FormsAttachWidgetWorkerRequest,
+  FormsDetachWidgetWorkerRequest,
   FontsRegisterWorkerRequest,
   FontsAddFallbackWorkerRequest,
   FontsClearFallbacksWorkerRequest,

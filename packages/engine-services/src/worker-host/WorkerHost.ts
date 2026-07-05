@@ -11,6 +11,17 @@ import {
   type DocumentSaveBufferWorkerRequest,
   type DocumentSaveFileWorkerRequest,
   type DocumentSaveLayerBufferWorkerRequest,
+  type FormsAttachWidgetWorkerRequest,
+  type FormsCreateFieldWorkerRequest,
+  type FormsDeleteFieldWorkerRequest,
+  type FormsDetachWidgetWorkerRequest,
+  type FormsExportWorkerRequest,
+  type FormsImportWorkerRequest,
+  type FormsListWorkerRequest,
+  type FormsRepairWorkerRequest,
+  type FormsUpdateFieldWorkerRequest,
+  type FormsResetWorkerRequest,
+  type FormsSetValueWorkerRequest,
   type FontsRegisterWorkerRequest,
   type FontsAddFallbackWorkerRequest,
   type FontsClearFallbacksWorkerRequest,
@@ -40,6 +51,7 @@ import {
   type WorkerResponse,
   type WorkerResultPayload,
 } from '@embedpdf/engine-core/runtime';
+import type { MutationMeta } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 
 import { DocumentSession } from '../document-session/DocumentSession';
@@ -54,6 +66,7 @@ import {
   AnnotationMutator,
   RawAnnotationReader,
 } from '../features/annotations';
+import { FormMutator, FormReader, disposeFormModel } from '../features/forms';
 import { FontRegistrar, type StartupFontSpec } from '../features/fonts';
 import { PageGeometryReader } from '../features/geometry';
 import { MetadataMutator, MetadataReader } from '../features/metadata';
@@ -167,6 +180,39 @@ export class WorkerHost {
           break;
         case 'annotations.move':
           resultPack = this.handleAnnotationsMove(msg, ctrl.signal);
+          break;
+        case 'forms.list':
+          resultPack = this.handleFormsList(msg, ctrl.signal);
+          break;
+        case 'forms.setValue':
+          resultPack = this.handleFormsSetValue(msg, ctrl.signal);
+          break;
+        case 'forms.reset':
+          resultPack = this.handleFormsReset(msg, ctrl.signal);
+          break;
+        case 'forms.export':
+          resultPack = this.handleFormsExport(msg, ctrl.signal);
+          break;
+        case 'forms.import':
+          resultPack = this.handleFormsImport(msg, ctrl.signal);
+          break;
+        case 'forms.repair':
+          resultPack = this.handleFormsRepair(msg, ctrl.signal);
+          break;
+        case 'forms.createField':
+          resultPack = this.handleFormsCreateField(msg, ctrl.signal);
+          break;
+        case 'forms.updateField':
+          resultPack = this.handleFormsUpdateField(msg, ctrl.signal);
+          break;
+        case 'forms.deleteField':
+          resultPack = this.handleFormsDeleteField(msg, ctrl.signal);
+          break;
+        case 'forms.attachWidget':
+          resultPack = this.handleFormsAttachWidget(msg, ctrl.signal);
+          break;
+        case 'forms.detachWidget':
+          resultPack = this.handleFormsDetachWidget(msg, ctrl.signal);
           break;
         case 'pages.list':
           resultPack = this.handlePagesList(msg, ctrl.signal);
@@ -548,6 +594,7 @@ export class WorkerHost {
   private handleClose(req: CloseWorkerRequest): WirePack<WorkerResultPayload> {
     for (const [key, session] of Array.from(this.sessions.entries())) {
       if (!sessionKeyBelongsToDoc(key, req.docId)) continue;
+      disposeFormModel(this.runtime, session);
       session.close();
       this.sessions.delete(key);
     }
@@ -557,7 +604,10 @@ export class WorkerHost {
   private handleShutdown(_req: ShutdownWorkerRequest): WirePack<WorkerResultPayload> {
     if (!this.destroyed) {
       this.destroyed = true;
-      for (const session of this.sessions.values()) session.close();
+      for (const session of this.sessions.values()) {
+        disposeFormModel(this.runtime, session);
+        session.close();
+      }
       this.sessions.clear();
       this.baseDocuments.releaseAll();
       destroyLibrary(this.runtime);
@@ -582,11 +632,176 @@ export class WorkerHost {
    * is the one place the layer-vs-standalone branch lives, shared by every
    * annotation and page mutation handler.
    */
+  private handleFormsList(
+    req: FormsListWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const reader = new FormReader(this.runtime, session);
+    return wirePack({ tag: 'forms.list', snapshot: reader.snapshot(signal) });
+  }
+
+  private handleFormsSetValue(
+    req: FormsSetValueWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const result = mutator.setValue(req.ref, req.value, signal);
+    return this.finishMutation(session, { tag: 'forms.setValue', result }, req.artifactPath);
+  }
+
+  private handleFormsReset(
+    req: FormsResetWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const result = mutator.reset(req.ref, signal);
+    return this.finishMutation(session, { tag: 'forms.reset', result }, req.artifactPath);
+  }
+
+  private handleFormsExport(
+    req: FormsExportWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const reader = new FormReader(this.runtime, session);
+    const exported = reader.exportData(req.format, signal);
+    return wirePack({ tag: 'forms.export', format: exported.format, bytes: exported.bytes }, [
+      exported.bytes,
+    ]);
+  }
+
+  private handleFormsImport(
+    req: FormsImportWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const result = mutator.importData(req.data, req.format, signal);
+    return this.finishMutation(session, { tag: 'forms.import', result }, req.artifactPath);
+  }
+
+  private handleFormsRepair(
+    req: FormsRepairWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const result = mutator.repair(req.bakeAppearances ?? false, signal);
+    return this.finishMutation(session, { tag: 'forms.repair', result }, req.artifactPath);
+  }
+
+  private handleFormsCreateField(
+    req: FormsCreateFieldWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const { field } = mutator.createField(req.draft, signal);
+    return this.finishMutation(
+      session,
+      { tag: 'forms.createField', result: { field, meta: EMPTY_FORM_META } },
+      req.artifactPath,
+    );
+  }
+
+  private handleFormsUpdateField(
+    req: FormsUpdateFieldWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const { field } = mutator.updateField(req.ref, req.patch, signal);
+    return this.finishMutation(
+      session,
+      { tag: 'forms.updateField', result: { field, meta: EMPTY_FORM_META } },
+      req.artifactPath,
+    );
+  }
+
+  private handleFormsDeleteField(
+    req: FormsDeleteFieldWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const { deletedFieldObjectNumber, detachedWidgets } = mutator.deleteField(req.ref, signal);
+
+    // Cascade: the mutator detached the widgets (inert annotations now);
+    // deleting them through the annotation feature keeps /Annots
+    // bookkeeping, weak-ref invalidation, and page revisions in ONE place.
+    const annotations = new AnnotationMutator(this.runtime, session);
+    for (const widget of detachedWidgets) {
+      if (widget.annotObjectNumber <= 0 || widget.pageObjectNumber <= 0) continue;
+      annotations.delete(
+        {
+          kind: 'objectNumber',
+          pageObjectNumber: widget.pageObjectNumber,
+          annotObjectNumber: widget.annotObjectNumber,
+        },
+        signal,
+      );
+    }
+    // The annotation deletes above mutated /Annots after the form
+    // mutator's own bump; bump again so the form-model cache rebuilds.
+    session.noteMutation();
+
+    return this.finishMutation(
+      session,
+      {
+        tag: 'forms.deleteField',
+        result: {
+          deletedFieldObjectNumber,
+          removedWidgets: detachedWidgets,
+          meta: EMPTY_FORM_META,
+        },
+      },
+      req.artifactPath,
+    );
+  }
+
+  private handleFormsAttachWidget(
+    req: FormsAttachWidgetWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const { field } = mutator.attachWidget(req.ref, req.widget, req.onState, signal);
+    return this.finishMutation(
+      session,
+      { tag: 'forms.attachWidget', result: { field, meta: EMPTY_FORM_META } },
+      req.artifactPath,
+    );
+  }
+
+  private handleFormsDetachWidget(
+    req: FormsDetachWidgetWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const mutator = new FormMutator(this.runtime, session);
+    const { field } = mutator.detachWidget(req.ref, req.widget, signal);
+    return this.finishMutation(
+      session,
+      { tag: 'forms.detachWidget', result: { field, meta: EMPTY_FORM_META } },
+      req.artifactPath,
+    );
+  }
+
   private finishMutation<P extends WorkerResultPayload>(
     session: DocumentSession,
     payload: P,
     artifactPath?: string,
   ): WirePack<WorkerResultPayload> {
+    // Every successful mutation funnels through here; the sequence bump
+    // invalidates version-keyed caches (the forms model). Forms mutators
+    // bump themselves before reading back, so their tags are skipped to
+    // avoid rebuilding the model cache twice per write.
+    if (!payload.tag.startsWith('forms.')) {
+      session.noteMutation();
+    }
     if (session.kind !== 'layer') {
       return wirePack(payload);
     }
@@ -609,6 +824,9 @@ interface LayerArtifactSave {
   payload: { artifact: { bytes: ArrayBuffer; size: number } } | { artifactFile: { path: string } };
   transfer: ArrayBuffer[];
 }
+
+/** Form mutations are non-structural at the page-list level. */
+const EMPTY_FORM_META: MutationMeta = { affectedPages: [], cacheDelta: null };
 
 const BASE_SESSION_SUFFIX = '__base__';
 

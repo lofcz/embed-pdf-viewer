@@ -227,6 +227,9 @@ export type {
   UnsupportedAnnotationDTO,
   UnsupportedDraft,
   UnsupportedPatch,
+  WidgetAnnotationDTO,
+  WidgetDraft,
+  WidgetPatch,
 } from './annotation/kinds';
 
 export type {
@@ -253,6 +256,61 @@ export type {
   AnnotationDeleteResult,
   AnnotationMoveResult,
 } from './mutation/AnnotationMutationResults';
+export type { FormFieldRef, FormWidgetRef } from './identity/FormFieldRef';
+export { encodeFieldRefKey, decodeFieldRefKey } from './identity/FormFieldRef';
+export type {
+  FormFieldFamily,
+  FormFieldOrigin,
+  FormFieldFlags,
+  ToggleFieldWidget,
+  FormFieldOption,
+  FormFieldBase,
+  TextFieldDTO,
+  CheckboxFieldDTO,
+  RadioFieldDTO,
+  ComboBoxFieldDTO,
+  ListBoxFieldDTO,
+  PushButtonFieldDTO,
+  SignatureFieldDTO,
+  UnknownFieldDTO,
+  FormFieldDTO,
+} from './forms/field';
+export type {
+  WidgetStyleFields,
+  WidgetStyleDraftFields,
+  WidgetStylePatchFields,
+} from './annotation/kinds/widget.shared';
+export type { FormKind, FormSnapshot } from './forms/snapshot';
+export type {
+  WidgetAppearance,
+  WidgetPlacement,
+  FormFieldOptionInput,
+  TextFieldDraft,
+  CheckboxFieldDraft,
+  RadioFieldDraft,
+  ComboBoxFieldDraft,
+  ListBoxFieldDraft,
+  FormFieldDraft,
+} from './forms/draft';
+export type {
+  TextFieldPatch,
+  CheckboxFieldPatch,
+  RadioFieldPatch,
+  ComboBoxFieldPatch,
+  ListBoxFieldPatch,
+  FormFieldPatch,
+} from './forms/patch';
+export type { FormFieldValue, FormDataFormat } from './forms/value';
+export type {
+  FormSetValueResult,
+  FormImportResult,
+  FormDataExport,
+  FormRepairResult,
+  FormFieldCreateResult,
+  FormFieldUpdateResult,
+  FormFieldDeleteResult,
+  FormWidgetLinkResult,
+} from './mutation/FormMutationResults';
 export type { PageMoveInput } from './mutation/PageMoveInput';
 export type { PageMoveResult, PageMoveCache } from './mutation/PageMoveResult';
 export type { PageStructureCache } from './mutation/PageStructureCache';

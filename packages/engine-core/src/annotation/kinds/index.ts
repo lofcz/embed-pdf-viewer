@@ -10,6 +10,7 @@ import { LineKind } from './line';
 import { PolygonKind } from './polygon';
 import { PolylineKind } from './polyline';
 import { SquareKind } from './square';
+import { WidgetKind } from './widget';
 import { SquigglyKind } from './squiggly';
 import type { StampDraft, StampPatch, StampWireDraft, StampWirePatch } from './stamp';
 import { StampKind } from './stamp';
@@ -30,6 +31,7 @@ export * from './ink';
 export * from './free-text';
 export * from './caret';
 export * from './stamp';
+export * from './widget';
 export * from './unsupported';
 export * from './text-markup.shared';
 export * from './shape.shared';
@@ -64,6 +66,7 @@ export const ANNOTATION_KINDS = [
   FreeTextKind,
   CaretKind,
   StampKind,
+  WidgetKind,
   UnsupportedKind,
 ] as const;
 
@@ -132,6 +135,7 @@ export const AnnotationDTOSchema: z.ZodType<AnnotationDTO> = z.discriminatedUnio
   FreeTextKind.dtoSchema,
   CaretKind.dtoSchema,
   StampKind.dtoSchema,
+  WidgetKind.dtoSchema,
   UnsupportedKind.dtoSchema,
 ] as unknown as [
   z.ZodDiscriminatedUnionOption<'subtype'>,
@@ -158,6 +162,7 @@ export const AnnotationDraftSchema: z.ZodType<WireAnnotationDraft> = z.discrimin
     FreeTextKind.draftSchema,
     CaretKind.draftSchema,
     StampKind.draftSchema,
+    WidgetKind.draftSchema,
   ] as unknown as [
     z.ZodDiscriminatedUnionOption<'subtype'>,
     ...z.ZodDiscriminatedUnionOption<'subtype'>[],
@@ -181,6 +186,7 @@ export const AnnotationPatchSchema: z.ZodType<WireAnnotationPatch> = z.discrimin
     FreeTextKind.patchSchema,
     CaretKind.patchSchema,
     StampKind.patchSchema,
+    WidgetKind.patchSchema,
   ] as unknown as [
     z.ZodDiscriminatedUnionOption<'subtype'>,
     ...z.ZodDiscriminatedUnionOption<'subtype'>[],

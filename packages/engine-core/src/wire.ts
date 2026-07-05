@@ -36,6 +36,13 @@ export {
   AnnotationUpdateResultSchema,
   AnnotationDeleteResultSchema,
   AnnotationMoveResultSchema,
+  FormSetValueResultSchema,
+  FormImportResultSchema,
+  FormRepairResultSchema,
+  FormFieldCreateResultSchema,
+  FormFieldUpdateResultSchema,
+  FormFieldDeleteResultSchema,
+  FormWidgetLinkResultSchema,
   PageListSnapshotSchema,
   PageLayoutSchema,
   PageBoxesSchema,
@@ -61,6 +68,23 @@ export type {
   WeakAnnotationSessionResponse,
   WeakAnnotationSessionPagesRequest,
 } from './wire/schemas';
+export {
+  FormFieldRefSchema,
+  FormWidgetRefSchema,
+  FormFieldFlagsSchema,
+  ToggleFieldWidgetSchema,
+  FormFieldOptionSchema,
+  FormFieldDTOSchema,
+  FormKindSchema,
+  FormSnapshotSchema,
+  FormFieldValueSchema,
+  FormDataFormatSchema,
+  WidgetAppearanceSchema,
+  WidgetPlacementSchema,
+  FormFieldOptionInputSchema,
+  FormFieldDraftSchema,
+  FormFieldPatchSchema,
+} from './forms/schema';
 export { DEFAULT_LAYER_NAME, wirePaths } from './wire/paths';
 // General resource catalog + route-guard helper (server uses this for
 // every read endpoint, not just CDN-cacheable ones).

@@ -4,6 +4,7 @@ export default {
   text: 'Text extraction',
   annotations: 'Annotations',
   'annotation-types': 'Annotation types',
+  forms: 'Forms',
   'custom-fonts': 'Custom fonts',
   metadata: 'Metadata',
   'security-and-access': 'Security & access',

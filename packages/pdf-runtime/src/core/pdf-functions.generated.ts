@@ -102,7 +102,6 @@ export interface PdfFunctions {
   EPDFAnnot_GetBorderDashPatternCount: (arg0: Ptr) => number;
   EPDFAnnot_GetBorderEffect: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_GetBorderStyle: (arg0: Ptr, arg1: Ptr) => number;
-  EPDFAnnot_GetButtonExportValue: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetCalloutLine: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetCalloutLineCount: (arg0: Ptr) => number;
   EPDFAnnot_GetColor: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
@@ -119,8 +118,6 @@ export interface PdfFunctions {
   EPDFAnnot_GetEmbedMetadataNumber: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDFAnnot_GetEmbedMetadataRect: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDFAnnot_GetEmbedMetadataString: (arg0: Ptr, arg1: string, arg2: Ptr, arg3: number) => number;
-  EPDFAnnot_GetFormFieldObjectNumber: (arg0: Ptr, arg1: Ptr) => number;
-  EPDFAnnot_GetFormFieldRawValue: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => number;
   EPDFAnnot_GetIntent: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAnnot_GetLineEndings: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_GetMKColor: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: Ptr) => boolean;
@@ -165,14 +162,19 @@ export interface PdfFunctions {
     arg4: number,
     arg5: number,
   ) => boolean;
+  EPDFAnnot_SetDefaultAppearanceRegisteredFont: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: number,
+    arg3: number,
+    arg4: number,
+    arg5: number,
+  ) => boolean;
   EPDFAnnot_SetEmbedMetadataBoolean: (arg0: Ptr, arg1: string, arg2: boolean) => boolean;
   EPDFAnnot_SetEmbedMetadataJSON: (arg0: Ptr, arg1: Ptr) => boolean;
   EPDFAnnot_SetEmbedMetadataNumber: (arg0: Ptr, arg1: string, arg2: number) => boolean;
   EPDFAnnot_SetEmbedMetadataRect: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
   EPDFAnnot_SetEmbedMetadataString: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
-  EPDFAnnot_SetFormFieldName: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
-  EPDFAnnot_SetFormFieldOptions: (arg0: Ptr, arg1: Ptr, arg2: Ptr, arg3: number) => boolean;
-  EPDFAnnot_SetFormFieldValue: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_SetIntent: (arg0: Ptr, arg1: string) => boolean;
   EPDFAnnot_SetLine: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_SetLineEndings: (arg0: Ptr, arg1: number, arg2: number) => boolean;
@@ -200,7 +202,6 @@ export interface PdfFunctions {
   EPDFAnnot_SetRotate: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetTextAlignment: (arg0: Ptr, arg1: number) => boolean;
   EPDFAnnot_SetVertices: (arg0: Ptr, arg1: Ptr, arg2: number) => boolean;
-  EPDFAnnot_ShareFormField: (arg0: Ptr, arg1: Ptr, arg2: Ptr) => boolean;
   EPDFAnnot_UpdateAppearanceToRect: (arg0: Ptr, arg1: number) => boolean;
   EPDFAttachment_GetDescription: (arg0: Ptr, arg1: Ptr, arg2: number) => number;
   EPDFAttachment_GetIntegerValue: (arg0: Ptr, arg1: string, arg2: Ptr) => boolean;
@@ -249,6 +250,123 @@ export interface PdfFunctions {
   EPDFDoc_LoadPageByObjectNumberNormalized: (arg0: Ptr, arg1: number) => Ptr;
   EPDFDoc_SetPageRotationByObjectNumber: (arg0: Ptr, arg1: number, arg2: number) => boolean;
   EPDFDocument_ClearEmbedMetadata: (arg0: Ptr) => boolean;
+  EPDFFont_AddFallbackFont: (arg0: number) => boolean;
+  EPDFFont_ClearFallbackFonts: () => void;
+  EPDFFont_ClearRegisteredFonts: () => void;
+  EPDFFont_RegisterFont: (arg0: string, arg1: number, arg2: number, arg3: Ptr) => number;
+  EPDFFont_RegisterMemFont: (
+    arg0: string,
+    arg1: number,
+    arg2: number,
+    arg3: Ptr,
+    arg4: number,
+  ) => number;
+  EPDFFont_RegisterMemFont64: (
+    arg0: string,
+    arg1: number,
+    arg2: number,
+    arg3: Ptr,
+    arg4: number,
+  ) => number;
+  EPDFForm_AttachWidget: (arg0: Ptr, arg1: number, arg2: number, arg3: string) => boolean;
+  EPDFForm_CloseModel: (arg0: Ptr) => void;
+  EPDFForm_CountFieldOptions: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_CountFields: (arg0: Ptr) => number;
+  EPDFForm_CountFieldWidgets: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_CreateField: (arg0: Ptr, arg1: number, arg2: Ptr) => number;
+  EPDFForm_DeleteField: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number, arg4: Ptr) => boolean;
+  EPDFForm_DetachWidget: (arg0: Ptr, arg1: number, arg2: number) => boolean;
+  EPDFForm_ExportFDF: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr, arg4: number) => number;
+  EPDFForm_ExportXFDF: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr, arg4: number) => number;
+  EPDFForm_GetFieldAlternateName: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
+  EPDFForm_GetFieldDefaultValue: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
+  EPDFForm_GetFieldFamily: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_GetFieldFlags: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_GetFieldIndexByObjNum: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_GetFieldIndexForWidget: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_GetFieldMappingName: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
+  EPDFForm_GetFieldMaxLen: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_GetFieldName: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
+  EPDFForm_GetFieldObjNum: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_GetFieldOptionLabel: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: number,
+    arg3: Ptr,
+    arg4: number,
+  ) => number;
+  EPDFForm_GetFieldOptionValue: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: number,
+    arg3: Ptr,
+    arg4: number,
+  ) => number;
+  EPDFForm_GetFieldOrigin: (arg0: Ptr, arg1: number) => number;
+  EPDFForm_GetFieldValue: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number) => number;
+  EPDFForm_GetFieldWidgetExportValue: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: number,
+    arg3: Ptr,
+    arg4: number,
+  ) => number;
+  EPDFForm_GetFieldWidgetObjNum: (arg0: Ptr, arg1: number, arg2: number) => number;
+  EPDFForm_GetFieldWidgetOnState: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: number,
+    arg3: Ptr,
+    arg4: number,
+  ) => number;
+  EPDFForm_GetFieldWidgetPageObjNum: (arg0: Ptr, arg1: number, arg2: number) => number;
+  EPDFForm_GetFormKind: (arg0: Ptr) => number;
+  EPDFForm_GetNeedAppearances: (arg0: Ptr) => boolean;
+  EPDFForm_ImportFDF: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr) => boolean;
+  EPDFForm_ImportXFDF: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr) => boolean;
+  EPDFForm_IsFieldOptionSelected: (arg0: Ptr, arg1: number, arg2: number) => boolean;
+  EPDFForm_IsFieldWidgetChecked: (arg0: Ptr, arg1: number, arg2: number) => boolean;
+  EPDFForm_LoadModel: (arg0: Ptr) => Ptr;
+  EPDFForm_Repair: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  EPDFForm_ResetField: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: number, arg4: Ptr) => boolean;
+  EPDFForm_SetChoiceValues: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: Ptr,
+    arg3: number,
+    arg4: Ptr,
+    arg5: number,
+    arg6: Ptr,
+  ) => boolean;
+  EPDFForm_SetFieldAlternateName: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  EPDFForm_SetFieldDefaultValue: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  EPDFForm_SetFieldFlags: (arg0: Ptr, arg1: number, arg2: number, arg3: number) => boolean;
+  EPDFForm_SetFieldMappingName: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  EPDFForm_SetFieldMaxLen: (arg0: Ptr, arg1: number, arg2: number) => boolean;
+  EPDFForm_SetFieldName: (arg0: Ptr, arg1: number, arg2: Ptr) => boolean;
+  EPDFForm_SetFieldOptions: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: Ptr,
+    arg3: Ptr,
+    arg4: number,
+  ) => boolean;
+  EPDFForm_SetTextValue: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: Ptr,
+    arg3: Ptr,
+    arg4: number,
+    arg5: Ptr,
+  ) => boolean;
+  EPDFForm_SetToggle: (
+    arg0: Ptr,
+    arg1: number,
+    arg2: string,
+    arg3: Ptr,
+    arg4: number,
+    arg5: Ptr,
+  ) => boolean;
   EPDFImageObj_SetJpeg: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFImageObj_SetPng: (arg0: Ptr, arg1: number, arg2: Ptr, arg3: Ptr, arg4: number) => boolean;
   EPDFLayer_GetBaseDocument: (arg0: Ptr) => Ptr;
@@ -274,7 +392,6 @@ export interface PdfFunctions {
     arg7: Ptr,
   ) => boolean;
   EPDFPage_CreateAnnot: (arg0: Ptr, arg1: number) => Ptr;
-  EPDFPage_CreateFormField: (arg0: Ptr, arg1: Ptr, arg2: number, arg3: Ptr) => Ptr;
   EPDFPage_GetAnnotByName: (arg0: Ptr, arg1: Ptr) => Ptr;
   EPDFPage_GetAnnotByObjectNumber: (arg0: Ptr, arg1: number) => Ptr;
   EPDFPage_GetAnnotCountRaw: (arg0: Ptr, arg1: number) => number;
@@ -2260,30 +2377,6 @@ export const pdfFunctionSignatures = {
       native: { kind: 'i32', cwrap: 'number' },
     },
   },
-  EPDFAnnot_GetButtonExportValue: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'utf16ptr', cwrap: 'number' },
-        native: { kind: 'utf16ptr', cwrap: 'bigint' },
-      },
-      {
-        ts: 'number',
-        wasm: { kind: 'i32', cwrap: 'number' },
-        native: { kind: 'i32', cwrap: 'number' },
-      },
-    ],
-    result: {
-      ts: 'number',
-      wasm: { kind: 'i32', cwrap: 'number' },
-      native: { kind: 'i32', cwrap: 'number' },
-    },
-  },
   EPDFAnnot_GetCalloutLine: {
     params: [
       {
@@ -2502,54 +2595,6 @@ export const pdfFunctionSignatures = {
         ts: 'string',
         wasm: { kind: 'cstring', cwrap: 'string' },
         native: { kind: 'cstring', cwrap: 'string' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'utf16ptr', cwrap: 'number' },
-        native: { kind: 'utf16ptr', cwrap: 'bigint' },
-      },
-      {
-        ts: 'number',
-        wasm: { kind: 'i32', cwrap: 'number' },
-        native: { kind: 'i32', cwrap: 'number' },
-      },
-    ],
-    result: {
-      ts: 'number',
-      wasm: { kind: 'i32', cwrap: 'number' },
-      native: { kind: 'i32', cwrap: 'number' },
-    },
-  },
-  EPDFAnnot_GetFormFieldObjectNumber: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-    ],
-    result: {
-      ts: 'number',
-      wasm: { kind: 'i32', cwrap: 'number' },
-      native: { kind: 'i32', cwrap: 'number' },
-    },
-  },
-  EPDFAnnot_GetFormFieldRawValue: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
       },
       {
         ts: 'Ptr',
@@ -3123,6 +3168,45 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
+  EPDFAnnot_SetDefaultAppearanceRegisteredFont: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'f32', cwrap: 'number' },
+        native: { kind: 'f32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
   EPDFAnnot_SetEmbedMetadataBoolean: {
     params: [
       {
@@ -3225,83 +3309,6 @@ export const pdfFunctionSignatures = {
         ts: 'string',
         wasm: { kind: 'cstring', cwrap: 'string' },
         native: { kind: 'cstring', cwrap: 'string' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-    ],
-    result: {
-      ts: 'boolean',
-      wasm: { kind: 'bool', cwrap: 'boolean' },
-      native: { kind: 'bool', cwrap: 'boolean' },
-    },
-  },
-  EPDFAnnot_SetFormFieldName: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-    ],
-    result: {
-      ts: 'boolean',
-      wasm: { kind: 'bool', cwrap: 'boolean' },
-      native: { kind: 'bool', cwrap: 'boolean' },
-    },
-  },
-  EPDFAnnot_SetFormFieldOptions: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'utf16ptr', cwrap: 'number' },
-        native: { kind: 'utf16ptr', cwrap: 'bigint' },
-      },
-      {
-        ts: 'number',
-        wasm: { kind: 'i32', cwrap: 'number' },
-        native: { kind: 'i32', cwrap: 'number' },
-      },
-    ],
-    result: {
-      ts: 'boolean',
-      wasm: { kind: 'bool', cwrap: 'boolean' },
-      native: { kind: 'bool', cwrap: 'boolean' },
-    },
-  },
-  EPDFAnnot_SetFormFieldValue: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
       },
       {
         ts: 'Ptr',
@@ -3647,30 +3654,6 @@ export const pdfFunctionSignatures = {
         ts: 'number',
         wasm: { kind: 'i32', cwrap: 'number' },
         native: { kind: 'i32', cwrap: 'number' },
-      },
-    ],
-    result: {
-      ts: 'boolean',
-      wasm: { kind: 'bool', cwrap: 'boolean' },
-      native: { kind: 'bool', cwrap: 'boolean' },
-    },
-  },
-  EPDFAnnot_ShareFormField: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
       },
     ],
     result: {
@@ -4264,6 +4247,1333 @@ export const pdfFunctionSignatures = {
       native: { kind: 'bool', cwrap: 'boolean' },
     },
   },
+  EPDFFont_AddFallbackFont: {
+    params: [
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFFont_ClearFallbackFonts: { params: [], result: null },
+  EPDFFont_ClearRegisteredFonts: { params: [], result: null },
+  EPDFFont_RegisterFont: {
+    params: [
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFFont_RegisterMemFont: {
+    params: [
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFFont_RegisterMemFont64: {
+    params: [
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_AttachWidget: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_CloseModel: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: null,
+  },
+  EPDFForm_CountFieldOptions: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_CountFields: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_CountFieldWidgets: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_CreateField: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_DeleteField: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_DetachWidget: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_ExportFDF: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_ExportXFDF: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldAlternateName: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldDefaultValue: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldFamily: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldFlags: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldIndexByObjNum: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldIndexForWidget: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldMappingName: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldMaxLen: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldName: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldObjNum: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldOptionLabel: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldOptionValue: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldOrigin: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldValue: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldWidgetExportValue: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldWidgetObjNum: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldWidgetOnState: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFieldWidgetPageObjNum: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetFormKind: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'number',
+      wasm: { kind: 'i32', cwrap: 'number' },
+      native: { kind: 'i32', cwrap: 'number' },
+    },
+  },
+  EPDFForm_GetNeedAppearances: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_ImportFDF: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_ImportXFDF: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_IsFieldOptionSelected: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_IsFieldWidgetChecked: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_LoadModel: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'Ptr',
+      wasm: { kind: 'pointer', cwrap: 'number' },
+      native: { kind: 'pointer', cwrap: 'bigint' },
+    },
+  },
+  EPDFForm_Repair: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_ResetField: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetChoiceValues: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetFieldAlternateName: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetFieldDefaultValue: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetFieldFlags: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetFieldMappingName: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetFieldMaxLen: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetFieldName: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetFieldOptions: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'utf16ptr', cwrap: 'number' },
+        native: { kind: 'utf16ptr', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetTextValue: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
+  EPDFForm_SetToggle: {
+    params: [
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'string',
+        wasm: { kind: 'cstring', cwrap: 'string' },
+        native: { kind: 'cstring', cwrap: 'string' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+      {
+        ts: 'number',
+        wasm: { kind: 'i32', cwrap: 'number' },
+        native: { kind: 'i32', cwrap: 'number' },
+      },
+      {
+        ts: 'Ptr',
+        wasm: { kind: 'pointer', cwrap: 'number' },
+        native: { kind: 'pointer', cwrap: 'bigint' },
+      },
+    ],
+    result: {
+      ts: 'boolean',
+      wasm: { kind: 'bool', cwrap: 'boolean' },
+      native: { kind: 'bool', cwrap: 'boolean' },
+    },
+  },
   EPDFImageObj_SetJpeg: {
     params: [
       {
@@ -4650,35 +5960,6 @@ export const pdfFunctionSignatures = {
         ts: 'number',
         wasm: { kind: 'i32', cwrap: 'number' },
         native: { kind: 'i32', cwrap: 'number' },
-      },
-    ],
-    result: {
-      ts: 'Ptr',
-      wasm: { kind: 'pointer', cwrap: 'number' },
-      native: { kind: 'pointer', cwrap: 'bigint' },
-    },
-  },
-  EPDFPage_CreateFormField: {
-    params: [
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
-      },
-      {
-        ts: 'number',
-        wasm: { kind: 'i32', cwrap: 'number' },
-        native: { kind: 'i32', cwrap: 'number' },
-      },
-      {
-        ts: 'Ptr',
-        wasm: { kind: 'pointer', cwrap: 'number' },
-        native: { kind: 'pointer', cwrap: 'bigint' },
       },
     ],
     result: {

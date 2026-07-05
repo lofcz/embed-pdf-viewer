@@ -19,6 +19,7 @@ import {
   readUnderline,
 } from './readTextMarkupAnnotation';
 import { readUnsupported } from './readUnsupportedAnnotation';
+import { readWidget } from './readWidgetAnnotation';
 import { readPolygon, readPolyline } from './readVertexAnnotation';
 
 /**
@@ -53,6 +54,7 @@ const READER_BY_SUBTYPE: Partial<Record<AnnotationSubtype, AnnotationSubtypeRead
   'free-text': readFreeText,
   caret: readCaret,
   stamp: readStamp,
+  widget: readWidget,
   unsupported: readUnsupported,
 };
 

@@ -5,6 +5,13 @@ import type {
   AnnotationUpdateResult,
   DocumentEvent,
   EventOrigin,
+  FormFieldCreateResult,
+  FormFieldDeleteResult,
+  FormFieldUpdateResult,
+  FormImportResult,
+  FormRepairResult,
+  FormSetValueResult,
+  FormWidgetLinkResult,
   MetadataUpdateResult,
   PageDeleteResult,
   PageMoveResult,
@@ -113,6 +120,26 @@ export function auditRowToEvent(row: AuditEventRow, mySessionId: string): Docume
         origin,
         ...(row.payload as MetadataUpdateResult),
       };
+    // Form mutations: two audit kinds share the `form.valueChanged` event
+    // (setValue and reset produce the same result shape) — the audit log
+    // keeps them distinct for history, the event stream cares about effect.
+    case 'form.setValue':
+    case 'form.reset':
+      return { type: 'form.valueChanged', origin, ...(row.payload as FormSetValueResult) };
+    case 'form.import':
+      return { type: 'form.imported', origin, ...(row.payload as FormImportResult) };
+    case 'form.repair':
+      return { type: 'form.repaired', origin, ...(row.payload as FormRepairResult) };
+    case 'form.createField':
+      return { type: 'form.fieldCreated', origin, ...(row.payload as FormFieldCreateResult) };
+    case 'form.updateField':
+      return { type: 'form.fieldUpdated', origin, ...(row.payload as FormFieldUpdateResult) };
+    case 'form.deleteField':
+      return { type: 'form.fieldDeleted', origin, ...(row.payload as FormFieldDeleteResult) };
+    case 'form.attachWidget':
+      return { type: 'form.widgetAttached', origin, ...(row.payload as FormWidgetLinkResult) };
+    case 'form.detachWidget':
+      return { type: 'form.widgetDetached', origin, ...(row.payload as FormWidgetLinkResult) };
     default:
       return null;
   }

@@ -38,6 +38,16 @@ import type {
 } from '../mutation/AnnotationMutationResults';
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
+import type {
+  FormFieldCreateResult,
+  FormFieldDeleteResult,
+  FormFieldUpdateResult,
+  FormImportResult,
+  FormRepairResult,
+  FormSetValueResult,
+  FormWidgetLinkResult,
+} from '../mutation/FormMutationResults';
+import { FormFieldDTOSchema, FormSnapshotSchema, FormWidgetRefSchema } from '../forms/schema';
 import type { PageDeleteInput } from '../mutation/PageDeleteInput';
 import type { PageDeleteResult } from '../mutation/PageDeleteResult';
 import type { PageMoveInput } from '../mutation/PageMoveInput';
@@ -657,6 +667,52 @@ export const AnnotationDeleteResultSchema: z.ZodType<AnnotationDeleteResult> = z
 export const AnnotationMoveResultSchema: z.ZodType<AnnotationMoveResult> = z.object({
   moved: z.array(AnnotationDTOSchema),
   meta: AnnotationListMutationMetaSchema,
+});
+
+export const FormSetValueResultSchema: z.ZodType<FormSetValueResult> = z.object({
+  field: FormFieldDTOSchema,
+  changedWidgets: z.array(FormWidgetRefSchema),
+  meta: MutationMetaSchema,
+});
+
+export const FormImportResultSchema: z.ZodType<FormImportResult> = z.object({
+  fieldsTotal: z.number().int().nonnegative(),
+  fieldsApplied: z.number().int().nonnegative(),
+  fieldsSkipped: z.number().int().nonnegative(),
+  widgetsChanged: z.number().int().nonnegative(),
+  snapshot: FormSnapshotSchema,
+  meta: MutationMetaSchema,
+});
+
+export const FormFieldCreateResultSchema: z.ZodType<FormFieldCreateResult> = z.object({
+  field: FormFieldDTOSchema,
+  meta: MutationMetaSchema,
+});
+
+export const FormFieldUpdateResultSchema: z.ZodType<FormFieldUpdateResult> = z.object({
+  field: FormFieldDTOSchema,
+  meta: MutationMetaSchema,
+});
+
+export const FormFieldDeleteResultSchema: z.ZodType<FormFieldDeleteResult> = z.object({
+  deletedFieldObjectNumber: z.number().int().positive(),
+  removedWidgets: z.array(FormWidgetRefSchema),
+  meta: MutationMetaSchema,
+});
+
+export const FormWidgetLinkResultSchema: z.ZodType<FormWidgetLinkResult> = z.object({
+  field: FormFieldDTOSchema,
+  meta: MutationMetaSchema,
+});
+
+export const FormRepairResultSchema: z.ZodType<FormRepairResult> = z.object({
+  acroformCreated: z.boolean(),
+  fieldsLinked: z.number().int().nonnegative(),
+  widgetsLinked: z.number().int().nonnegative(),
+  fieldsUnrepairable: z.number().int().nonnegative(),
+  appearancesBaked: z.number().int().nonnegative(),
+  needAppearancesCleared: z.boolean(),
+  meta: MutationMetaSchema,
 });
 
 /**

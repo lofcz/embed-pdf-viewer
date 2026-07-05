@@ -7,6 +7,7 @@ import {
   type DocumentAnnotationsService,
   type DocumentEvent,
   type DocumentEventStream,
+  type DocumentFormsService,
   type DocumentHandle,
   type DocumentPagesService,
   type DocumentSecurityService,
@@ -31,6 +32,7 @@ import { auditRowToEvent } from '../realtime/auditRowToEvent';
 import type { HttpClient } from '../transport/HttpClient';
 import { CloudMetadataService } from './CloudMetadataService';
 import { CloudDocumentAnnotationsService } from './CloudDocumentAnnotationsService';
+import { CloudDocumentFormsService } from './CloudDocumentFormsService';
 import { CloudDocumentPagesService } from './CloudDocumentPagesService';
 import { CloudPageHandle } from './CloudPageHandle';
 import { CloudDocumentSecurityService } from './CloudDocumentSecurityService';
@@ -66,6 +68,7 @@ export class CloudDocumentHandle implements DocumentHandle {
   } as const;
   readonly metadata: CloudMetadataService;
   readonly annotations: DocumentAnnotationsService;
+  readonly forms: DocumentFormsService;
   readonly pages: DocumentPagesService;
   readonly security: DocumentSecurityService;
   readonly events: DocumentEventStream;
@@ -166,6 +169,14 @@ export class CloudDocumentHandle implements DocumentHandle {
       layerName,
       () => this.closed,
       this.manifestAccessor,
+    );
+    this.forms = new CloudDocumentFormsService(
+      http,
+      id,
+      layerName,
+      () => this.closed,
+      this.manifestAccessor,
+      this.publisher,
     );
     this.pages = new CloudDocumentPagesService(
       http,
@@ -514,6 +525,18 @@ export class CloudDocumentHandle implements DocumentHandle {
         return;
       case 'metadata.updated':
         if (event.cache) this.absorbMetadata(event.cache);
+        return;
+      case 'form.valueChanged':
+      case 'form.imported':
+      case 'form.repaired':
+      case 'form.fieldCreated':
+      case 'form.fieldUpdated':
+      case 'form.fieldDeleted':
+      case 'form.widgetAttached':
+      case 'form.widgetDetached':
+        // Form mutations ship the same MutationMeta rails as annotations:
+        // affected pages are the ones whose widget appearances changed.
+        this.absorbMutation(event.meta);
         return;
     }
   }

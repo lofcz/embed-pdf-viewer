@@ -17,9 +17,24 @@ import {
   type WireResourceMap,
   type AnnotationRef,
   type AnnotationUpdateResult,
+  type FormDataFormat,
+  type FormFieldCreateResult,
+  type FormFieldDeleteResult,
+  type FormFieldDraft,
+  type FormFieldPatch,
+  type FormFieldRef,
+  type FormFieldUpdateResult,
+  type FormFieldValue,
+  type FormImportResult,
+  type FormRepairResult,
+  type FormSetValueResult,
+  type FormSnapshot,
+  type FormWidgetLinkResult,
+  type FormWidgetRef,
   type IdentityClaims,
   type MetadataPatch,
   type MetadataUpdateResult,
+  type MutationMeta,
   type PageDeleteResult,
   type PageListSnapshot,
   type PageMoveResult,
@@ -28,7 +43,9 @@ import {
   type PageRotation,
   type PageState,
   type PageStructureCache,
+  type WirePack,
   type WorkerJobId,
+  type WorkerRequest,
 } from '@embedpdf/engine-core/runtime';
 import type { Database as Schema } from '../db/schema';
 import type { DocumentsRepo } from '../db/repos/documents.repo';
@@ -39,6 +56,7 @@ import { StorageKeys } from '../storage/keys';
 import type { RealtimeBus } from '../realtime/RealtimeBus';
 import type { CloudRevisionBridge } from './CloudRevisionBridge';
 import type { DocumentService, OpenContext } from './DocumentService';
+import type { AuditMutationKind } from '../db/repos/audit_log.repo';
 import type { AuditEvent, EventLogService } from './EventLogService';
 import type { LayerStateService } from './LayerStateService';
 import type { MutationImpactKind } from './LayerStateService';
@@ -51,6 +69,26 @@ type LayerArtifactInput = { bytes: ArrayBuffer; size: number } | { path: string 
 interface CommittedAnnotationMutation {
   page: DurablePageRow;
   weakRefsInvalidated: boolean;
+  previousLayerDocVersion: number;
+  layerDocVersion: number;
+}
+
+/**
+ * Per-page impact of a form mutation, in the annotation-plane vocabulary
+ * `mutationBumps` already understands: `create` for pages that gained
+ * widget annotations, `delete` for pages that lost them (the /Annots index
+ * space shifts, so the annotation generation must advance), `update` for
+ * pages whose widget appearances changed in place.
+ */
+interface FormPageImpact {
+  pageObjectNumber: number;
+  kind: MutationImpactKind;
+}
+
+/** The durable state a form commit produced inside its transaction. Forms
+ *  are document-scoped, so 0..N pages may have been touched. */
+interface CommittedFormMutation {
+  pages: DurablePageRow[];
   previousLayerDocVersion: number;
   layerDocVersion: number;
 }
@@ -592,6 +630,550 @@ export class LayerService {
         });
       });
     });
+  }
+
+  // ── Forms ────────────────────────────────────────────────────────────
+  //
+  // Forms are document-scoped: one AcroForm per layer document, mutations
+  // keyed by field ref rather than page. The worker returns results whose
+  // `meta` is EMPTY (the session has no durable page state); the commit
+  // here is what turns per-widget change reports into real per-page
+  // version bumps, using the same `mutationBumps` vocabulary as the
+  // annotation plane — a widget appearance change invalidates the same
+  // caches an annotation update does.
+
+  /** Read: the reconciled form snapshot from the layer's current state. */
+  async getFormSnapshot(
+    ctx: OpenContext,
+    input: { docId: string; layerName: string },
+    signal?: AbortSignal,
+  ): Promise<FormSnapshot> {
+    const documentService = this.requireDocumentService();
+    await documentService.getLayerManifest(ctx, input.docId, input.layerName);
+    await documentService.ensureLayerOnPool(ctx, input.docId, input.layerName);
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'forms.list' as const,
+        jobId,
+        docId: input.docId,
+        layerName: input.layerName,
+      });
+    const payload = await this.requirePool().run(input.docId, build, signal);
+    if (payload.tag !== 'forms.list') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected forms.list payload: ${payload.tag}`,
+      );
+    }
+    return payload.snapshot;
+  }
+
+  /** Read: serialized FDF/XFDF of the reconciled form state. */
+  async exportFormData(
+    ctx: OpenContext,
+    input: { docId: string; layerName: string; format: FormDataFormat },
+    signal?: AbortSignal,
+  ): Promise<{ format: FormDataFormat; bytes: ArrayBuffer }> {
+    const documentService = this.requireDocumentService();
+    await documentService.getLayerManifest(ctx, input.docId, input.layerName);
+    await documentService.ensureLayerOnPool(ctx, input.docId, input.layerName);
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'forms.export' as const,
+        jobId,
+        docId: input.docId,
+        layerName: input.layerName,
+        format: input.format,
+      });
+    const payload = await this.requirePool().run(input.docId, build, signal);
+    if (payload.tag !== 'forms.export') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected forms.export payload: ${payload.tag}`,
+      );
+    }
+    return { format: payload.format, bytes: payload.bytes };
+  }
+
+  async setFormValue(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; ref: FormFieldRef; value: FormFieldValue },
+    signal?: AbortSignal,
+  ): Promise<FormSetValueResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.setValue',
+        auditKind: 'form.setValue',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.setValue' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref: input.ref,
+            value: input.value,
+            artifactPath,
+          }),
+        impacts: (result: FormSetValueResult) => widgetImpacts(result.changedWidgets, 'update'),
+      },
+      signal,
+    );
+  }
+
+  async resetFormField(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; ref: FormFieldRef },
+    signal?: AbortSignal,
+  ): Promise<FormSetValueResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.reset',
+        auditKind: 'form.reset',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.reset' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref: input.ref,
+            artifactPath,
+          }),
+        impacts: (result: FormSetValueResult) => widgetImpacts(result.changedWidgets, 'update'),
+      },
+      signal,
+    );
+  }
+
+  async importFormData(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; data: ArrayBuffer; format?: FormDataFormat },
+    signal?: AbortSignal,
+  ): Promise<FormImportResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.import',
+        auditKind: 'form.import',
+        build: (jobId, artifactPath) =>
+          wirePack(
+            {
+              kind: 'forms.import' as const,
+              jobId,
+              docId: input.docId,
+              layerName: input.layerName,
+              data: input.data,
+              ...(input.format ? { format: input.format } : {}),
+              artifactPath,
+            },
+            [input.data],
+          ),
+        // The worker reports per-field counts, not per-widget pages; an
+        // import may touch widgets on any page, so every page's annotation
+        // collection is conservatively invalidated.
+        impacts: (_result: FormImportResult, materialized) => allPageImpacts(materialized),
+      },
+      signal,
+    );
+  }
+
+  async repairForm(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; bakeAppearances: boolean },
+    signal?: AbortSignal,
+  ): Promise<FormRepairResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.repair',
+        auditKind: 'form.repair',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.repair' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            bakeAppearances: input.bakeAppearances,
+            artifactPath,
+          }),
+        // Repair may bake appearances for widgets anywhere in the document.
+        impacts: (_result: FormRepairResult, materialized) => allPageImpacts(materialized),
+      },
+      signal,
+    );
+  }
+
+  async createFormField(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; draft: FormFieldDraft },
+    signal?: AbortSignal,
+  ): Promise<FormFieldCreateResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.createField',
+        auditKind: 'form.createField',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.createField' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            draft: input.draft,
+            artifactPath,
+          }),
+        // Inline placements birth widget annotations on their pages.
+        impacts: (result: FormFieldCreateResult) => widgetImpacts(result.field.widgets, 'create'),
+      },
+      signal,
+    );
+  }
+
+  async updateFormField(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; ref: FormFieldRef; patch: FormFieldPatch },
+    signal?: AbortSignal,
+  ): Promise<FormFieldUpdateResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.updateField',
+        auditKind: 'form.updateField',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.updateField' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref: input.ref,
+            patch: input.patch,
+            artifactPath,
+          }),
+        // Option/value re-syncs can regenerate appearances on every widget
+        // of the field, so all hosting pages are treated as updated.
+        impacts: (result: FormFieldUpdateResult) => widgetImpacts(result.field.widgets, 'update'),
+      },
+      signal,
+    );
+  }
+
+  async deleteFormField(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; ref: FormFieldRef },
+    signal?: AbortSignal,
+  ): Promise<FormFieldDeleteResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.deleteField',
+        auditKind: 'form.deleteField',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.deleteField' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref: input.ref,
+            artifactPath,
+          }),
+        // The cascade removes widget annotations — /Annots index space
+        // shifts on those pages ('delete' also advances the generation).
+        impacts: (result: FormFieldDeleteResult) => widgetImpacts(result.removedWidgets, 'delete'),
+      },
+      signal,
+    );
+  }
+
+  async attachFormWidget(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      ref: FormFieldRef;
+      widget: FormWidgetRef;
+      onState?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<FormWidgetLinkResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.attachWidget',
+        auditKind: 'form.attachWidget',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.attachWidget' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref: input.ref,
+            widget: input.widget,
+            ...(input.onState ? { onState: input.onState } : {}),
+            artifactPath,
+          }),
+        impacts: () => widgetImpacts([input.widget], 'update'),
+      },
+      signal,
+    );
+  }
+
+  async detachFormWidget(
+    ctx: LayerWriteContext,
+    input: { docId: string; layerName: string; ref: FormFieldRef; widget: FormWidgetRef },
+    signal?: AbortSignal,
+  ): Promise<FormWidgetLinkResult> {
+    return this.runFormMutation(
+      ctx,
+      {
+        docId: input.docId,
+        layerName: input.layerName,
+        tag: 'forms.detachWidget',
+        auditKind: 'form.detachWidget',
+        build: (jobId, artifactPath) =>
+          wirePack({
+            kind: 'forms.detachWidget' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            ref: input.ref,
+            widget: input.widget,
+            artifactPath,
+          }),
+        impacts: () => widgetImpacts([input.widget], 'update'),
+      },
+      signal,
+    );
+  }
+
+  /**
+   * The shared form mutation rail: enqueue on the layer write queue,
+   * materialize, run the worker job, upload the artifact, and commit the
+   * per-page bumps derived from the result's widget change report. The
+   * response is the audited payload — same invariant as annotations.
+   */
+  private async runFormMutation<TResult extends { meta: MutationMeta }>(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      tag: string;
+      auditKind: AuditMutationKind;
+      build: (jobId: WorkerJobId, artifactPath: string) => WirePack<WorkerRequest>;
+      impacts: (result: TResult, materialized: MaterializedLayer) => FormPageImpact[];
+    },
+    signal?: AbortSignal,
+  ): Promise<TResult> {
+    return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
+      const materialized = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      const { layer } = materialized;
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const payload = await this.requirePool().run(
+          input.docId,
+          (jobId) => input.build(jobId, artifactPath),
+          signal,
+        );
+        if (payload.tag !== input.tag) {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected ${input.tag} payload: ${payload.tag}`,
+          );
+        }
+        const result = (payload as unknown as { result: TResult }).result;
+        return this.persistFormMutation(ctx, input.docId, input.layerName, layer, {
+          auditKind: input.auditKind,
+          impacts: input.impacts(result, materialized),
+          result,
+          artifact: requireLayerArtifact(payload as unknown),
+        });
+      });
+    });
+  }
+
+  private async persistFormMutation<TResult extends { meta: MutationMeta }>(
+    ctx: LayerWriteContext,
+    docId: string,
+    layerName: string,
+    layer: LayerRow,
+    input: {
+      auditKind: AuditMutationKind;
+      impacts: FormPageImpact[];
+      result: TResult;
+      artifact: LayerArtifactInput;
+    },
+  ): Promise<TResult> {
+    const nextVersion = layer.currentVersion + 1;
+    const artifactKey = StorageKeys.layerArtifact(ctx.tenantId, docId, layerName, nextVersion);
+    const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
+    const committed = await this.commitFormMutation({
+      ctx,
+      docId,
+      layerName,
+      layer,
+      kind: input.auditKind,
+      impacts: dedupeImpacts(input.impacts),
+      artifactKey,
+      artifactSha: uploaded.sha256,
+      artifactSize: uploaded.size,
+      nextVersion,
+      finalizePayload: (durable) =>
+        this.finalizeFormResult(docId, layerName, input.result, durable),
+    });
+    this.publishMutation(ctx, docId, committed.auditId);
+    // The response IS the audited payload — one fact for caller and history.
+    return committed.payload as TResult;
+  }
+
+  /**
+   * Turn the worker's session-relative result (whose `meta` is empty by
+   * construction) into the FINALIZED wire result: decorated per-page states
+   * and the real cacheDelta from the committed version bumps.
+   */
+  private finalizeFormResult<TResult extends { meta: MutationMeta }>(
+    docId: string,
+    layerName: string,
+    raw: TResult,
+    durable: CommittedFormMutation,
+  ): TResult {
+    const cacheDelta = this.layerState.buildCacheDelta({
+      docId,
+      layerName,
+      previousDocVersion: durable.previousLayerDocVersion,
+      docVersion: durable.layerDocVersion,
+      pages: durable.pages,
+    });
+    return {
+      ...raw,
+      meta: {
+        ...raw.meta,
+        affectedPages: durable.pages.map((page) =>
+          this.layerState.decorateLayerPageState(docId, layerName, page),
+        ),
+        cacheDelta,
+      },
+    };
+  }
+
+  /**
+   * Form commit: advance the layer's `doc_version` (a new artifact always
+   * exists) and bump the affected pages' annotation counters per their
+   * impact kind. Field-plane-only mutations (rename, unplaced create)
+   * legitimately touch zero pages — the layer still advances so the new
+   * artifact becomes current.
+   */
+  private async commitFormMutation(input: {
+    ctx: LayerWriteContext;
+    docId: string;
+    layerName: string;
+    layer: LayerRow;
+    kind: AuditMutationKind;
+    impacts: FormPageImpact[];
+    artifactKey: string;
+    artifactSha: string;
+    artifactSize: number;
+    nextVersion: number;
+    finalizePayload: (durable: CommittedFormMutation) => unknown;
+  }): Promise<{ durable: CommittedFormMutation; payload: unknown; auditId: number }> {
+    return this.requireDb()
+      .transaction()
+      .execute(async (trx) => {
+        const now = Date.now();
+        const currentLayer = await this.requireUnchangedLayer(trx, input.layer);
+
+        const nextPages: DurablePageRow[] = [];
+        for (const impact of input.impacts) {
+          const page = await trx
+            .selectFrom('layer_pages')
+            .selectAll()
+            .where('layer_id', '=', input.layer.id)
+            .where('page_object_number', '=', impact.pageObjectNumber)
+            .executeTakeFirst();
+          if (!page) {
+            throw new EngineError(
+              EngineErrorCode.WireFormat,
+              `form mutation reported unknown page object number ${impact.pageObjectNumber}`,
+            );
+          }
+          const bumps = this.layerState.mutationBumps(impact.kind, {
+            hasWeakAnnotations: Boolean(page.has_weak_annotations),
+          });
+          nextPages.push({
+            pageObjectNumber: Number(page.page_object_number),
+            contentVersion: Number(page.content_version) + (bumps.bumpContentVersion ? 1 : 0),
+            annotationVersion:
+              Number(page.annotation_version) + (bumps.bumpAnnotationVersion ? 1 : 0),
+            annotationGeneration:
+              Number(page.annotation_generation) + (bumps.bumpAnnotationGeneration ? 1 : 0),
+            // Widgets are strong annotations; the page's weak truth is
+            // untouched by any form mutation.
+            hasWeakAnnotations: Boolean(page.has_weak_annotations),
+            updatedAt: now,
+          });
+        }
+
+        const previousLayerDocVersion = Number(currentLayer.doc_version);
+        const layerDocVersion = previousLayerDocVersion + 1;
+
+        const durable: CommittedFormMutation = {
+          pages: nextPages,
+          previousLayerDocVersion,
+          layerDocVersion,
+        };
+        // Finalize BEFORE the audit append so the row stores exactly what
+        // the caller will receive.
+        const payload = input.finalizePayload(durable);
+
+        const auditEvent = makeAuditEvent({
+          ctx: input.ctx,
+          docId: input.docId,
+          layer: input.layer,
+          layerName: input.layerName,
+          kind: input.kind,
+          pageObjectNumber: null,
+          affectedPages: nextPages.map((page) => page.pageObjectNumber),
+          artifactVersion: input.nextVersion,
+          artifactKey: input.artifactKey,
+          artifactSha: input.artifactSha,
+          artifactSize: input.artifactSize,
+          payload,
+          ts: now,
+        });
+        const auditId = (await this.eventLog?.appendDb(trx, auditEvent)) ?? 0;
+
+        await this.writeLayerAdvance(trx, input, { doc_version: layerDocVersion }, auditId, now);
+
+        for (const page of nextPages) {
+          await trx
+            .updateTable('layer_pages')
+            .set({
+              content_version: page.contentVersion,
+              annotation_version: page.annotationVersion,
+              annotation_generation: page.annotationGeneration,
+              updated_at: now,
+            })
+            .where('layer_id', '=', input.layer.id)
+            .where('page_object_number', '=', page.pageObjectNumber)
+            .execute();
+        }
+
+        return { durable, payload, auditId };
+      });
   }
 
   private async prepareLayerMutation(
@@ -1571,6 +2153,43 @@ function requireLayerArtifact(payload: unknown): LayerArtifactInput {
     );
   }
   return artifact;
+}
+
+/**
+ * Project a widget change report onto page impacts. Unplaced widgets
+ * (`pageObjectNumber === 0`) have no page-visible effect and are skipped.
+ */
+function widgetImpacts(
+  widgets: ReadonlyArray<FormWidgetRef>,
+  kind: MutationImpactKind,
+): FormPageImpact[] {
+  return widgets
+    .filter((widget) => widget.pageObjectNumber > 0)
+    .map((widget) => ({ pageObjectNumber: widget.pageObjectNumber, kind }));
+}
+
+/** Conservative impact for document-wide form ops (import, repair). */
+function allPageImpacts(materialized: MaterializedLayer): FormPageImpact[] {
+  return materialized.pages.map((page) => ({
+    pageObjectNumber: page.pageObjectNumber,
+    kind: 'update' as MutationImpactKind,
+  }));
+}
+
+/**
+ * One impact per page. When several widgets on the same page report
+ * different kinds, `delete` wins (it is the only kind that must advance
+ * the annotation generation — the /Annots index space shifted).
+ */
+function dedupeImpacts(impacts: FormPageImpact[]): FormPageImpact[] {
+  const byPage = new Map<number, FormPageImpact>();
+  for (const impact of impacts) {
+    const existing = byPage.get(impact.pageObjectNumber);
+    if (!existing || (existing.kind !== 'delete' && impact.kind === 'delete')) {
+      byPage.set(impact.pageObjectNumber, impact);
+    }
+  }
+  return Array.from(byPage.values());
 }
 
 function requireSingleAffectedPage(pages: readonly PageState[]): PageState {

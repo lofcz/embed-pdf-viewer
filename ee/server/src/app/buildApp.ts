@@ -29,6 +29,7 @@ import { registerJwtAuth } from './jwt-plugin';
 import { registerDocsRoutes } from '../routes/docs';
 import { registerAccessRoutes } from '../routes/access';
 import { registerAnnotationRoutes } from '../routes/annotations';
+import { registerFormRoutes } from '../routes/forms';
 import { registerMetadataRoutes } from '../routes/metadata';
 import { registerPageRoutes } from '../routes/pages';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
@@ -241,6 +242,13 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
     { parseAs: 'buffer', bodyLimit: opts.bodyLimit ?? 50 * 1024 * 1024 },
     (_req, body, done) => done(null, body),
   );
+  // Serialized form data (FDF/XFDF import bodies). Same raw-buffer
+  // treatment: the payload goes to the worker byte-for-byte.
+  app.addContentTypeParser(
+    ['application/vnd.fdf', 'application/vnd.adobe.xfdf'],
+    { parseAs: 'buffer', bodyLimit: opts.bodyLimit ?? 50 * 1024 * 1024 },
+    (_req, body, done) => done(null, body),
+  );
 
   // Optional revocation + JWKS persistence guards. Both are no-ops
   // unless explicitly enabled — admin-only tests / dev runs don't
@@ -426,6 +434,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
         revisionBridge: cloudRevisionBridge,
         imageEncoder: new SharpImageEncoder(),
         weakAnnotationSessions,
+      });
+      await registerFormRoutes(app, {
+        documentService,
+        layerService,
       });
     }
 
