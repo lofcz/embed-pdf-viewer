@@ -152,7 +152,15 @@ export interface ViewerProps {
   children: React.ReactNode;
 }
 
-/** Builds the kernel, starts it, opens the initial documents, then renders. */
+/**
+ * Builds the kernel, starts it, then renders. Children mount as soon as
+ * `start()` resolves — which never touches the engine, so the shell (and every
+ * workspace capability: i18n, view-manager, …) is alive while WASM compiles or
+ * the transport connects. `initialDocuments` open in the BACKGROUND and stream
+ * into the registry (`useDocuments()` is reactive); per-document loading UI is
+ * the Stage's job, not a root gate. Pair with `deferredEngine()` to make the
+ * whole boot non-blocking.
+ */
 export function Viewer({ engine, plugins, initialDocuments, fallback, children }: ViewerProps) {
   const kernel = useMemo(() => createKernel({ engine, plugins }), [engine, plugins]);
   const [ready, setReady] = useState(false);
@@ -160,10 +168,11 @@ export function Viewer({ engine, plugins, initialDocuments, fallback, children }
     let alive = true;
     (async () => {
       await kernel.start();
+      if (alive) setReady(true);
       for (const doc of initialDocuments ?? []) {
+        if (!alive) return; // unmounted mid-boot — stop opening
         await kernel.documents.open(doc.source, { name: doc.name });
       }
-      if (alive) setReady(true);
     })();
     return () => {
       alive = false;

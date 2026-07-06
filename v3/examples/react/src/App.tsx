@@ -22,6 +22,7 @@ import { metadataPlugin } from '@embedpdf-x/plugin-metadata';
 import { formPlugin, fieldKeyOf } from '@embedpdf-x/plugin-form';
 import type { FormFieldPatch } from '@embedpdf-x/plugin-form';
 import { searchPlugin, validateSearchRegex, SearchToken } from '@embedpdf-x/plugin-search';
+import { i18nPlugin, negotiateLocale } from '@embedpdf-x/plugin-i18n';
 import { viewManagerPlugin } from '@embedpdf-x/plugin-view-manager';
 import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
 import {
@@ -54,6 +55,8 @@ import {
   SearchLayer,
   useSearch,
   useSearchState,
+  useT,
+  useLocale,
 } from '@embedpdf-x/react';
 import type {
   AnnotationProps,
@@ -64,7 +67,15 @@ import type {
   TextAlign,
 } from '@embedpdf-x/react';
 import type { DocumentMetadata, MetadataPatch, OpenInput, PdfSaveMode } from '@embedpdf-x/kernel';
-import { bootstrap, engineMode, newDocument, SAMPLES, fetchBytes } from './engine';
+import {
+  createDeferredEngine,
+  engineMode,
+  loadInitialDocuments,
+  newDocument,
+  SAMPLES,
+  fetchBytes,
+} from './engine';
+import { en } from './locales/en';
 
 /** Shared button style for the selection menu overlay. */
 const MENU_BTN: React.CSSProperties = {
@@ -88,8 +99,6 @@ const DRAFT_MENU_BTN: React.CSSProperties = {
   lineHeight: 1,
   padding: 0,
 };
-import type { Boot } from './engine';
-
 // The Stage is a LENS: a document can be viewed through several at once. The
 // sidebar is a second lens — wrapped grid, fixed thumbnail zoom — with its own
 // camera per document, fully independent of the main view.
@@ -123,6 +132,16 @@ const plugins = [
   // navigation lands the match at the viewport's top-middle (y: 0.35 — the
   // browser find-bar feel); try y: 0.5 for dead center, y: 0.65 for bottom.
   searchPlugin({ reveal: { anchor: { y: 0.35 }, behavior: 'smooth' } }),
+  // workspace plugin, engine-free: locale packs as store state. Alive from
+  // createKernel() — the shell below translates while the engine still boots.
+  // 'en' ships eagerly; 'es' is a lazy pack fetched on first switch. The
+  // startup locale is negotiated OUTSIDE the plugin (it never touches the DOM).
+  i18nPlugin({
+    locale: negotiateLocale(['en', 'es'], navigator.languages) ?? 'en',
+    fallbackLocale: 'en',
+    locales: [en],
+    loaders: { es: () => import('./locales/es').then((m) => m.es) },
+  }),
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
   // workspace plugin: partitions open documents into reorderable panes (each pane
@@ -1745,6 +1764,7 @@ function Pane({
 
 function Workspace() {
   const { docs } = useDocuments();
+  const t = useT();
   const { views, createView } = useViews();
   const names = useMemo(() => Object.fromEntries(docs.map((d) => [d.id, d.name ?? d.id])), [docs]);
   return (
@@ -1756,7 +1776,7 @@ function Workspace() {
       ))}
       <button
         onClick={() => createView()}
-        title="split: add another pane"
+        title={t('demo.split')}
         style={{
           alignSelf: 'center',
           padding: '8px 10px',
@@ -2112,6 +2132,37 @@ const modalCard: React.CSSProperties = {
   font: '13px system-ui',
 };
 
+// The i18n proof: this select works while the engine is still compiling WASM.
+// 'es' demonstrates a LAZY pack — fetched on first switch ('…' while in flight).
+function LocaleSwitcher() {
+  const t = useT();
+  const { locale, locales, loading, setLocale } = useLocale();
+  return (
+    <select
+      title={t('demo.language')}
+      value={locale}
+      onChange={(e) => setLocale(e.target.value)}
+      style={{ font: 'inherit', marginLeft: 'auto' }}
+    >
+      {locales.map((l) => (
+        <option key={l.code} value={l.code}>
+          {l.name}
+          {loading === l.code ? '…' : ''}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// Live plural + params: ticks up as background opens stream into the registry.
+function DocCount() {
+  const { docs } = useDocuments();
+  const t = useT();
+  return (
+    <span style={{ color: '#888' }}>{t('demo.documents', { params: { count: docs.length } })}</span>
+  );
+}
+
 function Shell() {
   return (
     <div
@@ -2149,40 +2200,66 @@ function Shell() {
         >
           {engineMode} engine
         </span>
+        <DocCount />
+        <LocaleSwitcher />
       </div>
       <Workspace />
     </div>
   );
 }
 
-// Build the engine (async — wasm worker spins up, PDFs are fetched), then mount.
-export function App() {
-  const [boot, setBoot] = useState<Boot | null>(null);
+// Fetch the sample PDFs and stream them into the registry — AFTER mount, so
+// the shell never waits for them. Tabs appear one by one (watch <DocCount/>).
+function OpenInitialDocuments() {
+  const { open } = useDocuments();
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    bootstrap().then(setBoot, (e) => setError(String(e)));
-  }, []);
-
-  if (error)
-    return (
-      <div style={{ padding: 24, color: '#c00', font: '13px ui-monospace, monospace' }}>
-        engine failed to start: {error}
-      </div>
-    );
-  if (!boot)
-    return (
-      <div style={{ padding: 24, color: '#888', font: '13px ui-monospace, monospace' }}>
-        booting {engineMode} engine…
-      </div>
-    );
-
+    let alive = true;
+    (async () => {
+      try {
+        const docs = await loadInitialDocuments();
+        for (const doc of docs) {
+          if (!alive) return;
+          await open(doc.source, { name: doc.name });
+        }
+      } catch (e) {
+        if (alive) setError(String(e));
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+  if (!error) return null;
   return (
-    <Viewer
-      engine={boot.engine}
-      plugins={plugins}
-      initialDocuments={boot.documents}
-      fallback={<div style={{ padding: 20 }}>opening documents…</div>}
-    >
+    <div style={{ padding: '6px 12px', color: '#c00', borderBottom: '1px solid #eee' }}>
+      {t('demo.openFailed', { params: { error } })}
+    </div>
+  );
+}
+
+// The `fallback` shows only until kernel.start() resolves (no engine work) —
+// and it sits inside the kernel provider, so even IT translates. The v2
+// failure mode (a hardcoded "Initializing PDF engine…" because i18n couldn't
+// exist before the engine) is structurally impossible here.
+function Booting() {
+  const t = useT();
+  return (
+    <div style={{ padding: 24, color: '#888', font: '13px ui-monospace, monospace' }}>
+      {t('demo.starting')}
+    </div>
+  );
+}
+
+// Mount at t=0. The engine boot (wasm worker, fonts) starts in parallel inside
+// createDeferredEngine() and is only awaited by documents.open() — the chrome,
+// its translations, and the locale switcher never wait for it.
+export function App() {
+  const engine = useMemo(createDeferredEngine, []);
+  return (
+    <Viewer engine={engine} plugins={plugins} fallback={<Booting />}>
+      <OpenInitialDocuments />
       <Shell />
     </Viewer>
   );

@@ -7,6 +7,7 @@
  *   local — @embedpdf/engine: PDFium wasm in a Worker thread (real rendering)
  *   cloud — @cloudpdf/engine: the same contract over HTTP (needs a running server)
  */
+import { deferredEngine } from '@embedpdf-x/kernel';
 import type { Engine, OpenInput } from '@embedpdf-x/kernel';
 import type { InitialDocument } from '@embedpdf-x/react';
 
@@ -40,6 +41,17 @@ export async function createEngine(): Promise<Engine> {
       return engine;
     }
   }
+}
+
+/**
+ * The non-blocking boot: kick the real boot off NOW (wasm worker, fonts) and
+ * hand back a synchronously-usable facade. The kernel — and the translated
+ * shell — never wait for it; the boot overlaps with first render and is only
+ * awaited inside `documents.open()`.
+ */
+export function createDeferredEngine(): Engine {
+  const booting = createEngine();
+  return deferredEngine(() => booting);
 }
 
 async function registerFallbackFonts(engine: Engine): Promise<void> {
@@ -82,7 +94,7 @@ export const fetchBytes = async (url: string): Promise<Uint8Array> =>
     return new Uint8Array(await response.arrayBuffer());
   });
 
-async function loadInitialDocuments(): Promise<InitialDocument[]> {
+export async function loadInitialDocuments(): Promise<InitialDocument[]> {
   if (engineMode === 'cloud') {
     return SAMPLES.map(({ id, name }) => ({ source: { kind: 'id', id } as OpenInput, name }));
   }

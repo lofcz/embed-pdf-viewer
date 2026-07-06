@@ -2,7 +2,7 @@ export * from './types';
 export * from './kernel';
 
 // Re-export the engine contracts so plugins/adapters import them from @embedpdf-x/kernel.
-export { AbortablePromise } from '@embedpdf/engine-core/runtime';
+export { AbortablePromise, deferredEngine } from '@embedpdf/engine-core/runtime';
 export type {
   PageHandle,
   PageRaster,

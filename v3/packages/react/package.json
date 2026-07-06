@@ -56,6 +56,10 @@
     "./metadata": {
       "types": "./src/metadata.ts",
       "import": "./src/metadata.ts"
+    },
+    "./i18n": {
+      "types": "./src/i18n.ts",
+      "import": "./src/i18n.ts"
     }
   },
   "publishConfig": {
@@ -110,6 +114,10 @@
       "./metadata": {
         "types": "./dist/metadata.d.ts",
         "import": "./dist/metadata.js"
+      },
+      "./i18n": {
+        "types": "./dist/i18n.d.ts",
+        "import": "./dist/i18n.js"
       }
     }
   },
@@ -136,7 +144,8 @@
     "@embedpdf-x/plugin-annotation": "workspace:*",
     "@embedpdf-x/plugin-view-manager": "workspace:*",
     "@embedpdf-x/plugin-form": "workspace:*",
-    "@embedpdf-x/plugin-search": "workspace:*"
+    "@embedpdf-x/plugin-search": "workspace:*",
+    "@embedpdf-x/plugin-i18n": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18",

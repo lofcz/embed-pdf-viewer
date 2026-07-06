@@ -46,6 +46,7 @@ export default defineConfig({
       { find: '@embedpdf-x/plugin-page-edit', replacement: src('plugin-page-edit') },
       { find: '@embedpdf-x/plugin-metadata', replacement: src('plugin-metadata') },
       { find: '@embedpdf-x/plugin-view-manager', replacement: src('plugin-view-manager') },
+      { find: '@embedpdf-x/plugin-i18n', replacement: src('plugin-i18n') },
       { find: '@embedpdf-x/react', replacement: src('react') },
       {
         find: /^@embedpdf\/engine\/worker-entry$/,
