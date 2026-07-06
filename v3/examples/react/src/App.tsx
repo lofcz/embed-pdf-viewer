@@ -21,6 +21,7 @@ import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
 import { metadataPlugin } from '@embedpdf-x/plugin-metadata';
 import { formPlugin, fieldKeyOf } from '@embedpdf-x/plugin-form';
 import type { FormFieldPatch } from '@embedpdf-x/plugin-form';
+import { searchPlugin, validateSearchRegex, SearchToken } from '@embedpdf-x/plugin-search';
 import { viewManagerPlugin } from '@embedpdf-x/plugin-view-manager';
 import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
 import {
@@ -50,6 +51,9 @@ import {
   FormLayer,
   useForm,
   useFormField,
+  SearchLayer,
+  useSearch,
+  useSearchState,
 } from '@embedpdf-x/react';
 import type {
   AnnotationProps,
@@ -115,6 +119,7 @@ const plugins = [
   selectionPlugin(), // text selection (requires the interaction hub)
   annotationPlugin(), // shapes: create/edit/delete (ambient editing + draw tools)
   formPlugin(), // interactive forms: fill mode over doc.forms (fields stay engine truth)
+  searchPlugin(), // document text search: budgeted engine slices, viewport-first, reveal-on-nav
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
   // workspace plugin: partitions open documents into reorderable panes (each pane
@@ -801,6 +806,186 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
   );
 }
 
+/** A tiny option toggle for the search box (Aa / |ab| / .*). */
+function SearchToggle({
+  on,
+  label,
+  title,
+  onClick,
+}: {
+  on: boolean;
+  label: string;
+  title: string;
+  onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} title={title} style={toolBtn(on)}>
+      {label}
+    </button>
+  );
+}
+
+/**
+ * The search box: type-as-you-search over the engine's budgeted slices.
+ * Enter / shift+Enter (or ↓ / ↑) steps through hits — the plugin reveals
+ * the hit's page via the Stage. The dropdown lists snippets streamed in
+ * viewport-first order; clicking one jumps to it.
+ */
+function SearchControls() {
+  const search = useSearch();
+  const { status, hitCount, activeIndex, progress, error } = useSearchState();
+  const [text, setText] = useState('');
+  const [matchCase, setMatchCase] = useState(false);
+  const [wholeWord, setWholeWord] = useState(false);
+  const [regex, setRegex] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
+
+  const patternError =
+    regex && text.trim() ? (validateSearchRegex(text.trim()).ok ? null : 'invalid pattern') : null;
+
+  // Debounced type-as-you-search; options re-run the query too.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const needle = text.trim();
+      if (!needle || patternError) search.clear();
+      else search.search(needle, { matchCase, wholeWord, regex });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [text, matchCase, wholeWord, regex, patternError, search]);
+
+  const hits = useSelector(SearchToken, (c) => c.hits());
+  const counter =
+    hitCount > 0
+      ? `${activeIndex + 1}/${hitCount}`
+      : status === 'searching'
+        ? '…'
+        : text.trim()
+          ? '0'
+          : '';
+
+  return (
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 3 }}>
+      <input
+        value={text}
+        placeholder="search…"
+        onChange={(e) => {
+          setText(e.target.value);
+          setListOpen(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.shiftKey ? search.prev() : search.next();
+          if (e.key === 'Escape') {
+            setText('');
+            setListOpen(false);
+            search.clear();
+          }
+        }}
+        style={{ ...tbSelect, width: 130, borderColor: patternError ? '#e5484d' : '#ccc' }}
+      />
+      <SearchToggle
+        on={matchCase}
+        label="Aa"
+        title="match case"
+        onClick={() => setMatchCase((v) => !v)}
+      />
+      <SearchToggle
+        on={wholeWord}
+        label="|ab|"
+        title="whole word"
+        onClick={() => setWholeWord((v) => !v)}
+      />
+      <SearchToggle
+        on={regex}
+        label=".*"
+        title="regular expression (RE2-portable dialect)"
+        onClick={() => setRegex((v) => !v)}
+      />
+      <button onClick={() => search.prev()} title="previous match (shift+Enter)" style={tbBtn}>
+        ↑
+      </button>
+      <button onClick={() => search.next()} title="next match (Enter)" style={tbBtn}>
+        ↓
+      </button>
+      <span
+        title={
+          status === 'searching'
+            ? `scanning ${progress.scanned}/${progress.total} pages`
+            : undefined
+        }
+        style={{ minWidth: 34, textAlign: 'center', color: patternError ? '#e5484d' : '#666' }}
+      >
+        {patternError ? '✕' : counter}
+      </span>
+      {listOpen && text.trim() && hitCount > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            zIndex: 40,
+            marginTop: 4,
+            width: 340,
+            maxHeight: 300,
+            overflowY: 'auto',
+            background: '#fff',
+            border: '1px solid #ddd',
+            borderRadius: 6,
+            boxShadow: '0 8px 24px rgba(0,0,0,.15)',
+          }}
+        >
+          {hits.slice(0, 100).map((hit, i) => (
+            <button
+              key={`${hit.pon}:${hit.charStart}`}
+              onClick={() => search.goTo(i)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'left',
+                padding: '5px 8px',
+                border: 'none',
+                borderBottom: '1px solid #f2f2f2',
+                background: i === activeIndex ? '#fff7df' : '#fff',
+                cursor: 'pointer',
+                fontSize: 11,
+                color: '#444',
+              }}
+            >
+              <span style={{ color: '#999', marginRight: 6 }}>p{hit.pageIndex + 1}</span>
+              {hit.snippet ? (
+                <>
+                  {hit.snippet.text.slice(0, hit.snippet.matchStart)}
+                  <b style={{ background: 'rgba(255,213,0,.45)' }}>
+                    {hit.snippet.text.slice(
+                      hit.snippet.matchStart,
+                      hit.snippet.matchStart + hit.snippet.matchLength,
+                    )}
+                  </b>
+                  {hit.snippet.text.slice(hit.snippet.matchStart + hit.snippet.matchLength)}
+                </>
+              ) : (
+                <i>match</i>
+              )}
+            </button>
+          ))}
+          <div style={{ padding: '4px 8px', fontSize: 10, color: '#999', display: 'flex', gap: 8 }}>
+            {status === 'searching'
+              ? `scanning… ${progress.scanned}/${progress.total} pages`
+              : `${hitCount} matches${hitCount > 100 ? ' (first 100 shown)' : ''}`}
+            {error && <span style={{ color: '#e5484d' }}>{error}</span>}
+            <span style={{ marginLeft: 'auto' }} />
+            <button
+              onClick={() => setListOpen(false)}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#999' }}
+            >
+              close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Toolbar() {
   const { zoom, mode, zoomIn, zoomOut, fitWidth, fitPage, fitAll, automatic } = useZoom();
   const { currentPage, pageCount, next, prev } = usePages();
@@ -858,6 +1043,8 @@ function Toolbar() {
             custom
           </option>
         </select>
+        <Divider />
+        <SearchControls />
         <span style={{ marginLeft: 'auto' }} />
         {Object.keys(PRESETS).map((name) => (
           <button
@@ -1146,6 +1333,7 @@ function DocumentView() {
               <RenderLayer annotations={false} />
               <WatermarkLayer />
               <SelectionLayer />
+              <SearchLayer />
               <AnnotationLayer />
               <FormLayer />
             </>

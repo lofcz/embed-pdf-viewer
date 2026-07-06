@@ -22,6 +22,7 @@ import type { ScopeGuard } from '../scope';
 import { LocalDocumentAnnotationsService } from './LocalDocumentAnnotationsService';
 import { LocalDocumentFormsService } from './LocalDocumentFormsService';
 import { LocalDocumentPagesService } from './LocalDocumentPagesService';
+import { LocalDocumentSearchService } from './LocalDocumentSearchService';
 import { LocalDocumentSecurityService } from './LocalDocumentSecurityService';
 import { LocalMetadataService } from './LocalMetadataService';
 import { LocalPageHandle } from './LocalPageHandle';
@@ -37,6 +38,7 @@ export class LocalDocumentHandle implements DocumentHandle {
   readonly metadata: MetadataService;
   readonly annotations: DocumentAnnotationsService;
   readonly forms: LocalDocumentFormsService;
+  readonly search: LocalDocumentSearchService;
   readonly pages: DocumentPagesService;
   readonly security: DocumentSecurityService;
   readonly events: DocumentEventStream;
@@ -61,6 +63,7 @@ export class LocalDocumentHandle implements DocumentHandle {
     this.metadata = new LocalMetadataService(id, queue, view, guard, this.publisher);
     this.annotations = new LocalDocumentAnnotationsService(id, queue, view, guard);
     this.forms = new LocalDocumentFormsService(id, queue, view, guard, this.publisher);
+    this.search = new LocalDocumentSearchService(id, queue, view, guard);
     this.pages = new LocalDocumentPagesService(id, queue, view, guard, this.publisher);
   }
 

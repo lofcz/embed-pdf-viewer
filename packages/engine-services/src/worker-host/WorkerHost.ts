@@ -43,6 +43,7 @@ import {
   type PagesDeleteWorkerRequest,
   type PagesRenderWorkerRequest,
   type PagesTextWorkerRequest,
+  type SearchQueryWorkerRequest,
   type SerializedEngineError,
   type ShutdownWorkerRequest,
   type WirePack,
@@ -73,6 +74,7 @@ import { MetadataMutator, MetadataReader } from '../features/metadata';
 import { PagesMutator, PagesReader } from '../features/pages';
 import { PageRenderReader } from '../features/render';
 import { DocumentSaver } from '../features/save';
+import { SearchReader } from '../features/search';
 import { SecurityReader } from '../features/security';
 import { PageTextReader } from '../features/text';
 import { ensureInitialized, destroyLibrary } from '../runtime/lifecycle/bootstrap';
@@ -234,6 +236,9 @@ export class WorkerHost {
           break;
         case 'pages.render':
           resultPack = this.handlePagesRender(msg, ctrl.signal);
+          break;
+        case 'search.query':
+          resultPack = this.handleSearchQuery(msg, ctrl.signal);
           break;
         case 'document.saveBuffer':
           resultPack = this.handleDocumentSaveBuffer(msg);
@@ -494,6 +499,16 @@ export class WorkerHost {
     const reader = new PageGeometryReader(this.runtime, session);
     const snapshot = reader.read(req.pageObjectNumber, signal);
     return wirePack({ tag: 'pages.geometry', snapshot });
+  }
+
+  private handleSearchQuery(
+    req: SearchQueryWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const reader = new SearchReader(this.runtime, session);
+    const slice = reader.query(req.request, signal);
+    return wirePack({ tag: 'search.query', slice });
   }
 
   private handlePagesRender(

@@ -39,6 +39,13 @@ import type {
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { CacheDelta, MutationMeta } from '../mutation/MutationMeta';
 import type {
+  SearchMatch,
+  SearchQuery,
+  SearchRequest,
+  SearchSlice,
+  SearchSnippet,
+} from '../search/types';
+import type {
   FormFieldCreateResult,
   FormFieldDeleteResult,
   FormFieldUpdateResult,
@@ -389,6 +396,63 @@ export const PageGeometryRunSchema = z.object({
 
 export const PageGeometrySnapshotSchema: z.ZodType<PageGeometrySnapshot> = z.object({
   runs: z.array(PageGeometryRunSchema),
+});
+
+/**
+ * Search wire shapes: the request body of the layer search route and the
+ * `search.query` worker/route result. The server re-validates the regex
+ * dialect (`validateSearchRegex`) after parse — the schema only checks
+ * structure.
+ */
+export const SearchQuerySchema: z.ZodType<SearchQuery> = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('literal'),
+    text: z.string(),
+    matchCase: z.boolean().optional(),
+    matchDiacritics: z.boolean().optional(),
+    wholeWord: z.boolean().optional(),
+  }),
+  z.object({
+    kind: z.literal('regex'),
+    pattern: z.string(),
+    matchCase: z.boolean().optional(),
+  }),
+]);
+
+export const SearchModeSchema = z.enum(['rects', 'full']);
+
+export const SearchRequestSchema: z.ZodType<SearchRequest> = z.object({
+  query: SearchQuerySchema,
+  mode: SearchModeSchema.optional(),
+  cursor: z.string().optional(),
+  startPage: z.number().int().positive().optional(),
+  budget: z
+    .object({
+      maxMatches: z.number().int().positive().optional(),
+      maxPages: z.number().int().positive().optional(),
+    })
+    .optional(),
+});
+
+export const SearchSnippetSchema: z.ZodType<SearchSnippet> = z.object({
+  text: z.string(),
+  matchStart: z.number().int().nonnegative(),
+  matchLength: z.number().int().positive(),
+});
+
+export const SearchMatchSchema: z.ZodType<SearchMatch> = z.object({
+  pageObjectNumber: z.number().int().positive(),
+  charStart: z.number().int().nonnegative(),
+  charCount: z.number().int().positive(),
+  rects: z.array(PdfRectSchema),
+  snippet: SearchSnippetSchema.optional(),
+});
+
+export const SearchSliceSchema: z.ZodType<SearchSlice> = z.object({
+  matches: z.array(SearchMatchSchema),
+  nextCursor: z.string().nullable(),
+  scannedPages: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
 });
 
 export const PageNetworkRenderFormatSchema: z.ZodType<PageNetworkRenderFormat> = z.enum([

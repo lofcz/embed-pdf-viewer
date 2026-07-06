@@ -41,6 +41,7 @@ import type {
   AnnotationUpdateResult,
 } from '../mutation/AnnotationMutationResults';
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
+import type { SearchRequest, SearchSlice } from '../search/types';
 import type { PageDeleteResult } from '../mutation/PageDeleteResult';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { PageRotateResult } from '../mutation/PageRotateResult';
@@ -368,6 +369,19 @@ export interface PagesGeometryWorkerRequest {
   pageObjectNumber: PageObjectNumber;
 }
 
+/**
+ * One budgeted search slice (see `DocumentSearchService`). Read-only: the
+ * worker's per-page corpus cache is version-keyed on the session mutation
+ * counter, so repeated slices between mutations reuse extracted text.
+ */
+export interface SearchQueryWorkerRequest {
+  kind: 'search.query';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  request: SearchRequest;
+}
+
 export interface PagesRenderWorkerRequest {
   kind: 'pages.render';
   jobId: WorkerJobId;
@@ -550,6 +564,7 @@ export type WorkerRequest =
   | PagesTextWorkerRequest
   | PagesGeometryWorkerRequest
   | PagesRenderWorkerRequest
+  | SearchQueryWorkerRequest
   | DocumentSaveBufferWorkerRequest
   | DocumentSaveFileWorkerRequest
   | DocumentSaveLayerBufferWorkerRequest
@@ -678,6 +693,7 @@ export type WorkerResultPayload =
   | { tag: 'pages.text'; snapshot: PageTextSnapshot }
   | { tag: 'pages.geometry'; snapshot: PageGeometrySnapshot }
   | { tag: 'pages.render'; raster: PageRaster }
+  | { tag: 'search.query'; slice: SearchSlice }
   | { tag: 'document.saveBuffer'; bytes: ArrayBuffer; size: number }
   | { tag: 'document.saveLayerBuffer'; bytes: ArrayBuffer; size: number }
   | { tag: 'document.saveFile'; path: string }

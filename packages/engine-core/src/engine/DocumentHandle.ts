@@ -1,6 +1,7 @@
 import type { DocumentAnnotationsService } from './DocumentAnnotationsService';
 import type { DocumentFormsService } from './DocumentFormsService';
 import type { DocumentPagesService } from './DocumentPagesService';
+import type { DocumentSearchService } from './DocumentSearchService';
 import type { DocumentSecurityService } from './DocumentSecurityService';
 import type { MetadataService } from './MetadataService';
 import type { PageHandle } from './PageHandle';
@@ -22,6 +23,8 @@ export interface DocumentHandle {
   readonly annotations: DocumentAnnotationsService;
   /** The document's interactive form (AcroForm): fields, values, interchange. */
   readonly forms: DocumentFormsService;
+  /** Document text search: budgeted, cursor-resumable slices. */
+  readonly search: DocumentSearchService;
   /**
    * Document-scoped page service. Use for cross-page operations:
    *   - `pages.list()` for the current display order.

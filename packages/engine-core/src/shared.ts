@@ -311,6 +311,30 @@ export type {
   FormFieldDeleteResult,
   FormWidgetLinkResult,
 } from './mutation/FormMutationResults';
+// Search: contract types + the pure match/anchor stages. The matcher and
+// line-merge are exported (not just types) because the local worker, the
+// server, and the conformance suite all run the SAME code — parity between
+// engines is a design invariant, not a test hope.
+export type {
+  SearchQuery,
+  SearchLiteralQuery,
+  SearchRegexQuery,
+  SearchMode,
+  SearchSliceBudget,
+  SearchRequest,
+  SearchSnippet,
+  SearchMatch,
+  SearchSlice,
+} from './search/types';
+export { SEARCH_FOLD_VERSION, foldText, toOriginalRange } from './search/fold';
+export type { FoldOptions, FoldedText, SearchMatchRange } from './search/fold';
+export { foldOptionsFor, matchLiteral } from './search/literal';
+export { SEARCH_REGEX_MAX_LENGTH, validateSearchRegex, matchRegex } from './search/regex';
+export type { SearchRegexIssue, SearchRegexValidation } from './search/regex';
+export { matchPageText } from './search/matcher';
+export { SEARCH_SNIPPET_CONTEXT, buildSnippet } from './search/snippet';
+export { searchRectsForRange } from './search/rects';
+
 export type { PageMoveInput } from './mutation/PageMoveInput';
 export type { PageMoveResult, PageMoveCache } from './mutation/PageMoveResult';
 export type { PageStructureCache } from './mutation/PageStructureCache';

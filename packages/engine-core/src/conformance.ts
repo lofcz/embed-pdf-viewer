@@ -38,6 +38,11 @@ export type {
   PageTextConformanceFixture,
   PageTextConformanceOptions,
 } from './conformance/runPageTextConformance';
+export { runSearchConformance } from './conformance/runSearchConformance';
+export type {
+  SearchConformanceFixture,
+  SearchConformanceOptions,
+} from './conformance/runSearchConformance';
 export {
   diffAnnotationListSnapshot,
   diffAnnotationListSnapshotAll,

@@ -55,6 +55,12 @@ export {
   PageDeleteResultSchema,
   WeakAnnotationSessionResponseSchema,
   WeakAnnotationSessionPagesRequestSchema,
+  SearchQuerySchema,
+  SearchModeSchema,
+  SearchRequestSchema,
+  SearchSnippetSchema,
+  SearchMatchSchema,
+  SearchSliceSchema,
 } from './wire/schemas';
 export type {
   OpenDocumentResponse,

@@ -34,6 +34,7 @@ import { CloudMetadataService } from './CloudMetadataService';
 import { CloudDocumentAnnotationsService } from './CloudDocumentAnnotationsService';
 import { CloudDocumentFormsService } from './CloudDocumentFormsService';
 import { CloudDocumentPagesService } from './CloudDocumentPagesService';
+import { CloudDocumentSearchService } from './CloudDocumentSearchService';
 import { CloudPageHandle } from './CloudPageHandle';
 import { CloudDocumentSecurityService } from './CloudDocumentSecurityService';
 
@@ -69,6 +70,7 @@ export class CloudDocumentHandle implements DocumentHandle {
   readonly metadata: CloudMetadataService;
   readonly annotations: DocumentAnnotationsService;
   readonly forms: DocumentFormsService;
+  readonly search: CloudDocumentSearchService;
   readonly pages: DocumentPagesService;
   readonly security: DocumentSecurityService;
   readonly events: DocumentEventStream;
@@ -178,6 +180,7 @@ export class CloudDocumentHandle implements DocumentHandle {
       this.manifestAccessor,
       this.publisher,
     );
+    this.search = new CloudDocumentSearchService();
     this.pages = new CloudDocumentPagesService(
       http,
       id,

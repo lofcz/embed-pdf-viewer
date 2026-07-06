@@ -2835,6 +2835,9 @@ importers:
       '@embedpdf-x/plugin-render':
         specifier: workspace:*
         version: link:../../packages/plugin-render
+      '@embedpdf-x/plugin-search':
+        specifier: workspace:*
+        version: link:../../packages/plugin-search
       '@embedpdf-x/plugin-selection':
         specifier: workspace:*
         version: link:../../packages/plugin-selection
@@ -3035,6 +3038,28 @@ importers:
         specifier: ^5.0.0
         version: 5.9.3
 
+  v3/packages/plugin-search:
+    dependencies:
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../kernel
+      '@embedpdf-x/plugin-stage':
+        specifier: workspace:*
+        version: link:../plugin-stage
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../../packages/engine-core
+    devDependencies:
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
   v3/packages/plugin-selection:
     dependencies:
       '@embedpdf-x/geometry':
@@ -3118,6 +3143,9 @@ importers:
       '@embedpdf-x/plugin-render':
         specifier: workspace:*
         version: link:../plugin-render
+      '@embedpdf-x/plugin-search':
+        specifier: workspace:*
+        version: link:../plugin-search
       '@embedpdf-x/plugin-selection':
         specifier: workspace:*
         version: link:../plugin-selection
