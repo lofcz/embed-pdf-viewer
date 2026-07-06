@@ -28,6 +28,26 @@ export interface Rect {
 }
 
 /**
+ * The bounding box of a set of rects (null for the empty set). Space-
+ * agnostic: works on any y-down `{x,y,width,height}` rects — search hit
+ * bounds, selection line-merge unions, multi-quad annotation extents.
+ */
+export function boundsOfRects(rects: readonly Rect[]): Rect | null {
+  if (rects.length === 0) return null;
+  let x1 = Infinity;
+  let y1 = Infinity;
+  let x2 = -Infinity;
+  let y2 = -Infinity;
+  for (const r of rects) {
+    x1 = Math.min(x1, r.x);
+    y1 = Math.min(y1, r.y);
+    x2 = Math.max(x2, r.x + r.width);
+    y2 = Math.max(y2, r.y + r.height);
+  }
+  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+}
+
+/**
  * Quarter-turn display rotation, degrees clockwise. The viewer-side notion of a
  * page's on-screen rotation — the TOTAL = (document /Rotate + any view
  * rotation), resolved by the shell. Structurally identical to the engine's

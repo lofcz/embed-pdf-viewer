@@ -8,6 +8,8 @@
 export { stagePlugin } from './stage.plugin';
 export type { StagePluginOptions } from './stage.plugin';
 export { StageToken } from './types';
+export { destinationToReveal } from './destination';
+export type { DestinationReveal } from './destination';
 export { DEFAULT_SETTINGS, settingsEqual } from './settings';
 export type {
   FlowMode,
@@ -16,6 +18,10 @@ export type {
   LayoutKind,
   ScrollBehaviorKind,
   GoToOptions,
+  RevealAnchor,
+  RevealAnchorValue,
+  RevealOptions,
+  RevealZoom,
   StageSettings,
   StageState,
   StageAction,

@@ -24,6 +24,7 @@ import type {
   MetadataPatch,
   MetadataUpdateResult,
   DocumentEvent,
+  PdfDestination,
 } from '@embedpdf/engine-core/runtime';
 
 // re-export the engine contracts so consumers import them from @embedpdf-x/kernel
@@ -33,6 +34,7 @@ export type {
   OpenInput,
   OpenOptions,
   PageLayout,
+  PdfDestination,
   PageObjectNumber,
   PageRotation,
   PageRotateResult,

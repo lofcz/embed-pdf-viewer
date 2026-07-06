@@ -1,5 +1,11 @@
 import type { PageObjectNumber, PluginContext } from '@embedpdf-x/kernel';
-import { applyRect, pageGeometry, type Rect, type RectIn } from '@embedpdf-x/geometry';
+import {
+  applyRect,
+  boundsOfRects,
+  pageGeometry,
+  type Rect,
+  type RectIn,
+} from '@embedpdf-x/geometry';
 import { StageToken } from '@embedpdf-x/plugin-stage';
 import { EngineError, EngineErrorCode } from '@embedpdf/engine-core/runtime';
 import type {
@@ -15,10 +21,15 @@ import type {
   SearchCapability,
   SearchHit,
   SearchOptions,
+  SearchPluginConfig,
+  SearchRevealOptions,
   SearchState,
 } from './types';
 
 const EMPTY: SearchHit[] = [];
+
+/** The browser find-bar feel: hit at the top-middle, no zoom change. */
+const DEFAULT_REVEAL: SearchRevealOptions = { anchor: { y: 0.35 }, behavior: 'smooth' };
 
 /** Local engines reject a denied scope before the worker; cloud maps 403. */
 const isPermissionDenied = (err: unknown): boolean =>
@@ -42,6 +53,7 @@ const isPermissionDenied = (err: unknown): boolean =>
  */
 export function createSearchCapability(
   ctx: PluginContext<SearchState, SearchAction>,
+  config: SearchPluginConfig = {},
 ): SearchCapability {
   let generation = 0;
   let inflight: { abort(reason?: unknown): void } | null = null;
@@ -135,6 +147,7 @@ export function createSearchCapability(
 
     let mode: SearchMode = 'full';
     let cursor: string | undefined;
+    let restarted = false;
     for (;;) {
       let slice: SearchSlice;
       try {
@@ -152,6 +165,15 @@ export function createSearchCapability(
         // instead of failing the whole search — find still works.
         if (mode === 'full' && cursor === undefined && isPermissionDenied(err)) {
           mode = 'rects';
+          continue;
+        }
+        // A stale cursor rejects with InvalidArg — the document changed
+        // under the loop, or the engine's session was recycled. Position
+        // is lost, the query isn't: restart once from scratch.
+        if (cursor !== undefined && !restarted && EngineError.is(err, EngineErrorCode.InvalidArg)) {
+          restarted = true;
+          cursor = undefined;
+          ctx.dispatch({ type: 'START', query });
           continue;
         }
         ctx.dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
@@ -173,13 +195,20 @@ export function createSearchCapability(
     }
   }
 
-  function goTo(index: number): SearchHit | null {
+  function goTo(index: number, reveal?: SearchRevealOptions): SearchHit | null {
     const { hits } = ctx.getState();
     if (hits.length === 0) return null;
     const wrapped = ((index % hits.length) + hits.length) % hits.length;
     ctx.dispatch({ type: 'SET_ACTIVE', index: wrapped });
     const hit = hits[wrapped];
-    ctx.tryGet(StageToken)?.reveal(hit.pageIndex);
+    // Positioned reveal: the HIT (not just its page) arrives at the anchor —
+    // per-call override > plugin config > find-bar default. Zoom never changes.
+    const arrival = { ...DEFAULT_REVEAL, ...config.reveal, ...reveal };
+    ctx.tryGet(StageToken)?.reveal(hit.pageIndex, {
+      rect: boundsOfRects(hit.rects) ?? undefined,
+      anchor: arrival.anchor,
+      behavior: arrival.behavior,
+    });
     return hit;
   }
 

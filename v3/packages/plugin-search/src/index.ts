@@ -4,6 +4,8 @@ export type {
   SearchCapability,
   SearchHit,
   SearchOptions,
+  SearchPluginConfig,
+  SearchRevealOptions,
   SearchState,
   SearchStatus,
 } from './types';

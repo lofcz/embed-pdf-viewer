@@ -7,11 +7,14 @@ import {
   rotateScaleMatrix,
   snapToDevice,
 } from '@embedpdf-x/geometry';
+import type { Rect } from '@embedpdf-x/geometry';
 import type { PluginContext } from '@embedpdf-x/kernel';
 import { SETTINGS_EFFECT, SETTING_KEYS } from './settings';
 import type { SettingEffect } from './settings';
 import type {
   GoToOptions,
+  RevealAnchorValue,
+  RevealOptions,
   Scheduler,
   StageAction,
   StageCapability,
@@ -251,6 +254,52 @@ export function createStageCapability(
   const cursorItem = (): S.SceneItem => {
     const sc = buildScene();
     return paged() ? sc.items[0] : sc.items[itemIndexOfPage(ctx.getState().cursor)];
+  };
+
+  /**
+   * CONTENT-space rect on a page → WORLD rect: the same quarter-turn matrix
+   * `pageRectToScreen` uses, minus the camera — so a positioned reveal and
+   * the rendered overlay can never disagree about where a rect is.
+   */
+  const worldRectForContent = (it: S.SceneItem, pageIndex: number, rect: Rect): S.Rect => {
+    const box = it.pages.find((p) => p.pageIndex === pageIndex) ?? it.pages[0];
+    const content = displaySize({ width: box.width, height: box.height }, box.rotation);
+    const m = rotateScaleMatrix(box.contentScale, content.width, content.height, box.rotation);
+    const wr = applyRect(m, rect);
+    return { x: box.x + wr.x, y: box.y + wr.y, width: wr.width, height: wr.height };
+  };
+
+  /**
+   * One axis of a positioned-reveal camera. `undefined` = 'nearest' (only
+   * move if the target is outside the padded view) — unless the zoom just
+   * changed, where "don't move" is meaningless and the spec's slack-axis
+   * rule (center) applies. 'keep' never moves the axis (PDF /XYZ null).
+   */
+  const revealAxis = (
+    a: RevealAnchorValue | undefined,
+    camPos: number,
+    rectPos: number,
+    rectExtent: number,
+    vpExtent: number,
+    zoom: number,
+    zoomChanged: boolean,
+  ): number => {
+    if (a === 'keep') return camPos;
+    const p = pad();
+    if (a === undefined) {
+      if (!zoomChanged) {
+        const lo = camPos + p / zoom;
+        const hi = camPos + (vpExtent - p) / zoom;
+        if (rectPos >= lo && rectPos + rectExtent <= hi) return camPos; // already visible
+        if (rectExtent > hi - lo || rectPos < lo) return rectPos - p / zoom;
+        return rectPos + rectExtent - (vpExtent - p) / zoom;
+      }
+      a = 'center';
+    }
+    if (a === 'start') return rectPos - p / zoom;
+    if (a === 'end') return rectPos + rectExtent - (vpExtent - p) / zoom;
+    const f = a === 'center' ? 0.5 : Math.min(1, Math.max(0, a));
+    return rectPos + rectExtent / 2 - (vpExtent * f) / zoom;
   };
 
   // THE predicate. "Does this rect fit the padded viewport at this zoom?" decides
@@ -699,35 +748,107 @@ export function createStageCapability(
     },
     goToPage: (pageIndex, opts) => goToTarget(pageIndex, opts),
     reveal: (pageIndex, opts) => {
-      // NOT navigation: minimal visibility, cursor untouched (see revealCamera).
       const doc = ctx.document();
       if (!doc || doc.pageCount === 0) return;
       const target = Math.max(0, Math.min(pageIndex, doc.pageCount - 1));
-      if (paged()) {
-        // the page isn't in the one-item slice — revealing it IS navigating to it
-        goToTarget(target, opts);
+      const positioned =
+        !!opts &&
+        (opts.rect !== undefined ||
+          opts.anchor !== undefined ||
+          (opts.zoom !== undefined && opts.zoom !== 'keep'));
+
+      if (!positioned) {
+        // Bare reveal — NOT navigation: minimal visibility, cursor untouched.
+        if (paged()) {
+          // the page isn't in the one-item slice — revealing it IS navigating to it
+          goToTarget(target, opts);
+          return;
+        }
+        const sc = buildScene();
+        if (!sc.itemCount) return;
+        const page = pageRectOf(sc.items[itemIndexOfPage(target)], target);
+        // Reveal the OUTER box: pageFrame chrome (labels, buttons) belongs to the
+        // page, so "make the page visible" includes its reserved bands.
+        const m = worldPageFrame();
+        const box = {
+          x: page.x - m.left,
+          y: page.y - m.top,
+          width: page.width + m.left + m.right,
+          height: page.height + m.top + m.bottom,
+        };
+        const camera = S.revealCamera(cam(), box, vp(), pad());
+        const current = cam();
+        if (camera.x === current.x && camera.y === current.y) return; // already visible
+        cancelAnim();
+        if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') {
+          animateTo(camera, sceneRect());
+        } else {
+          setCam(camera, sceneRect());
+        }
         return;
       }
-      const sc = buildScene();
-      if (!sc.itemCount) return;
-      const page = pageRectOf(sc.items[itemIndexOfPage(target)], target);
-      // Reveal the OUTER box: pageFrame chrome (labels, buttons) belongs to the
-      // page, so "make the page visible" includes its reserved bands.
-      const m = worldPageFrame();
-      const box = {
-        x: page.x - m.left,
-        y: page.y - m.top,
-        width: page.width + m.left + m.right,
-        height: page.height + m.top + m.bottom,
-      };
-      const camera = S.revealCamera(cam(), box, vp(), pad());
-      const current = cam();
-      if (camera.x === current.x && camera.y === current.y) return; // already visible
+
+      // Positioned reveal: an ARRIVAL at a rect/point (search hit, PDF
+      // destination). Like navigation, the cursor is INTENT — set up front
+      // (paged: this also rebuilds the one-item slice), not derived from a
+      // possibly mid-tween camera.
       cancelAnim();
-      if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') {
-        animateTo(camera, sceneRect());
+      if (target !== ctx.getState().cursor) {
+        ctx.dispatch({ type: 'CURSOR', cursor: target });
+      }
+
+      const place = (): { camera: S.Camera; bounds: S.Rect; zoomChanged: boolean } | null => {
+        const sc = buildScene();
+        if (!sc.itemCount) return null;
+        const item = paged() ? sc.items[0] : sc.items[itemIndexOfPage(target)];
+        const world = opts.rect
+          ? worldRectForContent(item, target, opts.rect)
+          : pageRectOf(item, target);
+        const zd = opts.zoom ?? 'keep';
+        const availW = Math.max(1, vp().width - 2 * pad());
+        const availH = Math.max(1, vp().height - 2 * pad());
+        let zoom =
+          typeof zd === 'object'
+            ? zd.level
+            : zd === 'fit'
+              ? Math.min(availW / world.width, availH / world.height)
+              : zd === 'fit-width'
+                ? availW / world.width
+                : zd === 'fit-height'
+                  ? availH / world.height
+                  : cam().zoom;
+        // Degenerate target (a point with a fit directive) → pan only.
+        if (!Number.isFinite(zoom) || zoom <= 0) zoom = cam().zoom;
+        const zoomChanged = zd !== 'keep';
+        const a = opts.anchor ?? {};
+        return {
+          camera: {
+            x: revealAxis(a.x, cam().x, world.x, world.width, vp().width, zoom, zoomChanged),
+            y: revealAxis(a.y, cam().y, world.y, world.height, vp().height, zoom, zoomChanged),
+            zoom,
+          },
+          bounds: boundsFor(item),
+          zoomChanged,
+        };
+      };
+
+      const first = place();
+      if (!first) return;
+      // A resolved zoom becomes the zoom intent (like zoomAround), so later
+      // resizes/refits keep the destination's magnification.
+      if (first.zoomChanged) {
+        ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: first.camera.zoom } } });
+      }
+      if ((opts.behavior ?? ctx.getState().scrollBehavior) === 'smooth') {
+        // If the zoom patch re-wrapped the scene (zoom is a layout input in
+        // wrapped mode), recompute once against the new geometry.
+        const p = place() ?? first;
+        animateTo(p.camera, p.bounds);
       } else {
-        setCam(camera, sceneRect());
+        stabilized(() => {
+          const p = place();
+          if (p) setCam(p.camera, p.bounds);
+        });
       }
     },
     next: (opts) => step(1, opts),

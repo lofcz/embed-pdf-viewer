@@ -241,6 +241,7 @@ export { classifyRelation, buildThreads, refKey } from './annotation/relationshi
 export type { AnnotationRelationKind, AnnotationThread } from './annotation/relationships';
 
 export type { DocumentManifest, ManifestPage } from './dto/DocumentManifest';
+export type { PdfDestination } from './dto/PdfDestination';
 export type { CacheDelta, MutationMeta } from './mutation/MutationMeta';
 export type { AnnotationListMutationMeta } from './mutation/AnnotationListMutationMeta';
 export {
@@ -334,6 +335,7 @@ export type { SearchRegexIssue, SearchRegexValidation } from './search/regex';
 export { matchPageText } from './search/matcher';
 export { SEARCH_SNIPPET_CONTEXT, buildSnippet } from './search/snippet';
 export { searchRectsForRange } from './search/rects';
+export { searchContentEpoch, canonicalSearchQuery } from './search/epoch';
 
 export type { PageMoveInput } from './mutation/PageMoveInput';
 export type { PageMoveResult, PageMoveCache } from './mutation/PageMoveResult';

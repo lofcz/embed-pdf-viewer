@@ -54,6 +54,32 @@ export const RenderTokenSchema = {
 } as const satisfies TokenSchema;
 
 /**
+ * Token for the versioned search endpoints (`/search/{rects,full}/data@…`).
+ * One token carries the whole cache key: the content epoch, the query
+ * (text/pattern rides base64-variant-encoded in `q` — the token value
+ * charset excludes free text), and the resume position. Canonical by
+ * construction: the codec sorts fields and the encoder omits every
+ * default, so equal searches produce byte-equal tokens — the property CDN
+ * cache hits live on. Mode is NOT a field; it is the endpoint (separate
+ * permission tiers must never share cache entries).
+ */
+export const SearchTokenSchema = {
+  fields: [
+    'epoch',
+    'kind',
+    'matchCase',
+    'matchDiacritics',
+    'maxMatches',
+    'maxPages',
+    'q',
+    'skip',
+    'startPage',
+    'wholeWord',
+  ],
+  maxLength: 2048,
+} as const satisfies TokenSchema;
+
+/**
  * Token for the batch annotation-appearance render endpoint. Narrower than
  * the page render token: appearance bitmaps are sized per annotation `/Rect`
  * so there is no target/viewport — only a uniform `scale` and page

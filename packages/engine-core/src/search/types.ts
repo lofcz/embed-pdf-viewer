@@ -88,6 +88,15 @@ export interface SearchRequest {
    * first slice. Ignored when `cursor` is set (the cursor owns position).
    */
   startPage?: PageObjectNumber;
+  /**
+   * Trusted absolute resume position: pages of the scan order already
+   * consumed. For callers that pin content versions EXTERNALLY — the
+   * cloud wire pins the search content epoch in the URL, so its GET
+   * routes resume by position alone. Everyone else should use `cursor`,
+   * which also guards against mutations between slices; `cursor` takes
+   * precedence when both are set.
+   */
+  skip?: number;
   budget?: SearchSliceBudget;
 }
 

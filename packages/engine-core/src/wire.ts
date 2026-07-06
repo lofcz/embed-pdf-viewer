@@ -125,6 +125,7 @@ export {
   LayoutTokenSchema,
   MetadataTokenSchema,
   RenderTokenSchema,
+  SearchTokenSchema,
 } from './wire/tokenSchemas';
 export {
   decodeAnnotationAppearancesRenderToken,
@@ -143,8 +144,12 @@ export {
   encodeLayoutToken,
   encodeMetadataToken,
   encodeRenderToken,
+  encodeSearchToken,
+  decodeSearchToken,
+  encodeTokenText,
+  decodeTokenText,
 } from './wire/tokens';
-export type { DownloadToken } from './wire/tokens';
+export type { DownloadToken, SearchToken } from './wire/tokens';
 export { flatten, unflatten } from './wire/flatten';
 export type { WireFlat, WireScalar } from './wire/flatten';
 export {

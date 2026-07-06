@@ -207,6 +207,60 @@ export interface GoToOptions {
   viewpoint?: Viewpoint;
 }
 
+/**
+ * One axis of a reveal arrival — `scrollIntoView` vocabulary plus two
+ * PDF-protocol necessities:
+ *   absent     → minimal movement: scroll only if the target is off-screen
+ *                (CSS 'nearest'; today's reveal semantics)
+ *   'keep'     → this axis does not move AT ALL (PDF /XYZ null coordinate)
+ *   'start'    → target edge at the viewport start (plus padding)
+ *   'center'   → target centered
+ *   'end'      → target edge at the viewport end (minus padding)
+ *   number 0–1 → target CENTER at this viewport fraction (0.35 = "top middle",
+ *                the browser find-bar feel)
+ */
+export type RevealAnchorValue = 'keep' | 'start' | 'center' | 'end' | number;
+
+export interface RevealAnchor {
+  x?: RevealAnchorValue;
+  y?: RevealAnchorValue;
+}
+
+/**
+ * What happens to zoom on a reveal — always relative to the reveal's target
+ * rect (the whole page when no `rect` is given):
+ *   'keep'       → pure pan, zoom untouched (search hits, /XYZ null zoom)
+ *   { level }    → explicit factor (/XYZ zoom)
+ *   'fit'        → the rect fully visible (/FitR; /Fit, /FitB via rect=page/bbox)
+ *   'fit-width'  → the rect's width fills the viewport (/FitH, /FitBH)
+ *   'fit-height' → the rect's height fills the viewport (/FitV, /FitBV)
+ */
+export type RevealZoom = 'keep' | 'fit' | 'fit-width' | 'fit-height' | { level: number };
+
+/**
+ * Options for `reveal` — the follower-UI arrival verb (search hits, outline
+ * clicks, PDF destinations, "jump to comment").
+ *
+ * With none of `rect`/`zoom`/`anchor` set, reveal keeps its original
+ * semantics: minimal movement to make the page visible, cursor untouched.
+ * A POSITIONED reveal (any of the three set) is "you are now looking at
+ * THIS spot": the camera places the target per the anchor, a zoom
+ * directive resolves to a concrete level (recorded as the zoom intent),
+ * and the cursor follows the camera — while still clamping against the
+ * normal camera bounds, so anchors are best-effort near document edges.
+ */
+export interface RevealOptions {
+  behavior?: ScrollBehaviorKind;
+  /**
+   * CONTENT-space target rect on the page (y-down, crop-relative, unscaled
+   * points — the same space selection/search rects live in). Absent → the
+   * whole page. A zero-size rect is a point (/XYZ).
+   */
+  rect?: Rect;
+  zoom?: RevealZoom;
+  anchor?: RevealAnchor;
+}
+
 /** The Stage's public contract: selectors (reads) + intents (the only writers). */
 export interface StageCapability {
   // ── selectors ──
@@ -305,13 +359,15 @@ export interface StageCapability {
   /** Go to a page. Fresh arrival places by the unit rule; pass `viewpoint` to restore. */
   goToPage(pageIndex: number, opts?: GoToOptions): void;
   /**
-   * Make a page VISIBLE with minimal movement — zero if it already is. Not
-   * navigation: the cursor is untouched and nothing is re-placed (scrollIntoView
-   * semantics; the verb behind follower UIs like thumbnail sidebars, search hits,
-   * outline clicks). In paged flow the page isn't in the scene, so reveal
-   * delegates to navigation.
+   * The follower-UI arrival verb (thumbnail sidebars, search hits, outline
+   * clicks, PDF destinations). Bare: make the page visible with minimal
+   * movement — zero if it already is, cursor untouched (scrollIntoView
+   * semantics; paged flow delegates to navigation since the page isn't in
+   * the slice). POSITIONED (rect/zoom/anchor set — see {@link RevealOptions}):
+   * place the target at the anchor, optionally re-zooming; the cursor
+   * follows the camera.
    */
-  reveal(pageIndex: number, opts?: { behavior?: ScrollBehaviorKind }): void;
+  reveal(pageIndex: number, opts?: RevealOptions): void;
   /** Step forward by the navigation unit (the item if it fits the viewport, else the page). */
   next(opts?: GoToOptions): void;
   /** Step backward by the navigation unit. */

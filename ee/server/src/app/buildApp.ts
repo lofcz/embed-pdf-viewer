@@ -32,6 +32,7 @@ import { registerAnnotationRoutes } from '../routes/annotations';
 import { registerFormRoutes } from '../routes/forms';
 import { registerMetadataRoutes } from '../routes/metadata';
 import { registerPageRoutes } from '../routes/pages';
+import { registerSearchRoutes } from '../routes/search';
 import { registerAdminDocumentsRoutes } from '../routes/admin/documents';
 import { registerAdminTokensRoutes } from '../routes/admin/tokens';
 import { SharpImageEncoder } from '../render/SharpImageEncoder';
@@ -438,6 +439,10 @@ export async function buildApp(opts: BuildAppOptions): Promise<AppBundle> {
       await registerFormRoutes(app, {
         documentService,
         layerService,
+      });
+      await registerSearchRoutes(app, {
+        documentService,
+        pool,
       });
     }
 

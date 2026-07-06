@@ -298,6 +298,31 @@ export const wirePaths = {
   layerFormRepair: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/form/repair`,
 
+  /**
+   * GET: one budgeted search slice, versioned form. The token
+   * (`encodeSearchToken`) IS the cache key: content epoch + query +
+   * position. Immutable; CDN may cache forever. Mode is the path — rects
+   * and full are separate resources so permission tiers never share
+   * cache entries (`'rects'` needs `doc.text.search`; `'full'` also
+   * needs `doc.text.copy`).
+   */
+  layerSearchRects: (docId: string, layerName: string, token: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/search/rects/data@${token}`,
+
+  layerSearchFull: (docId: string, layerName: string, token: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/search/full/data@${token}`,
+
+  /**
+   * GET: unversioned form — same fields as flat query params (`q` as
+   * plain text), served from the CURRENT content, always `no-store`.
+   * The debug/simple-client variant; the SDK uses the versioned form.
+   */
+  layerSearchRectsCurrent: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/search/rects/data`,
+
+  layerSearchFullCurrent: (docId: string, layerName: string) =>
+    `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/search/full/data`,
+
   layerPagesMove: (docId: string, layerName: string) =>
     `/v1/docs/${encodeURIComponent(docId)}/layers/${encodeURIComponent(layerName)}/pages/move`,
 

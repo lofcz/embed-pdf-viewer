@@ -88,10 +88,18 @@ export class SearchReader {
       const state = decodeSearchCursor(request, request.cursor, seq, key);
       start = state.start;
       scanned = state.scanned;
-    } else if (request.startPage !== undefined) {
-      // Throws NotFound for an unknown page — same contract as page(pon).
-      this.session.recordByObjectNumber(request.startPage);
-      start = request.startPage;
+    } else {
+      if (request.startPage !== undefined) {
+        // Throws NotFound for an unknown page — same contract as page(pon).
+        this.session.recordByObjectNumber(request.startPage);
+        start = request.startPage;
+      }
+      if (request.skip !== undefined) {
+        // Trusted-position resume: the caller pins content versions
+        // externally (the cloud wire's search token carries the content
+        // epoch), so no sequence check applies here. Clamp into range.
+        scanned = Math.min(Math.max(0, Math.floor(request.skip)), totalPages);
+      }
     }
 
     // Viewport-first: rotate display order to begin at `start`, wrapping.

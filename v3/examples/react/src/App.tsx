@@ -119,7 +119,10 @@ const plugins = [
   selectionPlugin(), // text selection (requires the interaction hub)
   annotationPlugin(), // shapes: create/edit/delete (ambient editing + draw tools)
   formPlugin(), // interactive forms: fill mode over doc.forms (fields stay engine truth)
-  searchPlugin(), // document text search: budgeted engine slices, viewport-first, reveal-on-nav
+  // document text search: budgeted engine slices, viewport-first scanning. Hit
+  // navigation lands the match at the viewport's top-middle (y: 0.35 — the
+  // browser find-bar feel); try y: 0.5 for dead center, y: 0.65 for bottom.
+  searchPlugin({ reveal: { anchor: { y: 0.35 }, behavior: 'smooth' } }),
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
   // workspace plugin: partitions open documents into reorderable panes (each pane

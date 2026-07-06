@@ -426,6 +426,7 @@ export const SearchRequestSchema: z.ZodType<SearchRequest> = z.object({
   mode: SearchModeSchema.optional(),
   cursor: z.string().optional(),
   startPage: z.number().int().positive().optional(),
+  skip: z.number().int().nonnegative().optional(),
   budget: z
     .object({
       maxMatches: z.number().int().positive().optional(),

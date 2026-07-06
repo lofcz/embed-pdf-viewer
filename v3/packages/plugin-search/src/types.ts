@@ -1,5 +1,6 @@
 import { createCapabilityToken, type PageObjectNumber } from '@embedpdf-x/kernel';
 import type { Rect } from '@embedpdf-x/geometry';
+import type { RevealAnchor, ScrollBehaviorKind } from '@embedpdf-x/plugin-stage';
 import type { SearchQuery, SearchSnippet } from '@embedpdf/engine-core/runtime';
 
 /**
@@ -55,6 +56,22 @@ export type SearchAction =
   | { type: 'SET_ACTIVE'; index: number }
   | { type: 'CLEAR' };
 
+/**
+ * How hit navigation arrives (forwarded to the Stage's positioned reveal).
+ * The default is the browser find-bar feel: the hit lands at the top-middle
+ * of the viewport (`anchor: { y: 0.35 }`), horizontal only moves when the
+ * hit is off-screen, zoom never changes, smooth tween.
+ */
+export interface SearchRevealOptions {
+  anchor?: RevealAnchor;
+  behavior?: ScrollBehaviorKind;
+}
+
+export interface SearchPluginConfig {
+  /** Arrival defaults for `next()`/`prev()`/`goTo()`. */
+  reveal?: SearchRevealOptions;
+}
+
 export interface SearchCapability {
   /**
    * Start a new search (supersedes and aborts any running one). Results
@@ -66,11 +83,11 @@ export interface SearchCapability {
   rerun(): void;
   clear(): void;
 
-  /** Advance to the next/previous hit (wraps) and reveal its page. */
+  /** Advance to the next/previous hit (wraps) and reveal it (see {@link SearchRevealOptions}). */
   next(): SearchHit | null;
   prev(): SearchHit | null;
-  /** Jump to a specific hit index and reveal its page. */
-  goTo(index: number): SearchHit | null;
+  /** Jump to a specific hit index and reveal it; `reveal` overrides the plugin defaults. */
+  goTo(index: number, reveal?: SearchRevealOptions): SearchHit | null;
 
   status(): SearchStatus;
   hits(): SearchHit[];

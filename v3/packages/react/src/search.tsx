@@ -13,15 +13,23 @@ import type { SearchHit } from '@embedpdf-x/plugin-search';
 import { shallowArray, useCapability, usePage, useSelector } from './runtime';
 
 export interface SearchLayerProps {
-  /** Highlight colour for hits (default: translucent yellow). */
+  /** Highlight colour for hits — SOLID (default: highlighter yellow). */
   color?: string;
-  /** Highlight colour for the ACTIVE hit (default: translucent orange). */
+  /** Highlight colour for the ACTIVE hit — SOLID (default: orange). */
   activeColor?: string;
+  /**
+   * How the highlight composites with the page. `'multiply'` (default) is
+   * the real-highlighter look: text stays crisp black through the colour,
+   * only the paper tints. Pass `'normal'` (with translucent colours) for
+   * dark/scanned documents where multiply-on-dark would vanish.
+   */
+  blendMode?: React.CSSProperties['mixBlendMode'];
 }
 
 export function SearchLayer({
-  color = 'rgba(255, 213, 0, 0.35)',
-  activeColor = 'rgba(255, 132, 0, 0.55)',
+  color = '#ffd500',
+  activeColor = '#ff9632',
+  blendMode = 'multiply',
 }: SearchLayerProps) {
   const page = usePage();
   const hits = useSelector(SearchToken, (c) => c.hitsForPage(page.pon), shallowArray);
@@ -45,6 +53,7 @@ export function SearchLayer({
                 width: br.x - tl.x,
                 height: br.y - tl.y,
                 background: hit === active ? activeColor : color,
+                mixBlendMode: blendMode,
                 borderRadius: 2,
               }}
             />

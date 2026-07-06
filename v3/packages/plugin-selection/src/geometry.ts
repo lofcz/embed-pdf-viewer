@@ -11,7 +11,14 @@
  * The PDF↔content y-flip is the geometry package's `pageGeometry` (the one place
  * that math lives), never hand-rolled here.
  */
-import { applyRect, pageGeometry, type Point, type Rect, type RectIn } from '@embedpdf-x/geometry';
+import {
+  applyRect,
+  boundsOfRects,
+  pageGeometry,
+  type Point,
+  type Rect,
+  type RectIn,
+} from '@embedpdf-x/geometry';
 import type { PageGeometrySnapshot, PdfRect } from '@embedpdf/engine-core/runtime';
 
 const FLAG_SPACE = 1;
@@ -266,7 +273,7 @@ function mergeAdjacentRects(runs: SubRun[]): Rect[] {
   let cur: Rect | null = null;
   for (const run of runs) {
     if (prev && cur && shouldMerge(prev, run)) {
-      cur = union(cur, run.rect);
+      cur = boundsOfRects([cur, run.rect])!;
     } else {
       if (cur) out.push(cur);
       cur = run.rect;
@@ -290,17 +297,6 @@ function shouldMerge(a: SubRun, b: SubRun): boolean {
   const bL = b.rect.x - bw;
   const bR = b.rect.x + b.rect.width + bw;
   return aL < bR && aR > bL;
-}
-
-function union(a: Rect, b: Rect): Rect {
-  const x = Math.min(a.x, b.x);
-  const y = Math.min(a.y, b.y);
-  return {
-    x,
-    y,
-    width: Math.max(a.x + a.width, b.x + b.width) - x,
-    height: Math.max(a.y + a.height, b.y + b.height) - y,
-  };
 }
 
 function verticalOverlap(a: Rect, b: Rect): number {

@@ -279,6 +279,9 @@ describe('cdnCoverageForScope', () => {
         'layer-page-text',
         'page-geometry',
         'layer-page-geometry',
+        // bit 5 grants doc.text.{search,copy} → both search tiers.
+        'layer-search-rects',
+        'layer-search-full',
         'annotations-read',
       ]),
     );

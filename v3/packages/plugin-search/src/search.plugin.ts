@@ -5,7 +5,7 @@ import { createSearchCapability } from './capability';
 import { registerSearchEffects } from './effects';
 import { initialSearchState, searchReducer } from './reducer';
 import { SearchToken } from './types';
-import type { SearchAction, SearchCapability, SearchState } from './types';
+import type { SearchAction, SearchCapability, SearchPluginConfig, SearchState } from './types';
 
 /**
  * Document text search over `doc.search` — the engine's budgeted,
@@ -14,7 +14,7 @@ import type { SearchAction, SearchCapability, SearchState } from './types';
  * start at the current page (viewport-first) and hit navigation reveals
  * the hit's page; without it the host owns scrolling.
  */
-export const searchPlugin = () =>
+export const searchPlugin = (config?: SearchPluginConfig) =>
   definePlugin<SearchState, SearchAction, SearchCapability>({
     id: 'search',
     token: SearchToken,
@@ -22,6 +22,6 @@ export const searchPlugin = () =>
     optional: [StageToken],
     initialState: initialSearchState,
     reduce: searchReducer,
-    capability: createSearchCapability,
+    capability: (ctx) => createSearchCapability(ctx, config),
     effects: registerSearchEffects,
   });

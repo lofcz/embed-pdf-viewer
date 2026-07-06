@@ -10,8 +10,10 @@ import {
   LayoutTokenSchema,
   MetadataTokenSchema,
   RenderTokenSchema,
+  SearchTokenSchema,
 } from './tokenSchemas';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
+import type { SearchQuery, SearchSliceBudget } from '../search/types';
 
 export interface DownloadToken {
   docVersion: number;
@@ -86,6 +88,123 @@ export const encodeAnnotationAppearancesRenderToken = (input: TokenInput): strin
 /** Decode an annotation-appearance render token to a flat field map. */
 export const decodeAnnotationAppearancesRenderToken = (raw: string): TokenQuery =>
   decodeToken(AnnotationAppearancesRenderTokenSchema, raw);
+
+/**
+ * The decoded state of a versioned search URL — the WHOLE cache key.
+ * `epoch` is `searchContentEpoch(manifest)`; `skip` is the number of
+ * scan-order pages already consumed (0 = first slice). The server mints
+ * continuation tokens (same epoch, advanced skip); the client decodes
+ * them only to verify a resumed cursor still belongs to its query.
+ */
+export interface SearchToken {
+  epoch: string;
+  query: SearchQuery;
+  startPage?: number;
+  skip: number;
+  budget?: SearchSliceBudget;
+}
+
+export const encodeSearchToken = (input: SearchToken): string => {
+  const q = input.query;
+  return encodeToken(SearchTokenSchema, {
+    epoch: input.epoch,
+    kind: q.kind,
+    q: encodeTokenText(q.kind === 'literal' ? q.text : q.pattern),
+    // Canonical keys: every default is OMITTED, never encoded as false/0.
+    matchCase: q.matchCase ? true : undefined,
+    matchDiacritics: q.kind === 'literal' && q.matchDiacritics ? true : undefined,
+    wholeWord: q.kind === 'literal' && q.wholeWord ? true : undefined,
+    startPage: input.startPage,
+    skip: input.skip > 0 ? input.skip : undefined,
+    maxPages: input.budget?.maxPages,
+    maxMatches: input.budget?.maxMatches,
+  });
+};
+
+export const decodeSearchToken = (raw: string): SearchToken => {
+  const t = decodeToken(SearchTokenSchema, raw);
+  if (t.epoch === undefined) throw new Error('search token is missing "epoch"');
+  if (t.q === undefined) throw new Error('search token is missing "q"');
+  const text = decodeTokenText(t.q);
+  let query: SearchQuery;
+  if (t.kind === 'regex') {
+    query = {
+      kind: 'regex',
+      pattern: text,
+      ...(t.matchCase === 'true' ? { matchCase: true } : {}),
+    };
+  } else if (t.kind === 'literal' || t.kind === undefined) {
+    query = {
+      kind: 'literal',
+      text,
+      ...(t.matchCase === 'true' ? { matchCase: true } : {}),
+      ...(t.matchDiacritics === 'true' ? { matchDiacritics: true } : {}),
+      ...(t.wholeWord === 'true' ? { wholeWord: true } : {}),
+    };
+  } else {
+    throw new Error(`token field "kind" must be "literal" or "regex"`);
+  }
+  const maxPages =
+    t.maxPages === undefined ? undefined : decodePositiveInteger(t.maxPages, 'maxPages');
+  const maxMatches =
+    t.maxMatches === undefined ? undefined : decodePositiveInteger(t.maxMatches, 'maxMatches');
+  return {
+    epoch: t.epoch,
+    query,
+    ...(t.startPage === undefined
+      ? {}
+      : { startPage: decodePositiveInteger(t.startPage, 'startPage') }),
+    skip: t.skip === undefined ? 0 : decodePositiveInteger(t.skip, 'skip'),
+    ...(maxPages !== undefined || maxMatches !== undefined
+      ? {
+          budget: {
+            ...(maxPages !== undefined ? { maxPages } : {}),
+            ...(maxMatches !== undefined ? { maxMatches } : {}),
+          },
+        }
+      : {}),
+  };
+};
+
+// Query text inside a token: UTF-8 → base64 with `-` for `+` and `.` for
+// `/`, unpadded — exactly the token grammar's value charset [A-Za-z0-9.-].
+// Dependency-free (no Buffer: this runs in browsers too).
+const TOKEN_TEXT_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-.';
+
+export function encodeTokenText(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 3) {
+    const b0 = bytes[i];
+    const b1 = bytes[i + 1];
+    const b2 = bytes[i + 2];
+    out += TOKEN_TEXT_ALPHABET[b0 >> 2];
+    out += TOKEN_TEXT_ALPHABET[((b0 & 0x03) << 4) | ((b1 ?? 0) >> 4)];
+    if (b1 === undefined) break;
+    out += TOKEN_TEXT_ALPHABET[((b1 & 0x0f) << 2) | ((b2 ?? 0) >> 6)];
+    if (b2 === undefined) break;
+    out += TOKEN_TEXT_ALPHABET[b2 & 0x3f];
+  }
+  return out;
+}
+
+export function decodeTokenText(encoded: string): string {
+  if (encoded.length % 4 === 1) throw new Error('malformed token text');
+  const bytes: number[] = [];
+  let buffer = 0;
+  let bits = 0;
+  for (const ch of encoded) {
+    const value = TOKEN_TEXT_ALPHABET.indexOf(ch);
+    if (value < 0) throw new Error('malformed token text');
+    buffer = (buffer << 6) | value;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 0xff);
+    }
+  }
+  return new TextDecoder('utf-8', { fatal: true }).decode(Uint8Array.from(bytes));
+}
 
 function decodePositiveInteger(raw: string | undefined, field: string): number {
   if (raw === undefined || !/^\d+$/.test(raw)) {

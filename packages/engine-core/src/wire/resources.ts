@@ -48,6 +48,11 @@ export type DocResourceId =
   | 'layer-page-render'
   | 'layer-page-text'
   | 'layer-page-geometry'
+  // Search slices, one resource per PERMISSION TIER: rects-only results
+  // vs snippet-carrying results live under distinct path prefixes, so a
+  // CDN credential for one can never authorize (or cache-hit) the other.
+  | 'layer-search-rects'
+  | 'layer-search-full'
   | 'annotations-read'
   | 'download-current'
   | 'download-versioned';
@@ -64,15 +69,20 @@ export type DocResourceId =
 export type RouteKind = 'origin' | 'versioned-read';
 
 /**
- * Capability requirement attached to a resource. Two shapes:
+ * Capability requirement attached to a resource. Three shapes:
  *   - `single` — one capability gates the resource
  *   - `any`    — any one of N capabilities gates the resource
  *               (used by /text and /geometry which accept either the
  *                copy/select scope OR the future search scope)
+ *   - `all`    — every one of N capabilities is required
+ *               (used by /search/full: a snippet IS extracted text, so
+ *                the search scope alone is not enough — the copy denial
+ *                must hold here too)
  */
 export type CapabilityRequirement =
   | { kind: 'single'; capability: DocCapability }
-  | { kind: 'any'; capabilities: ReadonlyArray<DocCapability> };
+  | { kind: 'any'; capabilities: ReadonlyArray<DocCapability> }
+  | { kind: 'all'; capabilities: ReadonlyArray<DocCapability> };
 
 export interface DocResourceDescriptor {
   /** Stable id used by route guards and the CDN signer. */
@@ -257,6 +267,33 @@ export const DOC_RESOURCES: Readonly<Record<DocResourceId, DocResourceDescriptor
     routeKind: 'versioned-read',
     cdnCacheable: true,
   },
+  'layer-search-rects': {
+    id: 'layer-search-rects',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/search/rects/data@*',
+    resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/search/rects/data@*`,
+    // Prefix ends at `data@`: the CDN credential covers ONLY the
+    // versioned, immutable form — the unversioned `data` URL is
+    // origin-routed and never edge-cached.
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/search/rects/data@',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/search/rects/data@`,
+    requirement: { kind: 'single', capability: 'doc.text.search' },
+    routeKind: 'versioned-read',
+    cdnCacheable: true,
+  },
+  'layer-search-full': {
+    id: 'layer-search-full',
+    pathPattern: '/v1/docs/{docId}/layers/{layerName}/search/full/data@*',
+    resolvePathPattern: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/search/full/data@*`,
+    pathPrefix: '/v1/docs/{docId}/layers/{layerName}/search/full/data@',
+    resolvePathPrefix: (docId, layerName = 'default') =>
+      `/v1/docs/${docId}/layers/${layerName}/search/full/data@`,
+    requirement: { kind: 'all', capabilities: ['doc.text.search', 'doc.text.copy'] },
+    routeKind: 'versioned-read',
+    cdnCacheable: true,
+  },
   'annotations-read': {
     id: 'annotations-read',
     pathPattern: '/v1/docs/{docId}/layers/{layerName}/annotations/pages/*/items@*',
@@ -313,6 +350,8 @@ export function checkResourceAccess(
       return checkCapability(r.requirement.capability, rawScope, pdfBits);
     case 'any':
       return checkAnyCapability(r.requirement.capabilities, rawScope, pdfBits);
+    case 'all':
+      return r.requirement.capabilities.every((cap) => checkCapability(cap, rawScope, pdfBits));
   }
 }
 

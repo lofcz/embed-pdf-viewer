@@ -180,7 +180,13 @@ export class CloudDocumentHandle implements DocumentHandle {
       this.manifestAccessor,
       this.publisher,
     );
-    this.search = new CloudDocumentSearchService();
+    this.search = new CloudDocumentSearchService(
+      http,
+      id,
+      layerName,
+      () => this.closed,
+      this.manifestAccessor,
+    );
     this.pages = new CloudDocumentPagesService(
       http,
       id,
