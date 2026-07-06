@@ -17,6 +17,7 @@ import type {
   PdfPoint,
   PdfRect,
   PdfRectDifferences,
+  StandardFont,
 } from '@embedpdf/engine-core/runtime';
 import {
   calloutLinePoints,
@@ -117,6 +118,27 @@ const advisoryRotation = (g: Geom): { rotation?: number } => {
  * the authored AP); `'vector'` renders live from geom/style (we authored or
  * changed it). `apBox` is the raster's content-space box, used while baked.
  */
+// One PDF subtype -> per-family CLIENT kinds (radio widgets have no font).
+const WIDGET_KIND_BY_FAMILY: Record<string, string> = {
+  text: 'widget-text',
+  combobox: 'widget-choice',
+  listbox: 'widget-choice',
+  pushbutton: 'widget-button',
+  checkbox: 'widget-toggle',
+  radio: 'widget-toggle',
+};
+const widgetKindOf = (family: string): string => WIDGET_KIND_BY_FAMILY[family] ?? 'widget-box';
+const WIDGET_TEXT_KINDS = new Set(['widget-text', 'widget-choice', 'widget-button']);
+
+function widgetTextFromDTO(dto: Extract<AnnotationDTO, { subtype: 'widget' }>): TextStyle {
+  return {
+    fontFamily: dto.fontFamily ?? 'helvetica',
+    fontSize: dto.fontSize ?? 0, // 0 = auto-size
+    fontColor: dto.fontColor ? colorToCss(dto.fontColor) : '#000000',
+    textAlign: dto.textAlign,
+  };
+}
+
 export function fromDTO(
   dto: AnnotationDTO,
   crop: PdfRect,
@@ -126,7 +148,7 @@ export function fromDTO(
     id: refKey(dto.ref),
     ref: dto.ref,
     pon: dto.pageObjectNumber,
-    subtype: dto.subtype,
+    subtype: dto.subtype === 'widget' ? widgetKindOf(dto.fieldFamily) : dto.subtype,
     locked: dto.flags.locked || dto.flags.readOnly,
     source,
     // Carry the canonical DTO; geom/style below are derived projections of it.
@@ -153,6 +175,9 @@ export function fromDTO(
     // Text styling is a content projection of the DTO, exactly like `style` —
     // present only for text-editable kinds. The colour seam is crossed HERE.
     ...(dto.subtype === 'free-text' ? { text: textFromDTO(dto) } : {}),
+    ...(dto.subtype === 'widget' && WIDGET_TEXT_KINDS.has(widgetKindOf(dto.fieldFamily))
+      ? { text: widgetTextFromDTO(dto) }
+      : {}),
     apBox: pdfToContentRect(strippedRect ?? dto.rect, crop),
     ...(strippedRect ? { apRot: geomRotation(geom) } : {}),
   };
@@ -171,6 +196,8 @@ function textFromDTO(dto: Extract<AnnotationDTO, { subtype: 'free-text' }>): Tex
 
 function geomFromDTO(dto: AnnotationDTO, crop: PdfRect): Geom {
   switch (dto.subtype) {
+    case 'widget':
+      return boxGeomFromDTO(dto, undefined, undefined, crop, false);
     case 'square':
     case 'stamp':
       return boxGeomFromDTO(dto, dto.rotation, dto.unrotatedRect, crop, false);
@@ -287,8 +314,17 @@ function borderFromDTO(d: {
  *  selection-aware UIs can read display values straight off a {@link AnnotationDTO}
  *  without re-deriving the colour/border mapping. */
 export function styleFromDTO(dto: AnnotationDTO): Style {
+  if (dto.subtype === 'widget') {
+    return {
+      color: dto.color ? colorToCss(dto.color) : '#1a1a1a',
+      interiorColor: dto.interiorColor ? colorToCss(dto.interiorColor) : null,
+      strokeWidth: dto.strokeWidth,
+      opacity: 1,
+      border: dto.borderStyle === 'dashed' ? { kind: 'dashed', dash: [3, 3] } : { kind: 'solid' },
+    };
+  }
   if (STROKE_KINDS.has(dto.subtype)) {
-    const d = dto as Extract<AnnotationDTO, { interiorColor: Color | null }>;
+    const d = dto as Extract<AnnotationDTO, { interiorColor: Color | null; opacity: number }>;
     return {
       color: colorToCss(d.color),
       interiorColor: d.interiorColor ? colorToCss(d.interiorColor) : null,
@@ -607,6 +643,24 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
 export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
   const f = geomFields(a, crop);
   const sf = strokeFill(a.style);
+  if (a.subtype.startsWith('widget') && f && 'rect' in f) {
+    return {
+      subtype: 'widget',
+      rect: f.rect,
+      color: cssToColor(a.style.color),
+      interiorColor: a.style.interiorColor ? cssToColor(a.style.interiorColor) : null,
+      strokeWidth: a.style.strokeWidth,
+      borderStyle: a.style.border.kind === 'dashed' ? 'dashed' : 'solid',
+      ...(a.text
+        ? {
+            fontFamily: a.text.fontFamily as StandardFont,
+            fontSize: a.text.fontSize,
+            fontColor: cssToColor(a.text.fontColor),
+            textAlign: a.text.textAlign,
+          }
+        : {}),
+    };
+  }
   if (a.subtype === 'square' && f && 'rect' in f)
     return { subtype: 'square', ...boxEmit(a, crop), ...sf, ...shapeExtras(a) };
   if (a.subtype === 'circle' && f && 'rect' in f)

@@ -9,3 +9,4 @@ export * from './annotation-menu';
 export * from './views';
 export * from './page-edit';
 export * from './metadata';
+export { FormLayer, useForm, useFormField } from './form';

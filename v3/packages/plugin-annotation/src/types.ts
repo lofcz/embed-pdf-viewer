@@ -258,6 +258,12 @@ export interface AnnotationHostCapability extends AnnotationCapability {
    *  PDF↔content seam. Null if the page's crop box is unknown. */
   toContentBox(pon: PageObjectNumber, rect: PdfRect): Rect | null;
   ensurePage(pon: PageObjectNumber): void; // lazy-load a page's annotations
+  /**
+   * Drop and RE-READ one page's annotations from the engine — the hook for
+   * cross-plane mutations (e.g. `doc.forms.createField`/`deleteField`
+   * changing the page's widget population underneath this plugin).
+   */
+  reloadPage(pon: PageObjectNumber): void;
   // ── free-text (the editable-element layer) ──
   /** The free-text boxes on a page, ready to render as editable elements. */
   textItems(pon: PageObjectNumber): TextItem[];

@@ -6,6 +6,7 @@ import type { DocumentSession } from '../../../../document-session/DocumentSessi
 // form-tree knowledge, and the version-keyed cache makes it O(1) between
 // mutations. No module cycle: the cache imports nothing from annotations.
 import { acquireFormModel } from '../../../forms/internal/formModelCache';
+import { FAMILY_BY_CODE } from '../../../forms/internal/readFormSnapshot';
 
 /**
  * Resolve the owning field's object number for a widget annotation, or 0
@@ -34,10 +35,18 @@ export function joinWidgetFieldNumbers(
   for (const annotation of annotations) {
     if (annotation.subtype !== 'widget') continue;
     if (annotation.ref.kind !== 'objectNumber') continue;
-    annotation.fieldObjectNumber = resolveWidgetFieldObjectNumber(
-      runtime,
-      session,
+    const model = acquireFormModel(runtime, session);
+    const fieldIndex = runtime.fn.EPDFForm_GetFieldIndexForWidget(
+      model,
       annotation.ref.annotObjectNumber,
     );
+    if (fieldIndex < 0) {
+      annotation.fieldObjectNumber = 0;
+      annotation.fieldFamily = 'unknown';
+      continue;
+    }
+    annotation.fieldObjectNumber = runtime.fn.EPDFForm_GetFieldObjNum(model, fieldIndex);
+    annotation.fieldFamily =
+      FAMILY_BY_CODE[runtime.fn.EPDFForm_GetFieldFamily(model, fieldIndex)] ?? 'unknown';
   }
 }

@@ -28,7 +28,8 @@
     "@embedpdf-x/plugin-stage": "workspace:*",
     "@embedpdf-x/stage-core": "workspace:*",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "@embedpdf-x/plugin-form": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",

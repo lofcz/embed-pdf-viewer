@@ -59,5 +59,6 @@ export function readWidget(
     // Joined by the caller (joinWidgetFieldNumbers): the /Parent target is
     // a FIELD dictionary, which annotation-plane primitives cannot follow.
     fieldObjectNumber: 0,
+    fieldFamily: 'unknown',
   };
 }

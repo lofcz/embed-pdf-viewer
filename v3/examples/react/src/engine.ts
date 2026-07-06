@@ -70,6 +70,8 @@ export const SAMPLES: ReadonlyArray<{ id: string; name: string; url: string }> =
   { id: 'mixed sizes', name: 'Mixed Sizes', url: '/mixed_page_sizes_test.pdf' },
   { id: 'report', name: 'Whitepaper', url: '/report.pdf' },
   { id: 'manual', name: 'Manual', url: '/manual.pdf' },
+  { id: 'form-sample', name: 'Form (fields)', url: '/form-sample.pdf' },
+  { id: 'form-listbox', name: 'Form (listbox)', url: '/form-listbox.pdf' },
 ];
 
 export const fetchBytes = async (url: string): Promise<Uint8Array> =>

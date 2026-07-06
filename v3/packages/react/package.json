@@ -134,7 +134,8 @@
     "@embedpdf-x/plugin-selection": "workspace:*",
     "@embedpdf-x/annotation-core": "workspace:*",
     "@embedpdf-x/plugin-annotation": "workspace:*",
-    "@embedpdf-x/plugin-view-manager": "workspace:*"
+    "@embedpdf-x/plugin-view-manager": "workspace:*",
+    "@embedpdf-x/plugin-form": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18",

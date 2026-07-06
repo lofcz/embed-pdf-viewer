@@ -20,6 +20,18 @@ export const WidgetDTOSchema: z.ZodType<WidgetAnnotationDTO> = z.object({
   ...WidgetStyleDTOShape,
   subtype: z.literal('widget'),
   fieldObjectNumber: z.number().int().nonnegative(),
+  // Keep in sync with FormFieldFamily (forms/field.ts); inlined to avoid a
+  // forms/schema <-> widget schema import loop.
+  fieldFamily: z.enum([
+    'text',
+    'checkbox',
+    'radio',
+    'combobox',
+    'listbox',
+    'pushbutton',
+    'signature',
+    'unknown',
+  ]),
 }) as unknown as z.ZodType<WidgetAnnotationDTO>;
 
 export const WidgetDraftSchema: z.ZodType<WidgetDraft> = z.object({

@@ -19,6 +19,8 @@ import { persistPlugin } from '@embedpdf-x/plugin-persist';
 import { renderPlugin } from '@embedpdf-x/plugin-render';
 import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
 import { metadataPlugin } from '@embedpdf-x/plugin-metadata';
+import { formPlugin, fieldKeyOf } from '@embedpdf-x/plugin-form';
+import type { FormFieldPatch } from '@embedpdf-x/plugin-form';
 import { viewManagerPlugin } from '@embedpdf-x/plugin-view-manager';
 import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
 import {
@@ -45,6 +47,9 @@ import {
   usePageEditor,
   useMetadata,
   useSelector,
+  FormLayer,
+  useForm,
+  useFormField,
 } from '@embedpdf-x/react';
 import type {
   AnnotationProps,
@@ -109,6 +114,7 @@ const plugins = [
   interactionPlugin({ defaultTool: 'pointer' }), // the pointer/tool/cursor hub
   selectionPlugin(), // text selection (requires the interaction hub)
   annotationPlugin(), // shapes: create/edit/delete (ambient editing + draw tools)
+  formPlugin(), // interactive forms: fill mode over doc.forms (fields stay engine truth)
   // effects-only plugin: requires Stage, mirrors per-document view-state to localStorage.
   persistPlugin({ key: 'embedpdf:v3-demo' }),
   // workspace plugin: partitions open documents into reorderable panes (each pane
@@ -278,6 +284,7 @@ const NO_ENDS = { start: 'none', end: 'none' } as const;
 
 const TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'pointer', label: '↖ select', title: 'select text or drag to select annotations' },
+  { id: 'form-fill', label: '✍ fill', title: 'fill form fields' },
   { id: 'pan', label: '✋ pan', title: 'pan (hand)' },
   { id: 'square', label: '▭ square', title: 'draw a square' },
   { id: 'circle', label: '◯ circle', title: 'draw a circle' },
@@ -301,6 +308,15 @@ const MARKUP_TOOLS: { id: string; label: string; title: string }[] = [
   { id: 'insert-text', label: '⌃ caret', title: 'select text to add an insert caret' },
 ];
 const MARKUP_SUBTYPES = new Set(['highlight', 'underline', 'squiggly', 'strikeout']);
+// Field palette: draw (or click) to place a field; the widget is instantly a
+// selectable annotation, and the field panel appears in the styles sidebar.
+const FORM_DESIGN_TOOLS: { id: string; label: string; title: string }[] = [
+  { id: 'form-text', label: '▭ field', title: 'draw a text field' },
+  { id: 'form-checkbox', label: '☑ check', title: 'place a checkbox' },
+  { id: 'form-radio', label: '◉ radio', title: 'place a radio option' },
+  { id: 'form-combobox', label: '▾ dropdown', title: 'draw a dropdown' },
+  { id: 'form-listbox', label: '≡ list', title: 'draw a list box' },
+];
 
 /**
  * The stamp tool button: opens a file picker (PNG / JPEG / single-page PDF)
@@ -389,9 +405,57 @@ function AnnotationBar({
           </button>
         ))}
       </div>
+      <Divider />
+      <div style={{ display: 'flex', gap: 2 }}>
+        {FORM_DESIGN_TOOLS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => activate(t.id)}
+            title={t.title}
+            style={toolBtn(activeToolId === t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
       <span style={{ marginLeft: 'auto' }} />
+      <FormDataButtons />
       <button onClick={onToggleStyles} title="edit annotation styles" style={toolBtn(stylesOpen)}>
         ⚙ styles
+      </button>
+    </div>
+  );
+}
+
+/** Form-data interchange: export the current values as XFDF, or apply an
+ *  FDF/XFDF file — the engine sniffs the format and validates per field. */
+function FormDataButtons() {
+  const form = useForm();
+  const [note, setNote] = useState('');
+  return (
+    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+      {note && <span style={{ fontSize: 10, color: '#666' }}>{note}</span>}
+      <button
+        title="export form data (XFDF)"
+        style={tbBtn}
+        onClick={async () => {
+          const { bytes } = await form.exportData('xfdf');
+          saveToDisk(bytes, 'form-data.xfdf');
+        }}
+      >
+        ⇩ form
+      </button>
+      <button
+        title="import form data (FDF/XFDF)"
+        style={tbBtn}
+        onClick={async () => {
+          const file = await pickFile('.xfdf,.fdf');
+          if (!file) return;
+          const r = await form.importData(new Uint8Array(await file.arrayBuffer()));
+          setNote(`applied ${r.fieldsApplied}/${r.fieldsTotal}`);
+        }}
+      >
+        ⇧ form
       </button>
     </div>
   );
@@ -586,6 +650,91 @@ function PropControl({
 }
 
 /**
+ * The FIELD plane panel: appears when the selection is a single widget.
+ * Style props above it stay schema-driven (the widget client kinds declare
+ * them); this edits what only the form plugin owns — name, required,
+ * options — and routes deletion to the right door (cascade vs detach).
+ */
+function FieldPanel() {
+  const form = useForm();
+  const field = useFormField();
+  if (!field) return null;
+  const key = fieldKeyOf(field);
+  const patch = (p: Record<string, unknown>) =>
+    void form.updateField(key, { family: field.family, ...p } as FormFieldPatch);
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        padding: 12,
+        borderTop: '1px solid #e2e2e2',
+      }}
+    >
+      <span style={{ fontSize: 10, letterSpacing: 0.4, textTransform: 'uppercase', color: '#999' }}>
+        Field · {field.family}
+      </span>
+      <SideField label="Name">
+        <input
+          key={field.name}
+          defaultValue={field.name.split('.').pop()}
+          onBlur={(e) => {
+            const next = e.target.value.trim();
+            if (next && next !== field.name.split('.').pop()) patch({ name: next });
+          }}
+          style={{ ...tbSelect, width: '100%' }}
+        />
+      </SideField>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#666' }}>
+        <input
+          type="checkbox"
+          checked={field.flags.required}
+          onChange={(e) => patch({ required: e.target.checked })}
+        />
+        required
+      </label>
+      {(field.family === 'combobox' || field.family === 'listbox') && (
+        <SideField label="Options (one per line)">
+          <textarea
+            key={key}
+            defaultValue={field.options.map((o) => o.label).join('\n')}
+            rows={4}
+            onBlur={(e) => {
+              const options = e.target.value
+                .split('\n')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .map((label) => ({ label, value: label }));
+              if (options.length) patch({ options });
+            }}
+            style={{ ...tbSelect, width: '100%', resize: 'vertical' }}
+          />
+        </SideField>
+      )}
+      <div style={{ display: 'flex', gap: 6 }}>
+        {field.widgets.length > 1 ? (
+          <button
+            style={tbBtn}
+            title="unlink this widget; the field keeps its other widgets"
+            onClick={() => void form.detachWidget(key, field.widgets[0]!.annotObjectNumber)}
+          >
+            ⛓ Detach widget
+          </button>
+        ) : null}
+        <button
+          style={{ ...tbBtn, color: '#c0322b', borderColor: '#e3b3b0' }}
+          title="delete the field and all of its widgets"
+          onClick={() => void form.deleteField(key)}
+        >
+          🗑 Delete field
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
  * The annotation style inspector — a right-docked sidebar, opened from the tool
  * band. FULLY SCHEMA-DRIVEN: with a selection it renders the properties every
  * selected kind shares (`useSelectionProps`) and writes via `updateSelection`;
@@ -645,6 +794,7 @@ function AnnotationSidebar({ onClose }: { onClose: () => void }) {
               🗑 Delete selection
             </button>
           )}
+          <FieldPanel />
         </div>
       )}
     </aside>
@@ -997,6 +1147,7 @@ function DocumentView() {
               <WatermarkLayer />
               <SelectionLayer />
               <AnnotationLayer />
+              <FormLayer />
             </>
           )}
         </Stage>

@@ -519,6 +519,29 @@ export function createAnnotationCapability(
         );
     },
 
+    reloadPage: (pon) => {
+      const doc = ctx.doc;
+      const crop = cropOf(pon);
+      if (!doc || !crop) return;
+      loaded.add(pon);
+      doc
+        .page(pon)
+        .annotations.list()
+        .then(
+          (snap) => {
+            // Replace, not merge: drop this page's current annots first so
+            // cross-plane deletions (deleteField) actually disappear.
+            const m = model();
+            const stale = m.order.filter((id) => m.byId[id]?.pon === pon);
+            if (stale.length) apply({ t: 'remove', ids: stale });
+            apply({ t: 'loaded', annots: snap.annotations.map((d) => fromDTO(d, crop)) });
+          },
+          () => {
+            loaded.delete(pon);
+          },
+        );
+    },
+
     // ── free-text (the editable-element layer) ──
     textItems: (pon) => memoTexts(pon),
     currentEditing: () => model().editing,

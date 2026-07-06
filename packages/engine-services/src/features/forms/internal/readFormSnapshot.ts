@@ -13,7 +13,7 @@ import type { PdfRuntimeModule, Ptr } from '@embedpdf/pdf-runtime';
 import { readUtf16String, readUtf8String } from '../../../runtime/memory/strings';
 
 // Mirrors EPDF_FORMFIELD_FAMILY_* in public/epdf_form.h.
-const FAMILY_BY_CODE: Record<number, FormFieldFamily> = {
+export const FAMILY_BY_CODE: Record<number, FormFieldFamily> = {
   0: 'unknown',
   1: 'pushbutton',
   2: 'checkbox',

@@ -109,6 +109,26 @@ const LINE_ENDINGS: PropSpec = { key: 'lineEndings', label: 'Line endings' };
 
 /** Shapes with a fill + a (possibly cloudy) border: square / circle / polygon. */
 const SHAPE_PROPS: PropSpec[] = [STROKE, FILL, OPACITY, STROKE_WIDTH, BORDER_CLOUDY];
+
+// Widget-plane styling: every family has a box; text-bearing families add
+// the /DA vocabulary. Same flat keys as every other kind — the writer maps
+// them onto /MK//BS//DA//Q underneath. One PDF subtype, several CLIENT
+// kinds (the free-text/callout precedent): the field FAMILY picks the kind,
+// so a radio never offers a font and the schema-driven sidebar needs no
+// widget-specific code.
+const WIDGET_BOX_PROPS: PropSpec[] = [
+  { key: 'color', label: 'Border color' },
+  { key: 'interiorColor', label: 'Background' },
+  { key: 'strokeWidth', label: 'Border width', min: 0, max: 12, step: 0.5 },
+  { key: 'border', label: 'Border style', cloudy: false },
+];
+const WIDGET_TEXT_PROPS: PropSpec[] = [
+  ...WIDGET_BOX_PROPS,
+  { key: 'fontFamily', label: 'Font' },
+  { key: 'fontSize', label: 'Font size', min: 0, max: 96, step: 1 },
+  { key: 'fontColor', label: 'Text color' },
+  { key: 'textAlign', label: 'Alignment' },
+];
 /** Stroked vertex kinds with `/LE` endings: line / polyline. The fill colours a
  *  CLOSED ending (closed arrow / circle / square / diamond). */
 const LINE_PROPS: PropSpec[] = [STROKE, FILL, OPACITY, STROKE_WIDTH, BORDER_PLAIN, LINE_ENDINGS];
@@ -153,6 +173,71 @@ const READONLY: KindCaps = caps({});
 /** The built-in kinds. Shapes resize, lines/polys vertex-edit, markup is anchored
  *  (selectable + recolor/delete, never move/resize). */
 export const KINDS: Record<string, AnnotationKind> = {
+  'widget-text': {
+    subtype: 'widget-text',
+    variant: 'rect',
+    caps: caps({
+      selectable: true,
+      movable: true,
+      resizable: true,
+      groupMovable: true,
+      hasFill: true,
+      opaqueBody: true,
+    }),
+    props: WIDGET_TEXT_PROPS,
+  },
+  'widget-choice': {
+    subtype: 'widget-choice',
+    variant: 'rect',
+    caps: caps({
+      selectable: true,
+      movable: true,
+      resizable: true,
+      groupMovable: true,
+      hasFill: true,
+      opaqueBody: true,
+    }),
+    props: WIDGET_TEXT_PROPS,
+  },
+  'widget-button': {
+    subtype: 'widget-button',
+    variant: 'rect',
+    caps: caps({
+      selectable: true,
+      movable: true,
+      resizable: true,
+      groupMovable: true,
+      hasFill: true,
+      opaqueBody: true,
+    }),
+    props: WIDGET_TEXT_PROPS,
+  },
+  'widget-toggle': {
+    subtype: 'widget-toggle',
+    variant: 'rect',
+    caps: caps({
+      selectable: true,
+      movable: true,
+      resizable: true,
+      groupMovable: true,
+      hasFill: true,
+      opaqueBody: true,
+    }),
+    props: WIDGET_BOX_PROPS,
+  },
+  'widget-box': {
+    subtype: 'widget-box',
+    variant: 'rect',
+    caps: caps({
+      selectable: true,
+      movable: true,
+      resizable: true,
+      groupMovable: true,
+      hasFill: true,
+      opaqueBody: true,
+    }),
+    props: WIDGET_BOX_PROPS,
+  },
   'free-text': {
     subtype: 'free-text',
     variant: 'text',

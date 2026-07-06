@@ -42,18 +42,29 @@ cmake-js compile \
   --CDPDFIUM_LIB_DIR="$LIB_DIR/lib" \
   --CDPDFIUM_INCLUDE_DIR="$LIB_DIR/include"
 
+# Replace, never overwrite: `cp` onto an existing binary rewrites the SAME
+# inode, and the macOS kernel's per-inode code-signature cache then kills
+# the next process to dlopen it (SIGKILL: Code Signature Invalid) even
+# though `codesign -vv` reports the file as valid. Copying to a temp name
+# and renaming lands the bytes on a fresh inode, atomically.
+install_binary() {
+  local src="$1" dst="$2"
+  cp "$src" "$dst.tmp"
+  mv -f "$dst.tmp" "$dst"
+}
+
 mkdir -p "$ROOT/npm/$TARGET/lib"
-cp "$ROOT/build/build/Release/pdf-runtime.node" "$ROOT/npm/$TARGET/lib/pdf-runtime.node"
+install_binary "$ROOT/build/build/Release/pdf-runtime.node" "$ROOT/npm/$TARGET/lib/pdf-runtime.node"
 case "$TARGET" in
   win32-*)
-    cp "$LIB_DIR/bin/pdfium.dll" "$ROOT/npm/$TARGET/lib/pdfium.dll"
+    install_binary "$LIB_DIR/bin/pdfium.dll" "$ROOT/npm/$TARGET/lib/pdfium.dll"
     ;;
   darwin-*)
-    cp "$LIB_DIR/lib/libpdfium.dylib" "$ROOT/npm/$TARGET/lib/libpdfium.dylib"
+    install_binary "$LIB_DIR/lib/libpdfium.dylib" "$ROOT/npm/$TARGET/lib/libpdfium.dylib"
     ;;
   linux-*)
     if [[ -f "$LIB_DIR/lib/libpdfium.so" ]]; then
-      cp "$LIB_DIR/lib/libpdfium.so" "$ROOT/npm/$TARGET/lib/libpdfium.so"
+      install_binary "$LIB_DIR/lib/libpdfium.so" "$ROOT/npm/$TARGET/lib/libpdfium.so"
     fi
     ;;
 esac
