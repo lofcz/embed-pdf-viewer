@@ -71,6 +71,25 @@ export function DocumentScope({ id, children }: DocumentScopeProps) {
   return <DocumentScopeCtx.Provider value={id}>{children}</DocumentScopeCtx.Provider>;
 }
 
+export interface DocumentGateProps {
+  /** Shown while this subtree has NO document (empty workspace, docs still opening). */
+  fallback?: React.ReactNode;
+  children: React.ReactNode;
+}
+/**
+ * Render children only while this subtree has a document — the structural way
+ * to say "this UI is defined over a document". An empty workspace is a
+ * legitimate, designable state (the Viewer no longer blocks on documents so
+ * chrome can render at t≈0): workspace-scoped UI (toolbars, commands, i18n)
+ * lives OUTSIDE the gate; document-scoped UI (Stage, panels, page chrome)
+ * lives inside it, or reads through `useOptionalSelector`. Sibling of
+ * <DocumentScope>, which picks WHICH document; this one handles WHETHER.
+ */
+export function DocumentGate({ fallback = null, children }: DocumentGateProps) {
+  const docId = useDocumentId();
+  return <>{docId ? children : fallback}</>;
+}
+
 /** Resolve a capability by token, binding document-scoped ones to this subtree's document. */
 export function useCapability<T>(token: CapabilityToken<T>): T {
   const kernel = useKernel();
@@ -108,6 +127,44 @@ export function useSelector<C, R>(
   const last = useRef<{ v: R } | null>(null);
   const get = () => {
     const next = select(cap);
+    if (last.current && isEqual(last.current.v, next)) return last.current.v;
+    last.current = { v: next };
+    return next;
+  };
+  return useSyncExternalStore(kernel.subscribe, get, get);
+}
+
+/**
+ * Null-safe `useSelector`: `fallback` whenever the token can't resolve — no
+ * provider, or a document-scoped token with no document. For chrome that stays
+ * mounted across the empty-workspace state (a zoom readout, a mode band).
+ * `useSelector` stays strict (fail-fast) for code that KNOWS a document exists
+ * — e.g. anything inside a <DocumentGate>.
+ *
+ * The `select` guard also swallows reads through a capability whose document
+ * closed between the store notification and this render — that teardown race
+ * resolves to `fallback` for one frame, then re-renders against the new state.
+ */
+export function useOptionalSelector<C, R>(
+  token: CapabilityToken<C>,
+  select: (cap: C) => R,
+  fallback: R,
+  isEqual: (a: R, b: R) => boolean = Object.is,
+): R {
+  const kernel = useKernel();
+  const cap = useOptionalCapability(token);
+  const last = useRef<{ v: R } | null>(null);
+  const get = () => {
+    let next: R;
+    if (cap === null) {
+      next = fallback;
+    } else {
+      try {
+        next = select(cap);
+      } catch {
+        next = fallback;
+      }
+    }
     if (last.current && isEqual(last.current.v, next)) return last.current.v;
     last.current = { v: next };
     return next;

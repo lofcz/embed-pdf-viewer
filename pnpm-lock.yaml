@@ -2888,6 +2888,103 @@ importers:
         specifier: ^6.0.0
         version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  v3/examples/snippet-react:
+    dependencies:
+      '@cloudpdf/engine':
+        specifier: workspace:*
+        version: link:../../../ee/engine
+      '@embedpdf-x/annotation-core':
+        specifier: workspace:*
+        version: link:../../packages/annotation-core
+      '@embedpdf-x/kernel':
+        specifier: workspace:*
+        version: link:../../packages/kernel
+      '@embedpdf-x/plugin-annotation':
+        specifier: workspace:*
+        version: link:../../packages/plugin-annotation
+      '@embedpdf-x/plugin-commands':
+        specifier: workspace:*
+        version: link:../../packages/plugin-commands
+      '@embedpdf-x/plugin-i18n':
+        specifier: workspace:*
+        version: link:../../packages/plugin-i18n
+      '@embedpdf-x/plugin-interaction':
+        specifier: workspace:*
+        version: link:../../packages/plugin-interaction
+      '@embedpdf-x/plugin-metadata':
+        specifier: workspace:*
+        version: link:../../packages/plugin-metadata
+      '@embedpdf-x/plugin-page-edit':
+        specifier: workspace:*
+        version: link:../../packages/plugin-page-edit
+      '@embedpdf-x/plugin-persist':
+        specifier: workspace:*
+        version: link:../../packages/plugin-persist
+      '@embedpdf-x/plugin-render':
+        specifier: workspace:*
+        version: link:../../packages/plugin-render
+      '@embedpdf-x/plugin-search':
+        specifier: workspace:*
+        version: link:../../packages/plugin-search
+      '@embedpdf-x/plugin-selection':
+        specifier: workspace:*
+        version: link:../../packages/plugin-selection
+      '@embedpdf-x/plugin-shell':
+        specifier: workspace:*
+        version: link:../../packages/plugin-shell
+      '@embedpdf-x/plugin-stage':
+        specifier: workspace:*
+        version: link:../../packages/plugin-stage
+      '@embedpdf-x/plugin-view-manager':
+        specifier: workspace:*
+        version: link:../../packages/plugin-view-manager
+      '@embedpdf-x/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@embedpdf-x/stage-core':
+        specifier: workspace:*
+        version: link:../../packages/stage-core
+      '@embedpdf-x/ui-core':
+        specifier: workspace:*
+        version: link:../../packages/ui-core
+      '@embedpdf/engine':
+        specifier: workspace:*
+        version: link:../../../packages/engine
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../../packages/engine-core
+      '@embedpdf/pdf-runtime':
+        specifier: workspace:*
+        version: link:../../../packages/pdf-runtime
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@tailwindcss/vite':
+        specifier: ^4.1.18
+        version: 4.1.18(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@types/react':
+        specifier: ^18.3.0
+        version: 18.3.28
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.28)
+      '@vitejs/plugin-react':
+        specifier: ^4.3.4
+        version: 4.7.0(vite@6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      tailwindcss:
+        specifier: ^4.1.18
+        version: 4.1.18
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.0
+        version: 6.4.1(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.30.2)(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+
   v3/packages/annotation-core:
     dependencies:
       '@embedpdf-x/geometry':

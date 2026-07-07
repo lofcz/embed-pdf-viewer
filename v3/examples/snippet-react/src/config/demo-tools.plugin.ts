@@ -1,0 +1,44 @@
+import { definePlugin } from '@embedpdf-x/kernel';
+import { InteractionToken } from '@embedpdf-x/plugin-interaction';
+
+/**
+ * Example-only: register the form / insert / redact authoring tools as INERT
+ * interaction tools. v3 doesn't yet ship form-authoring, signature, or
+ * redaction plugins, but this is a CHROME demo — its job is selection state
+ * and layout, not the tool's effect. Registering them as real (behaviourless)
+ * tools lets every tool button in every mode band go through the SAME path
+ * (`InteractionToken.activateTool`), so `active` is uniform and honest: the
+ * button really is the active tool; it just has no handler behind it.
+ *
+ * The annotate + shapes tools are NOT here — those are real tools the
+ * annotation plugin registers (highlight, ink, square, circle, …).
+ */
+const INERT_TOOLS: ReadonlyArray<{ id: string; cursor: string }> = [
+  // insert mode
+  { id: 'signature', cursor: 'copy' },
+  { id: 'image', cursor: 'copy' },
+  // form mode
+  { id: 'form-textfield', cursor: 'crosshair' },
+  { id: 'form-checkbox', cursor: 'crosshair' },
+  { id: 'form-radio', cursor: 'crosshair' },
+  { id: 'form-select', cursor: 'crosshair' },
+  { id: 'form-listbox', cursor: 'crosshair' },
+  // redact mode
+  { id: 'redact', cursor: 'crosshair' },
+];
+
+export const demoToolsPlugin = () =>
+  definePlugin({
+    id: 'demo-tools',
+    scope: 'document',
+    requires: [InteractionToken],
+    init: (ctx) => {
+      const interaction = ctx.get(InteractionToken);
+      for (const tool of INERT_TOOLS) {
+        // No `enables` → no gesture/handler wakes up: the tool is selectable
+        // (cursor + active state) but behaviourless. Exactly what a chrome demo
+        // needs from form/redact/signature tools v3 doesn't ship yet.
+        interaction.registerTool({ id: tool.id, cursor: tool.cursor, enables: new Set<string>() });
+      }
+    },
+  });
