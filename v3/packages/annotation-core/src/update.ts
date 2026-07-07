@@ -283,7 +283,9 @@ function editPointer(
 }
 
 function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
-  const hit = hitTest(m, input.pon, input.point, HANDLE_TOL, m.hitMargin);
+  // `pageBox` reaches the hit-test so the page-bound rotate knob (flipped /
+  // clamped near an edge) is grabbed exactly where the chrome drew it.
+  const hit = hitTest(m, input.pon, input.point, HANDLE_TOL, m.hitMargin, input.pageBox);
   if (hit.t === 'handle') {
     const base = m.byId[hit.id].geom;
     return [{ ...m, draft: { g: 'handle', id: hit.id, handle: hit.handle, base, cur: base } }, []];

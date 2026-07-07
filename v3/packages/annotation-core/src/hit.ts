@@ -2,9 +2,9 @@ import {
   geomHandles,
   geomHit,
   obbFromGeom,
+  placeRotateKnob,
   pointInQuad,
   rectHandlesFor,
-  rotateKnob,
   selectionCenter,
   selectionQuad,
   unionRect,
@@ -118,16 +118,18 @@ export function hitTest(
   p: Vec,
   handleTol: number,
   strokeMargin: number,
+  pageBox?: Rect,
 ): Target {
   if (m.selected.length === 1 && isSelectable(m, m.selected[0])) {
     const a = m.byId[m.selected[0]];
     if (a.pon === pon) {
       // The rotate knob (checked first — it floats outside the box, clear of the
-      // handles). Only for kinds whose `caps.rotatable` is on.
+      // handles). Only for kinds whose `caps.rotatable` is on. `placeRotateKnob`
+      // keeps it inside `pageBox` — the SAME placement `chrome` draws.
       if (capsFor(a.subtype).rotatable) {
         const obb = obbFromGeom(a.geom, a.style.strokeWidth, a.style.border);
         if (obb) {
-          const knob = rotateKnob(obb.corners, ROTATE_KNOB_OFFSET);
+          const knob = placeRotateKnob(obb.corners, ROTATE_KNOB_OFFSET, pageBox);
           if (Math.abs(knob.at.x - p.x) <= handleTol && Math.abs(knob.at.y - p.y) <= handleTol) {
             return {
               t: 'rotate',
@@ -158,7 +160,7 @@ export function hitTest(
           { x: union.x + union.width, y: union.y + union.height },
           { x: union.x, y: union.y + union.height },
         ];
-        const knob = rotateKnob(corners, ROTATE_KNOB_OFFSET);
+        const knob = placeRotateKnob(corners, ROTATE_KNOB_OFFSET, pageBox);
         if (Math.abs(knob.at.x - p.x) <= handleTol && Math.abs(knob.at.y - p.y) <= handleTol) {
           const pivot = { x: union.x + union.width / 2, y: union.y + union.height / 2 };
           return { t: 'rotate', ids: m.selected.filter((id) => m.byId[id]?.pon === pon), pivot };
@@ -217,8 +219,9 @@ export function cursorAt(
   p: Vec,
   handleTol: number,
   strokeMargin: number,
+  pageBox?: Rect,
 ): Cursor | null {
-  const t = hitTest(m, pon, p, handleTol, strokeMargin);
+  const t = hitTest(m, pon, p, handleTol, strokeMargin, pageBox);
   if (t.t === 'handle') return t.cursor;
   if (t.t === 'group-handle') return t.cursor;
   if (t.t === 'rotate') return 'grab';

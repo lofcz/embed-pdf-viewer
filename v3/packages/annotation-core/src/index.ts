@@ -70,6 +70,7 @@ export {
   geomResetRotation,
   obbFromGeom,
   rotateKnob,
+  placeRotateKnob,
   rotatedAabb,
   normalizeDeg,
   isRotatableGeom,

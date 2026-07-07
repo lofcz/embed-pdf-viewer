@@ -194,7 +194,8 @@ const rectCenter = (r: Rect): Vec => ({ x: r.x + r.width / 2, y: r.y + r.height 
 const rotateAboutM = (pivot: Vec, deg: number): Mat2D<'content', 'content'> =>
   rotateAbout(pivot as PointIn<'content'>, deg * DEG2RAD);
 
-const rotatePoint = (p: Vec, pivot: Vec, deg: number): Vec =>
+/** Rotate one point about a pivot by `deg` (CW, content space). */
+export const rotatePoint = (p: Vec, pivot: Vec, deg: number): Vec =>
   applyPoint(rotateAboutM(pivot, deg), p as PointIn<'content'>);
 
 /**
@@ -401,6 +402,47 @@ export function rotateKnob(corners: [Vec, Vec, Vec, Vec], offset: number): { at:
   const len = Math.hypot(down.x, down.y) || 1;
   const up = { x: -down.x / len, y: -down.y / len };
   return { at: { x: from.x + up.x * offset, y: from.y + up.y * offset }, from };
+}
+
+const insideRect = (r: Rect, p: Vec): boolean =>
+  p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+
+/**
+ * `rotateKnob` with a TOTAL page-bound placement policy: annotations, gestures
+ * and chrome are all page-bound, so the grab dot must land inside `pageBox` —
+ * off-page it is unreachable (the pointer dispatch resolves pages by
+ * containment). Policy: top edge (the default) → FLIP to the bottom edge when
+ * the stalk exits the page → CLAMP the top candidate inside (degenerate: the
+ * selection spans ~the whole page; the knob may then overlap the shape, and
+ * hit-testing checks it first so it stays grabbable). Both render (`chrome`)
+ * and hit-test (`hitTest`) place the knob through THIS function, so what you
+ * see is what you can grab — by construction. No `pageBox` → the raw knob.
+ */
+export function placeRotateKnob(
+  corners: [Vec, Vec, Vec, Vec],
+  offset: number,
+  pageBox?: Rect,
+): { at: Vec; from: Vec } {
+  const top = rotateKnob(corners, offset);
+  if (!pageBox || insideRect(pageBox, top.at)) return top;
+  // FLIP: the same outward-normal math off the OPPOSITE (bottom) edge. On a
+  // rotated OBB this exits through whichever page edge the stalk crossed.
+  const [nw, , se, sw] = corners;
+  const from = { x: (sw.x + se.x) / 2, y: (sw.y + se.y) / 2 };
+  const down = { x: sw.x - nw.x, y: sw.y - nw.y };
+  const len = Math.hypot(down.x, down.y) || 1;
+  const at = {
+    x: from.x + (down.x / len) * offset,
+    y: from.y + (down.y / len) * offset,
+  };
+  if (insideRect(pageBox, at)) return { at, from };
+  return {
+    at: {
+      x: Math.min(Math.max(top.at.x, pageBox.x), pageBox.x + pageBox.width),
+      y: Math.min(Math.max(top.at.y, pageBox.y), pageBox.y + pageBox.height),
+    },
+    from: top.from,
+  };
 }
 
 /* ── callout leader ───────────────────────────────────────────────────────────

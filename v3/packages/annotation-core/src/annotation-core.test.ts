@@ -33,6 +33,8 @@ import {
   geomRotateAbout,
   geomResetRotation,
   obbFromGeom,
+  placeRotateKnob,
+  rotateKnob,
   rotatedAabb,
   normalizeDeg,
   rotatedHandleCursor,
@@ -2289,5 +2291,176 @@ describe('annotation-core — snapping', () => {
     const turned = Object.fromEntries(geomHandles({ ...g, rot: 90 }).map((h) => [h.id, h.cursor]));
     expect(turned['e']).toBe('ns-resize'); // physically at the bottom now
     expect(turned['n']).toBe('ew-resize'); // physically at the right now
+  });
+});
+
+/**
+ * The rotate knob is PAGE-BOUND chrome: annotations, gestures and selection UI
+ * all live inside the page, and pointer dispatch resolves pages by containment —
+ * an off-page knob would render but never receive a hit. `placeRotateKnob` owns
+ * the placement policy (top edge → FLIP below → CLAMP inside) and BOTH render
+ * (`chrome`) and hit-test (`hitTest`) place the knob through it, so "what you
+ * see is what you can grab" holds by construction. The placement decision is
+ * made AT REST; a live rotate rides it rigidly and re-decides only on release.
+ */
+describe('page-bound rotate knob', () => {
+  // US-Letter content box, origin at the crop top-left.
+  const BOX = { x: 0, y: 0, width: 612, height: 792 };
+  const K = 24; // ROTATE_KNOB_OFFSET
+  type Box = { x: number; y: number; width: number; height: number };
+  const corners = (r: Box): [Vec, Vec, Vec, Vec] => [
+    { x: r.x, y: r.y },
+    { x: r.x + r.width, y: r.y },
+    { x: r.x + r.width, y: r.y + r.height },
+    { x: r.x, y: r.y + r.height },
+  ];
+  const inside = (p: Vec) => {
+    expect(p.x).toBeGreaterThanOrEqual(BOX.x);
+    expect(p.x).toBeLessThanOrEqual(BOX.x + BOX.width);
+    expect(p.y).toBeGreaterThanOrEqual(BOX.y);
+    expect(p.y).toBeLessThanOrEqual(BOX.y + BOX.height);
+  };
+  // Stamps: rotatable + opaqueBody (grabbable anywhere inside), so one click at
+  // the centre selects regardless of the shape's rotation.
+  const stampAt = (id: string, rect: Box, rot = 0, n = 900): Annot => ({
+    id,
+    ref: { kind: 'objectNumber', pageObjectNumber: PON, annotObjectNumber: n },
+    pon: PON,
+    subtype: 'stamp',
+    geom: { t: 'rect', rect: { ...rect }, ellipse: false, ...(rot ? { rot } : {}) },
+    style: {
+      color: '#000000',
+      interiorColor: null,
+      strokeWidth: 1,
+      opacity: 1,
+      border: { kind: 'solid' },
+    },
+    locked: false,
+    source: 'baked',
+    apBox: { ...rect },
+  });
+  const loadSelect = (rect: Box, rot = 0): Model => {
+    const m = update(initialModel, { t: 'loaded', annots: [stampAt('S1', rect, rot)] })[0];
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + rect.height / 2;
+    return run(m, [editPtr('down', cx, cy), editPtr('up', cx, cy)]);
+  };
+  // editPointer with the page box on the input — what the plugin always sends.
+  const editB = (phase: 'down' | 'move' | 'up', x: number, y: number): Msg => ({
+    t: 'editPointer',
+    phase,
+    in: { pon: PON, point: { x, y }, shift: false, pageBox: BOX },
+  });
+
+  it('placeRotateKnob: top → flip → clamp, and total (always on-page)', () => {
+    // fits — identical to the raw knob, hanging off the top edge
+    const fits = corners({ x: 100, y: 100, width: 100, height: 50 });
+    expect(placeRotateKnob(fits, K, BOX)).toEqual(rotateKnob(fits, K));
+    expect(placeRotateKnob(fits, K, BOX).at).toEqual({ x: 150, y: 76 });
+    // flip — the top stalk exits the page: hang off the BOTTOM edge instead
+    const nearTop = corners({ x: 100, y: 10, width: 100, height: 50 });
+    expect(placeRotateKnob(nearTop, K, BOX)).toEqual({
+      at: { x: 150, y: 84 },
+      from: { x: 150, y: 60 },
+    });
+    // clamp — BOTH stalks exit (a ~full-page shape): pin the top candidate
+    const tall = corners({ x: 100, y: 10, width: 100, height: 772 });
+    expect(placeRotateKnob(tall, K, BOX)).toEqual({
+      at: { x: 150, y: 0 },
+      from: { x: 150, y: 10 },
+    });
+    // a 90°-turned OBB near the right edge flips through the SIDE it exited
+    const turned: [Vec, Vec, Vec, Vec] = [
+      { x: 590, y: 282 },
+      { x: 590, y: 378 },
+      { x: 530, y: 378 },
+      { x: 530, y: 282 },
+    ];
+    expect(placeRotateKnob(turned, K, BOX)).toEqual({
+      at: { x: 506, y: 330 },
+      from: { x: 530, y: 330 },
+    });
+    // no pageBox → the raw knob (unclamped, back-compatible)
+    expect(placeRotateKnob(nearTop, K)).toEqual(rotateKnob(nearTop, K));
+  });
+
+  it('flips below a shape near the page top — and the flipped point IS the hit target', () => {
+    const m = loadSelect({ x: 100, y: 10, width: 100, height: 50 });
+    // unbounded placement would float above the page (the unreachable spot)
+    expect(selectionKnob(m, PON)!.at.y).toBeLessThan(0);
+    const knob = selectionKnob(m, PON, BOX)!;
+    expect(knob.at.y).toBeGreaterThan(60); // hangs BELOW the shape now
+    inside(knob.at);
+    // chrome draws it exactly there…
+    const node = chrome(m, PON, BOX).find((n) => n.kind === 'rotate-knob');
+    expect(node?.kind).toBe('rotate-knob');
+    if (node?.kind === 'rotate-knob') expect(node.at).toEqual(knob.at);
+    // …and the hit-test grabs it exactly there (WYSIWYG)
+    expect(hitTest(m, PON, knob.at, 6, m.hitMargin, BOX).t).toBe('rotate');
+  });
+
+  it('chrome and hitTest agree everywhere: the knob is always on-page and always grabbable', () => {
+    const cases = [
+      { rect: { x: 100, y: 100, width: 100, height: 50 }, rot: 0 }, // fits
+      { rect: { x: 100, y: 10, width: 100, height: 50 }, rot: 0 }, // flip below
+      { rect: { x: 100, y: 4, width: 100, height: 784 }, rot: 0 }, // clamp
+      { rect: { x: 512, y: 300, width: 96, height: 60 }, rot: 90 }, // side exit → side flip
+      { rect: { x: 100, y: 8, width: 100, height: 50 }, rot: 30 },
+      { rect: { x: 2, y: 300, width: 100, height: 60 }, rot: 270 },
+    ];
+    for (const c of cases) {
+      const m = loadSelect(c.rect, c.rot);
+      const node = chrome(m, PON, BOX).find((n) => n.kind === 'rotate-knob');
+      expect(node?.kind, JSON.stringify(c)).toBe('rotate-knob');
+      if (node?.kind !== 'rotate-knob') continue;
+      inside(node.at);
+      expect(hitTest(m, PON, node.at, 6, m.hitMargin, BOX).t, JSON.stringify(c)).toBe('rotate');
+    }
+  });
+
+  it('a group near the page top flips its knob below the union box', () => {
+    let m = update(initialModel, {
+      t: 'loaded',
+      annots: [
+        stampAt('S1', { x: 100, y: 5, width: 60, height: 40 }, 0, 901),
+        stampAt('S2', { x: 200, y: 5, width: 60, height: 40 }, 0, 902),
+      ],
+    })[0];
+    m = run(m, [
+      editPtr('down', 130, 25),
+      editPtr('up', 130, 25),
+      editPtr('down', 230, 25, true), // shift-click adds S2
+      editPtr('up', 230, 25, true),
+    ]);
+    expect([...m.selected].sort()).toEqual(['S1', 'S2']);
+    const knob = selectionKnob(m, PON, BOX)!;
+    expect(knob.at.y).toBeGreaterThan(45); // below the union bottom
+    inside(knob.at);
+    const t = hitTest(m, PON, knob.at, 6, m.hitMargin, BOX);
+    expect(t.t).toBe('rotate');
+    if (t.t === 'rotate') expect([...t.ids].sort()).toEqual(['S1', 'S2']);
+  });
+
+  it('grabbing a flipped knob does not move it; it rides the turn rigidly and settles on release', () => {
+    let m = loadSelect({ x: 100, y: 10, width: 100, height: 50 });
+    const rest = selectionKnob(m, PON, BOX)!; // flipped below the shape
+    m = run(m, [editB('down', rest.at.x, rest.at.y)]);
+    const draft = m.draft;
+    if (draft?.g !== 'rotate') throw new Error('expected a rotate draft');
+    // zero jump at grab
+    const grabbed = selectionKnob(m, PON, BOX)!;
+    expect(grabbed.at.x).toBeCloseTo(rest.at.x, 6);
+    expect(grabbed.at.y).toBeCloseTo(rest.at.y, 6);
+    // quarter turn: the grab point hangs SOUTH of the pivot; drag the cursor EAST
+    const pivot = draft.pivot;
+    m = run(m, [editB('move', pivot.x + 100, pivot.y)]);
+    const live = selectionKnob(m, PON, BOX)!;
+    // the knob rode the −90° turn rigidly: south of the pivot → east of the pivot
+    expect(live.at.x).toBeCloseTo(pivot.x + (rest.at.y - pivot.y), 4);
+    expect(live.at.y).toBeCloseTo(pivot.y, 4);
+    // release: the policy re-decides ONCE, on the settled orientation
+    m = run(m, [editB('up', pivot.x + 100, pivot.y)]);
+    expect(m.draft).toBeNull();
+    inside(selectionKnob(m, PON, BOX)!.at);
   });
 });

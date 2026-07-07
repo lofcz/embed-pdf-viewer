@@ -12,9 +12,10 @@ import {
   geomVisualBounds,
   groupResizeFactors,
   obbFromGeom,
+  placeRotateKnob,
   rectFromPoints,
   rectHandlesFor,
-  rotateKnob,
+  rotatePoint,
   selectionBounds,
   selectionQuad,
   shapeRectFor,
@@ -274,29 +275,64 @@ const boxCorners = (r: Rect): [Vec, Vec, Vec, Vec] => [
   { x: r.x, y: r.y + r.height },
 ];
 
-/**
- * The rotate knob for the current selection on `pon` — the SAME knob `chrome`
- * draws — or null when the selection has none (non-rotatable single, or a group
- * whose caps aren't rotatable). A single shape's knob hangs off its OBB top edge;
- * a group's off the union box. Shared by `chrome` (to draw) and `selectionAnchor`
- * (to push the menu clear of it), so the two can never disagree on where it is.
- */
-export function selectionKnob(m: Model, pon: number): { at: Vec; from: Vec } | null {
+/** The page-bound knob placement for the selection on `pon`, reading each
+ *  member's geometry through `geomOf` — `effGeom` for the live view, the
+ *  COMMITTED geometry for a rotate gesture's rest anchor (see `selectionKnob`). */
+function placeSelectionKnob(
+  m: Model,
+  pon: number,
+  pageBox: Rect | undefined,
+  geomOf: (id: Id) => Geom,
+): { at: Vec; from: Vec } | null {
   const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
   if (sel.length === 1) {
     const a = m.byId[sel[0]];
     if (!capsFor(a.subtype).rotatable) return null;
-    const obb = obbFromGeom(effGeom(m, sel[0]), a.style.strokeWidth, a.style.border);
-    return obb ? rotateKnob(obb.corners, ROTATE_KNOB_OFFSET) : null;
+    const obb = obbFromGeom(geomOf(sel[0]), a.style.strokeWidth, a.style.border);
+    return obb ? placeRotateKnob(obb.corners, ROTATE_KNOB_OFFSET, pageBox) : null;
   }
   if (sel.length > 1 && groupCaps(m, sel).rotatable) {
     const union = groupUnionBounds(m, pon);
-    if (union) return rotateKnob(boxCorners(union), ROTATE_KNOB_OFFSET);
+    if (union) return placeRotateKnob(boxCorners(union), ROTATE_KNOB_OFFSET, pageBox);
   }
   return null;
 }
 
-export function chrome(m: Model, pon: number): ChromeNode[] {
+/**
+ * The rotate knob for the current selection on `pon` — the SAME knob `chrome`
+ * draws — or null when the selection has none (non-rotatable single, or a group
+ * whose caps aren't rotatable). A single shape's knob hangs off its OBB top edge;
+ * a group's off the union box. With `pageBox` the knob is placed PAGE-BOUND
+ * (`placeRotateKnob`: flip below / clamp inside) — off-page it would be visible
+ * but unreachable, since pointer dispatch resolves pages by containment. Shared
+ * by `chrome` (to draw) and `selectionAnchor` (to push the menu clear of it), so
+ * the two can never disagree on where it is.
+ *
+ * The placement DECISION is made at rest; a gesture never re-decides — it RIDES.
+ * During a live rotate the knob starts exactly where it was grabbed (the rest
+ * placement on the COMMITTED geometry) and turns rigidly about the pivot by the
+ * same snapped delta the shape uses; the policy re-evaluates only on release.
+ * Re-deciding per frame would jump at grab and side-switch mid-spin.
+ */
+export function selectionKnob(
+  m: Model,
+  pon: number,
+  pageBox?: Rect,
+): { at: Vec; from: Vec } | null {
+  const d = m.draft;
+  if (d?.g === 'rotate' && m.byId[d.ids[0]]?.pon === pon) {
+    const rest = placeSelectionKnob(m, pon, pageBox, (id) => m.byId[id].geom);
+    if (!rest) return null;
+    const { delta } = rotateDraftDelta(m, d);
+    return {
+      at: rotatePoint(rest.at, d.pivot, delta),
+      from: rotatePoint(rest.from, d.pivot, delta),
+    };
+  }
+  return placeSelectionKnob(m, pon, pageBox, (id) => effGeom(m, id));
+}
+
+export function chrome(m: Model, pon: number, pageBox?: Rect): ChromeNode[] {
   const nodes: ChromeNode[] = [];
   if (m.draft?.g === 'marquee' && m.draft.pon === pon) {
     nodes.push({ kind: 'marquee', rect: rectFromPoints(m.draft.from, m.draft.to) });
@@ -348,7 +384,7 @@ export function chrome(m: Model, pon: number): ChromeNode[] {
   }
   // The rotate knob (single shape or group) — one source of truth with the menu
   // anchor, so the menu is always pushed clear of exactly this point.
-  const knob = selectionKnob(m, pon);
+  const knob = selectionKnob(m, pon, pageBox);
   if (knob) nodes.push({ kind: 'rotate-knob', at: knob.at, from: knob.from });
   return nodes;
 }
@@ -371,8 +407,13 @@ export function selectionBoundsOnPage(m: Model, pon: number): Rect | null {
 /** The anchor for a selection-aware floating menu: the PRIMARY page (the first
  *  selectable selected id) + the union box of the selection on that page (content
  *  space). Null when nothing selectable is selected. A cross-page selection
- *  anchors to its primary page, so there is exactly one menu. */
-export function selectionAnchor(m: Model): { pon: number; bounds: Rect; knob?: Vec } | null {
+ *  anchors to its primary page, so there is exactly one menu. `pageBoxOf` is a
+ *  lookup (the anchor resolves its own page) feeding the page-bound knob
+ *  placement — the menu then dodges the knob where it ACTUALLY sits. */
+export function selectionAnchor(
+  m: Model,
+  pageBoxOf?: (pon: number) => Rect | undefined,
+): { pon: number; bounds: Rect; knob?: Vec } | null {
   const id = m.selected.find((x) => isSelectable(m, x));
   if (id == null) return null;
   const pon = m.byId[id].pon;
@@ -381,7 +422,7 @@ export function selectionAnchor(m: Model): { pon: number; bounds: Rect; knob?: V
   // `bounds` is the plain selection box (the menu stays centred on it). The knob
   // rides ALONGSIDE it so the menu can nudge ONLY the edge it sits on, and only
   // when the handle would otherwise hide under it — never shifting the centre.
-  const knob = selectionKnob(m, pon);
+  const knob = selectionKnob(m, pon, pageBoxOf?.(pon));
   return knob ? { pon, bounds, knob: knob.at } : { pon, bounds };
 }
 

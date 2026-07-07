@@ -97,7 +97,7 @@ export function createAnnotationCapability(
     const m = model();
     const c = chromeCache.get(pon);
     if (c && c.model === m) return c.v;
-    const v = coreChrome(m, pon);
+    const v = coreChrome(m, pon, pageBoxOf(pon));
     chromeCache.set(pon, { model: m, v });
     return v;
   };
@@ -108,7 +108,7 @@ export function createAnnotationCapability(
   const memoAnchor = (): { pon: number; bounds: Rect; knob?: Vec } | null => {
     const m = model();
     if (anchorCache && anchorCache.model === m) return anchorCache.v;
-    const v = coreSelectionAnchor(m);
+    const v = coreSelectionAnchor(m, pageBoxOf);
     anchorCache = { model: m, v };
     return v;
   };
@@ -388,8 +388,10 @@ export function createAnnotationCapability(
     selectionAnchor: () => memoAnchor(),
     creationDraftAnchor: () => memoDraftAnchor(),
     selection: () => model().selected,
-    hitKind: (pon, point) => hitTest(model(), pon, point, HANDLE_TOL, model().hitMargin).t,
-    cursorAt: (pon, point) => cursorAt(model(), pon, point, HANDLE_TOL, model().hitMargin),
+    hitKind: (pon, point) =>
+      hitTest(model(), pon, point, HANDLE_TOL, model().hitMargin, pageBoxOf(pon)).t,
+    cursorAt: (pon, point) =>
+      cursorAt(model(), pon, point, HANDLE_TOL, model().hitMargin, pageBoxOf(pon)),
     behaviorFor: (a) => behaviors.find((b) => b.matches(a) && b.engaged()) ?? null,
 
     appearanceEpoch: (pon) => {
@@ -548,7 +550,7 @@ export function createAnnotationCapability(
     beginTextEdit: (ref) => apply({ t: 'beginTextEdit', id: refKey(ref) }),
     beginTextEditAt: (pon, point) => {
       const m = model();
-      const h = hitTest(m, pon, point, HANDLE_TOL, m.hitMargin);
+      const h = hitTest(m, pon, point, HANDLE_TOL, m.hitMargin, pageBoxOf(pon));
       // A double-click on the box body OR one of its resize handles both target the
       // same annotation; either should open it for editing.
       const id = h.t === 'annot' || h.t === 'handle' ? h.id : null;
