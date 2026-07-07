@@ -73,11 +73,13 @@ function CommandButton({
         <span className="whitespace-nowrap px-1">{cmd.label}</span>
       ) : variant === 'icon+label' ? (
         <span className="flex items-center whitespace-nowrap text-sm">
-          {cmd.icon && <Icon name={cmd.icon} size={20} className="mr-1.5 shrink-0" />}
+          {cmd.icon && (
+            <Icon name={cmd.icon} size={20} accent={cmd.iconAccent} className="mr-1.5 shrink-0" />
+          )}
           <span>{cmd.label}</span>
         </span>
       ) : cmd.icon ? (
-        <Icon name={cmd.icon} size={20} />
+        <Icon name={cmd.icon} size={20} accent={cmd.iconAccent} />
       ) : (
         <span className="text-sm">{cmd.label}</span>
       )}
@@ -340,17 +342,15 @@ function OverflowMenu({ view }: { view: OverflowMenuView }) {
                     view.execute(row.command);
                     view.close();
                   }}
-                  className={`flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
-                    cmd.active ? 'text-accent' : 'text-fg-secondary'
-                  } hover:bg-hover`}
+                  // Same blue-highlight selection as the dropdown menus — no
+                  // checkmark; the icon column stays the command's own icon.
+                  className={`flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                    cmd.active ? 'bg-selected text-accent' : 'text-fg-secondary hover:bg-hover'
+                  }`}
                 >
-                  <span className="text-fg-muted flex w-4 justify-center">
-                    {cmd.active && section.role === 'radio' ? (
-                      <Icon name="check" size={16} />
-                    ) : cmd.icon ? (
-                      <Icon name={cmd.icon} size={16} />
-                    ) : null}
-                  </span>
+                  {cmd.icon && (
+                    <Icon name={cmd.icon} size={16} className={cmd.active ? '' : 'text-fg-muted'} />
+                  )}
                   <span className="flex-1 truncate">{cmd.label}</span>
                 </button>
               );

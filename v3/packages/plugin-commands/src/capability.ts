@@ -9,6 +9,7 @@ import type {
   CommandsAction,
   CommandsCapability,
   CommandsState,
+  IconAccent,
   ResolvedCommand,
 } from './types';
 
@@ -71,6 +72,20 @@ export function createCommandsCapability(
     }
   };
 
+  /** Same guard as `derive`, for the icon-accent derivation: a throw (no
+   *  document, provider missing) means "no accent" — the icon renders plain. */
+  const deriveAccent = (
+    fn: ((c: CommandCtx) => IconAccent | null) | undefined,
+    c: CommandCtx,
+  ): IconAccent | undefined => {
+    if (!fn) return undefined;
+    try {
+      return fn(c) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   const resolve = (id: string, documentId?: string): ResolvedCommand | null => {
     const entry = registry.get(id);
     if (!entry) return null;
@@ -106,6 +121,7 @@ export function createCommandsCapability(
       id: def.id,
       label,
       icon: def.icon,
+      iconAccent: deriveAccent(def.iconAccent, c),
       shortcuts: entry.shortcuts,
       menu: def.menu,
       enabled: derive(def.enabled, c, true) && !categoryHidden,

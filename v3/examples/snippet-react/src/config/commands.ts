@@ -13,7 +13,7 @@
  *   form/insert/redact tools               → inert interaction tools (demo-tools)
  *   history undo/redo                      → disabled (no history plugin in v3 yet)
  */
-import type { CommandDef } from '@embedpdf-x/plugin-commands';
+import type { CommandDef, IconAccent } from '@embedpdf-x/plugin-commands';
 import { DocumentsToken } from '@embedpdf-x/kernel';
 import { StageToken } from '@embedpdf-x/plugin-stage';
 import type { SpreadMode } from '@embedpdf-x/plugin-stage';
@@ -21,6 +21,8 @@ import { ZoomMode } from '@embedpdf-x/stage-core';
 import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import { PageEditToken } from '@embedpdf-x/plugin-page-edit';
 import { ShellToken } from '@embedpdf-x/plugin-shell';
+import { AnnotationToken } from '@embedpdf-x/plugin-annotation';
+import type { PropSpec } from '@embedpdf-x/plugin-annotation';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 type Ctx = Parameters<NonNullable<CommandDef['run']>>[0];
@@ -28,7 +30,32 @@ type Ctx = Parameters<NonNullable<CommandDef['run']>>[0];
 const stage = (c: Ctx) => c.tryGet(StageToken);
 const interaction = (c: Ctx) => c.tryGet(InteractionToken);
 
-/** A tool command: activates a real interaction tool; active = it's the tool. */
+// ── tool icon accents: THIS viewer's design decision ─────────────────────────
+// A tool icon previews its drawing defaults: primary = the kind's FIRST color
+// prop, secondary = its SECOND — the same order the style panel renders them
+// (shapes: stroke + fill; markup: the mark; free text: the font color). The
+// plugins only state facts (propsForTool = schema, currentDefaults = values);
+// which colors tint a glyph is decided here, and another viewer may decide
+// differently.
+const COLOR_KEYS = ['color', 'interiorColor', 'fontColor'] as const;
+type ColorKey = (typeof COLOR_KEYS)[number];
+const isColorSpec = (s: PropSpec): s is PropSpec & { key: ColorKey } =>
+  (COLOR_KEYS as readonly string[]).includes(s.key);
+
+const toolAccent = (c: Ctx, toolId: string): IconAccent | null => {
+  const anno = c.tryGet(AnnotationToken);
+  if (!anno) return null;
+  const colors = anno.propsForTool(toolId).filter(isColorSpec);
+  const d = anno.currentDefaults(toolId);
+  return {
+    primary: colors[0] ? (d[colors[0].key] ?? undefined) : undefined,
+    secondary: colors[1] ? (d[colors[1].key] ?? undefined) : undefined,
+  };
+};
+
+/** A tool command: activates a real interaction tool; active = it's the tool.
+ *  The icon previews the tool's current defaults — keyed by the SAME toolId
+ *  as run/active, so the accent can't drift to another tool's colors. */
 const tool = (id: string, toolId: string, labelKey: string, icon: string): CommandDef => ({
   id,
   labelKey,
@@ -37,6 +64,7 @@ const tool = (id: string, toolId: string, labelKey: string, icon: string): Comma
   run: (c) => interaction(c)?.activateTool(toolId),
   active: (c) => interaction(c)?.activeToolId() === toolId,
   enabled: (c) => interaction(c) != null,
+  iconAccent: (c) => toolAccent(c, toolId),
 });
 
 /** A fixed zoom level (fraction), e.g. 1 = 100%. */

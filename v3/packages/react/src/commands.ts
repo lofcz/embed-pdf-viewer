@@ -25,6 +25,9 @@ export const resolvedCommandsEqual = (
     a.id === b.id &&
     a.label === b.label &&
     a.icon === b.icon &&
+    // by value: resolve() mints a fresh accent object each read
+    a.iconAccent?.primary === b.iconAccent?.primary &&
+    a.iconAccent?.secondary === b.iconAccent?.secondary &&
     a.menu === b.menu &&
     a.enabled === b.enabled &&
     a.active === b.active &&

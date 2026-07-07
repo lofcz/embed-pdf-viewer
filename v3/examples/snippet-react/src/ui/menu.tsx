@@ -26,15 +26,21 @@ export function MenuRow({ commandId, onRun }: { commandId: string; onRun?: () =>
         commands.execute(commandId);
         onRun?.();
       }}
-      className="text-fg-secondary hover:bg-hover flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-sm disabled:pointer-events-none disabled:opacity-40"
+      // v2 shows selection as a blue-tinted row (bg-interactive-selected +
+      // text-accent), never a checkmark — the icon column stays the command's
+      // own icon.
+      className={`flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors disabled:pointer-events-none disabled:opacity-40 ${
+        cmd.active ? 'bg-selected text-accent' : 'text-fg-secondary hover:bg-hover'
+      }`}
     >
-      <span className="text-fg-muted flex w-4 justify-center">
-        {cmd.active ? (
-          <Icon name="check" size={16} />
-        ) : cmd.icon ? (
-          <Icon name={cmd.icon} size={16} />
-        ) : null}
-      </span>
+      {cmd.icon && (
+        <Icon
+          name={cmd.icon}
+          size={16}
+          accent={cmd.iconAccent}
+          className={cmd.active ? '' : 'text-fg-muted'}
+        />
+      )}
       <span className="flex-1 truncate">{cmd.label}</span>
     </button>
   );

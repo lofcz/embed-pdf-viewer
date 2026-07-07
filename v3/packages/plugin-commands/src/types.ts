@@ -34,12 +34,29 @@ export interface CommandCtx {
   tryGet<T>(token: CapabilityToken<T>): T | null;
 }
 
+/**
+ * Up to two theme colors accompanying a command's icon — typed FACTS any
+ * renderer can interpret (tint a glyph's slots, show a swatch), never
+ * renderer props. The registry carries it the way it carries `icon`: as
+ * data it doesn't interpret. Deliberately NOT v2's `iconProps` bag —
+ * renderer-specific needs live app-side, joined by command id.
+ */
+export interface IconAccent {
+  /** The mark: stroke / markup / font color. */
+  readonly primary?: string;
+  /** The fill, when there is one. */
+  readonly secondary?: string;
+}
+
 export interface CommandDef {
   /** Convention: 'domain:verb' — 'zoom:in', 'mode:annotate', 'panel:search'. */
   readonly id: string;
   /** i18n key, resolved through I18nToken when present (else shown verbatim). */
   readonly labelKey: string;
   readonly icon?: string;
+  /** Live color accent for the icon (a tool previewing its drawing defaults).
+   *  A pure derivation over the store, exactly like `active`/`enabled`. */
+  readonly iconAccent?: (ctx: CommandCtx) => IconAccent | null;
   /** 'Mod+K' style (ui-core grammar). Multiple bindings allowed. */
   readonly shortcut?: string | readonly string[];
   /** Feature-gating tags: a disabled category hides its commands everywhere. */
@@ -72,6 +89,7 @@ export interface ResolvedCommand {
   readonly id: string;
   readonly label: string;
   readonly icon?: string;
+  readonly iconAccent?: IconAccent;
   readonly shortcuts: readonly string[];
   readonly menu?: string;
   readonly enabled: boolean;
