@@ -53,6 +53,10 @@ export const es: Locale = {
       split: 'dividir: añadir otro panel',
       language: 'Idioma',
       documents: { one: '{count} documento', other: '{count} documentos' },
+      zoom: 'Zoom',
+      tools: 'Herramientas',
+      info: 'Información del documento',
+      chromeHint: 'barra medida — arrastra el borde derecho',
     },
   },
 };

@@ -60,6 +60,18 @@
     "./i18n": {
       "types": "./src/i18n.ts",
       "import": "./src/i18n.ts"
+    },
+    "./commands": {
+      "types": "./src/commands.ts",
+      "import": "./src/commands.ts"
+    },
+    "./shell": {
+      "types": "./src/shell.ts",
+      "import": "./src/shell.ts"
+    },
+    "./toolbar": {
+      "types": "./src/toolbar.tsx",
+      "import": "./src/toolbar.tsx"
     }
   },
   "publishConfig": {
@@ -118,6 +130,18 @@
       "./i18n": {
         "types": "./dist/i18n.d.ts",
         "import": "./dist/i18n.js"
+      },
+      "./commands": {
+        "types": "./dist/commands.d.ts",
+        "import": "./dist/commands.js"
+      },
+      "./shell": {
+        "types": "./dist/shell.d.ts",
+        "import": "./dist/shell.js"
+      },
+      "./toolbar": {
+        "types": "./dist/toolbar.d.ts",
+        "import": "./dist/toolbar.js"
       }
     }
   },
@@ -145,7 +169,10 @@
     "@embedpdf-x/plugin-view-manager": "workspace:*",
     "@embedpdf-x/plugin-form": "workspace:*",
     "@embedpdf-x/plugin-search": "workspace:*",
-    "@embedpdf-x/plugin-i18n": "workspace:*"
+    "@embedpdf-x/plugin-i18n": "workspace:*",
+    "@embedpdf-x/plugin-commands": "workspace:*",
+    "@embedpdf-x/plugin-shell": "workspace:*",
+    "@embedpdf-x/ui-core": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18",

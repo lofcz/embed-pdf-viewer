@@ -57,6 +57,10 @@ export const en: Locale = {
       split: 'split: add another pane',
       language: 'Language',
       documents: { one: '{count} document', other: '{count} documents' },
+      zoom: 'Zoom',
+      tools: 'Tools',
+      info: 'Document info',
+      chromeHint: 'measured toolbar — drag the right edge',
     },
   },
 };

@@ -12,3 +12,6 @@ export * from './metadata';
 export { FormLayer, useForm, useFormField } from './form';
 export { SearchLayer, useSearch, useSearchState } from './search';
 export { useI18n, useT, useLocale } from './i18n';
+export * from './commands';
+export * from './shell';
+export * from './toolbar';
