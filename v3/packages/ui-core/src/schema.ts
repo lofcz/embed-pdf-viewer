@@ -52,17 +52,38 @@ export interface BarGroup {
   /** Presentation hint: 'tabs' renders as a tab strip and projects as radio rows. */
   readonly role?: 'buttons' | 'tabs';
   /**
-   * What the WHOLE group degrades to once its children have exhausted their
-   * ladders: a single menu button or a select-style picker. Groups without
-   * `collapse` shed children to the overflow menu one by one instead.
+   * Stage 1 of the GROUP degradation ladder: under pressure, move trailing
+   * children (rightmost first, at the CHILD's importance) into a derived
+   * group-local disclosure — a trigger rendered inside the group opening a
+   * menu of the hidden children. Never sheds the last visible child: below
+   * that floor the group `collapse`s (stage 2) or overflows whole. This is
+   * v2's `overflow-tabs-button`, computed instead of authored.
+   */
+  readonly shed?: boolean;
+  /**
+   * Stage 2: what the WHOLE group degrades to once its children have
+   * exhausted their ladders (and shedding, if enabled, has hit its floor): a
+   * single menu button or a select-style picker. Groups with neither `shed`
+   * nor `collapse` send children to the global overflow menu one by one.
    */
   readonly collapse?: 'menu' | 'select';
   readonly importance?: Importance;
   readonly items: readonly BarChild[];
 }
 
-/** Alignment regions. Separators derive between adjacent visible groups
- *  within a section — never across sections, never from schema data. */
+/**
+ * Alignment regions. Separators derive between adjacent visible groups
+ * within a section — never across sections, never from schema data.
+ *
+ * The names are direction-aware (RTL flips start/end) and `center` is a
+ * SOFT contract: "balance this segment in the space left over by start and
+ * end". With symmetric flanks that coincides with true centering; with a
+ * heavy flank the segment drifts rather than fights — segments never
+ * overlap, matching how every toolbar convention (including v2's
+ * spacer-flanked tabs) treats its middle region. Strict geometric centering
+ * would be a solver concern (a tighter budget: 2×max(start,end)+center),
+ * deliberately not offered until a product needs it.
+ */
 export interface BarSections {
   readonly start?: readonly BarGroup[];
   readonly center?: readonly BarGroup[];
@@ -152,6 +173,7 @@ export interface NormalizedGroup {
   readonly id: string;
   readonly labelKey?: string;
   readonly role: 'buttons' | 'tabs';
+  readonly shed: boolean;
   readonly collapse?: 'menu' | 'select';
   readonly importance: Importance;
   readonly units: readonly NormalizedUnit[];
@@ -213,6 +235,7 @@ export function normalizeBar(bar: BarSchema): NormalizedBar {
           id: g.id,
           labelKey: g.labelKey,
           role: g.role ?? 'buttons',
+          shed: g.shed ?? false,
           collapse: g.collapse,
           importance: g.importance ?? DEFAULT_IMPORTANCE,
           units: g.items.map((c) => normalizeChild(g.id, c, seen)),

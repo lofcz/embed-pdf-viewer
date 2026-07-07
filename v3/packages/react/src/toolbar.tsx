@@ -50,6 +50,21 @@ export interface OverflowMenuView {
   execute(id: string): void;
 }
 
+/**
+ * A shed group's disclosure — the derived trigger rendered INSIDE the group
+ * (v2's overflow-tabs-button). `commands` is what sits behind the trigger:
+ * the shed children in bar order, resolved live. In the measurement layer the
+ * trigger is measured with the FULL group as content, so a count-dependent
+ * trigger (e.g. a "+3" badge) is budgeted at its widest form.
+ */
+export interface GroupDisclosureView {
+  readonly id: string;
+  readonly labelKey?: string;
+  readonly role: 'buttons' | 'tabs';
+  readonly commands: readonly ResolvedCommand[];
+  execute(id: string): void;
+}
+
 export interface ToolbarProps {
   bar: BarSchema;
   /** Px between adjacent items (CSS flex gap; the solver budgets the same number). */
@@ -64,6 +79,9 @@ export interface ToolbarProps {
   renderCustom?: Record<string, (variant: string) => React.ReactNode>;
   /** A group in its collapsed form. Default: <select> for 'select', menu button for 'menu'. */
   renderCollapsed?: (view: CollapsedGroupView) => React.ReactNode;
+  /** A shed group's disclosure trigger (+ its popover — the renderer owns the
+   *  open state). Default: a chevron button opening a radio menu. */
+  renderGroupTrigger?: (view: GroupDisclosureView) => React.ReactNode;
   /** Derived separator between adjacent visible groups. Default: a 1px line. */
   renderSeparator?: () => React.ReactNode;
   renderOverflowTrigger?: (isOpen: boolean, toggle: () => void) => React.ReactNode;
@@ -282,10 +300,57 @@ function CollapsedMenuButton({ view }: { view: CollapsedGroupView }) {
   );
 }
 
+/** Default shed-group disclosure: a chevron opening a radio menu of the
+ *  hidden children — v2's overflow-tabs-button, derived. */
+function DefaultGroupTrigger({ view }: { view: GroupDisclosureView }) {
+  const [isOpen, setOpen] = useState(false);
+  const someActive = view.commands.some((c) => c.active);
+  const sections: OverflowSection[] = [
+    {
+      labelKey: view.labelKey,
+      role: view.role === 'tabs' ? 'radio' : undefined,
+      rows: view.commands.map((c) => ({ type: 'command' as const, command: c.id })),
+    },
+  ];
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        title="More"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '4px 6px',
+          border: '1px solid rgba(0,0,0,0.15)',
+          borderRadius: 4,
+          // hint that the active item is hiding in here
+          background: isOpen || someActive ? 'rgba(0,0,0,0.12)' : 'transparent',
+          cursor: 'pointer',
+        }}
+      >
+        ▾
+      </button>
+      <DefaultOverflowMenu
+        view={{
+          sections,
+          isOpen,
+          close: () => setOpen(false),
+          resolve: (id) => view.commands.find((c) => c.id === id) ?? null,
+          execute: view.execute,
+        }}
+      />
+    </span>
+  );
+}
+
 // ── the toolbar ───────────────────────────────────────────────────────────────
 
 const unitKey = (u: NormalizedUnit, variant: string) => `u:${u.key}@${variant}`;
 const groupKey = (id: string) => `g:${id}`;
+const groupTriggerKey = (id: string) => `gt:${id}`;
 const TRIGGER_KEY = 't:';
 
 export function Toolbar({
@@ -297,6 +362,7 @@ export function Toolbar({
   renderCommand = defaultRenderCommand,
   renderCustom,
   renderCollapsed,
+  renderGroupTrigger,
   renderSeparator = defaultRenderSeparator,
   renderOverflowTrigger = defaultRenderOverflowTrigger,
   renderOverflowMenu,
@@ -350,6 +416,7 @@ export function Toolbar({
   const metrics: FitMetrics = {
     unit: (key, variant) => widthsRef.current.get(`u:${key}@${variant}`),
     groupCollapsed: (id) => widthsRef.current.get(groupKey(id)),
+    groupTrigger: (id) => widthsRef.current.get(groupTriggerKey(id)),
     overflowTrigger: widthsRef.current.get(TRIGGER_KEY) ?? 32,
     gap,
     // The separator is one extra flex child: its element width plus one flex gap.
@@ -407,6 +474,26 @@ export function Toolbar({
       <DefaultCollapsed view={collapsedView(g)} />
     );
 
+  /** The disclosure view: shed children for the live trigger; the WHOLE group
+   *  for the measured trigger, so width is budgeted at its fullest content. */
+  const disclosureView = (g: NormalizedGroup, allChildren: boolean): GroupDisclosureView => ({
+    id: g.id,
+    labelKey: g.labelKey,
+    role: g.role,
+    commands: g.units
+      .filter((u) => allChildren || fit.units.get(u.key)?.kind === 'shed')
+      .map((u) => resolveCmd(commandOf(u)))
+      .filter((c): c is ResolvedCommand => c !== null && c.visible),
+    execute: executeCmd,
+  });
+
+  const renderDisclosure = (g: NormalizedGroup, allChildren: boolean): React.ReactNode =>
+    renderGroupTrigger ? (
+      renderGroupTrigger(disclosureView(g, allChildren))
+    ) : (
+      <DefaultGroupTrigger view={disclosureView(g, allChildren)} />
+    );
+
   const renderLiveGroup = (g: NormalizedGroup): React.ReactNode[] => {
     const assignment = fit.groups.get(g.id);
     if (!assignment || assignment.overflowed) return [];
@@ -417,6 +504,12 @@ export function Toolbar({
       const a = fit.units.get(u.key);
       if (a?.kind !== 'variant') continue;
       nodes.push(<React.Fragment key={u.key}>{renderUnitAt(u, a.variant)}</React.Fragment>);
+    }
+    // The derived group-local disclosure (v2's overflow-tabs-button).
+    if (assignment.shedCount > 0) {
+      nodes.push(
+        <React.Fragment key={`${g.id}::trigger`}>{renderDisclosure(g, false)}</React.Fragment>,
+      );
     }
     return nodes.length ? [<React.Fragment key={g.id}>{nodes}</React.Fragment>] : [];
   };
@@ -437,13 +530,23 @@ export function Toolbar({
   const sectionByName = (name: 'start' | 'center' | 'end') =>
     visibleBar.sections.find((s) => s.name === name);
 
-  const sectionStyle = (justify: string, grow: boolean): React.CSSProperties => ({
+  /**
+   * Segment layout — v2's spacer model, natively. The center segment carries
+   * auto margins: it BALANCES in the leftover space (true center when the
+   * flanks are symmetric) and yields when they aren't, collapsing to zero
+   * before anything can overlap. The container itself has NO gap — segments
+   * space themselves — so the solver's global budget (sum of unit widths +
+   * per-unit gaps) is exactly the layout's minimum width: what the solver
+   * says fits, fits. Its cross-segment gap allowance (≤ 2×gap) becomes slack
+   * the auto margins absorb, keeping ≥ gap between segments at the floor.
+   * Segments never grow or shrink: fit is the SOLVER's job, not flexbox's.
+   */
+  const sectionStyle = (position: 'start' | 'center' | 'end'): React.CSSProperties => ({
     display: 'flex',
     alignItems: 'center',
     gap,
-    justifyContent: justify,
-    flex: grow ? '1 1 0' : '0 0 auto',
-    minWidth: 0,
+    flex: '0 0 auto',
+    ...(position === 'center' ? { marginLeft: 'auto', marginRight: 'auto' } : null),
   });
 
   const overflowView: OverflowMenuView = {
@@ -458,13 +561,11 @@ export function Toolbar({
     <div
       ref={containerRef}
       className={className}
-      style={{ position: 'relative', display: 'flex', alignItems: 'center', gap, ...style }}
+      style={{ position: 'relative', display: 'flex', alignItems: 'center', ...style }}
     >
-      <div style={sectionStyle('flex-start', true)}>
-        {renderLiveSection(sectionByName('start'))}
-      </div>
-      <div style={sectionStyle('center', false)}>{renderLiveSection(sectionByName('center'))}</div>
-      <div style={sectionStyle('flex-end', true)}>
+      <div style={sectionStyle('start')}>{renderLiveSection(sectionByName('start'))}</div>
+      <div style={sectionStyle('center')}>{renderLiveSection(sectionByName('center'))}</div>
+      <div style={sectionStyle('end')}>
         {renderLiveSection(sectionByName('end'))}
         {fit.hasOverflow && (
           <span style={{ position: 'relative', display: 'inline-flex' }}>
@@ -495,6 +596,13 @@ export function Toolbar({
               ? [
                   <Measured key={groupKey(g.id)} k={groupKey(g.id)} onWidth={onWidth}>
                     {renderCollapsedGroup(g)}
+                  </Measured>,
+                ]
+              : []),
+            ...(g.shed
+              ? [
+                  <Measured key={groupTriggerKey(g.id)} k={groupTriggerKey(g.id)} onWidth={onWidth}>
+                    {renderDisclosure(g, true)}
                   </Measured>,
                 ]
               : []),

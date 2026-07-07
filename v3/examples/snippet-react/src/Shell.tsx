@@ -32,6 +32,7 @@ import { ShellToken } from '@embedpdf-x/plugin-shell';
 import { chrome, getModeBar } from './config/chrome';
 import { MODE_SURFACES } from './config/commands';
 import { AppToolbar } from './ui/toolbar';
+import { TabBar } from './ui/tab-bar';
 import { Header, LeftSidebar, RightSidebar, PageControls } from './ui/panels';
 
 function ModeBand() {
@@ -44,7 +45,7 @@ function ModeBand() {
   const bar = getModeBar(activeMode);
   if (!bar) return null;
   return (
-    <div className="border-border-subtle bg-surface-alt flex h-12 shrink-0 items-center border-b px-2">
+    <div className="border-border bg-surface-alt flex shrink-0 items-center border-b px-4 py-2">
       <AppToolbar bar={bar} className="w-full" />
     </div>
   );
@@ -70,9 +71,12 @@ export function Shell() {
     <div className="bg-app text-fg flex h-full flex-col">
       <Header />
 
+      {/* the v2 document tab bar — the kernel's document registry IS the tab model */}
+      <TabBar visibility="always" />
+
       {/* main toolbar — measured; degrades + overflows with zero config.
           Deliberately OUTSIDE the gate: chrome renders before any document. */}
-      <div className="border-border-subtle bg-surface flex h-12 shrink-0 items-center border-b px-2">
+      <div className="border-border bg-surface flex shrink-0 items-center border-b px-4 py-2">
         <AppToolbar bar={chrome.bars.main} className="w-full" />
       </div>
 

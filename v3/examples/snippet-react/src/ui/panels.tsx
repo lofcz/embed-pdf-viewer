@@ -168,7 +168,8 @@ export function RightSidebar() {
 // ── bottom page-controls overlay ─────────────────────────────────────────────
 export function PageControls() {
   const t = useT();
-  const current = useSelector(StageToken, (c) => c.currentPage());
+  // the Stage cursor is a 0-based display index; people count from 1
+  const current = useSelector(StageToken, (c) => c.currentPage() + 1);
   const total = useSelector(StageToken, (c) => c.pageCount());
   if (!total) return null;
   return (

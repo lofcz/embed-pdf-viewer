@@ -44,23 +44,18 @@ async function registerFallbackFonts(engine: Engine): Promise<void> {
   }
 }
 
-export const SAMPLES: ReadonlyArray<{ id: string; name: string; url: string }> = [
-  { id: 'ebook', name: 'Ebook', url: '/ebook.pdf' },
-  { id: 'report', name: 'Whitepaper', url: '/report.pdf' },
-  { id: 'form-sample', name: 'Form', url: '/form-sample.pdf' },
-];
-
 export const fetchBytes = async (url: string): Promise<Uint8Array> =>
   fetch(url).then(async (response) => {
     if (!response.ok) throw new Error(`failed to fetch ${url}: ${response.status}`);
     return new Uint8Array(await response.arrayBuffer());
   });
 
+/** The default document — more arrive via the tab bar's open-file button. */
 export async function loadInitialDocuments(): Promise<InitialDocument[]> {
-  return Promise.all(
-    SAMPLES.map(async ({ id, name, url }) => ({
-      source: { kind: 'bytes', id, bytes: await fetchBytes(url) } as OpenInput,
-      name,
-    })),
-  );
+  return [
+    {
+      source: { kind: 'bytes', id: 'ebook', bytes: await fetchBytes('/ebook.pdf') } as OpenInput,
+      name: 'Ebook',
+    },
+  ];
 }

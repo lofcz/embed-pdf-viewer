@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { group, item, custom, normalizeBar } from './schema';
 import { solve, type FitMetrics } from './solver';
-import { projectOverflow, type ResolveMenuTarget } from './projection';
+import { projectOverflow, projectShed, type ResolveMenuTarget } from './projection';
 
 const metrics: FitMetrics = {
   unit: () => 40,
   groupCollapsed: () => 50,
+  groupTrigger: () => 36,
   overflowTrigger: 40,
   gap: 10,
   separator: 20,
@@ -109,7 +110,7 @@ describe('projectOverflow', () => {
     });
     // Below the collapsed width, the whole tabs group overflows together.
     const fit = solve(bar, metrics, 45);
-    expect(fit.groups.get('modes')).toEqual({ collapsed: true, overflowed: true });
+    expect(fit.groups.get('modes')).toEqual({ shedCount: 0, collapsed: true, overflowed: true });
     expect(projectOverflow(bar, fit, () => ({}))).toEqual([
       {
         labelKey: 'toolbar.modes',
@@ -137,6 +138,42 @@ describe('projectOverflow', () => {
         labelKey: undefined,
         role: undefined,
         rows: [{ type: 'submenu', command: 'zoom:menu', menu: 'zoom' }],
+      },
+    ]);
+  });
+
+  it('keeps shed units OUT of the global overflow — they project via projectShed', () => {
+    const bar = normalizeBar({
+      id: 'b',
+      sections: { start: [group('tabs', { role: 'tabs', shed: true }, ['t1', 't2', 't3'])] },
+    });
+    // 3×40+2×10 = 140. Budget 120: shed t3 → 116+20 = 136 > 120 → shed t2 →
+    // t1 + trigger = 76+10 = 86 ≤ 120.
+    const fit = solve(bar, metrics, 120);
+    expect(projectOverflow(bar, fit, () => ({}))).toEqual([]);
+    expect(projectShed(bar.sections[0].groups[0], fit, () => ({}))).toEqual([
+      { type: 'command', command: 't2' },
+      { type: 'command', command: 't3' },
+    ]);
+  });
+
+  it('projects a fully-overflowed shed group globally (radio section), with an empty disclosure', () => {
+    const bar = normalizeBar({
+      id: 'b',
+      sections: { start: [group('tabs', { role: 'tabs', shed: true }, ['t1', 't2', 't3'])] },
+    });
+    // Floor (t1 + trigger = 86) doesn't fit in 50 → the whole group overflows.
+    const fit = solve(bar, metrics, 50);
+    expect(projectShed(bar.sections[0].groups[0], fit, () => ({}))).toEqual([]);
+    expect(projectOverflow(bar, fit, () => ({}))).toEqual([
+      {
+        labelKey: undefined,
+        role: 'radio',
+        rows: [
+          { type: 'command', command: 't1' },
+          { type: 'command', command: 't2' },
+          { type: 'command', command: 't3' },
+        ],
       },
     ]);
   });

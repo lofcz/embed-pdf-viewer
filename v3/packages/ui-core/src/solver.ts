@@ -1,24 +1,33 @@
 /**
  * The fit solver — pure. Given a normalized bar, measured widths, and the
- * container budget, decide what every unit renders as: a variant, part of a
- * collapsed group, or the overflow menu.
+ * container budget, decide what every unit renders as: a variant, shed into
+ * its group's disclosure, part of a collapsed group, or the overflow menu.
  *
  * Deterministic degradation policy, applied while over budget:
  *   1. among all available steps, take the one owned by the LOWEST-importance
- *      unit/group; ties prefer variant-step < group-collapse < overflow;
+ *      unit/group; ties prefer variant < shed < group-collapse < overflow;
  *      remaining ties degrade the RIGHTMOST first (end of bar yields first).
- *   2. a unit's variant steps run out before it may overflow.
- *   3. a group with `collapse` collapses only after every child sits on its
- *      last variant; once collapsed it degrades further as ONE unit (the
- *      whole group overflows together — a select can't half-overflow).
- *   4. pinned (importance 5) units/groups may degrade variants but never
- *      collapse away and never overflow. Everything else can ALWAYS reach the
+ *   2. a unit's variant steps run out before it may shed or overflow.
+ *   3. a `shed` group moves children (at the CHILD's importance) into a
+ *      group-local disclosure, but never below ONE visible child — the floor.
+ *   4. a group with `collapse` collapses only after every child sits on its
+ *      last variant AND shedding (if enabled) has hit its floor; once
+ *      collapsed it degrades further as ONE unit (the whole group overflows
+ *      together — a select can't half-overflow). A shed group WITHOUT
+ *      `collapse` overflows whole at the floor instead.
+ *   5. pinned (importance 5) units/groups may degrade variants but never
+ *      shed, collapse away, or overflow. Everything else can ALWAYS reach the
  *      overflow menu, so any bar fits any width whose pinned floor fits.
+ *
+ * So the full group ladder mirrors the item ladder:
+ *   items:  richest variant → … → smallest variant → (shed |) overflow
+ *   groups: all children → shed to floor → collapsed control → overflow
  *
  * The overflow trigger occupies space only when something overflowed: solve
  * once without it; if anything overflowed, solve again with the trigger's
  * width reserved (a smaller budget can only overflow MORE, so two passes
- * reach the fixpoint).
+ * reach the fixpoint). A group's disclosure trigger is budgeted the same way,
+ * inside `measure`, whenever that group has shed children.
  *
  * Missing measurements count as width 0 and are reported via `complete:
  * false` — callers render the first frame from an incomplete solve and
@@ -32,6 +41,8 @@ export interface FitMetrics {
   unit(key: string, variant: string): number | undefined;
   /** Width of group `id` rendered in its collapsed form ('menu' | 'select'). */
   groupCollapsed(groupId: string): number | undefined;
+  /** Width of group `id`'s disclosure trigger (shed groups only). */
+  groupTrigger(groupId: string): number | undefined;
   /** Width of the overflow trigger button. */
   readonly overflowTrigger: number;
   /** Gap between adjacent visible units. */
@@ -42,10 +53,13 @@ export interface FitMetrics {
 
 export type UnitAssignment =
   | { readonly kind: 'variant'; readonly variant: string }
+  | { readonly kind: 'shed' } // hidden behind its group's disclosure trigger
   | { readonly kind: 'collapsed' } // hidden behind its group's collapsed control
   | { readonly kind: 'overflow' };
 
 export interface GroupAssignment {
+  /** How many children sit behind the group's disclosure trigger. */
+  readonly shedCount: number;
   /** The group renders as its single collapsed control. */
   readonly collapsed: boolean;
   /** No part of the group is visible in the bar. */
@@ -69,6 +83,7 @@ interface UnitState {
   group: GroupState;
   /** Index into unit.variants (0 = richest). */
   variantIndex: number;
+  shed: boolean;
   overflowed: boolean;
   /** Position in bar order — rightmost-first tie-breaking. */
   position: number;
@@ -84,16 +99,18 @@ interface GroupState {
 
 type Step =
   | { type: 'variant'; importance: number; position: number; unit: UnitState }
+  | { type: 'shed'; importance: number; position: number; unit: UnitState }
   | { type: 'collapse'; importance: number; position: number; group: GroupState }
   | { type: 'overflow-unit'; importance: number; position: number; unit: UnitState }
   | { type: 'overflow-group'; importance: number; position: number; group: GroupState };
 
-/** variant < collapse < overflow when importance ties. */
+/** variant < shed < collapse < overflow when importance ties. */
 const STEP_RANK: Record<Step['type'], number> = {
   variant: 0,
-  collapse: 1,
-  'overflow-unit': 2,
-  'overflow-group': 2,
+  shed: 1,
+  collapse: 2,
+  'overflow-unit': 3,
+  'overflow-group': 3,
 };
 
 function buildState(bar: NormalizedBar): GroupState[] {
@@ -109,7 +126,14 @@ function buildState(bar: NormalizedBar): GroupState[] {
         units: [],
       };
       for (const u of g.units) {
-        gs.units.push({ unit: u, group: gs, variantIndex: 0, overflowed: false, position });
+        gs.units.push({
+          unit: u,
+          group: gs,
+          variantIndex: 0,
+          shed: false,
+          overflowed: false,
+          position,
+        });
         position += 1;
       }
       groups.push(gs);
@@ -149,8 +173,9 @@ function nextStep(groups: GroupState[]): Step | null {
     }
 
     let childrenExhausted = true;
+    const visibleCount = gs.units.filter((u) => !u.overflowed && !u.shed).length;
     for (const us of gs.units) {
-      if (us.overflowed) continue;
+      if (us.overflowed || us.shed) continue;
       if (us.variantIndex < us.unit.variants.length - 1) {
         childrenExhausted = false;
         consider({
@@ -159,24 +184,49 @@ function nextStep(groups: GroupState[]): Step | null {
           position: us.position,
           unit: us,
         });
-      } else if (!gs.group.collapse && us.unit.importance < PINNED) {
-        // No collapse mode: children shed to the overflow menu individually.
-        consider({
-          type: 'overflow-unit',
-          importance: us.unit.importance,
-          position: us.position,
-          unit: us,
-        });
+      } else if (us.unit.importance < PINNED) {
+        if (gs.group.shed && visibleCount > 1) {
+          // Stage 1: move the child behind the group's disclosure trigger —
+          // never below one visible child (the floor).
+          consider({
+            type: 'shed',
+            importance: us.unit.importance,
+            position: us.position,
+            unit: us,
+          });
+        } else if (!gs.group.shed && !gs.group.collapse) {
+          // Plain group: children go to the GLOBAL overflow individually.
+          consider({
+            type: 'overflow-unit',
+            importance: us.unit.importance,
+            position: us.position,
+            unit: us,
+          });
+        }
       }
     }
 
-    if (gs.group.collapse && childrenExhausted && gs.group.importance < PINNED) {
-      consider({
-        type: 'collapse',
-        importance: gs.group.importance,
-        position: groupPosition,
-        group: gs,
-      });
+    // Stage 2 (terminal for the expanded form): available only once variants
+    // are exhausted AND shedding — if enabled — sits at its floor.
+    const shedExhausted = !gs.group.shed || visibleCount <= 1;
+    if (childrenExhausted && shedExhausted && gs.group.importance < PINNED) {
+      if (gs.group.collapse) {
+        consider({
+          type: 'collapse',
+          importance: gs.group.importance,
+          position: groupPosition,
+          group: gs,
+        });
+      } else if (gs.group.shed) {
+        // Shed group without a collapsed form: at the floor the WHOLE group
+        // (visible + shed children) moves to the global overflow together.
+        consider({
+          type: 'overflow-group',
+          importance: gs.group.importance,
+          position: groupPosition,
+          group: gs,
+        });
+      }
     }
   }
   return best;
@@ -186,6 +236,9 @@ function applyStep(step: Step): void {
   switch (step.type) {
     case 'variant':
       step.unit.variantIndex += 1;
+      return;
+    case 'shed':
+      step.unit.shed = true;
       return;
     case 'collapse':
       step.group.collapsed = true;
@@ -208,7 +261,13 @@ interface Measured {
   complete: boolean;
 }
 
-/** Visible width of the current assignment: unit widths + gaps + derived separators. */
+/**
+ * Visible width of the current assignment: unit widths + gaps + derived
+ * separators. Gaps are counted between ALL adjacent visible units, including
+ * across section boundaries — deliberately conservative: the adapter's layout
+ * spaces sections with collapsing auto margins, so the cross-section gap
+ * allowance (≤ 2×gap) is slack those margins absorb, never an overlap risk.
+ */
 function measure(groups: GroupState[], metrics: FitMetrics, hasTrigger: boolean): Measured {
   let width = 0;
   let complete = true;
@@ -228,9 +287,22 @@ function measure(groups: GroupState[], metrics: FitMetrics, hasTrigger: boolean)
       continue;
     }
     let groupVisible = false;
+    let shedCount = 0;
     for (const us of gs.units) {
       if (us.overflowed) continue;
+      if (us.shed) {
+        shedCount += 1;
+        continue;
+      }
       const w = metrics.unit(us.unit.key, us.unit.variants[us.variantIndex]);
+      if (w === undefined) complete = false;
+      width += w ?? 0;
+      visibleUnits += 1;
+      groupVisible = true;
+    }
+    if (shedCount > 0) {
+      // The group's disclosure trigger takes real space, like any unit.
+      const w = metrics.groupTrigger(gs.group.id);
       if (w === undefined) complete = false;
       width += w ?? 0;
       visibleUnits += 1;
@@ -284,7 +356,14 @@ export function solve(bar: NormalizedBar, metrics: FitMetrics, containerWidth: n
   const units = new Map<string, UnitAssignment>();
   const groupAssignments = new Map<string, GroupAssignment>();
   for (const gs of pass.groups) {
-    groupAssignments.set(gs.group.id, { collapsed: gs.collapsed, overflowed: gs.overflowed });
+    // Overflow ≻ collapsed ≻ shed: a group that shed a few children and THEN
+    // collapsed (or overflowed) subsumes them into the later, stronger state.
+    const shedCount = gs.units.filter((u) => u.shed && !u.overflowed && !gs.collapsed).length;
+    groupAssignments.set(gs.group.id, {
+      shedCount,
+      collapsed: gs.collapsed,
+      overflowed: gs.overflowed,
+    });
     for (const us of gs.units) {
       units.set(
         us.unit.key,
@@ -292,7 +371,9 @@ export function solve(bar: NormalizedBar, metrics: FitMetrics, containerWidth: n
           ? { kind: 'overflow' }
           : gs.collapsed
             ? { kind: 'collapsed' }
-            : { kind: 'variant', variant: us.unit.variants[us.variantIndex] },
+            : us.shed
+              ? { kind: 'shed' }
+              : { kind: 'variant', variant: us.unit.variants[us.variantIndex] },
       );
     }
   }

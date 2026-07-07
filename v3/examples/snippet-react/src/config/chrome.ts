@@ -23,32 +23,41 @@ const history = group('history', { importance: 3 }, ['history:undo', 'history:re
 const mainBar: BarSchema = {
   id: 'main',
   sections: {
+    // v2 layout: everything before the first spacer sits LEFT-aligned —
+    // document menu, workspace, zoom strip, pan/pointer. Only the mode tabs
+    // are truly centered.
     start: [
       group('document', { importance: 5 }, [item('document:menu')]),
       group('workspace', { importance: 4 }, [
         item('panel:sidebar', { importance: 5 }),
         item('page:settings'),
       ]),
-    ],
-    center: [
       // The inline zoom strip; when it can't fit it renders its 'button'
       // variant, and in the overflow menu it projects through zoom:menu.
       group('zoom', { importance: 4 }, [
         custom('zoom-controls', { variants: ['inline', 'button'], terminal: 'zoom:menu' }),
       ]),
       group('tools', { importance: 2 }, ['pan:toggle', 'pointer:toggle']),
+    ],
+    center: [
       group('modes', {
         role: 'tabs',
-        collapse: 'select', // the v2 mode-select-button, now derived
+        // The group ladder: full strip → trailing tabs shed behind a derived
+        // in-strip chevron (v2's overflow-tabs-button) → select (v2's
+        // mode-select-button) → global overflow. Tab items at importance 1 so
+        // the strip is the FIRST thing to compact; the group at 4 so its
+        // compact forms survive long.
+        shed: true,
+        collapse: 'select',
         importance: 4,
         labelKey: 'commands.mode.group',
         items: [
-          item('mode:view', { variants: ['label'] }),
-          item('mode:annotate', { variants: ['label'] }),
-          item('mode:shapes', { variants: ['label'] }),
-          item('mode:insert', { variants: ['label'] }),
-          item('mode:form', { variants: ['label'] }),
-          item('mode:redact', { variants: ['label'] }),
+          item('mode:view', { variants: ['label'], importance: 1 }),
+          item('mode:annotate', { variants: ['label'], importance: 1 }),
+          item('mode:shapes', { variants: ['label'], importance: 1 }),
+          item('mode:insert', { variants: ['label'], importance: 1 }),
+          item('mode:form', { variants: ['label'], importance: 1 }),
+          item('mode:redact', { variants: ['label'], importance: 1 }),
         ],
       }),
     ],

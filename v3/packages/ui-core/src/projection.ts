@@ -15,7 +15,7 @@
  * overflowed units; empty sections vanish. This is what replaces every
  * hand-written overflow/action menu in v2 — same information, one source.
  */
-import type { NormalizedBar, NormalizedUnit } from './schema';
+import type { NormalizedBar, NormalizedGroup, NormalizedUnit } from './schema';
 import type { FitResult } from './solver';
 
 export type OverflowRow =
@@ -54,6 +54,8 @@ export function projectOverflow(
   const sections: OverflowSection[] = [];
   for (const section of bar.sections) {
     for (const group of section.groups) {
+      // Shed units are NOT here: they're reachable through the group's own
+      // disclosure trigger (projectShed). Only true overflow leaves the group.
       const rows = group.units
         .filter((u) => fit.units.get(u.key)?.kind === 'overflow')
         .map((u) => projectUnit(u, resolve));
@@ -66,4 +68,19 @@ export function projectOverflow(
     }
   }
   return sections;
+}
+
+/**
+ * The content of a group's disclosure trigger: its shed units, in bar order,
+ * in menu form — same totality rules as the global overflow. This is v2's
+ * hand-written `mode-tabs-overflow-menu`, derived.
+ */
+export function projectShed(
+  group: NormalizedGroup,
+  fit: FitResult,
+  resolve: ResolveMenuTarget,
+): OverflowRow[] {
+  return group.units
+    .filter((u) => fit.units.get(u.key)?.kind === 'shed')
+    .map((u) => projectUnit(u, resolve));
 }

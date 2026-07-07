@@ -30,7 +30,7 @@ export type {
 export { solve } from './solver';
 export type { FitMetrics, FitResult, GroupAssignment, UnitAssignment } from './solver';
 
-export { projectOverflow } from './projection';
+export { projectOverflow, projectShed } from './projection';
 export type { OverflowRow, OverflowSection, ResolveMenuTarget } from './projection';
 
 export { formatShortcut, matchShortcut, parseShortcut } from './shortcuts';

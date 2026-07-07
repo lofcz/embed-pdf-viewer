@@ -2,26 +2,47 @@
  * The app's toolbar look — Tailwind render props over the headless <Toolbar>.
  * The app owns the pixels; ui-core owns the physics (measure → solve →
  * overflow). Nothing here knows about breakpoints or widths.
+ *
+ * Styling is a 1:1 port of the v2 snippet's components:
+ *   Button      → viewers/snippet/src/components/ui/button.tsx
+ *   TabButton   → viewers/snippet/src/components/ui/tab-button.tsx (underline)
+ *   zoom widget → viewers/snippet/src/components/custom-zoom-toolbar.tsx
+ *   mode select → viewers/snippet/src/components/mode-select-button.tsx
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Toolbar,
-  useCommand,
   useCommands,
   useMenus,
   useT,
+  useOptionalCapability,
   useOptionalSelector,
 } from '@embedpdf-x/react';
-import type { CollapsedGroupView, OverflowMenuView } from '@embedpdf-x/react';
+import type { CollapsedGroupView, GroupDisclosureView, OverflowMenuView } from '@embedpdf-x/react';
 import type { ResolvedCommand } from '@embedpdf-x/plugin-commands';
 import type { BarSchema } from '@embedpdf-x/ui-core';
 import { StageToken } from '@embedpdf-x/plugin-stage';
 import { Icon } from './icons';
 import { MenuBody, Popover, InlineSubmenu } from './menu';
 
-const BTN =
-  'inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-2 text-fg-secondary transition-colors hover:bg-hover disabled:pointer-events-none disabled:opacity-40';
-const BTN_ACTIVE = 'bg-accent-light text-accent hover:bg-accent-light';
+// ── the v2 Button recipe ──────────────────────────────────────────────────────
+const BTN_BASE =
+  'flex h-8 w-auto min-w-8 cursor-pointer items-center justify-center rounded-md p-[5px] transition-colors';
+const BTN_HOVER = 'hover:bg-hover hover:ring hover:ring-accent';
+const BTN_ACTIVE = 'border-none bg-selected text-accent shadow ring ring-accent';
+const BTN_DISABLED = 'cursor-not-allowed opacity-50 hover:bg-transparent hover:ring-0';
+
+export const buttonClass = (active: boolean, enabled = true): string =>
+  `${BTN_BASE} ${active ? BTN_ACTIVE : BTN_HOVER} ${enabled ? '' : BTN_DISABLED}`;
+
+// ── the v2 TabButton recipe (the underline) ───────────────────────────────────
+const TAB_BASE =
+  'flex h-8 w-auto min-w-8 cursor-pointer items-center justify-center rounded-none border-b-2 px-2 py-1 text-sm transition-colors hover:bg-transparent hover:border-b-fg-muted';
+const TAB_ACTIVE = 'border-b-accent text-accent hover:border-b-accent';
+const TAB_INACTIVE = 'border-b-transparent';
+
+const tabClass = (active: boolean, enabled = true): string =>
+  `${TAB_BASE} ${active ? TAB_ACTIVE : TAB_INACTIVE} ${enabled ? '' : 'cursor-not-allowed opacity-50'}`;
 
 // ── a single command button (icon / icon+label / label=tab) ──────────────────
 function CommandButton({
@@ -34,15 +55,9 @@ function CommandButton({
   run: () => void;
 }) {
   const isTab = variant === 'label';
-  const showLabel = variant === 'label' || variant === 'icon+label';
-  const showIcon = variant !== 'label' && Boolean(cmd.icon);
 
-  const className = isTab
-    ? `inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors ${
-        cmd.active ? 'bg-accent-light text-accent' : 'text-fg-secondary hover:bg-hover'
-      }`
-    : `${BTN} ${cmd.active ? BTN_ACTIVE : ''} ${showLabel ? 'text-sm' : 'w-9'}`;
-
+  // v2 buttons carry NO caret — a menu command is a plain icon button; the
+  // `menu:` declaration still drives aria-haspopup and the anchored popover.
   const button = (
     <button
       type="button"
@@ -50,17 +65,25 @@ function CommandButton({
       disabled={!cmd.enabled}
       aria-pressed={cmd.active || undefined}
       aria-haspopup={cmd.menu ? 'menu' : undefined}
+      aria-label={cmd.label}
       title={cmd.label}
-      className={className}
+      className={isTab ? tabClass(cmd.active, cmd.enabled) : buttonClass(cmd.active, cmd.enabled)}
     >
-      {showIcon && <Icon name={cmd.icon!} size={20} />}
-      {showLabel && <span className="truncate">{cmd.label}</span>}
-      {cmd.menu && <Icon name="chevronDown" size={14} />}
+      {isTab ? (
+        <span className="whitespace-nowrap px-1">{cmd.label}</span>
+      ) : variant === 'icon+label' ? (
+        <span className="flex items-center whitespace-nowrap text-sm">
+          {cmd.icon && <Icon name={cmd.icon} size={20} className="mr-1.5 shrink-0" />}
+          <span>{cmd.label}</span>
+        </span>
+      ) : cmd.icon ? (
+        <Icon name={cmd.icon} size={20} />
+      ) : (
+        <span className="text-sm">{cmd.label}</span>
+      )}
     </button>
   );
 
-  // A menu command anchors its dropdown to itself; it's open iff the shell
-  // menu is open (which is what `active` reflects for menu commands).
   if (!cmd.menu) return button;
   return <MenuAnchoredButton cmd={cmd}>{button}</MenuAnchoredButton>;
 }
@@ -86,42 +109,76 @@ function MenuAnchoredButton({
   );
 }
 
-// ── the inline zoom widget (the 'zoom-controls' custom slot) ─────────────────
+// ── the inline zoom widget — v2's custom-zoom-toolbar, 1:1 ───────────────────
 function ZoomControls() {
   const commands = useCommands();
   const menus = useMenus();
+  const stage = useOptionalCapability(StageToken);
   // Null-safe: the zoom strip is main-toolbar chrome, mounted before any
   // document exists — it reads 100% until a Stage is there to ask.
   const level = useOptionalSelector(StageToken, (c) => c.zoomLevel(), 1);
   const pct = Math.round((level ?? 1) * 100);
-  const open = menus.isOpen('zoom');
+  const [inputValue, setInputValue] = useState(String(pct));
+  useEffect(() => setInputValue(String(pct)), [pct]);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = parseFloat(inputValue);
+    if (!isNaN(value) && value > 0) stage?.zoomTo({ level: value / 100 });
+  };
+
   return (
-    <div className="border-border-subtle relative inline-flex h-9 items-center rounded-md border">
-      <button
-        type="button"
-        title="Zoom out"
-        className={`${BTN} w-8 rounded-r-none`}
-        onClick={() => commands.execute('zoom:out')}
-      >
-        <Icon name="zoomOut" size={18} />
-      </button>
-      <button
-        type="button"
-        className="text-fg-secondary hover:bg-hover flex h-9 min-w-14 items-center justify-center gap-1 px-1 text-sm tabular-nums"
-        onClick={() => menus.toggle('zoom')}
-      >
-        {pct}%
-        <Icon name="chevronDown" size={14} />
-      </button>
-      <button
-        type="button"
-        title="Zoom in"
-        className={`${BTN} w-8 rounded-l-none`}
-        onClick={() => commands.execute('zoom:in')}
-      >
-        <Icon name="zoomIn" size={18} />
-      </button>
-      {open && (
+    <div className="relative">
+      <div className="bg-hover flex items-center rounded">
+        {/* editable zoom percentage */}
+        <form
+          onSubmit={submit}
+          className="flex min-w-0 flex-nowrap items-center overflow-hidden whitespace-nowrap"
+        >
+          <input
+            name="zoom"
+            type="text"
+            inputMode="numeric"
+            pattern="\d*"
+            aria-label="Set zoom"
+            className="h-6 w-8 min-w-0 shrink border-0 bg-transparent p-0 text-right text-sm outline-none focus:outline-none"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value.replace(/[^0-9]/g, ''))}
+            onBlur={() => {
+              if (!inputValue || parseFloat(inputValue) <= 0) setInputValue(String(pct));
+            }}
+          />
+          <span className="shrink-0 text-sm">%</span>
+        </form>
+        {/* zoom menu chevron */}
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={menus.isOpen('zoom')}
+          title="Zoom options"
+          className={buttonClass(false)}
+          onClick={() => menus.toggle('zoom')}
+        >
+          <Icon name="chevronDown" size={20} />
+        </button>
+        <button
+          type="button"
+          title="Zoom out"
+          className={buttonClass(false)}
+          onClick={() => commands.execute('zoom:out')}
+        >
+          <Icon name="zoomOut" size={20} />
+        </button>
+        <button
+          type="button"
+          title="Zoom in"
+          className={buttonClass(false)}
+          onClick={() => commands.execute('zoom:in')}
+        >
+          <Icon name="zoomIn" size={20} />
+        </button>
+      </div>
+      {menus.isOpen('zoom') && (
         <Popover onClose={() => menus.close('zoom')}>
           <MenuBody menuId="zoom" onRun={() => menus.close('zoom')} />
         </Popover>
@@ -138,7 +195,9 @@ function ZoomButton() {
       <button
         type="button"
         title="Zoom"
-        className={`${BTN} w-9`}
+        aria-haspopup="menu"
+        aria-expanded={menus.isOpen('zoom')}
+        className={buttonClass(menus.isOpen('zoom'))}
         onClick={() => menus.toggle('zoom')}
       >
         <Icon name="zoomIn" size={20} />
@@ -152,21 +211,21 @@ function ZoomButton() {
   );
 }
 
-// ── the collapsed modes group (v2's mode-select-button, derived) ─────────────
-function CollapsedModes({ view }: { view: CollapsedGroupView }) {
-  const t = useT();
+// ── a shed group's in-strip disclosure (v2's overflow-tabs-button, derived) ──
+function GroupTrigger({ view }: { view: GroupDisclosureView }) {
   const [open, setOpen] = useState(false);
-  const active = view.commands.find((c) => c.active) ?? view.commands[0];
+  // The active tab may be hiding behind the chevron — hint at it, tab-style.
+  const activeHidden = view.commands.some((c) => c.active);
   return (
     <span className="relative inline-flex">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`${BTN} text-sm`}
         aria-haspopup="menu"
+        aria-expanded={open}
+        className={tabClass(activeHidden)}
       >
-        <span className="truncate">{active?.label ?? t(view.labelKey ?? '')}</span>
-        <Icon name="chevronDown" size={14} />
+        <Icon name="chevronDown" size={18} />
       </button>
       {open && (
         <Popover onClose={() => setOpen(false)}>
@@ -175,12 +234,15 @@ function CollapsedModes({ view }: { view: CollapsedGroupView }) {
               <button
                 key={c.id}
                 type="button"
+                role={view.role === 'tabs' ? 'menuitemradio' : 'menuitem'}
+                aria-checked={view.role === 'tabs' ? c.active : undefined}
+                disabled={!c.enabled}
                 onClick={() => {
                   view.execute(c.id);
                   setOpen(false);
                 }}
-                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm ${
-                  c.active ? 'bg-accent-light text-accent' : 'text-fg-secondary hover:bg-hover'
+                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
+                  c.active ? 'bg-selected text-accent' : 'text-fg-secondary hover:bg-hover'
                 }`}
               >
                 {c.label}
@@ -190,6 +252,59 @@ function CollapsedModes({ view }: { view: CollapsedGroupView }) {
         </Popover>
       )}
     </span>
+  );
+}
+
+// ── the collapsed modes group — v2's mode-select-button, 1:1 ─────────────────
+function CollapsedModes({ view }: { view: CollapsedGroupView }) {
+  const [open, setOpen] = useState(false);
+  const active = view.commands.find((c) => c.active) ?? view.commands[0];
+  // v2 highlights the control whenever a non-default mode is active.
+  const isActive = Boolean(active?.active && active.id !== 'mode:view');
+  return (
+    <div style={{ width: 100 }} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="bg-surface hover:bg-hover flex w-full cursor-pointer appearance-none items-center rounded-md py-1.5 pl-3 pr-2 text-[13px] transition-colors"
+      >
+        <span
+          className={`min-w-0 flex-1 truncate text-left ${isActive ? 'text-accent' : 'text-fg'}`}
+        >
+          {active?.label}
+        </span>
+        <Icon
+          name="chevronDown"
+          size={16}
+          className={isActive ? 'text-accent' : 'text-fg-secondary'}
+        />
+      </button>
+      {open && (
+        <Popover onClose={() => setOpen(false)}>
+          <div className="min-w-44 p-1">
+            {view.commands.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={c.active}
+                onClick={() => {
+                  view.execute(c.id);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm ${
+                  c.active ? 'bg-selected text-accent' : 'text-fg-secondary hover:bg-hover'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </Popover>
+      )}
+    </div>
   );
 }
 
@@ -225,9 +340,9 @@ function OverflowMenu({ view }: { view: OverflowMenuView }) {
                     view.execute(row.command);
                     view.close();
                   }}
-                  className={`hover:bg-hover flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-sm disabled:pointer-events-none disabled:opacity-40 ${
+                  className={`flex w-full items-center gap-3 rounded-md px-2.5 py-1.5 text-left text-sm disabled:cursor-not-allowed disabled:opacity-50 ${
                     cmd.active ? 'text-accent' : 'text-fg-secondary'
-                  }`}
+                  } hover:bg-hover`}
                 >
                   <span className="text-fg-muted flex w-4 justify-center">
                     {cmd.active && section.role === 'radio' ? (
@@ -256,7 +371,7 @@ function OverflowTrigger({ isOpen, toggle }: { isOpen: boolean; toggle: () => vo
       aria-haspopup="menu"
       aria-expanded={isOpen}
       title={t('demo.more')}
-      className={`${BTN} w-9 ${isOpen ? BTN_ACTIVE : ''}`}
+      className={buttonClass(isOpen)}
     >
       <Icon name="dots" size={20} />
     </button>
@@ -268,14 +383,16 @@ export function AppToolbar({ bar, className }: { bar: BarSchema; className?: str
   return (
     <Toolbar
       bar={bar}
-      gap={6}
+      gap={8} // v2 toolbar gap-2
+      separatorWidth={1}
       className={className}
       renderCommand={(cmd, variant, run) => <CommandButton cmd={cmd} variant={variant} run={run} />}
       renderCustom={{
         'zoom-controls': (variant) => (variant === 'inline' ? <ZoomControls /> : <ZoomButton />),
       }}
       renderCollapsed={(view) => (view.id === 'modes' ? <CollapsedModes view={view} /> : undefined)}
-      renderSeparator={() => <span className="bg-border-subtle mx-0.5 h-6 w-px self-center" />}
+      renderGroupTrigger={(view) => <GroupTrigger view={view} />}
+      renderSeparator={() => <span className="bg-border h-6 w-px self-center" />}
       renderOverflowTrigger={(isOpen, toggle) => (
         <OverflowTrigger isOpen={isOpen} toggle={toggle} />
       )}
