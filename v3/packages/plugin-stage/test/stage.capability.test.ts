@@ -479,15 +479,18 @@ describe('smooth scroll via the injected scheduler', () => {
   });
 });
 
-describe('placement duality: center when it fits, start when it overflows', () => {
-  it('zoomed OUT, goToPage centers the page in the viewport', () => {
+describe('arrival is ZOOM-INVARIANT: the landing rule never depends on magnification', () => {
+  it('zoomed OUT, goToPage lands the page top at the gutter — same as zoomed in', () => {
+    // The old model flipped here (fitting page → centered); landing is now
+    // policy: start/start reads the same at every zoom. The next page peeks
+    // below — the Chrome/Acrobat continuous feel.
     const { stage } = harness(PORTRAIT);
     stage.zoomTo({ level: 0.5 }); // page = 300x400, fits — but page 2 is OFF-screen
     stage.goToPage(2, { behavior: 'instant' });
     const box = stage.pageRect(3)!;
-    const center = stage.toScreen({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
-    expect(center.x).toBeCloseTo(500, 0);
-    expect(center.y).toBeCloseTo(350, 0);
+    expect(stage.toScreen({ x: 0, y: box.y }).y).toBeCloseTo(PAD, 0);
+    // x has no real freedom (the SCENE fits) → the fitAlign rest keeps it centered
+    expect(stage.toScreen({ x: box.x + box.width / 2, y: 0 }).x).toBeCloseTo(500, 0);
   });
 
   it('zoomed IN, goToPage goes to the page top-left (a padding out)', () => {
@@ -498,6 +501,57 @@ describe('placement duality: center when it fits, start when it overflows', () =
     const topLeft = stage.toScreen({ x: box.x, y: box.y });
     expect(topLeft.x).toBeCloseTo(PAD, 0);
     expect(topLeft.y).toBeCloseTo(PAD, 0);
+  });
+
+  it('center/center: the presentation feel is consistent too — centered at EVERY zoom', () => {
+    const { stage } = harness(PORTRAIT, {
+      arrivalAlign: { x: 'center', y: 'center' },
+      bounded: false, // canvas feel — and proves placement needs no real clamp
+    });
+    for (const level of [0.5, 2]) {
+      stage.zoomTo({ level });
+      stage.goToPage(2, { behavior: 'instant' });
+      const box = stage.pageRect(3)!;
+      const center = stage.toScreen({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+      expect(center.x).toBeCloseTo(500, 0);
+      expect(center.y).toBeCloseTo(350, 0);
+    }
+  });
+
+  it('a fraction lands the page center at that viewport line (the find-bar feel)', () => {
+    const { stage } = harness(PORTRAIT, {
+      arrivalAlign: { x: 'center', y: 0.35 },
+      bounded: false,
+      zoom: { level: 0.5 },
+    });
+    stage.goToPage(2, { behavior: 'instant' });
+    const box = stage.pageRect(3)!;
+    expect(stage.toScreen({ x: 0, y: box.y + box.height / 2 }).y).toBeCloseTo(700 * 0.35, 0);
+  });
+
+  it("x:'keep' — page forward, hold the horizontal pan (two-column reading)", () => {
+    const { stage } = harness(PORTRAIT, {
+      zoom: { level: 2 },
+      arrivalAlign: { x: 'keep', y: 'start' },
+    });
+    stage.goToPage(0, { behavior: 'instant' });
+    stage.panBy(-200, 0); // pan into the right column
+    const x = stage.camera().x;
+    stage.next({ behavior: 'instant' });
+    expect(stage.currentPage()).toBe(1);
+    expect(stage.camera().x).toBeCloseTo(x, 4); // the pan survived the page turn
+    const box = stage.pageRect(2)!;
+    expect(stage.toScreen({ x: 0, y: box.y }).y).toBeCloseTo(PAD, 0); // y landed fresh
+  });
+
+  it('a per-call arrivalAlign overrides the setting for THIS arrival only', () => {
+    const { stage } = harness(PORTRAIT, { zoom: { level: 0.5 }, bounded: false });
+    stage.goToPage(2, { behavior: 'instant', arrivalAlign: { y: 'center' } });
+    const box = stage.pageRect(3)!;
+    expect(stage.toScreen({ x: 0, y: box.y + box.height / 2 }).y).toBeCloseTo(350, 0);
+    stage.goToPage(3, { behavior: 'instant' }); // back to the setting: top
+    const b3 = stage.pageRect(4)!;
+    expect(stage.toScreen({ x: 0, y: b3.y }).y).toBeCloseTo(PAD, 0);
   });
 });
 
@@ -625,17 +679,19 @@ describe('cursor is INTENT: a clamped camera never revokes navigation', () => {
     expect(stage.currentPage()).toBeGreaterThan(0); // derived from the camera
   });
 
-  it('navigation is CANONICAL: visible-but-off-center targets still settle into place', () => {
+  it('navigation is CANONICAL: visible-but-off-position targets still settle into place', () => {
     // The 95% symptom: page fits the viewport (fits both axes at 0.8), you're at the
-    // right edge, the target is visible but off-center — prev must still center it,
-    // exactly as it would at 115%. No visibility-dependent behavior.
+    // right edge, the target is visible but off-position — prev must still settle it
+    // at its canonical landing, exactly as it would at 115%. No visibility-dependent
+    // behavior (and no zoom-dependent landing: start/start reads the same here).
     const { stage } = harness(FOUR, { layout: 'horizontal', zoom: { level: 0.8 } });
     stage.goToPage(3, { behavior: 'instant' }); // camera clamps at the right edge
-    stage.prev({ behavior: 'instant' }); // page 3 (idx 2) is visible but off-center
+    stage.prev({ behavior: 'instant' }); // page 3 (idx 2) is visible but off-position
     expect(stage.currentPage()).toBe(2);
     const box = stage.pageRect(3)!; // pon 3 = page index 2
-    const center = stage.toScreen({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
-    expect(center.x).toBeCloseTo(500, 0); // …and it settled into its canonical place
+    // canonical landing: reading edge at the gutter (the scene overflows x, so
+    // the arrival policy — not the clamp — decides)
+    expect(stage.toScreen({ x: box.x, y: box.y }).x).toBeCloseTo(PAD, 0);
   });
 
   it('a smooth tween never flickers the cursor off its target', () => {
@@ -679,10 +735,10 @@ describe('settingsEqual: registry-derived equality (the React selector contract)
   });
 });
 
-describe('overflowAlign: arrival alignment on overflowing axes', () => {
-  it("RTL ({x:'end'}): zoomed-in navigation lands top-RIGHT", () => {
+describe('arrivalAlign: where navigation lands', () => {
+  it("{x:'end'}: zoomed-in navigation lands top-RIGHT", () => {
     const { stage } = harness(PORTRAIT, {
-      overflowAlign: { x: 'end', y: 'start' },
+      arrivalAlign: { x: 'end', y: 'start' },
       zoom: { level: 2 },
     });
     stage.goToPage(2, { behavior: 'instant' });
@@ -694,7 +750,7 @@ describe('overflowAlign: arrival alignment on overflowing axes', () => {
 
   it('Drawboard ({center,center}): zoomed-in navigation centers the page', () => {
     const { stage } = harness(PORTRAIT, {
-      overflowAlign: { x: 'center', y: 'center' },
+      arrivalAlign: { x: 'center', y: 'center' },
       zoom: { level: 2 },
       bounded: false, // construction feel — and proves placement needs no real clamp
     });
@@ -705,15 +761,96 @@ describe('overflowAlign: arrival alignment on overflowing axes', () => {
     expect(center.y).toBeCloseTo(350, 0);
   });
 
-  it('overflowAlign is runtime-changeable and only affects the NEXT arrival', () => {
+  it('arrivalAlign is runtime-changeable and only affects the NEXT arrival', () => {
     const { stage } = harness(PORTRAIT, { zoom: { level: 2 } });
     stage.goToPage(1, { behavior: 'instant' });
     const before = stage.camera();
-    stage.setOverflowAlign({ x: 'end', y: 'start' });
+    stage.setArrivalAlign({ x: 'end', y: 'start' });
     expect(stage.camera()).toEqual(before); // no camera jump on the setting change
     stage.goToPage(2, { behavior: 'instant' });
     const box = stage.pageRect(3)!;
     expect(stage.toScreen({ x: box.x + box.width, y: box.y }).x).toBeCloseTo(1000 - PAD, 0);
+  });
+});
+
+describe('zoomAlign: what a pointer-less zoom holds fixed', () => {
+  it('default center/center: button zoom inflates around the viewport middle', () => {
+    const { stage } = harness(PORTRAIT, { bounded: false });
+    const before = stage.toWorld({ x: 500, y: 350 });
+    stage.zoomIn();
+    const after = stage.toWorld({ x: 500, y: 350 });
+    expect(after.x).toBeCloseTo(before.x, 4);
+    expect(after.y).toBeCloseTo(before.y, 4);
+  });
+
+  it("y:'start': the first visible line holds still (text-editor zoom)", () => {
+    const { stage } = harness(PORTRAIT, {
+      bounded: false,
+      zoomAlign: { x: 'center', y: 'start' },
+    });
+    // 'start' is the first CONTENT line — just inside the padding gutter, the
+    // same spot an arrival puts the page top — not the absolute corner.
+    const at = { x: 500, y: PAD };
+    const before = stage.toWorld(at);
+    stage.zoomIn();
+    const after = stage.toWorld(at);
+    expect(after.x).toBeCloseTo(before.x, 4);
+    expect(after.y).toBeCloseTo(before.y, 4);
+  });
+
+  it('zoomTo (no pointer) holds the SAME focal point as the buttons', () => {
+    const { stage } = harness(PORTRAIT, { bounded: false, zoom: { level: 1 } });
+    const before = stage.toWorld({ x: 500, y: 350 });
+    stage.zoomTo({ level: 1.7 });
+    const after = stage.toWorld({ x: 500, y: 350 });
+    expect(after.x).toBeCloseTo(before.x, 1);
+    expect(after.y).toBeCloseTo(before.y, 1);
+  });
+
+  it('pinch/wheel are physics: zoomAround honors ITS point, not the setting', () => {
+    const { stage } = harness(PORTRAIT, {
+      bounded: false,
+      zoomAlign: { x: 'start', y: 'start' }, // a setting that would say otherwise
+    });
+    const pt = { x: 800, y: 600 };
+    const before = stage.toWorld(pt);
+    stage.zoomAround(pt, 1.5);
+    const after = stage.toWorld(pt);
+    expect(after.x).toBeCloseTo(before.x, 4);
+    expect(after.y).toBeCloseTo(before.y, 4);
+  });
+});
+
+describe('anchorAlign: which viewport point survives a reframe', () => {
+  it('default start/start — the growing container never shoves the document down (the load bug)', () => {
+    const { stage } = harness(PORTRAIT); // automatic zoom resolves to 1
+    stage.goToPage(1, { behavior: 'instant' });
+    const box = stage.pageRect(2)!;
+    expect(stage.toScreen({ x: box.x, y: box.y }).y).toBeCloseTo(PAD, 0);
+    stage.setViewport({ width: 1000, height: 900 }); // the div finishes laying out
+    // the top of the view is pinned; the extra height reveals MORE below
+    expect(stage.toScreen({ x: box.x, y: box.y }).y).toBeCloseTo(PAD, 0);
+  });
+
+  it('center/center — canvas-style symmetric resize (the Figma feel)', () => {
+    const { stage } = harness(PORTRAIT, { anchorAlign: { x: 'center', y: 'center' } });
+    stage.goToPage(1, { behavior: 'instant' });
+    const focus = stage.toWorld({ x: 500, y: 350 }); // what sat at the old center…
+    stage.setViewport({ width: 1000, height: 900 });
+    const now = stage.toScreen(focus);
+    expect(now.x).toBeCloseTo(500, 0); // …sits at the NEW center
+    expect(now.y).toBeCloseTo(450, 0);
+  });
+
+  it('scene reframes (gap change) hold the anchorAlign point too', () => {
+    const { stage } = harness(PORTRAIT, { zoom: { level: 2 } });
+    stage.goToPage(2, { behavior: 'instant' });
+    const box = stage.pageRect(3)!;
+    expect(stage.toScreen({ x: box.x, y: box.y }).y).toBeCloseTo(PAD, 0);
+    stage.setGap(64); // pages move in world space…
+    const after = stage.pageRect(3)!;
+    // …but the page-point at the top of the view stays at the top of the view
+    expect(stage.toScreen({ x: after.x, y: after.y }).y).toBeCloseTo(PAD, 0);
   });
 });
 

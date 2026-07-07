@@ -35,10 +35,19 @@ import type {
  *     the camera tween. It is NOT pure; the one host dependency it has (frame
  *     timing) enters through an injected Scheduler, never a hidden global.
  *
- * The model rests on one geometric question — "does it fit the viewport?":
- *   • alignment: an arrival RESTS at fitAlign when its subject fits, LANDS at
- *     overflowAlign when it overflows (the clamp's fit-case — see stage-core
- *     placeCamera; the two settings are the two branches of the question).
+ * The model: EVERY camera move is defined by what it holds fixed.
+ *   • gestures (pan/pinch/wheel)  — the content under the pointer. Physics, no setting.
+ *   • focal zoom (zoomIn/zoomTo/fit-mode switches) — the zoomAlign viewport point.
+ *   • reframes (resize/rotate/re-layout)           — the page-point at the anchorAlign
+ *     viewport point: captured there before the change, restored there after.
+ *   • arrivals (goToPage/next/prev/reset)          — nothing prior: a fresh landing at
+ *     arrivalAlign, THE SAME at every zoom (landing is policy, never a zoom side effect).
+ *   • explicit (reveal/destination/viewpoint)      — whatever the call specifies.
+ * fitAlign stands apart: the clamp's standing rest constraint wherever an axis has no
+ * freedom against the TRUE bounds — it shapes every move above, and is why a fitting
+ * axis settles identically whatever arrivalAlign says.
+ *
+ * "Does it fit the viewport?" still decides SIZE and SUBJECT — never alignment:
  *   • step size: next/prev step by ITEM (spread) when the item fits, by PAGE when
  *     zoomed in past it.
  *   • subject:   you arrive AT the unit that fits (item, page — or the whole scene
@@ -303,7 +312,7 @@ export function createStageCapability(
   };
 
   // THE predicate. "Does this rect fit the padded viewport at this zoom?" decides
-  // centering (via the clamp), the navigation step size, and the arrival subject.
+  // the navigation step size and the arrival subject — never alignment.
   const fits = (rect: S.Rect, zoom: number): boolean => {
     const v = vp();
     const p = pad();
@@ -312,6 +321,26 @@ export function createStageCapability(
       rect.width * zoom <= v.width - 2 * p + eps && rect.height * zoom <= v.height - 2 * p + eps
     );
   };
+  // An alignment policy → a concrete viewport point (a fraction per axis:
+  // start=0, center=½, end=1; named x stops are LOGICAL under RTL). Both
+  // zoomAlign (the focal point of pointer-less zooms) and anchorAlign (the
+  // reframe reference point) resolve through this. The fraction interpolates
+  // the PADDED range: 'start' is the first visible content line (just inside
+  // the gutter), not the absolute corner — an arrival puts the page edge
+  // exactly there, so the reference pins to the page, never to the gap above.
+  const alignFraction = (a: S.AlignValue): number =>
+    a === 'start' ? 0 : a === 'center' ? 0.5 : a === 'end' ? 1 : Math.min(1, Math.max(0, a));
+  const alignPoint = (al: S.AlignmentValue, v: S.Size): S.Point => {
+    const rtl = ctx.getState().direction === 'rtl';
+    const ax = rtl && al.x === 'start' ? 'end' : rtl && al.x === 'end' ? 'start' : al.x;
+    const p = pad();
+    return {
+      x: p + (v.width - 2 * p) * alignFraction(ax),
+      y: p + (v.height - 2 * p) * alignFraction(al.y),
+    };
+  };
+  const anchorPoint = (): S.Point => alignPoint(ctx.getState().anchorAlign, vp());
+
   /** Fit-box for resolving the zoom intent: whole scene (fit-all), the current item
    *  (paged — per-page fit), or the document max (continuous — doc-stable zoom). */
   const fitBox = (item: S.SceneItem): S.Size => {
@@ -390,12 +419,16 @@ export function createStageCapability(
 
   // ── anchor: the durable "what am I looking at". Capture before a structural
   //    change, re-apply after — one mechanism for layout/spread/zoom/resize/restore.
-  const currentAnchor = (): S.Anchor => {
+  //    WHERE in the viewport the anchor lives is the reframe's invariant policy:
+  //    anchorAlign for reframes (resize, scene changes), zoomAlign for pure
+  //    zoom-intent changes. Capture and restore always use the SAME point.
+  const anchorAt = (at: S.Point): S.Anchor => {
     const sc = buildScene();
     return sc.itemCount
-      ? S.anchorFromCamera(cam(), sc, vp())
+      ? S.anchorFromCamera(cam(), sc, vp(), at)
       : { pageIndex: ctx.getState().cursor, fx: 0.5, fy: 0 };
   };
+  const currentAnchor = (): S.Anchor => anchorAt(anchorPoint());
 
   /**
    * Run a placement whose RESOLVED zoom may change the scene (wrapped mode: zoom is
@@ -412,35 +445,41 @@ export function createStageCapability(
     }
   };
 
-  const applyAnchor = (anchor: S.Anchor) => {
+  const applyAnchor = (anchor: S.Anchor, align?: S.AlignmentValue) => {
     stabilized(() => {
       const scene = buildScene();
       if (!scene.itemCount) return;
       const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
       const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
-      setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom), boundsFor(item));
+      // resolved against the CURRENT viewport — a resize restores the anchor to
+      // the new viewport's policy point (start/start: the top stays pinned)
+      const at = alignPoint(align ?? ctx.getState().anchorAlign, vp());
+      setCam(S.cameraFromAnchor(anchor, scene, vp(), zoom, at), boundsFor(item));
     });
   };
   /**
    * Re-apply the view after a structural/zoom/viewport change. Normally anchor-
-   * preserving (keep looking at the same spot). Under fit-all the subject is the
-   * WHOLE scene, so "keep my anchor" is meaningless — re-place instead (this is
-   * what centers the scene even when unbounded).
+   * preserving (keep looking at the same spot, held at the invariant point).
+   * Under fit-all the subject is the WHOLE scene, so "keep my anchor" is
+   * meaningless — re-place instead (this is what centers the scene even when
+   * unbounded).
    */
-  const reapply = (anchor: S.Anchor) => {
+  const reapply = (anchor: S.Anchor, align?: S.AlignmentValue) => {
     if (isFitAll()) goToTarget(ctx.getState().cursor, { behavior: 'instant' });
-    else applyAnchor(anchor);
+    else applyAnchor(anchor, align);
   };
 
   // ── navigation: ONE arrival procedure for goToPage / next / prev / reset ─────
   // Navigation is CANONICAL: goToPage(N) always ends in the same camera state,
-  // regardless of where you came from or what happens to be visible (no
-  // visibility-dependent behavior — that's a discontinuity at the fit threshold).
+  // regardless of where you came from, what happens to be visible, or how zoomed
+  // you are (no zoom-dependent landing — that's a discontinuity at the fit
+  // threshold).
   // 1. move the cursor to the target page (paged: rebuilds the one-item slice),
   // 2. choose the SUBJECT by the fits-predicate (scene under fit-all; the item if
   //    it fits; else the page),
-  // 3. placeCamera(subject): rests at fitAlign when it fits, lands at overflowAlign
-  //    when it overflows.
+  // 3. placeCamera(subject) lands it at arrivalAlign — the same rule at every
+  //    zoom — and setCam clamps against the TRUE bounds, which collapses any
+  //    axis with no freedom to the fitAlign rest point.
   // The legitimate "nothing moves" cases are STRUCTURAL, not conditional: under
   // fit-all the canonical placement is the centered scene, which doesn't change.
   const goToTarget = (pageIndex: number, opts?: GoToOptions) => {
@@ -468,17 +507,33 @@ export function createStageCapability(
         : fits(itemRect(item), zoom)
           ? itemRect(item)
           : pageRectOf(item, target);
+      // The landing policy: a per-call override beats the setting (explicit
+      // beats default); 'keep' pins that axis to the current camera.
+      const want = { ...ctx.getState().arrivalAlign, ...opts?.arrivalAlign };
+      const placed = S.placeCamera(
+        subject,
+        vp(),
+        zoom,
+        pad(),
+        {
+          x: want.x === 'keep' ? 'start' : want.x,
+          y: want.y === 'keep' ? 'start' : want.y,
+        },
+        ctx.getState().direction,
+      );
+      // Arrivals are canonical even on an UNBOUNDED stage: the landing clamps
+      // within the true bounds regardless (free roam is a manipulation
+      // affordance, not an arrival one) — an axis with no freedom collapses to
+      // its fitAlign rest here, and the fit-all scene centers even unbounded.
+      const bounds = boundsFor(item);
+      const settled = S.clampCamera(placed, bounds, vp(), { ...constraint(), bounded: true });
       return {
-        camera: S.placeCamera(
-          subject,
-          vp(),
+        camera: {
           zoom,
-          pad(),
-          ctx.getState().overflowAlign,
-          ctx.getState().direction,
-          ctx.getState().fitAlign,
-        ),
-        bounds: boundsFor(item),
+          x: want.x === 'keep' ? cam().x : settled.x,
+          y: want.y === 'keep' ? cam().y : settled.y,
+        },
+        bounds,
       };
     };
 
@@ -659,7 +714,9 @@ export function createStageCapability(
     gap: () => ctx.getState().gap,
     pageFrame: () => ctx.getState().pageFrame,
     fitAlign: () => ctx.getState().fitAlign,
-    overflowAlign: () => ctx.getState().overflowAlign,
+    arrivalAlign: () => ctx.getState().arrivalAlign,
+    zoomAlign: () => ctx.getState().zoomAlign,
+    anchorAlign: () => ctx.getState().anchorAlign,
     direction: () => ctx.getState().direction,
     scrollBehavior: () => ctx.getState().scrollBehavior,
     zoomLevel: () => cam().zoom,
@@ -729,8 +786,10 @@ export function createStageCapability(
       }
       syncCursorFromCamera();
     },
-    zoomIn: () => api.zoomAround({ x: vp().width / 2, y: vp().height / 2 }, 1.2),
-    zoomOut: () => api.zoomAround({ x: vp().width / 2, y: vp().height / 2 }, 1 / 1.2),
+    // Pointer-less zooms magnify around the zoomAlign focal point (pinch and
+    // wheel pass their own pointer to zoomAround — physics beats policy).
+    zoomIn: () => api.zoomAround(alignPoint(ctx.getState().zoomAlign, vp()), 1.2),
+    zoomOut: () => api.zoomAround(alignPoint(ctx.getState().zoomAlign, vp()), 1 / 1.2),
     zoomTo: (spec) => api.update({ zoom: spec }),
     fitWidth: () => api.update({ zoom: { mode: S.ZoomMode.FitWidth } }),
     fitPage: () => api.update({ zoom: { mode: S.ZoomMode.FitPage } }),
@@ -855,23 +914,31 @@ export function createStageCapability(
     prev: (opts) => step(-1, opts),
     update: (patch) => {
       cancelAnim();
-      const anchor = currentAnchor(); // capture (page-durable) against the current scene
-      ctx.dispatch({ type: 'PATCH', patch });
       // React per the registry — the strongest effect among the touched settings
       // wins: 'reflow' ⊃ 'scene'/'refit' ⊃ 'reclamp' ⊃ 'none'.
       const touched = (effect: SettingEffect) =>
         SETTING_KEYS.some((k) => patch[k] !== undefined && SETTINGS_EFFECT[k] === effect);
+      // The change's INVARIANT point: a pure zoom-intent change ('refit' alone)
+      // holds the zoomAlign focal point — zoomTo/fit-mode switches magnify
+      // around the same spot the zoom buttons do; every other reframe holds
+      // the anchorAlign reference. Resolved once, used for capture AND restore.
+      const align =
+        touched('refit') && !touched('scene') && !touched('reflow')
+          ? ctx.getState().zoomAlign
+          : ctx.getState().anchorAlign;
+      const anchor = anchorAt(alignPoint(align, vp())); // capture against the current scene
+      ctx.dispatch({ type: 'PATCH', patch });
       if (touched('scene')) sceneCache = null;
       if (touched('reflow')) {
         // flow toggled: re-place onto the cursor's page under the new flow's scene
         // (the camera's coordinates are meaningless across the flow boundary).
         goToTarget(ctx.getState().cursor, { behavior: 'instant' });
       } else if (touched('scene') || touched('refit')) {
-        reapply(anchor); // rebuild + keep page + re-fit (fit-all: re-place the scene)
+        reapply(anchor, align); // rebuild + keep page + re-fit (fit-all: re-place the scene)
       } else if (touched('reclamp')) {
         setCam(cam()); // clamp policy changed: just re-clamp the current camera
       }
-      // 'none' (overflowAlign, scrollBehavior): guides future verbs only
+      // 'none' (arrivalAlign, zoomAlign, anchorAlign, scrollBehavior): future verbs only
     },
     setFlow: (flow) => api.update({ flow }),
     setLayout: (layout) => api.update({ layout }),
@@ -883,7 +950,9 @@ export function createStageCapability(
     setGap: (gap) => api.update({ gap }),
     setPageFrame: (pageFrame) => api.update({ pageFrame }),
     setFitAlign: (fitAlign) => api.update({ fitAlign }),
-    setOverflowAlign: (overflowAlign) => api.update({ overflowAlign }),
+    setArrivalAlign: (arrivalAlign) => api.update({ arrivalAlign }),
+    setZoomAlign: (zoomAlign) => api.update({ zoomAlign }),
+    setAnchorAlign: (anchorAlign) => api.update({ anchorAlign }),
     setDirection: (direction) => api.update({ direction }),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
     applyViewState: (view) => {
@@ -908,8 +977,8 @@ export function createStageCapability(
       }
       api.resetView();
     },
-    // Home = page 0, placed by the unit rule (fitAlign for what fits, overflowAlign
-    // for what overflows).
+    // Home = page 0, a fresh arrival at arrivalAlign (the clamp collapses any
+    // fitting axis to its fitAlign rest point).
     resetView: () => goToTarget(0, { behavior: 'instant' }),
   };
   return api;

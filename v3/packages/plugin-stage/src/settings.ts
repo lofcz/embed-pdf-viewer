@@ -20,7 +20,13 @@ export const DEFAULT_SETTINGS: StageSettings = {
   pageFrame: { top: 0, right: 0, bottom: 0, left: 0 },
   direction: 'ltr',
   fitAlign: { x: 'center', y: 'center' },
-  overflowAlign: { x: 'start', y: 'start' },
+  // The reading defaults: navigation lands top/reading-start at every zoom
+  // (v2 parity), button-zoom inflates around the middle, resizes pin the top
+  // (the browser scroll model). Construction/presentation apps set all four
+  // to center/center.
+  arrivalAlign: { x: 'start', y: 'start' },
+  zoomAlign: { x: 'center', y: 'center' },
+  anchorAlign: { x: 'start', y: 'start' },
   zoom: { mode: ZoomMode.Automatic },
   scrollBehavior: 'smooth',
   // Web: 1 PDF point = 96/72 CSS px, so 100% is physically accurate. A native
@@ -42,7 +48,12 @@ export const DEFAULT_SETTINGS: StageSettings = {
  *   'refit'   — re-resolves zoom against the (possibly re-keyed) scene: re-applies
  *               the anchor without an explicit invalidation.
  *   'reclamp' — pure clamp policy: re-clamp the current camera in place.
- *   'none'    — guides future verbs only (arrival alignment, scroll behavior).
+ *   'none'    — guides future verbs only (arrival/zoom/anchor alignment,
+ *               scroll behavior).
+ *
+ * The classes also carry each change's INVARIANT — what stays fixed while the
+ * view reacts: 'refit' (a zoom-intent change) holds the zoomAlign focal point;
+ * 'scene' reframes (and viewport resizes) hold the anchorAlign point.
  */
 export type SettingEffect = 'reflow' | 'scene' | 'refit' | 'reclamp' | 'none';
 export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
@@ -57,7 +68,9 @@ export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
   pageFrame: 'scene',
   direction: 'scene',
   fitAlign: 'reclamp',
-  overflowAlign: 'none',
+  arrivalAlign: 'none',
+  zoomAlign: 'none',
+  anchorAlign: 'none',
   zoom: 'refit',
   scrollBehavior: 'none',
   viewUnitsPerPoint: 'scene', // a layout input: changing it resizes every page

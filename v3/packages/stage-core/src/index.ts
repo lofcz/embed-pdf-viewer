@@ -226,11 +226,12 @@ export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstrai
 };
 
 /**
- * Per-axis alignment value, used by both halves of the one geometric question:
- * where content RESTS when it fits (fitAlign) and where attention LANDS when it
- * overflows (overflowAlign). On the x-axis the values are LOGICAL (CSS-style):
- * 'start' = where reading begins (left in LTR, RIGHT in RTL), 'end' = where it
- * ends. On the y-axis they are physical (start = top). So a 'start' default is
+ * Per-axis alignment value. Used by the rest constraint (fitAlign — where
+ * content settles on an axis the camera cannot travel) and, extended with
+ * fractions (see {@link AlignValue}), by the arrival/zoom/anchor policies.
+ * On the x-axis the NAMED values are LOGICAL (CSS-style): 'start' = where
+ * reading begins (left in LTR, RIGHT in RTL), 'end' = where it ends. On the
+ * y-axis they are physical (start = top). So a 'start' default is
  * automatically correct in both directions — no 'auto' value needed.
  */
 export type Align = 'start' | 'center' | 'end';
@@ -238,41 +239,58 @@ export interface Alignment {
   x: Align;
   y: Align;
 }
+/**
+ * One axis of an alignment POLICY: a named stop, or a viewport fraction 0–1
+ * that positions the subject's CENTER at that fraction of the viewport
+ * ('center' ≡ 0.5; 0.35 = the browser find-bar line). Named stops are logical
+ * on x; fractions are physical, like every screen coordinate.
+ */
+export type AlignValue = Align | number;
+export interface AlignmentValue {
+  x: AlignValue;
+  y: AlignValue;
+}
 
 /**
- * THE placement algorithm — used for every arrival (goToPage, next/prev, reset).
- * The clamp defines the camera's legal travel range within the subject;
- * `overflowAlign` just picks a point in it: start = min, center = midpoint,
- * end = max — with x resolved logically against the reading direction. On an axis
- * where the subject FITS, the clamp's range collapses to the `fitAlign` rest
- * point (min = mid = max), so overflowAlign automatically becomes irrelevant —
- * the rest position stays DERIVED from the clamp, and overflowAlign only
- * resolves the freedom that overflow creates.
+ * THE placement algorithm — every arrival (goToPage, next/prev, reset) lands
+ * through it. Pure alignment: put the subject at `align` in the viewport —
+ * per axis 'start' (reading edge at the padded viewport edge), 'end' (far
+ * edge), 'center', or a fraction — with x resolved logically against the
+ * reading direction. The SAME rule at every zoom: whether the subject fits or
+ * overflows never changes where it lands. Landing is policy, not a side
+ * effect of magnification.
+ *
+ * Deliberately clamp-free: the caller clamps the result against the TRUE
+ * travel bounds (the scene in continuous flow, the item slice in paged). On
+ * an axis with no real freedom that clamp collapses the landing to the
+ * `fitAlign` rest point — "rests where it must" comes out of the clamp's
+ * geometry, never out of a branch here.
  */
 export function placeCamera(
   subject: Rect,
   vp: Size,
   zoom: number,
   padding = 0,
-  overflowAlign: Alignment = { x: 'start', y: 'start' },
+  align: AlignmentValue = { x: 'start', y: 'start' },
   direction: Direction = 'ltr',
-  fitAlign: Alignment = { x: 'center', y: 'center' },
 ): Camera {
-  const k: CameraConstraint = { bounded: true, padding, fitAlign, direction };
-  const lo = clampCamera({ x: -Infinity, y: -Infinity, zoom }, subject, vp, k);
-  const hi = clampCamera({ x: Infinity, y: Infinity, zoom }, subject, vp, k);
-  const pick = (a: Align, min: number, max: number): number =>
-    a === 'start' ? min : a === 'end' ? max : (min + max) / 2;
-  // logical x: in RTL, reading starts at the right edge of the travel range
-  const x =
-    direction === 'rtl'
-      ? pick(
-          overflowAlign.x === 'start' ? 'end' : overflowAlign.x === 'end' ? 'start' : 'center',
-          lo.x,
-          hi.x,
-        )
-      : pick(overflowAlign.x, lo.x, hi.x);
-  return { zoom, x, y: pick(overflowAlign.y, lo.y, hi.y) };
+  const axis = (a: AlignValue, pos: number, extent: number, view: number): number => {
+    if (a === 'start') return pos - padding / zoom;
+    if (a === 'end') return pos + extent - (view - padding) / zoom;
+    const f = a === 'center' ? 0.5 : clamp(a, 0, 1);
+    return pos + extent / 2 - (view * f) / zoom;
+  };
+  const ax =
+    direction === 'rtl' && align.x === 'start'
+      ? 'end'
+      : direction === 'rtl' && align.x === 'end'
+        ? 'start'
+        : align.x;
+  return {
+    zoom,
+    x: axis(ax, subject.x, subject.width, vp.width),
+    y: axis(align.y, subject.y, subject.height, vp.height),
+  };
 }
 
 /**
@@ -324,8 +342,9 @@ export function resolveZoom(spec: ZoomSpec, box: Size, vp: Size, padding = 0): n
 
 // ── Anchor — a PAGE-RELATIVE point, the durable "what am I looking at". The world
 //    point under a screen position is meaningless across a re-layout (pages move);
-//    the page-point survives. Generalized to ANY point; the classic viewport-center
-//    anchor is the special case. ────────────────────────────────────────────────
+//    the page-point survives. Point-generalized: WHICH viewport point the anchor
+//    lives at is the caller's policy (anchorAlign for reframes, zoomAlign for
+//    zoom-intent changes); the wrappers default to the classic center. ──────────
 /** The anchor at an arbitrary world point: its nearest page + the point, page-relative. */
 export function anchorAtPoint(scene: Scene, worldPt: Point): Anchor {
   const item = scene.nearestItem(worldPt);
@@ -359,11 +378,21 @@ export function cameraForAnchorAtScreen(
   return { zoom, x: world.x - screenPt.x / zoom, y: world.y - screenPt.y / zoom };
 }
 
-export function anchorFromCamera(cam: Camera, scene: Scene, vp: Size): Anchor {
-  return anchorAtPoint(scene, toWorld(cam, { x: vp.width / 2, y: vp.height / 2 }));
+/** The anchor under a viewport point — `at` is the policy point (anchorAlign /
+ *  zoomAlign resolved to px); it defaults to the classic viewport center. */
+export function anchorFromCamera(cam: Camera, scene: Scene, vp: Size, at?: Point): Anchor {
+  return anchorAtPoint(scene, toWorld(cam, at ?? { x: vp.width / 2, y: vp.height / 2 }));
 }
-export function cameraFromAnchor(anchor: Anchor, scene: Scene, vp: Size, zoom: number): Camera {
-  return cameraForAnchorAtScreen(anchor, scene, { x: vp.width / 2, y: vp.height / 2 }, zoom);
+/** The camera that restores an anchor to the same viewport point it was
+ *  captured at — capture and restore MUST agree on `at` for exact round-trips. */
+export function cameraFromAnchor(
+  anchor: Anchor,
+  scene: Scene,
+  vp: Size,
+  zoom: number,
+  at?: Point,
+): Camera {
+  return cameraForAnchorAtScreen(anchor, scene, at ?? { x: vp.width / 2, y: vp.height / 2 }, zoom);
 }
 
 // ── Spatial-index helpers ──────────────────────────────────────────────────────

@@ -1,0 +1,130 @@
+# @embedpdf-x/plugin-stage
+
+The Stage is the viewer's coordinate system: it lays pages out into a scene,
+points a camera at them, and turns every scroll, zoom, resize, and "go to page 5"
+into one camera move. Everything you see is the camera; everything you configure
+is a policy about how the camera is allowed to move.
+
+## The camera: one mental model
+
+**Every camera move is defined by what it holds fixed.** There are five kinds of
+move, and each one keeps exactly one thing still:
+
+| You do…                                            | What stays fixed               | Controlled by                 |
+| -------------------------------------------------- | ------------------------------ | ----------------------------- |
+| drag, pinch, ctrl+wheel                            | the content under your pointer | nothing — that's physics      |
+| click zoom in/out, `zoomTo`, switch to fit-width   | a focal point in the viewport  | **`zoomAlign`**               |
+| resize the container, rotate a page, change spread | the spot you were looking at   | **`anchorAlign`**             |
+| `goToPage`, next/prev, reset                       | nothing — a fresh landing      | **`arrivalAlign`**            |
+| click an outline entry, a search hit, a PDF link   | whatever the call specifies    | the call itself, per-`reveal` |
+
+One more setting stands outside the table. When an axis of content **fits** the
+viewport, the camera has no freedom on that axis — there is nowhere to scroll.
+**`fitAlign`** says where content rests in that case (default: centered). It is a
+standing constraint applied to _every_ move above, not a move of its own.
+
+All four settings speak the same per-axis vocabulary, and `x`/`y` are independent:
+
+```ts
+stagePlugin({
+  arrivalAlign: { x: 'start', y: 'start' },
+  zoomAlign: { x: 'center', y: 'center' },
+  anchorAlign: { x: 'start', y: 'start' },
+  fitAlign: { x: 'center', y: 'center' },
+});
+```
+
+(The values above are the defaults — a document-reading feel. If that's what you
+want, configure nothing.)
+
+## `arrivalAlign` — where navigation lands
+
+When you _navigate_ (`goToPage`, `next`, `prev`, reset), the target page lands at
+the same place **at every zoom level** — landing is a policy, never a side effect
+of how zoomed in you happen to be. Per axis:
+
+| Value      | Landing                                                                   |
+| ---------- | ------------------------------------------------------------------------- |
+| `'start'`  | reading edge flush with the viewport edge (top / reading-start) — default |
+| `'center'` | page centered — the presentation feel                                     |
+| `'end'`    | far edge flush                                                            |
+| `0`–`1`    | page center at this viewport fraction (`0.35` ≈ a browser find-bar)       |
+| `'keep'`   | this axis doesn't move at all                                             |
+
+Landings clamp against the document edges, so they are best-effort on the first
+and last pages — exactly like a browser.
+
+One value deserves a second look: **`x: 'keep'`** — page forward without losing
+your horizontal position. Zoomed into the left column of a two-column paper,
+`next()` takes you to the left column of the next page. (It's the PDF
+`/XYZ null` semantic, as a default.)
+
+Any single navigation can override the setting:
+
+```ts
+stage.goToPage(12, { arrivalAlign: { y: 'center' } });
+```
+
+## `zoomAlign` — what focal-less zoom zooms around
+
+Pinch and ctrl+wheel always zoom around the pointer — that is not configurable,
+because anything else feels broken. `zoomAlign` answers the remaining case:
+zooming with **no pointer position** — toolbar buttons, keyboard shortcuts,
+`zoomTo`, switching between fit modes.
+
+Default `{ x: 'center', y: 'center' }`: the middle of what you see stays put and
+the view inflates around it. Set `y: 'start'` for top-stable zoom — the first
+visible line holds still while everything grows below it (the text-editor feel).
+Values: `'start' | 'center' | 'end' |` fraction.
+
+## `anchorAlign` — what survives a reframe
+
+When the world reshapes under a passive camera — the container resizes, a page is
+rotated or deleted, the gap or spread changes — the Stage keeps you looking at
+what you were looking at. `anchorAlign` says **where in the viewport** that
+reference point lives: it is captured there before the change and restored there
+after.
+
+Default `{ x: 'start', y: 'start' }` — the browser scroll model: the top of what
+you see is pinned, and growth or shrinkage happens below. This is why a container
+that mounts small and then expands doesn't shove the document downward: the top
+stays where it was and the extra height reveals more page.
+
+Set `{ x: 'center', y: 'center' }` for canvas-style reframes: the middle is
+pinned and resizes balloon symmetrically (the Figma feel).
+
+## Recipes
+
+**Document reading** — the defaults. Configure nothing.
+
+**Presentation / construction sheets** — every move keeps the current sheet
+centered; each arrival presents the sheet like a slide:
+
+```ts
+stagePlugin({
+  arrivalAlign: { x: 'center', y: 'center' },
+  zoomAlign: { x: 'center', y: 'center' },
+  anchorAlign: { x: 'center', y: 'center' },
+});
+```
+
+**Zoomed-in reading of scanned two-column papers** — hold the column while
+paging, land a comfortable third from the top:
+
+```ts
+stagePlugin({ arrivalAlign: { x: 'keep', y: 0.35 } });
+```
+
+A "preset" is just an object you keep and pass — to `stagePlugin()` at setup or
+`stage.update()` at runtime. The plugin ships no named presets; that taxonomy
+belongs to your product.
+
+## What these settings never touch
+
+- **Gestures.** Pan and pinch hold the pointer. Physics, not policy.
+- **Explicit arrivals.** `reveal(page, { rect, zoom, anchor })` — search hits,
+  outline clicks, PDF destinations — carries its own anchor and always beats the
+  settings. Bare `reveal(page)` stays minimal-movement: it scrolls only as far as
+  needed to make the page visible, and not a pixel further.
+- **Saved viewpoints.** `goToPage(i, { viewpoint })` restores exactly what was
+  captured.

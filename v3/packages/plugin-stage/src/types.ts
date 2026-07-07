@@ -3,6 +3,8 @@ import type { PageObjectNumber } from '@embedpdf-x/kernel';
 import type { PageTransform, Rect } from '@embedpdf-x/geometry';
 import type {
   Alignment,
+  AlignmentValue,
+  AlignValue,
   Anchor,
   Direction,
   Camera,
@@ -43,6 +45,18 @@ export type GridColumns = 'square' | 'auto' | number;
  *                zoom (the browser-of-items feel: thumbnails, organizers).
  */
 export type Gap = number | { px: number };
+
+/**
+ * One axis of the ARRIVAL policy — stage-core's AlignValue ('start' |
+ * 'center' | 'end' | viewport fraction 0–1) plus one navigation-only word:
+ *   'keep' — this axis does not move on arrival: page forward, hold your
+ *            pan (the two-column-paper feel; the PDF /XYZ null semantic).
+ */
+export type ArrivalAlignValue = AlignValue | 'keep';
+export interface ArrivalAlignment {
+  x: ArrivalAlignValue;
+  y: ArrivalAlignValue;
+}
 
 /**
  * The Stage's orthogonal, independently-settable primitives. Every field can be set
@@ -92,21 +106,46 @@ export interface StageSettings {
    */
   direction: Direction;
   /**
-   * The two alignment settings are the two branches of the model's one geometric
-   * question — "does it fit the viewport?" (per axis, logical x):
+   * The alignment family — EVERY camera move is defined by what it holds
+   * fixed. Gestures (pan/pinch/wheel) hold the pointer: physics, no setting.
+   * Explicit arrivals (positioned reveal, destinations, viewpoints) hold
+   * whatever the call specifies. These four settings govern the rest:
    *
-   *   fitAlign      — it FITS: where does content REST in the leftover space?
-   *                   Enforced continuously (a fitting axis has nowhere else to
-   *                   be). center/center = document feel; y:'start' = sidebar
-   *                   thumbnails hugging the top.
-   *   overflowAlign — it OVERFLOWS: which part do you show on ARRIVAL
-   *                   (goToPage/next/prev)? Guides arrivals only — afterwards the
-   *                   axis is free to scroll. start/start = LTR reading
-   *                   (top-left), center/center = drawings (Drawboard feel).
+   *   fitAlign     — the standing CONSTRAINT: where content rests on an axis
+   *                  the camera cannot travel (it fits the TRUE bounds — the
+   *                  scene in continuous flow, the item slice in paged). The
+   *                  clamp enforces it on every camera write — which is why a
+   *                  fitting axis settles identically whatever arrivalAlign
+   *                  says. center/center = document feel; y:'start' = sidebar
+   *                  thumbnails hugging the top.
+   *   arrivalAlign — the landing POLICY: where navigation (goToPage, next/
+   *                  prev, reset) puts the target — THE SAME at every zoom.
+   *                  start/start = reading (top-left, direction-aware);
+   *                  center/center = presentation/drawings (Drawboard feel);
+   *                  y: 0.35 = the find-bar line; 'keep' = don't move an axis.
+   *   zoomAlign    — the FOCAL point of a pointer-less zoom (zoomIn/zoomOut,
+   *                  zoomTo, fit-mode switches). Pinch/ctrl+wheel always hold
+   *                  the pointer instead — that is physics, not policy.
+   *                  center/center = the view inflates around its middle;
+   *                  y:'start' = the first visible line holds still.
+   *   anchorAlign  — the viewport point that SURVIVES a reframe (viewport
+   *                  resize, page rotation, spread/gap change): the view
+   *                  anchor is captured there and restored there. start/start
+   *                  = the browser scroll model (growth reveals below — a
+   *                  container that mounts small and expands never shoves the
+   *                  document down); center/center = canvas-style symmetric
+   *                  resizes (the Figma feel).
+   *
+   * Named x values are LOGICAL (CSS-style: 'start' = reading start — the
+   * right edge in RTL); fractions are physical, like screen coordinates.
    */
   fitAlign: Alignment;
-  /** See {@link StageSettings.fitAlign} — arrival anchor on overflowing axes. */
-  overflowAlign: Alignment;
+  /** See {@link StageSettings.fitAlign} — where navigation lands, per axis. */
+  arrivalAlign: ArrivalAlignment;
+  /** See {@link StageSettings.fitAlign} — the pointer-less zoom focal point. */
+  zoomAlign: AlignmentValue;
+  /** See {@link StageSettings.fitAlign} — the viewport point reframes hold. */
+  anchorAlign: AlignmentValue;
   /** Zoom intent: a fit-mode (automatic/fit-page/fit-width/fit-all) or a fixed level. */
   zoom: ZoomSpec;
   /** Default behaviour for goToPage/next/prev. */
@@ -205,6 +244,8 @@ export interface GoToOptions {
   behavior?: ScrollBehaviorKind;
   /** Restore this exact viewpoint instead of fresh placement (per-page memory). */
   viewpoint?: Viewpoint;
+  /** Override the landing for THIS navigation only (explicit beats default). */
+  arrivalAlign?: Partial<ArrivalAlignment>;
 }
 
 /**
@@ -316,7 +357,9 @@ export interface StageCapability {
   gap(): Gap;
   pageFrame(): PageFrame;
   fitAlign(): Alignment;
-  overflowAlign(): Alignment;
+  arrivalAlign(): ArrivalAlignment;
+  zoomAlign(): AlignmentValue;
+  anchorAlign(): AlignmentValue;
   direction(): Direction;
   scrollBehavior(): ScrollBehaviorKind;
   zoomLevel(): number;
@@ -385,7 +428,9 @@ export interface StageCapability {
   setGap(gap: Gap): void;
   setPageFrame(pageFrame: PageFrame): void;
   setFitAlign(fitAlign: Alignment): void;
-  setOverflowAlign(overflowAlign: Alignment): void;
+  setArrivalAlign(arrivalAlign: ArrivalAlignment): void;
+  setZoomAlign(zoomAlign: AlignmentValue): void;
+  setAnchorAlign(anchorAlign: AlignmentValue): void;
   setDirection(direction: Direction): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;
   applyViewState(view: StageViewState): void;

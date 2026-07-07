@@ -64,7 +64,7 @@ describe('resolveZoom', () => {
   });
 });
 
-describe('placeCamera — THE placement algorithm', () => {
+describe('placeCamera — THE placement algorithm (pure align; the caller clamps)', () => {
   const scene = S.linearLayout(
     [pg(600, 800), pg(600, 800), pg(600, 800)],
     S.groupPages(3, 'none'),
@@ -75,45 +75,50 @@ describe('placeCamera — THE placement algorithm', () => {
     return { x: it.x, y: it.y, width: it.width, height: it.height };
   };
 
-  it('overflowing subject → start-aligned (top-left, a padding out)', () => {
-    // zoom 1: page 600x800 vs viewport 1000x700 → overflows vertically only
-    const cam = S.placeCamera(rect(1), vp, 1, 24);
-    expect((scene.items[1].y - cam.y) * cam.zoom).toBeCloseTo(24, 6); // top edge a padding down
-    // horizontal fits → centered
-    expect((scene.items[1].x + 300 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
+  it('the landing rule is ZOOM-INVARIANT: start/start puts the reading corner at the gutter, fitting or overflowing', () => {
+    for (const zoom of [0.5, 1, 2]) {
+      const cam = S.placeCamera(rect(1), vp, zoom, 24);
+      expect((scene.items[1].x - cam.x) * cam.zoom).toBeCloseTo(24, 6);
+      expect((scene.items[1].y - cam.y) * cam.zoom).toBeCloseTo(24, 6);
+    }
   });
 
-  it('fitting subject → centered (per axis, derived from the clamp fit-case)', () => {
-    // zoom 0.5: page 300x400 vs 1000x700 → fits both axes → centered both axes
-    const cam = S.placeCamera(rect(1), vp, 0.5, 24);
-    expect((scene.items[1].x + 300 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
-    expect((scene.items[1].y + 400 - cam.y) * cam.zoom).toBeCloseTo(vp.height / 2, 6);
-  });
-
-  it("alignment picks a point in the clamp range: 'end' = top-right (RTL)", () => {
-    // zoom 2: page 1200x1600 overflows both axes
+  it("'end' = far edges flush (a padding in), at every zoom", () => {
     const r = rect(1);
-    const cam = S.placeCamera(r, vp, 2, 24, { x: 'end', y: 'start' });
-    // right edge of the page sits a padding in from the viewport's right edge
-    expect((r.x + r.width - cam.x) * cam.zoom).toBeCloseTo(vp.width - 24, 6);
-    // top edge a padding down (reading starts at the top)
-    expect((r.y - cam.y) * cam.zoom).toBeCloseTo(24, 6);
+    for (const zoom of [0.5, 2]) {
+      const cam = S.placeCamera(r, vp, zoom, 24, { x: 'end', y: 'start' });
+      expect((r.x + r.width - cam.x) * cam.zoom).toBeCloseTo(vp.width - 24, 6);
+      expect((r.y - cam.y) * cam.zoom).toBeCloseTo(24, 6);
+    }
   });
 
-  it("alignment 'center' centers an overflowing page (Drawboard feel)", () => {
+  it("'center' centers the subject, fitting (presented) or overflowing (Drawboard)", () => {
     const r = rect(1);
-    const cam = S.placeCamera(r, vp, 2, 24, { x: 'center', y: 'center' });
-    expect((r.x + r.width / 2 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
-    expect((r.y + r.height / 2 - cam.y) * cam.zoom).toBeCloseTo(vp.height / 2, 6);
+    for (const zoom of [0.5, 2]) {
+      const cam = S.placeCamera(r, vp, zoom, 24, { x: 'center', y: 'center' });
+      expect((r.x + r.width / 2 - cam.x) * cam.zoom).toBeCloseTo(vp.width / 2, 6);
+      expect((r.y + r.height / 2 - cam.y) * cam.zoom).toBeCloseTo(vp.height / 2, 6);
+    }
   });
 
-  it('alignment is irrelevant when the axis FITS (min = mid = max)', () => {
+  it("a fraction puts the subject CENTER at that viewport line ('center' ≡ 0.5)", () => {
     const r = rect(1);
-    const a = S.placeCamera(r, vp, 0.5, 24, { x: 'start', y: 'start' });
-    const b = S.placeCamera(r, vp, 0.5, 24, { x: 'end', y: 'end' });
-    const c = S.placeCamera(r, vp, 0.5, 24, { x: 'center', y: 'center' });
-    expect(a).toEqual(b);
-    expect(b).toEqual(c);
+    const cam = S.placeCamera(r, vp, 1, 24, { x: 'center', y: 0.35 });
+    expect((r.y + r.height / 2 - cam.y) * cam.zoom).toBeCloseTo(vp.height * 0.35, 6);
+    const half = S.placeCamera(r, vp, 1, 24, { x: 'center', y: 0.5 });
+    expect(half).toEqual(S.placeCamera(r, vp, 1, 24, { x: 'center', y: 'center' }));
+  });
+
+  it('composed with clampCamera, a no-freedom axis collapses to the fitAlign rest (the old fit-case, from geometry)', () => {
+    // zoom 0.5: the page fits BOTH axes, but the true bounds (the scene) still
+    // overflow y — so the start landing survives on y, while x (the scene fits)
+    // is locked to the default center rest. Alignment is policy; rest is clamp.
+    const r = rect(1);
+    const placed = S.placeCamera(r, vp, 0.5, 24, { x: 'start', y: 'start' });
+    const bounds = { x: 0, y: 0, width: scene.size.width, height: scene.size.height };
+    const clamped = S.clampCamera(placed, bounds, vp, { bounded: true, padding: 24 });
+    expect((r.x + r.width / 2 - clamped.x) * clamped.zoom).toBeCloseTo(vp.width / 2, 6); // x: rest
+    expect((r.y - clamped.y) * clamped.zoom).toBeCloseTo(24, 6); // y: the landing survives
   });
 });
 
@@ -169,6 +174,23 @@ describe('anchor round-trip', () => {
     const back = S.cameraFromAnchor(anchor, scene, vp, 1.3);
     expect(back.x).toBeCloseTo(cam.x, 4);
     expect(back.y).toBeCloseTo(cam.y, 4);
+  });
+
+  it('round-trips at ANY policy point — capture and restore just have to agree', () => {
+    const scene = S.linearLayout([pg(600, 800), pg(600, 800)], S.groupPages(2, 'none'), {
+      axis: 'y',
+      gap: GAP,
+    });
+    const cam = { x: -100, y: 300, zoom: 0.9 };
+    for (const at of [
+      { x: 0, y: 0 }, // anchorAlign start/start — the browser scroll model
+      { x: vp.width / 2, y: vp.height * 0.35 }, // a fraction policy
+    ]) {
+      const anchor = S.anchorFromCamera(cam, scene, vp, at);
+      const back = S.cameraFromAnchor(anchor, scene, vp, 0.9, at);
+      expect(back.x).toBeCloseTo(cam.x, 4);
+      expect(back.y).toBeCloseTo(cam.y, 4);
+    }
   });
 });
 
