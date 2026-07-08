@@ -45,6 +45,10 @@
       "types": "./src/annotation-menu.tsx",
       "import": "./src/annotation-menu.tsx"
     },
+    "./search": {
+      "types": "./src/search.tsx",
+      "import": "./src/search.tsx"
+    },
     "./views": {
       "types": "./src/views.ts",
       "import": "./src/views.ts"
@@ -114,6 +118,10 @@
       "./annotation-menu": {
         "types": "./dist/annotation-menu.d.ts",
         "import": "./dist/annotation-menu.js"
+      },
+      "./search": {
+        "types": "./dist/search.d.ts",
+        "import": "./dist/search.js"
       },
       "./views": {
         "types": "./dist/views.d.ts",

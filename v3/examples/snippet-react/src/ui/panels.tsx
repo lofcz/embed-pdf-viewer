@@ -14,6 +14,7 @@ import { ThumbsStageToken } from '../config/stage';
 import { Icon } from './icons';
 import { useTheme } from './theme';
 import { AnnotationStylePanel } from './annotation-style';
+import { SearchPanel } from './search-panel';
 
 // ── header ───────────────────────────────────────────────────────────────────
 export function Header() {
@@ -193,19 +194,11 @@ export function RightSidebar() {
       </div>
       {active === 'style' ? (
         <AnnotationStylePanel />
+      ) : active === 'search' ? (
+        <SearchPanel />
       ) : (
         <div className="p-3">
-          {active === 'search' ? (
-            <div className="border-border-subtle flex items-center gap-2 rounded-md border px-2">
-              <Icon name="search" size={16} />
-              <input
-                placeholder={t('demo.searchPlaceholder')}
-                className="text-fg h-9 flex-1 bg-transparent text-sm outline-none"
-              />
-            </div>
-          ) : (
-            <p className="text-fg-muted text-sm">{t('demo.empty')}</p>
-          )}
+          <p className="text-fg-muted text-sm">{t('demo.empty')}</p>
         </div>
       )}
     </aside>

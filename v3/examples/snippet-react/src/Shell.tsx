@@ -23,6 +23,7 @@ import { Stage } from '@embedpdf-x/react/stage';
 import { RenderLayer } from '@embedpdf-x/react/render';
 import { SelectionLayer } from '@embedpdf-x/react/selection';
 import { AnnotationLayer } from '@embedpdf-x/react/annotation';
+import { SearchLayer } from '@embedpdf-x/react/search';
 import { useCommandShortcuts } from '@embedpdf-x/react/commands';
 import { ShellToken } from '@embedpdf-x/react/shell';
 import { useT } from '@embedpdf-x/react/i18n';
@@ -94,6 +95,7 @@ export function Shell() {
                 <>
                   <RenderLayer annotations={false} />
                   <SelectionLayer />
+                  <SearchLayer />
                   <AnnotationLayer />
                 </>
               )}

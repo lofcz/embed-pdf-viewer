@@ -13,6 +13,7 @@ import { pageEditPlugin } from '@embedpdf-x/react/page-edit';
 import { interactionPlugin } from '@embedpdf-x/react/interaction';
 import { selectionPlugin } from '@embedpdf-x/react/selection';
 import { annotationPlugin } from '@embedpdf-x/react/annotation';
+import { searchPlugin } from '@embedpdf-x/react/search';
 import { i18nPlugin, negotiateLocale, useT } from '@embedpdf-x/react/i18n';
 import { commandsPlugin } from '@embedpdf-x/react/commands';
 import { shellPlugin } from '@embedpdf-x/react/shell';
@@ -47,6 +48,7 @@ const plugins = [
   interactionPlugin({ defaultTool: 'pointer' }),
   selectionPlugin(),
   annotationPlugin(),
+  searchPlugin(),
   demoToolsPlugin(),
   i18nPlugin({
     locale: negotiateLocale(['en', 'es'], navigator.languages) ?? 'en',
