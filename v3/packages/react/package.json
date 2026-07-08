@@ -21,6 +21,10 @@
       "types": "./src/stage.tsx",
       "import": "./src/stage.tsx"
     },
+    "./scrollbar": {
+      "types": "./src/scrollbar.tsx",
+      "import": "./src/scrollbar.tsx"
+    },
     "./page-view": {
       "types": "./src/page-view.tsx",
       "import": "./src/page-view.tsx"
@@ -94,6 +98,10 @@
       "./stage": {
         "types": "./dist/stage.d.ts",
         "import": "./dist/stage.js"
+      },
+      "./scrollbar": {
+        "types": "./dist/scrollbar.d.ts",
+        "import": "./dist/scrollbar.js"
       },
       "./page-view": {
         "types": "./dist/page-view.d.ts",

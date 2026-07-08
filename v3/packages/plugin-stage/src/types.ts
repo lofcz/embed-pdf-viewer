@@ -11,6 +11,7 @@ import type {
   PageBox,
   PageFrame,
   Point,
+  ScrollMetrics,
   Size,
   SizingMode,
   SpreadMode,
@@ -239,6 +240,20 @@ export interface Scheduler {
   caf(handle: number): void;
 }
 
+/**
+ * Options for the scroller writes — `Element.scrollTo` semantics: absolute
+ * offsets (screen px) into the current scroll range (see
+ * {@link StageCapability.scrollMetrics}); an omitted axis does not move.
+ * `behavior` defaults to 'instant' (the DOM's 'auto'), NOT the stage's
+ * `scrollBehavior` setting — that setting governs navigation verbs, and a
+ * scrollbar thumb must track the pointer exactly.
+ */
+export interface StageScrollToOptions {
+  left?: number;
+  top?: number;
+  behavior?: ScrollBehaviorKind;
+}
+
 /** Options for navigation intents. */
 export interface GoToOptions {
   behavior?: ScrollBehaviorKind;
@@ -307,6 +322,18 @@ export interface StageCapability {
   // ── selectors ──
   camera(): Camera;
   viewport(): Size;
+  /**
+   * The camera as a NATIVE SCROLLER — the DOM scroll vocabulary in screen px:
+   * `scrollTop`/`scrollHeight`/`clientHeight` (and the x twins) mean exactly
+   * what they mean on a DOM element; `scrollableX/Y` false ⇔ nothing to scroll
+   * on that axis (native: no bar). Derived from the SAME travel range the pan
+   * clamp uses — paged flow reads the one-item slice — so a scrollbar built on
+   * it can never disagree with where panning stops. On an UNBOUNDED stage the
+   * range is the union of the padded content and the current window (the Figma
+   * bar): pan away and it grows, the thumb shrinking toward the edge but always
+   * remaining a road back. Reference-stable until a field actually changes.
+   */
+  scrollMetrics(): ScrollMetrics;
   pageCount(): number;
   visiblePages(): VisiblePage[];
   /** The current page (the cursor) — valid in both flows. */
@@ -379,6 +406,12 @@ export interface StageCapability {
   setDevicePixelRatio(dpr: number): void;
   setCamera(c: Camera): void;
   panBy(dxScreen: number, dyScreen: number): void;
+  /** `Element.scrollTo` for the camera: absolute offsets into the scroll range
+   *  (see {@link StageScrollToOptions}) — clamped into it, cursor-synced, zoom
+   *  untouched (scrolling is a pan in scroller clothing). */
+  scrollTo(opts: StageScrollToOptions): void;
+  /** `Element.scrollBy`: relative offsets — sugar over `scrollTo`. */
+  scrollBy(opts: StageScrollToOptions): void;
   zoomAround(screenPt: Point, factor: number): void;
   zoomIn(): void;
   zoomOut(): void;

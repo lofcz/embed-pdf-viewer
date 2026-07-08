@@ -20,6 +20,7 @@
  */
 import { DocumentGate, useOptionalSelector } from '@embedpdf-x/react/runtime';
 import { Stage } from '@embedpdf-x/react/stage';
+import { Scrollbar } from '@embedpdf-x/react/scrollbar';
 import { RenderLayer } from '@embedpdf-x/react/render';
 import { SelectionLayer } from '@embedpdf-x/react/selection';
 import { AnnotationLayer } from '@embedpdf-x/react/annotation';
@@ -87,7 +88,15 @@ export function Shell() {
           <div className="relative min-w-0 flex-1">
             <Stage
               interaction
-              overlay={<AnnotationStrip />}
+              overlay={
+                <>
+                  <AnnotationStrip />
+                  {/* headless scrollbars: geometry/behavior from the stage's
+                      scroller contract; the look is index.css (data-attrs) */}
+                  <Scrollbar axis="y" />
+                  <Scrollbar axis="x" />
+                </>
+              }
               className="h-full w-full"
               style={{ background: 'var(--canvas)' }}
             >

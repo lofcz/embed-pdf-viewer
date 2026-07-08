@@ -119,6 +119,51 @@ A "preset" is just an object you keep and pass — to `stagePlugin()` at setup o
 `stage.update()` at runtime. The plugin ships no named presets; that taxonomy
 belongs to your product.
 
+## The scroller contract — scrollbars, minimaps, "% read"
+
+The Stage doubles as a **virtual scroll element**. `scrollMetrics()` projects
+the camera into the native DOM vocabulary — every field means exactly what it
+means on a `<div>`, in screen px:
+
+```ts
+const m = stage.scrollMetrics();
+// m.scrollTop / m.scrollLeft       — where you are
+// m.scrollHeight / m.scrollWidth   — how much there is
+// m.clientHeight / m.clientWidth   — how much you see
+// m.scrollableY / m.scrollableX    — false = nothing to scroll (hide the bar)
+
+stage.scrollTo({ top: 0 }); // Element.scrollTo semantics
+stage.scrollBy({ top: m.clientHeight * 0.9 }); // page down
+```
+
+That is the whole contract. A scrollbar thumb is
+`clientHeight / scrollHeight` of the track, positioned at
+`scrollTop / scrollHeight`; a reading-progress indicator is
+`scrollTop / (scrollHeight − clientHeight)`; a minimap is the same numbers
+drawn small. You never touch camera math.
+
+The metrics are derived from the **same travel range the pan clamp uses**, so
+a scrollbar can never disagree with where panning actually stops:
+
+- **Zoom** reshapes the range live — zoom in and the thumb shrinks, exactly
+  like a longer document.
+- **Paged flow** scrolls the current item: the bar reflects one page (or
+  spread), and hides when it fits.
+- **A fitting axis** reports `scrollable: false` with `scrollWidth ===
+clientWidth` — the native "no bar" condition, for free.
+- **RTL** stays physical: `scrollLeft` is the offset from the range's left
+  edge, deliberately sidestepping the DOM's negative-`scrollLeft` behavior.
+
+**Unbounded stages get the Figma scrollbar.** With `bounded: false` the range
+is the union of the content and your current view: pan off into empty canvas
+and `scrollHeight` grows, the thumb shrinking toward the edge — but dragging
+it to the other end always rides you back across the content. When everything
+is in view, both axes report unscrollable and the bars disappear.
+
+`scrollTo`/`scrollBy` default to `behavior: 'instant'` (the DOM's `'auto'`);
+pass `'smooth'` for the camera tween. The `scrollBehavior` _setting_ is not
+consulted — it governs navigation verbs (`goToPage`, `next`), not scrolling.
+
 ## What these settings never touch
 
 - **Gestures.** Pan and pinch hold the pointer. Physics, not policy.

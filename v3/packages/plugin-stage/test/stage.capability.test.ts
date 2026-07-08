@@ -479,6 +479,111 @@ describe('smooth scroll via the injected scheduler', () => {
   });
 });
 
+describe('the scroller contract — the camera in native DOM vocabulary', () => {
+  // 5 × 600×800 portrait pages, default gap 16 → world 600 × 4064; vp 1000×700,
+  // padding 24; automatic zoom caps at 1 → the y axis overflows, x fits.
+  const WORLD_H = 5 * 800 + 4 * 16;
+
+  it('reads like a DOM element, aligned with the pan clamp', () => {
+    const { stage } = harness(PORTRAIT);
+    const m = stage.scrollMetrics();
+    expect(m.scrollTop).toBeCloseTo(0, 4); // home: page 1 top at the gutter
+    expect(m.scrollHeight).toBeCloseTo(WORLD_H + 2 * PAD, 4); // padded content extent
+    expect(m.clientHeight).toBe(700);
+    expect(m.scrollableY).toBe(true);
+    expect(m.scrollableX).toBe(false); // 600 ≤ 1000 − 2·24: fits → native "no bar"
+    expect(m.scrollWidth).toBeCloseTo(1000, 4);
+    // pan to the very bottom: the clamp's floor IS the scroller's max
+    stage.panBy(0, -1e9);
+    const bot = stage.scrollMetrics();
+    expect(bot.scrollTop).toBeCloseTo(bot.scrollHeight - bot.clientHeight, 4);
+  });
+
+  it('scrollTo is absolute + clamped; an omitted axis holds; scrollBy accumulates', () => {
+    const { stage } = harness(PORTRAIT);
+    stage.scrollTo({ top: 1500 });
+    expect(stage.scrollMetrics().scrollTop).toBeCloseTo(1500, 4);
+    const camX = stage.camera().x;
+    stage.scrollTo({ top: 1e9 }); // beyond the end → DOM max
+    const m = stage.scrollMetrics();
+    expect(m.scrollTop).toBeCloseTo(m.scrollHeight - m.clientHeight, 4);
+    expect(stage.camera().x).toBeCloseTo(camX, 6); // left untouched
+    stage.scrollTo({ top: 1000 });
+    stage.scrollBy({ top: -250 });
+    expect(stage.scrollMetrics().scrollTop).toBeCloseTo(750, 4);
+  });
+
+  it('scrolling syncs the cursor (manipulation: the camera leads)', () => {
+    const { stage } = harness(PORTRAIT);
+    expect(stage.currentPage()).toBe(0);
+    stage.scrollTo({ top: 2500 }); // deep into page 4's territory
+    expect(stage.currentPage()).toBeGreaterThan(0);
+  });
+
+  it('zoom reshapes the range — and frees a fitting axis', () => {
+    const { stage } = harness(PORTRAIT);
+    stage.zoomTo({ level: 2 });
+    const m = stage.scrollMetrics();
+    expect(m.scrollableX).toBe(true); // 600·2 now overflows the viewport
+    expect(m.scrollWidth).toBeCloseTo(600 * 2 + 2 * PAD, 4);
+    expect(m.scrollHeight).toBeCloseTo(WORLD_H * 2 + 2 * PAD, 4);
+  });
+
+  it('unbounded: the range is the union of content and window (the Figma bar)', () => {
+    const { stage } = harness(PORTRAIT);
+    stage.setBounded(false);
+    const before = stage.scrollMetrics();
+    stage.panBy(0, 2000); // pan the content DOWN — the camera rises above it
+    const away = stage.scrollMetrics();
+    expect(away.scrollTop).toBeCloseTo(0, 4); // window at the union's start
+    expect(away.scrollHeight).toBeCloseTo(before.scrollHeight + 2000, 4); // range grew
+    expect(away.scrollableY).toBe(true); // the bar remains a road back
+    stage.scrollTo({ top: away.scrollHeight - away.clientHeight }); // ride it home…
+    const back = stage.scrollMetrics();
+    expect(back.scrollHeight).toBeCloseTo(before.scrollHeight, 4); // …union re-collapses
+  });
+
+  it('paged flow scrolls the SLICE: the bar reflects one item, not the document', () => {
+    const { stage } = harness(PORTRAIT, { flow: 'paged' });
+    const m = stage.scrollMetrics();
+    // one 600×800 item at zoom 1: y = 848 total vs 700 viewport, x fits
+    expect(m.scrollHeight).toBeCloseTo(800 + 2 * PAD, 4);
+    expect(m.scrollableY).toBe(true);
+    expect(m.scrollableX).toBe(false);
+    stage.goToPage(3, { behavior: 'instant' });
+    expect(stage.scrollMetrics().scrollHeight).toBeCloseTo(800 + 2 * PAD, 4); // same-size slice
+  });
+
+  it('smooth scrollTo tweens and syncs the cursor on arrival', () => {
+    const frames: Array<(t: number) => void> = [];
+    const scheduler = {
+      raf: (cb: (t: number) => void) => {
+        frames.push(cb);
+        return frames.length;
+      },
+      caf: () => {},
+    };
+    const { stage } = harness(PORTRAIT, { scheduler });
+    stage.scrollTo({ top: 2500, behavior: 'smooth' });
+    expect(frames.length).toBeGreaterThan(0);
+    const run = (t: number) => frames.splice(0).forEach((cb) => cb(t));
+    run(0);
+    run(120);
+    expect(stage.currentPage()).toBe(0); // mid-tween: cursor not yet synced
+    run(240);
+    expect(stage.scrollMetrics().scrollTop).toBeCloseTo(2500, 1);
+    expect(stage.currentPage()).toBeGreaterThan(0); // synced on natural completion
+  });
+
+  it('the metrics reference is stable until a field moves (adapter equality)', () => {
+    const { stage } = harness(PORTRAIT);
+    const a = stage.scrollMetrics();
+    expect(stage.scrollMetrics()).toBe(a); // no camera move → same object
+    stage.scrollBy({ top: 10 });
+    expect(stage.scrollMetrics()).not.toBe(a);
+  });
+});
+
 describe('arrival is ZOOM-INVARIANT: the landing rule never depends on magnification', () => {
   it('zoomed OUT, goToPage lands the page top at the gutter — same as zoomed in', () => {
     // The old model flipped here (fitting page → centered); landing is now

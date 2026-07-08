@@ -391,8 +391,14 @@ export function createStageCapability(
   const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
   // The tween clamps to an EXPLICIT bounds rect every frame (never a re-derived
   // current item), so animating toward a different item isn't clamped back.
-  const animateTo = (target: S.Camera, bounds: S.Rect, ms = 240) => {
-    if (!canAnimate) return setCam(target, bounds);
+  // `then` runs on natural completion only — a cancelled tween belongs to the
+  // verb that cancelled it.
+  const animateTo = (target: S.Camera, bounds: S.Rect, ms = 240, then?: () => void) => {
+    if (!canAnimate) {
+      setCam(target, bounds);
+      then?.();
+      return;
+    }
     cancelAnim();
     const from = cam();
     const ease = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -412,7 +418,12 @@ export function createStageCapability(
         },
         bounds,
       );
-      raf = k < 1 ? scheduler.raf(tick) : 0;
+      if (k < 1) {
+        raf = scheduler.raf(tick);
+      } else {
+        raf = 0;
+        then?.();
+      }
     };
     raf = scheduler.raf(tick);
   };
@@ -603,6 +614,35 @@ export function createStageCapability(
     };
   };
 
+  // The scroller projection — the camera in native DOM vocabulary, against the
+  // SAME bounds the pan clamp uses (stayBounds: the slice item in paged flow,
+  // the scene in continuous). Memoized like visiblePages: a stable reference
+  // until a field actually moves, so adapter selectors can use plain equality.
+  let scrollMemo: S.ScrollMetrics | null = null;
+  const scrollMetricsNow = (): S.ScrollMetrics => {
+    const sc = buildScene();
+    const m = S.scrollMetrics(
+      cam(),
+      sc.itemCount ? stayBounds() : { x: 0, y: 0, width: 0, height: 0 },
+      vp(),
+      pad(),
+    );
+    const p = scrollMemo;
+    if (
+      p &&
+      p.scrollLeft === m.scrollLeft &&
+      p.scrollTop === m.scrollTop &&
+      p.scrollWidth === m.scrollWidth &&
+      p.scrollHeight === m.scrollHeight &&
+      p.clientWidth === m.clientWidth &&
+      p.clientHeight === m.clientHeight
+    ) {
+      return p; // scrollableX/Y derive from the numbers — covered by the six
+    }
+    scrollMemo = m;
+    return m;
+  };
+
   // Memoized visiblePages -> stable reference (no useSyncExternalStore tearing loop).
   // Paged renders ONLY the slice's item; continuous renders the camera's query window.
   let visSig = '';
@@ -637,6 +677,7 @@ export function createStageCapability(
     // ── selectors ──
     camera: cam,
     viewport: vp,
+    scrollMetrics: scrollMetricsNow,
     pageCount: () => ctx.document()?.pageCount ?? 0,
     visiblePages,
     currentPage: () => ctx.getState().cursor,
@@ -771,6 +812,26 @@ export function createStageCapability(
       cancelAnim();
       setCam(S.panByScreen(cam(), dx, dy));
       syncCursorFromCamera();
+    },
+    scrollTo: (opts) => {
+      cancelAnim();
+      const sc = buildScene();
+      if (!sc.itemCount) return;
+      const next = S.cameraFromScroll(cam(), stayBounds(), vp(), pad(), opts);
+      if (opts.behavior === 'smooth') {
+        animateTo(next, stayBounds(), 240, syncCursorFromCamera);
+      } else {
+        setCam(next);
+        syncCursorFromCamera();
+      }
+    },
+    scrollBy: ({ left, top, behavior }) => {
+      const m = scrollMetricsNow();
+      api.scrollTo({
+        left: left === undefined ? undefined : m.scrollLeft + left,
+        top: top === undefined ? undefined : m.scrollTop + top,
+        behavior,
+      });
     },
     zoomAround: (pt, factor) => {
       cancelAnim();

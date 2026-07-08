@@ -194,26 +194,50 @@ export const centerOnWorld = (worldPt: Point, vp: Size, zoom: number): Camera =>
 });
 
 /**
+ * One axis of camera travel against content bounds — THE scroll geometry.
+ * `near`/`far` are the two flush camera positions (content start edge at the
+ * padded viewport start / content end edge at the padded viewport end); the
+ * camera travels in [near, far] while the padded content overflows the view.
+ * When it FITS the interval inverts and `fits` is true — there is nowhere to
+ * travel, and the clamp locks the camera to its fitAlign rest instead. Shared
+ * by `clampCamera` and `scrollMetrics`, so the pan clamp and a scrollbar can
+ * never disagree about where travel ends.
+ */
+export interface AxisTravel {
+  near: number;
+  far: number;
+  fits: boolean;
+}
+export const travelRange = (
+  origin: number,
+  content: number,
+  view: number,
+  zoom: number,
+  padding: number,
+): AxisTravel => ({
+  near: origin - padding / zoom,
+  far: origin + content - (view - padding) / zoom,
+  fits: content * zoom <= view - 2 * padding,
+});
+
+/**
  * Bounds — the one place travel limits live. Clamps the camera into an arbitrary
  * world `Rect` (the whole document in continuous flow, one item in paged flow),
  * with a `padding` gutter the camera may reveal beyond each content edge.
  *
- * Per axis there are two flush positions: `near` (content's start edge at the
- * padded viewport edge) and `far` (its end edge). If the padded content OVERFLOWS
- * the viewport, the camera travels freely in [near, far]. If it FITS, the interval
- * inverts and the camera is LOCKED to the `fitAlign` rest point — start = near,
- * end = far, center = midpoint (x resolved logically against `direction`).
+ * Per axis the travel interval is `travelRange`'s [near, far]. If the padded
+ * content OVERFLOWS the viewport, the camera travels freely in it. If it FITS,
+ * the camera is LOCKED to the `fitAlign` rest point — start = near, end = far,
+ * center = midpoint (x resolved logically against `direction`).
  */
 export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstraint): Camera => {
   if (!k.bounded) return c;
   const p = k.padding;
   const fit = k.fitAlign ?? { x: 'center', y: 'center' };
   const axis = (pos: number, origin: number, content: number, view: number, a: Align): number => {
-    const near = origin - p / c.zoom;
-    const far = origin + content - (view - p) / c.zoom;
-    if (content * c.zoom <= view - 2 * p)
-      return a === 'start' ? near : a === 'end' ? far : (near + far) / 2; // fits: rest & lock
-    return clamp(pos, near, far);
+    const t = travelRange(origin, content, view, c.zoom, p);
+    if (t.fits) return a === 'start' ? t.near : a === 'end' ? t.far : (t.near + t.far) / 2; // fits: rest & lock
+    return clamp(pos, t.near, t.far);
   };
   // logical x: under RTL the reading start is the RIGHT edge
   const ax =
@@ -222,6 +246,92 @@ export const clampCamera = (c: Camera, bounds: Rect, vp: Size, k: CameraConstrai
     zoom: c.zoom,
     x: axis(c.x, bounds.x, bounds.width, vp.width, ax),
     y: axis(c.y, bounds.y, bounds.height, vp.height, fit.y),
+  };
+};
+
+/**
+ * The camera as a NATIVE SCROLLER — the DOM scroll vocabulary, in screen px:
+ * every field means exactly what it means on a DOM element. Per axis the scroll
+ * range is the UNION of the padded content extent and the current camera window:
+ *   • bounded — the clamp already keeps the window inside the padded content
+ *     (or rests it when the axis fits), so the union IS the padded content and
+ *     the numbers degenerate to the classic scroller (scrollLeft ∈
+ *     [0, scrollWidth − clientWidth], aligned with `travelRange`'s [near, far]).
+ *   • unbounded — pan beyond the content and the union grows (the Figma
+ *     scrollbar): the thumb shrinks toward the edge but always remains a road
+ *     back over the content.
+ * `scrollableX/Y` false ⇔ the window covers the whole range (native: no bar).
+ * One formula, no mode branching — the clamp did the branching already.
+ * Coordinates are PHYSICAL on both axes (RTL included), deliberately sidestepping
+ * the DOM's negative-scrollLeft-under-RTL behavior.
+ */
+export interface ScrollMetrics {
+  scrollLeft: number;
+  scrollTop: number;
+  scrollWidth: number;
+  scrollHeight: number;
+  clientWidth: number;
+  clientHeight: number;
+  scrollableX: boolean;
+  scrollableY: boolean;
+}
+export const scrollMetrics = (
+  c: Camera,
+  bounds: Rect,
+  vp: Size,
+  padding: number,
+): ScrollMetrics => {
+  const axis = (pos: number, origin: number, content: number, view: number) => {
+    const lo = Math.min(origin - padding / c.zoom, pos);
+    const hi = Math.max(origin + content + padding / c.zoom, pos + view / c.zoom);
+    const total = (hi - lo) * c.zoom;
+    // half-px slack, like the fits-predicate: sub-pixel overflow must not flash a bar
+    return { offset: (pos - lo) * c.zoom, total, scrollable: total > view + 0.5 };
+  };
+  const x = axis(c.x, bounds.x, bounds.width, vp.width);
+  const y = axis(c.y, bounds.y, bounds.height, vp.height);
+  return {
+    scrollLeft: x.offset,
+    scrollTop: y.offset,
+    scrollWidth: x.total,
+    scrollHeight: y.total,
+    clientWidth: vp.width,
+    clientHeight: vp.height,
+    scrollableX: x.scrollable,
+    scrollableY: y.scrollable,
+  };
+};
+
+/**
+ * The inverse write — `Element.scrollTo` semantics: absolute offsets into the
+ * CURRENT range (the same union `scrollMetrics` reports), clamped into
+ * [0, total − view]; an omitted axis does not move. Zoom is untouched: scrolling
+ * is a pan in scroller clothing.
+ */
+export const cameraFromScroll = (
+  c: Camera,
+  bounds: Rect,
+  vp: Size,
+  padding: number,
+  target: { left?: number; top?: number },
+): Camera => {
+  const axis = (
+    want: number | undefined,
+    pos: number,
+    origin: number,
+    content: number,
+    view: number,
+  ): number => {
+    if (want === undefined) return pos;
+    const lo = Math.min(origin - padding / c.zoom, pos);
+    const hi = Math.max(origin + content + padding / c.zoom, pos + view / c.zoom);
+    const max = Math.max(0, (hi - lo) * c.zoom - view);
+    return lo + clamp(want, 0, max) / c.zoom;
+  };
+  return {
+    zoom: c.zoom,
+    x: axis(target.left, c.x, bounds.x, bounds.width, vp.width),
+    y: axis(target.top, c.y, bounds.y, bounds.height, vp.height),
   };
 };
 

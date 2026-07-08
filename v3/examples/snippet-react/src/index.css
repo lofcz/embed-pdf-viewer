@@ -103,3 +103,20 @@ body {
 [data-measure-layer] {
   pointer-events: none;
 }
+
+/* Headless scrollbar theming. The component ships geometry + behavior only
+   (thumb drag, track paging, auto-hide → data-state); everything visual is
+   these few rules — restyle or replace them freely. */
+:root {
+  --epdf-scrollbar-thumb: rgba(17, 24, 39, 0.35);
+}
+.dark {
+  --epdf-scrollbar-thumb: rgba(249, 250, 251, 0.28);
+}
+[data-embedpdf-scrollbar-thumb] {
+  transition: background 150ms;
+}
+[data-embedpdf-scrollbar-thumb]:hover,
+[data-embedpdf-scrollbar][data-dragging] [data-embedpdf-scrollbar-thumb] {
+  background: var(--fg-muted);
+}

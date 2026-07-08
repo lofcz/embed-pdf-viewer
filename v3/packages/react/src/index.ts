@@ -1,5 +1,6 @@
 export * from './runtime';
 export * from './stage';
+export * from './scrollbar';
 export * from './page-view';
 export * from './render';
 export * from './interaction';

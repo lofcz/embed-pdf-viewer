@@ -270,6 +270,83 @@ describe('clampCamera', () => {
   });
 });
 
+describe('scrollMetrics — the camera as a native scroller', () => {
+  const P = 24;
+  const bounds = { x: 0, y: 0, width: 800, height: 5000 }; // y overflows vp, x fits
+  const k = { bounded: true, padding: P } as const;
+
+  it('bounded overflow: the DOM identities hold, aligned with the clamp', () => {
+    // camera clamped to the very top → scrollTop 0
+    const top = S.clampCamera({ x: 0, y: -99999, zoom: 1 }, bounds, vp, k);
+    const mTop = S.scrollMetrics(top, bounds, vp, P);
+    expect(mTop.scrollTop).toBeCloseTo(0, 6);
+    expect(mTop.scrollHeight).toBeCloseTo(5000 + 2 * P, 6); // padded content extent
+    expect(mTop.clientHeight).toBe(vp.height);
+    expect(mTop.scrollableY).toBe(true);
+    // clamped to the very bottom → scrollTop === scrollHeight − clientHeight,
+    // exactly the DOM's max — the clamp and the scroller share travelRange
+    const bot = S.clampCamera({ x: 0, y: 99999, zoom: 1 }, bounds, vp, k);
+    const mBot = S.scrollMetrics(bot, bounds, vp, P);
+    expect(mBot.scrollTop).toBeCloseTo(mBot.scrollHeight - mBot.clientHeight, 6);
+  });
+
+  it('a fitting axis reports unscrollable with offset 0 (native: no bar)', () => {
+    const c = S.clampCamera({ x: 0, y: 0, zoom: 1 }, bounds, vp, k); // x fits, rests centered
+    const m = S.scrollMetrics(c, bounds, vp, P);
+    expect(m.scrollableX).toBe(false);
+    expect(m.scrollLeft).toBeCloseTo(0, 6);
+    expect(m.scrollWidth).toBeCloseTo(vp.width, 6); // DOM: scrollWidth = clientWidth when nothing overflows
+  });
+
+  it('zoom scales the range: doubling zoom doubles the content extent', () => {
+    const c = S.clampCamera({ x: 0, y: 100, zoom: 2 }, bounds, vp, k);
+    const m = S.scrollMetrics(c, bounds, vp, P);
+    expect(m.scrollHeight).toBeCloseTo(5000 * 2 + 2 * P, 6);
+    expect(m.scrollableX).toBe(true); // 800 * 2 now overflows 1000 − it scrolls
+  });
+
+  it('unbounded: the range is the union of content and window (the Figma bar)', () => {
+    // camera parked far LEFT of the content — thumb hugs the start
+    const west = { x: -3000, y: 0, zoom: 1 };
+    const mW = S.scrollMetrics(west, bounds, vp, P);
+    expect(mW.scrollLeft).toBeCloseTo(0, 6);
+    expect(mW.scrollWidth).toBeCloseTo(800 + P - -3000, 6); // union: window lo → content hi (padded)
+    expect(mW.scrollableX).toBe(true);
+    // camera far RIGHT — thumb hugs the end
+    const east = { x: 4000, y: 0, zoom: 1 };
+    const mE = S.scrollMetrics(east, bounds, vp, P);
+    expect(mE.scrollLeft).toBeCloseTo(mE.scrollWidth - mE.clientWidth, 6);
+  });
+
+  it('unbounded with everything in view: unscrollable, like a fitting native div', () => {
+    // zoomed way out: the window ([-300, 9700] × [-300, 6700] world) covers the
+    // whole padded content ([-240, 1040] × [-240, 5240])
+    const c = { x: -300, y: -300, zoom: 0.1 };
+    const m = S.scrollMetrics(c, bounds, vp, P);
+    expect(m.scrollableX).toBe(false);
+    expect(m.scrollableY).toBe(false);
+  });
+
+  it('cameraFromScroll: Element.scrollTo semantics — absolute, clamped, per-axis', () => {
+    const c = S.clampCamera({ x: 0, y: 1000, zoom: 1 }, bounds, vp, k);
+    const m = S.scrollMetrics(c, bounds, vp, P);
+    // round-trip: writing the current offsets back is the identity
+    const same = S.cameraFromScroll(c, bounds, vp, P, { left: m.scrollLeft, top: m.scrollTop });
+    expect(same.x).toBeCloseTo(c.x, 6);
+    expect(same.y).toBeCloseTo(c.y, 6);
+    // an omitted axis does not move; a present one lands exactly
+    const moved = S.cameraFromScroll(c, bounds, vp, P, { top: 2000 });
+    expect(moved.x).toBeCloseTo(c.x, 6);
+    expect(S.scrollMetrics(moved, bounds, vp, P).scrollTop).toBeCloseTo(2000, 6);
+    // beyond the end clamps to max (scrollHeight − clientHeight), like the DOM
+    const over = S.cameraFromScroll(c, bounds, vp, P, { top: 1e9 });
+    const mo = S.scrollMetrics(over, bounds, vp, P);
+    expect(mo.scrollTop).toBeCloseTo(mo.scrollHeight - mo.clientHeight, 6);
+    // zoom is untouched — scrolling is a pan in scroller clothing
+    expect(over.zoom).toBe(c.zoom);
+  });
+});
+
 describe('resolveZoom: fit-all', () => {
   it('fits the whole scene box (same math as fit-page, whole-scene box)', () => {
     const sceneBox = { width: 3000, height: 2400 };
