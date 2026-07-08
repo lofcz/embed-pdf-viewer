@@ -4,8 +4,18 @@
  * overlay. Deliberately minimal — chrome-parity scope. Panels read their
  * open state from plugin-shell; the app owns their DOM.
  */
-import { useLocale, useT, useSurface, useSelector, useCommands } from '@embedpdf-x/react';
+import { useEffect } from 'react';
+import {
+  Stage,
+  RenderLayer,
+  usePages,
+  useLocale,
+  useT,
+  useSurface,
+  useSelector,
+} from '@embedpdf-x/react';
 import { StageToken } from '@embedpdf-x/plugin-stage';
+import { ThumbsStageToken } from '../config/stage';
 import { Icon } from './icons';
 import { useTheme } from './theme';
 
@@ -84,31 +94,68 @@ export function LeftSidebar() {
   );
 }
 
+// The thumbnail rail: the SAME document through the thumbnail Stage lens (a
+// single-column, fixed-zoom grid — see App's `stage-thumbs` plugin). Click a
+// thumb to navigate the MAIN lens; the rail follows the main view. Read-only —
+// no page edits (rotate/move/delete), just the page bitmap and its number.
 function ThumbnailList() {
-  const commands = useCommands();
-  const pages = useSelector(
-    StageToken,
-    (c) => c.pages(),
-    (a, b) => a.length === b.length,
-  );
+  const { currentPage, goToPage } = usePages(); // the MAIN lens
+  const { reveal } = usePages(ThumbsStageToken); // the SIDEBAR lens
+  // Follow the main view: when its current page changes, make that thumb visible —
+  // minimal movement, zero when it's already on screen.
+  useEffect(() => reveal(currentPage), [currentPage, reveal]);
   return (
-    <div className="flex-1 overflow-auto p-3">
-      <div className="flex flex-col gap-3">
-        {pages.map((p) => (
+    <Stage
+      token={ThumbsStageToken}
+      className="flex-1"
+      style={{ position: 'relative' }}
+      pageChrome={(page) => (
+        <>
+          {/* BOX-SPACE chrome: the click target + selection border hug the page
+              box; the number sits in the reserved bottom band. Neither rotates. */}
           <button
-            key={p.pon}
             type="button"
-            onClick={() => commands.execute('pointer:toggle')}
-            className="group flex flex-col items-center gap-1"
+            onClick={() => goToPage(page.pageIndex)}
+            title={`Page ${page.pageIndex + 1}`}
+            style={{
+              position: 'absolute',
+              top: page.frame.top,
+              left: page.frame.left,
+              right: page.frame.right,
+              bottom: page.frame.bottom,
+              cursor: 'pointer',
+              boxSizing: 'border-box',
+              borderRadius: 4,
+              border:
+                page.pageIndex === currentPage
+                  ? '2px solid var(--accent)'
+                  : '1px solid var(--border-subtle)',
+              boxShadow: page.pageIndex === currentPage ? '0 0 0 2px var(--accent-light)' : 'none',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: page.frame.bottom,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 11,
+              color: 'var(--fg-muted)',
+              pointerEvents: 'none',
+            }}
           >
-            <div className="border-border-subtle bg-surface-alt text-fg-muted group-hover:border-accent grid h-28 w-full place-items-center rounded-md border text-xs">
-              {p.index}
-            </div>
-            <span className="text-fg-muted text-[11px]">{p.label ?? p.index}</span>
-          </button>
-        ))}
-      </div>
-    </div>
+            {page.pageIndex + 1}
+          </div>
+        </>
+      )}
+    >
+      {/* page-space content: the bitmap, which rotates with the page */}
+      {() => <RenderLayer />}
+    </Stage>
   );
 }
 

@@ -15,6 +15,7 @@ import { i18nPlugin, negotiateLocale } from '@embedpdf-x/plugin-i18n';
 import { commandsPlugin } from '@embedpdf-x/plugin-commands';
 import { shellPlugin } from '@embedpdf-x/plugin-shell';
 import { createDeferredEngine, loadInitialDocuments } from './engine';
+import { ThumbsStageToken } from './config/stage';
 import { commands } from './config/commands';
 import { demoToolsPlugin } from './config/demo-tools.plugin';
 import { en } from './locales/en';
@@ -22,7 +23,23 @@ import { ThemeProvider } from './ui/theme';
 import { Shell } from './Shell';
 
 const plugins = [
-  stagePlugin({ layout: 'vertical', interaction: true }),
+  stagePlugin({ layout: 'vertical', interaction: true }), // main lens; drives the interaction hub
+  // Thumbnail lens over the SAME document: a single-column grid at a fixed small
+  // zoom, its own camera. Click a thumb to navigate the main lens; the sidebar
+  // follows the main view (see ui/panels ThumbnailList).
+  stagePlugin({
+    id: 'stage-thumbs',
+    token: ThumbsStageToken,
+    layout: 'grid',
+    columns: 1, // single column, like the v2 snippet's thumbnail rail
+    sizing: 'uniform', // equalize pages so the pixel target hits every thumb
+    zoom: { pageWidth: 150 }, // thumbs are 150 SCREEN px wide — for ANY document
+    padding: 12,
+    gap: { px: 16 }, // UI-stable spacing between thumbs
+    pageFrame: { top: 0, right: 0, bottom: 20, left: 0 }, // reserved label band (screen px)
+    fitAlign: { x: 'center', y: 'start' }, // few pages? thumbs hug the TOP
+    scrollBehavior: 'instant',
+  }),
   renderPlugin(),
   pageEditPlugin(),
   interactionPlugin({ defaultTool: 'pointer' }),
