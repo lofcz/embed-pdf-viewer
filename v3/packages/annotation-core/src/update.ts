@@ -22,8 +22,8 @@ import {
   groupResizeBox,
   groupResizeFactors,
   normalizeDeg,
+  quadIntersectsRect,
   rectFromPoints,
-  rectsIntersect,
   selectionCenter,
   selectionQuad,
   shapeRectFor,
@@ -929,12 +929,13 @@ export function annotsInBox(m: Model, pon: number, a: Vec, b: Vec): Id[] {
     (id) =>
       m.byId[id]?.pon === pon &&
       isSelectable(m, id) &&
-      // intersect against the ROTATED extent (AABB of the oriented quad), so a
-      // marquee catches a tilted shape by what's actually drawn, not its footprint.
-      rectsIntersect(
-        unionRect(
-          selectionQuad(m.byId[id].geom, m.byId[id].style.strokeWidth, m.byId[id].style.border),
-        ),
+      // intersect against what is actually DRAWN: the oriented selection quad
+      // (exact, via SAT) — the SAME quad the chrome outlines and the grab region
+      // uses. Its AABB is a coarse superset whose empty corners cover most of a
+      // tilted shape's unrotated footprint, so testing the AABB selected shapes
+      // the marquee never touched.
+      quadIntersectsRect(
+        selectionQuad(m.byId[id].geom, m.byId[id].style.strokeWidth, m.byId[id].style.border),
         box,
       ),
   );

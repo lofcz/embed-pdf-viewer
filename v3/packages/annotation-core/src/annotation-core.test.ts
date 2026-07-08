@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initialModel, rotateDraftDelta, update } from './update';
+import { annotsInBox, initialModel, rotateDraftDelta, update } from './update';
 import { computeMoveSnap } from './snap';
 import {
   chrome,
@@ -16,6 +16,7 @@ import {
   geomBounds,
   geomHit,
   geomScene,
+  quadIntersectsRect,
   geomVisualBounds,
   geomHandles,
   geomTranslate,
@@ -2716,5 +2717,90 @@ describe('group chrome rides live gestures', () => {
     // release: committed == live, no jump
     m = run(m, [editPtr('up', se.x + 50, se.y + 30)]);
     expect(outlineOf(chrome(m, PON))).toEqual(liveOutline);
+  });
+});
+
+/**
+ * The marquee selects what its rectangle touches of the ORIENTED selection
+ * quad — the same quad the chrome outlines and the grab region uses (exact,
+ * via SAT). Regression: it used to test the AABB of that quad, whose empty
+ * corners cover most of a tilted shape's UNROTATED footprint — so a marquee
+ * over where the shape visibly wasn't (including its pre-rotation position)
+ * still selected it.
+ */
+describe('marquee vs rotated shapes', () => {
+  // A thin 200×20 bar rotated 45° about its centre (200,110): it occupies the
+  // diagonal band from ≈(129,39) to ≈(271,181) and nothing else. Its rotated
+  // AABB spans ≈(122..278, 32..188).
+  const bar: Annot = {
+    id: 'R1',
+    ref: { kind: 'objectNumber', pageObjectNumber: PON, annotObjectNumber: 900 },
+    pon: PON,
+    subtype: 'square',
+    geom: { t: 'rect', rect: { x: 100, y: 100, width: 200, height: 20 }, ellipse: false, rot: 45 },
+    style: {
+      color: '#e5484d',
+      interiorColor: null,
+      strokeWidth: 2,
+      opacity: 1,
+      border: { kind: 'solid' },
+    },
+    locked: false,
+    source: 'vector',
+  };
+  const m = update(initialModel, { t: 'loaded', annots: [bar] })[0];
+
+  it('quadIntersectsRect: SAT on the four candidate axes', () => {
+    // axis-aligned quad ≡ rectsIntersect semantics, touching counts
+    const aligned: [Vec, Vec, Vec, Vec] = [
+      { x: 10, y: 10 },
+      { x: 50, y: 10 },
+      { x: 50, y: 40 },
+      { x: 10, y: 40 },
+    ];
+    expect(quadIntersectsRect(aligned, { x: 40, y: 30, width: 30, height: 30 })).toBe(true);
+    expect(quadIntersectsRect(aligned, { x: 50, y: 40, width: 10, height: 10 })).toBe(true); // touch
+    expect(quadIntersectsRect(aligned, { x: 51, y: 41, width: 10, height: 10 })).toBe(false);
+    // containment both ways
+    const diamond: [Vec, Vec, Vec, Vec] = [
+      { x: 100, y: 50 },
+      { x: 150, y: 100 },
+      { x: 100, y: 150 },
+      { x: 50, y: 100 },
+    ];
+    expect(quadIntersectsRect(diamond, { x: 95, y: 95, width: 10, height: 10 })).toBe(true); // rect inside quad
+    expect(quadIntersectsRect(diamond, { x: 0, y: 0, width: 300, height: 300 })).toBe(true); // quad inside rect
+    // the case only a QUAD axis separates: a rect in the diamond's AABB corner
+    // overlaps on x and y, but not across the diamond's tilted edge
+    expect(quadIntersectsRect(diamond, { x: 52, y: 52, width: 20, height: 20 })).toBe(false);
+  });
+
+  it('a marquee in the rotated AABB empty corner or over the unrotated footprint selects NOTHING', () => {
+    // empty AABB corner — visually nowhere near the bar (used to select R1)
+    expect(annotsInBox(m, PON, { x: 250, y: 35 }, { x: 270, y: 55 })).toEqual([]);
+    // where the UNROTATED shape used to be (used to select R1 — the report)
+    expect(annotsInBox(m, PON, { x: 125, y: 95 }, { x: 140, y: 110 })).toEqual([]);
+    // the OTHER empty AABB corner (below the NW→SE bar) — also nothing
+    expect(annotsInBox(m, PON, { x: 120, y: 160 }, { x: 150, y: 190 })).toEqual([]);
+    // crossing the tilted bar → selected
+    expect(annotsInBox(m, PON, { x: 190, y: 100 }, { x: 210, y: 120 })).toEqual(['R1']);
+    // clipping just the bar's NW tip (corners ≈ (136,31)/(121,46)) → selected
+    expect(annotsInBox(m, PON, { x: 120, y: 30 }, { x: 140, y: 50 })).toEqual(['R1']);
+    // fully outside everything
+    expect(annotsInBox(m, PON, { x: 400, y: 40 }, { x: 430, y: 70 })).toEqual([]);
+  });
+
+  it('unrotated shapes behave exactly as before', () => {
+    const flat = update(initialModel, {
+      t: 'loaded',
+      annots: [
+        {
+          ...bar,
+          geom: { t: 'rect', rect: { x: 100, y: 100, width: 200, height: 20 }, ellipse: false },
+        },
+      ],
+    })[0];
+    expect(annotsInBox(flat, PON, { x: 90, y: 90 }, { x: 110, y: 110 })).toEqual(['R1']); // corner overlap
+    expect(annotsInBox(flat, PON, { x: 90, y: 130 }, { x: 110, y: 150 })).toEqual([]); // below it
   });
 });

@@ -764,6 +764,45 @@ export function selectionQuad(g: Geom, strokeWidth: number, border?: Border): [V
 export const pointInQuad = (p: Vec, quad: [Vec, Vec, Vec, Vec]): boolean => pointInPoly(p, quad);
 
 /**
+ * Does the (convex) selection quad intersect an axis-aligned rect? Separating
+ * axis test on the only four candidate axes — the rect's x/y plus the quad's
+ * two edge normals; a gap on any axis proves disjoint, otherwise they overlap
+ * (touching counts). This is the marquee's predicate: it must catch a tilted
+ * shape by the ORIENTED box that is actually drawn — the AABB of that quad has
+ * empty corners covering most of the unrotated footprint, so testing it selects
+ * shapes the marquee never touched. At `rot 0` the quad is axis-aligned and
+ * this degenerates to exactly `rectsIntersect`.
+ */
+export function quadIntersectsRect(quad: [Vec, Vec, Vec, Vec], r: Rect): boolean {
+  const rectPts = rectCornerPoints(r);
+  const axes: Vec[] = [
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: -(quad[1].y - quad[0].y), y: quad[1].x - quad[0].x },
+    { x: -(quad[3].y - quad[0].y), y: quad[3].x - quad[0].x },
+  ];
+  for (const ax of axes) {
+    if (Math.abs(ax.x) < 1e-12 && Math.abs(ax.y) < 1e-12) continue; // degenerate edge
+    let qLo = Infinity;
+    let qHi = -Infinity;
+    for (const p of quad) {
+      const d = p.x * ax.x + p.y * ax.y;
+      qLo = Math.min(qLo, d);
+      qHi = Math.max(qHi, d);
+    }
+    let rLo = Infinity;
+    let rHi = -Infinity;
+    for (const p of rectPts) {
+      const d = p.x * ax.x + p.y * ax.y;
+      rLo = Math.min(rLo, d);
+      rHi = Math.max(rHi, d);
+    }
+    if (qHi < rLo || rHi < qLo) return false; // separated on this axis
+  }
+  return true;
+}
+
+/**
  * The centre of the ORIENTED selection box — the middle of the rect you see.
  * For box kinds this is the rect centre (so squares/circles are unchanged); for
  * vertex kinds it is the OBB centre, so rotation spins the shape in place rather

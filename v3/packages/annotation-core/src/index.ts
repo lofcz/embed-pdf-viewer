@@ -58,6 +58,7 @@ export {
   selectionQuad,
   selectionCenter,
   pointInQuad,
+  quadIntersectsRect,
   shapeRectFor,
   unionRect,
   RECT_HANDLES,
