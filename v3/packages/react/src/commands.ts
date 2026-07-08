@@ -7,34 +7,15 @@
  * propagate with zero events), and `useCommandShortcuts` is the ~20 lines of
  * DOM that turn the registry's pure stroke matcher into a live keymap.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+// (resolvedCommandsEqual lives in the plugin now — it's pure value equality
+// over ResolvedCommand, framework-free — and arrives through this star.)
+export * from '@embedpdf-x/plugin-commands';
 import { useEffect } from 'react';
-import { CommandsToken } from '@embedpdf-x/plugin-commands';
+import { CommandsToken, resolvedCommandsEqual } from '@embedpdf-x/plugin-commands';
 import type { CommandsCapability, ResolvedCommand } from '@embedpdf-x/plugin-commands';
 import { useCapability, useDocumentId, useKernelValue } from './runtime';
-
-const shortcutsEqual = (a: readonly string[], b: readonly string[]) =>
-  a.length === b.length && a.every((s, i) => s === b[i]);
-
-export const resolvedCommandsEqual = (
-  a: ResolvedCommand | null,
-  b: ResolvedCommand | null,
-): boolean => {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return (
-    a.id === b.id &&
-    a.label === b.label &&
-    a.icon === b.icon &&
-    // by value: resolve() mints a fresh accent object each read
-    a.iconAccent?.primary === b.iconAccent?.primary &&
-    a.iconAccent?.secondary === b.iconAccent?.secondary &&
-    a.menu === b.menu &&
-    a.enabled === b.enabled &&
-    a.active === b.active &&
-    a.visible === b.visible &&
-    shortcutsEqual(a.shortcuts, b.shortcuts)
-  );
-};
 
 /** The commands capability (register/execute/search/categories). */
 export function useCommands(): CommandsCapability {

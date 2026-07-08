@@ -1,5 +1,5 @@
 export { commandsPlugin } from './commands.plugin';
-export { CommandsToken } from './types';
+export { CommandsToken, resolvedCommandsEqual } from './types';
 export type {
   CommandCtx,
   CommandDef,

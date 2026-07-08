@@ -9,13 +9,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "paths": {
-      "@embedpdf-x/ui-core": ["../../packages/ui-core/src/index.ts"],
-      "@embedpdf-x/plugin-commands": ["../../packages/plugin-commands/src/index.ts"],
-      "@embedpdf-x/plugin-shell": ["../../packages/plugin-shell/src/index.ts"],
-      "@embedpdf-x/react": ["../../packages/react/src/index.ts"]
-    }
+    "lib": ["ES2020", "DOM", "DOM.Iterable"]
   },
   "include": ["src"]
 }

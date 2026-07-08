@@ -5,16 +5,11 @@
  * open state from plugin-shell; the app owns their DOM.
  */
 import { useEffect } from 'react';
-import {
-  Stage,
-  RenderLayer,
-  usePages,
-  useLocale,
-  useT,
-  useSurface,
-  useSelector,
-} from '@embedpdf-x/react';
-import { StageToken } from '@embedpdf-x/plugin-stage';
+import { useSelector } from '@embedpdf-x/react/runtime';
+import { Stage, StageToken, usePages } from '@embedpdf-x/react/stage';
+import { RenderLayer } from '@embedpdf-x/react/render';
+import { useSurface } from '@embedpdf-x/react/shell';
+import { useLocale, useT } from '@embedpdf-x/react/i18n';
 import { ThumbsStageToken } from '../config/stage';
 import { Icon } from './icons';
 import { useTheme } from './theme';

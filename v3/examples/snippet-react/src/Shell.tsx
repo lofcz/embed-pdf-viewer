@@ -18,20 +18,18 @@
  * plugin-shell's exclusive 'mode' surface, read null-safely so the band simply
  * doesn't exist without a document.
  */
-import {
-  Stage,
-  RenderLayer,
-  SelectionLayer,
-  AnnotationLayer,
-  DocumentGate,
-  useCommandShortcuts,
-  useOptionalSelector,
-  useT,
-} from '@embedpdf-x/react';
-import { ShellToken } from '@embedpdf-x/plugin-shell';
+import { DocumentGate, useOptionalSelector } from '@embedpdf-x/react/runtime';
+import { Stage } from '@embedpdf-x/react/stage';
+import { RenderLayer } from '@embedpdf-x/react/render';
+import { SelectionLayer } from '@embedpdf-x/react/selection';
+import { AnnotationLayer } from '@embedpdf-x/react/annotation';
+import { useCommandShortcuts } from '@embedpdf-x/react/commands';
+import { ShellToken } from '@embedpdf-x/react/shell';
+import { useT } from '@embedpdf-x/react/i18n';
 import { chrome, getModeBar } from './config/chrome';
 import { MODE_SURFACES } from './config/commands';
 import { AppToolbar } from './ui/toolbar';
+import { AnnotationStrip } from './ui/annotation-strip';
 import { TabBar } from './ui/tab-bar';
 import { Header, LeftSidebar, RightSidebar, PageControls } from './ui/panels';
 
@@ -86,7 +84,12 @@ export function Shell() {
         <DocumentGate fallback={<OpeningDocuments />}>
           <LeftSidebar />
           <div className="relative min-w-0 flex-1">
-            <Stage interaction className="h-full w-full" style={{ background: 'var(--canvas)' }}>
+            <Stage
+              interaction
+              overlay={<AnnotationStrip />}
+              className="h-full w-full"
+              style={{ background: 'var(--canvas)' }}
+            >
               {() => (
                 <>
                   <RenderLayer annotations={false} />

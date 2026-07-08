@@ -12,6 +12,9 @@ import { useCapability } from './runtime';
  *   editor.rotateBy(page.pon, 90);
  *   if (editor.canEdit()) { … }
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-page-edit';
 export function usePageEditor(): PageEditCapability {
   return useCapability(PageEditToken);
 }

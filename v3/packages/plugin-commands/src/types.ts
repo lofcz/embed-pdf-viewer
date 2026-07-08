@@ -98,6 +98,30 @@ export interface ResolvedCommand {
   readonly categories: readonly string[];
 }
 
+/** Value equality over resolved commands — `resolve()` mints a fresh object
+ *  per read, so reactive bindings memo by value to re-render on real change. */
+export const resolvedCommandsEqual = (
+  a: ResolvedCommand | null,
+  b: ResolvedCommand | null,
+): boolean => {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.id === b.id &&
+    a.label === b.label &&
+    a.icon === b.icon &&
+    // by value: resolve() mints a fresh accent object each read
+    a.iconAccent?.primary === b.iconAccent?.primary &&
+    a.iconAccent?.secondary === b.iconAccent?.secondary &&
+    a.menu === b.menu &&
+    a.enabled === b.enabled &&
+    a.active === b.active &&
+    a.visible === b.visible &&
+    a.shortcuts.length === b.shortcuts.length &&
+    a.shortcuts.every((s, i) => s === b.shortcuts[i])
+  );
+};
+
 export interface CommandsState {
   readonly disabledCategories: readonly string[];
 }

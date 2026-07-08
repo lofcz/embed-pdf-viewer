@@ -6,7 +6,7 @@
  * The token lives here (not in App.tsx) because two places need it: App wires the
  * `stagePlugin` lens with it, and the sidebar renders `<Stage token={...}>` off it.
  */
-import { createCapabilityToken } from '@embedpdf-x/kernel';
-import type { StageCapability } from '@embedpdf-x/plugin-stage';
+import { createCapabilityToken } from '@embedpdf-x/react/runtime';
+import type { StageCapability } from '@embedpdf-x/react/stage';
 
 export const ThumbsStageToken = createCapabilityToken<StageCapability>('stage-thumbs');

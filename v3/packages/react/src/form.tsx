@@ -1,3 +1,6 @@
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-form';
+
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import { FormToken } from '@embedpdf-x/plugin-form';
@@ -156,6 +159,7 @@ function FillChoice({
  * tool is — the single-active-tool hub is the mode switch: any other tool
  * hands the widgets back to the annotation plane.
  */
+
 export function FormLayer() {
   const page = usePage();
   const form = useCapability(FormToken);

@@ -8,6 +8,9 @@
  * work from the FIRST frame — including inside `<Viewer fallback>` — while
  * the engine is still booting.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-i18n';
 import { useMemo } from 'react';
 import { I18nToken } from '@embedpdf-x/plugin-i18n';
 import type { LocaleInfo, TranslateOptions } from '@embedpdf-x/plugin-i18n';

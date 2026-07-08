@@ -7,6 +7,9 @@
  * virtualized <Stage> page and a standalone <PageView>. Features never attach
  * their own pointer listeners — they register handlers with the hub.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-interaction';
 import * as React from 'react';
 import { useEffect, useRef } from 'react';
 import { InteractionToken } from '@embedpdf-x/plugin-interaction';

@@ -5,6 +5,9 @@
  * & cloud). Abortable (cancels when the camera moves / the layer unmounts) and
  * leak-free (revokes the object URL).
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-render';
 import * as React from 'react';
 import { useEffect, useRef } from 'react';
 import { RenderToken } from '@embedpdf-x/plugin-render';

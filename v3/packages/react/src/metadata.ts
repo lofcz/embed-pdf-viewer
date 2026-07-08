@@ -10,6 +10,9 @@ import { useCapability, useSelector } from './runtime';
  *   const { metadata, update } = useMetadata();
  *   await update({ title: 'New title' }); // three-state patch; writes to the layer
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-metadata';
 export function useMetadata(): {
   metadata: DocumentMetadata | null;
   update: (patch: MetadataPatch) => Promise<void>;

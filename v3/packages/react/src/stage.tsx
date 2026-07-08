@@ -5,6 +5,9 @@
  * one to YOUR render prop — you bring the layers. (The standalone, Stage-free
  * single-page surface lives in `./page-view` so it never pulls the stage plugin.)
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-stage';
 import * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { StageToken, settingsEqual } from '@embedpdf-x/plugin-stage';

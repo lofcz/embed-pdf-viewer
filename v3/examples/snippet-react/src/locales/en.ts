@@ -1,4 +1,4 @@
-import type { Locale } from '@embedpdf-x/plugin-i18n';
+import type { Locale } from '@embedpdf-x/react/i18n';
 
 /**
  * English pack. Strings belong to the PRODUCT, not the plugins — the
@@ -60,6 +60,10 @@ export const en: Locale = {
         text: 'Text',
         insertText: 'Insert Text',
         callout: 'Callout',
+        delete: 'Delete',
+        group: 'Group',
+        ungroup: 'Ungroup',
+        strip: 'Annotation actions',
       },
       shapes: {
         rectangle: 'Rectangle',

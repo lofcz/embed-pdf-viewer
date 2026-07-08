@@ -6,6 +6,9 @@
  * over `view.documentIds`, and wrap the body in a <DocumentScope id={activeId}>
  * so its Stage binds to that pane's active document.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-view-manager';
 import { ViewManagerToken } from '@embedpdf-x/plugin-view-manager';
 import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
 import { useKernel, useKernelValue } from './runtime';

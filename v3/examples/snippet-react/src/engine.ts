@@ -6,9 +6,8 @@
  * real boot (wasm worker, fonts) off in the background — so the translated
  * chrome renders at t≈0 and only `documents.open()` awaits the engine.
  */
-import { deferredEngine } from '@embedpdf-x/kernel';
-import type { Engine, OpenInput } from '@embedpdf-x/kernel';
-import type { InitialDocument } from '@embedpdf-x/react';
+import { deferredEngine } from '@embedpdf-x/react/runtime';
+import type { Engine, OpenInput, InitialDocument } from '@embedpdf-x/react/runtime';
 
 const DROID_FALLBACK_FONT = {
   key: 'droid-sans-fallback-full',

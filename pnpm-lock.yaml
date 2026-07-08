@@ -2890,72 +2890,12 @@ importers:
 
   v3/examples/snippet-react:
     dependencies:
-      '@cloudpdf/engine':
-        specifier: workspace:*
-        version: link:../../../ee/engine
-      '@embedpdf-x/annotation-core':
-        specifier: workspace:*
-        version: link:../../packages/annotation-core
-      '@embedpdf-x/kernel':
-        specifier: workspace:*
-        version: link:../../packages/kernel
-      '@embedpdf-x/plugin-annotation':
-        specifier: workspace:*
-        version: link:../../packages/plugin-annotation
-      '@embedpdf-x/plugin-commands':
-        specifier: workspace:*
-        version: link:../../packages/plugin-commands
-      '@embedpdf-x/plugin-i18n':
-        specifier: workspace:*
-        version: link:../../packages/plugin-i18n
-      '@embedpdf-x/plugin-interaction':
-        specifier: workspace:*
-        version: link:../../packages/plugin-interaction
-      '@embedpdf-x/plugin-metadata':
-        specifier: workspace:*
-        version: link:../../packages/plugin-metadata
-      '@embedpdf-x/plugin-page-edit':
-        specifier: workspace:*
-        version: link:../../packages/plugin-page-edit
-      '@embedpdf-x/plugin-persist':
-        specifier: workspace:*
-        version: link:../../packages/plugin-persist
-      '@embedpdf-x/plugin-render':
-        specifier: workspace:*
-        version: link:../../packages/plugin-render
-      '@embedpdf-x/plugin-search':
-        specifier: workspace:*
-        version: link:../../packages/plugin-search
-      '@embedpdf-x/plugin-selection':
-        specifier: workspace:*
-        version: link:../../packages/plugin-selection
-      '@embedpdf-x/plugin-shell':
-        specifier: workspace:*
-        version: link:../../packages/plugin-shell
-      '@embedpdf-x/plugin-stage':
-        specifier: workspace:*
-        version: link:../../packages/plugin-stage
-      '@embedpdf-x/plugin-view-manager':
-        specifier: workspace:*
-        version: link:../../packages/plugin-view-manager
       '@embedpdf-x/react':
         specifier: workspace:*
         version: link:../../packages/react
-      '@embedpdf-x/stage-core':
-        specifier: workspace:*
-        version: link:../../packages/stage-core
-      '@embedpdf-x/ui-core':
-        specifier: workspace:*
-        version: link:../../packages/ui-core
       '@embedpdf/engine':
         specifier: workspace:*
         version: link:../../../packages/engine
-      '@embedpdf/engine-core':
-        specifier: workspace:*
-        version: link:../../../packages/engine-core
-      '@embedpdf/pdf-runtime':
-        specifier: workspace:*
-        version: link:../../../packages/pdf-runtime
       react:
         specifier: ^18.3.1
         version: 18.3.1

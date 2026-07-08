@@ -10,6 +10,9 @@
  * shell. Use the raw capability (`useShell`) when you need fail-fast access
  * inside a <DocumentGate>.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-shell';
 import { useMemo } from 'react';
 import { ShellToken } from '@embedpdf-x/plugin-shell';
 import type { OpenSurfaceOptions, ShellCapability } from '@embedpdf-x/plugin-shell';

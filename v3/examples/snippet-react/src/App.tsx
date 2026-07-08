@@ -3,17 +3,19 @@
  * and mounts the shell. The chrome — toolbars, translations, theme — renders at
  * t≈0; only the pages wait on the wasm engine.
  */
+// One import line per feature (v3/ADAPTERS.md): each subpath carries the
+// plugin AND its UI; delete a line and the feature leaves the bundle.
 import { useEffect, useMemo } from 'react';
-import { Viewer, useDocuments, useT } from '@embedpdf-x/react';
-import { stagePlugin } from '@embedpdf-x/plugin-stage';
-import { renderPlugin } from '@embedpdf-x/plugin-render';
-import { pageEditPlugin } from '@embedpdf-x/plugin-page-edit';
-import { interactionPlugin } from '@embedpdf-x/plugin-interaction';
-import { selectionPlugin } from '@embedpdf-x/plugin-selection';
-import { annotationPlugin } from '@embedpdf-x/plugin-annotation';
-import { i18nPlugin, negotiateLocale } from '@embedpdf-x/plugin-i18n';
-import { commandsPlugin } from '@embedpdf-x/plugin-commands';
-import { shellPlugin } from '@embedpdf-x/plugin-shell';
+import { Viewer, useDocuments } from '@embedpdf-x/react/runtime';
+import { stagePlugin } from '@embedpdf-x/react/stage';
+import { renderPlugin } from '@embedpdf-x/react/render';
+import { pageEditPlugin } from '@embedpdf-x/react/page-edit';
+import { interactionPlugin } from '@embedpdf-x/react/interaction';
+import { selectionPlugin } from '@embedpdf-x/react/selection';
+import { annotationPlugin } from '@embedpdf-x/react/annotation';
+import { i18nPlugin, negotiateLocale, useT } from '@embedpdf-x/react/i18n';
+import { commandsPlugin } from '@embedpdf-x/react/commands';
+import { shellPlugin } from '@embedpdf-x/react/shell';
 import { createDeferredEngine, loadInitialDocuments } from './engine';
 import { ThumbsStageToken } from './config/stage';
 import { commands } from './config/commands';

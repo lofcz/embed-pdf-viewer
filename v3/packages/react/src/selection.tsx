@@ -6,6 +6,9 @@
  * mapping each rect through PageContext.pageToContent (the same path markers use).
  * Zero pointer handling here; that's the PagePointerSource + the hub.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-selection';
 import * as React from 'react';
 import { useEffect } from 'react';
 import { SelectionToken } from '@embedpdf-x/plugin-selection';

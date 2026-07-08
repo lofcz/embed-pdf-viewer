@@ -1,5 +1,5 @@
-import { definePlugin } from '@embedpdf-x/kernel';
-import { InteractionToken } from '@embedpdf-x/plugin-interaction';
+import { definePlugin } from '@embedpdf-x/react/runtime';
+import { InteractionToken } from '@embedpdf-x/react/interaction';
 
 /**
  * Example-only: register the form / insert / redact authoring tools as INERT

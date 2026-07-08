@@ -1,4 +1,4 @@
-import type { Locale } from '@embedpdf-x/plugin-i18n';
+import type { Locale } from '@embedpdf-x/react/i18n';
 
 /** Spanish pack — loaded lazily (see the i18n `loaders` config in App). The
  *  longer Spanish labels are exactly what makes the measured toolbar re-solve
@@ -63,6 +63,10 @@ export const es: Locale = {
         text: 'Texto',
         insertText: 'Insertar texto',
         callout: 'Llamada',
+        delete: 'Eliminar',
+        group: 'Agrupar',
+        ungroup: 'Desagrupar',
+        strip: 'Acciones de anotación',
       },
       shapes: {
         rectangle: 'Rectángulo',

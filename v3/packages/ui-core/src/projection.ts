@@ -84,3 +84,37 @@ export function projectShed(
     .filter((u) => fit.units.get(u.key)?.kind === 'shed')
     .map((u) => projectUnit(u, resolve));
 }
+
+/** One strip group: a separator boundary, its visible commands in bar order. */
+export interface StripGroup {
+  readonly id: string;
+  readonly labelKey?: string;
+  readonly commands: readonly string[];
+}
+
+/**
+ * Strip projection — a bar projected for UN-measured rendering (a contextual
+ * strip anchored to a selection has no fit pressure to solve). The schema
+ * declares what COULD appear; `visible` (the command registry's runtime truth)
+ * decides what DOES: hidden commands drop out, groups that empty out vanish,
+ * and an all-hidden bar projects to [] — "render nothing" falls out. Custom
+ * units project through their `terminal` command, same totality rule as the
+ * overflow. Upgrading a strip to measured/overflowing rendering later is a
+ * renderer swap (<Toolbar>), never a schema change.
+ */
+export function projectStrip(
+  bar: NormalizedBar,
+  visible: (command: string) => boolean,
+): StripGroup[] {
+  const groups: StripGroup[] = [];
+  for (const section of bar.sections) {
+    for (const group of section.groups) {
+      const commands = group.units
+        .map((u) => (u.kind === 'custom' ? u.terminal : u.command))
+        .filter(visible);
+      if (commands.length === 0) continue;
+      groups.push({ id: group.id, labelKey: group.labelKey, commands });
+    }
+  }
+  return groups;
+}

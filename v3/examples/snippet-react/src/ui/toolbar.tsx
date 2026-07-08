@@ -10,18 +10,19 @@
  *   mode select → viewers/snippet/src/components/mode-select-button.tsx
  */
 import { useEffect, useState } from 'react';
-import {
-  Toolbar,
-  useCommands,
-  useMenus,
-  useT,
-  useOptionalCapability,
-  useOptionalSelector,
-} from '@embedpdf-x/react';
-import type { CollapsedGroupView, GroupDisclosureView, OverflowMenuView } from '@embedpdf-x/react';
-import type { ResolvedCommand } from '@embedpdf-x/plugin-commands';
-import type { BarSchema } from '@embedpdf-x/ui-core';
-import { StageToken } from '@embedpdf-x/plugin-stage';
+import { useOptionalCapability, useOptionalSelector } from '@embedpdf-x/react/runtime';
+import { Toolbar } from '@embedpdf-x/react/toolbar';
+import type {
+  BarSchema,
+  CollapsedGroupView,
+  GroupDisclosureView,
+  OverflowMenuView,
+} from '@embedpdf-x/react/toolbar';
+import { useCommands } from '@embedpdf-x/react/commands';
+import type { ResolvedCommand } from '@embedpdf-x/react/commands';
+import { useMenus } from '@embedpdf-x/react/shell';
+import { useT } from '@embedpdf-x/react/i18n';
+import { StageToken } from '@embedpdf-x/react/stage';
 import { Icon } from './icons';
 import { MenuBody, Popover, InlineSubmenu } from './menu';
 

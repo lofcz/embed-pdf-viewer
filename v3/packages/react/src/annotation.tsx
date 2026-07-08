@@ -8,6 +8,9 @@
  * engine's baked /AP <img>, or a registered behavior — and the host
  * `customRenderer` may wrap or replace it.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-annotation';
 import * as React from 'react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';

@@ -431,6 +431,11 @@ export const ICON_PATHS: Record<string, readonly PathSpec[]> = {
     'M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3',
   ],
   underline: [{ d: 'M4 20h16', stroke: 'primary' }, 'M8 16v-8a4 4 0 1 1 8 0v8', 'M8 10h8'],
+  // the v2 ungroup glyph: two separated rounded rects
+  ungroup: [
+    'M4 5a1 1 0 0 1 1 -1h5a1 1 0 0 1 1 1v5a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1z',
+    'M13 14a1 1 0 0 1 1 -1h5a1 1 0 0 1 1 1v5a1 1 0 0 1 -1 1h-5a1 1 0 0 1 -1 -1z',
+  ],
   unlock: ['M7 11V7a5 5 0 0 1 9.9-1'],
   vertical: ['M8 7l4 -4l4 4', 'M8 17l4 4l4 -4', 'M12 3l0 18'],
   viewSettings: [

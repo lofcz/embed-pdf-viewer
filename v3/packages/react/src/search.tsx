@@ -7,6 +7,9 @@
  * No pointer handling, no engine calls — search is driven from app chrome
  * via useSearch().
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/plugin-search';
 import * as React from 'react';
 import { SearchToken } from '@embedpdf-x/plugin-search';
 import type { SearchHit } from '@embedpdf-x/plugin-search';

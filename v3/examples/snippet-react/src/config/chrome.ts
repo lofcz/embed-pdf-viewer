@@ -13,7 +13,7 @@ import {
   custom,
   type BarSchema,
   type MenuSchema,
-} from '@embedpdf-x/ui-core';
+} from '@embedpdf-x/react/toolbar';
 
 // Reused across every mode band — plain values, so composition is just a const.
 const style = group('style', { importance: 4 }, [item('panel:annotation-style')]);
@@ -172,6 +172,26 @@ const pageSettingsMenu: MenuSchema = {
   ],
 };
 
+// ── contextual strips (anchored to selections; same BarSchema vocabulary) ────
+// WHICH commands actually show is each command's `visible` derivation (group
+// only when groupable, style only when the kind declares editable props…), so
+// one strip serves single AND multi selection — v2 needed two schemas for that.
+const annotationStrip: BarSchema = {
+  id: 'annotation-strip',
+  sections: {
+    center: [
+      group('annotation-actions', { importance: 4 }, [
+        'annotation:comment',
+        'annotation:style',
+        'annotation:group',
+        'annotation:ungroup',
+      ]),
+      // Its own group → a derived separator; delete stands apart.
+      group('annotation-danger', { importance: 5 }, ['annotation:delete']),
+    ],
+  },
+};
+
 export const chrome = defineChrome({
   bars: { main: mainBar },
   modeBars: {
@@ -182,6 +202,7 @@ export const chrome = defineChrome({
     'mode:redact': redactBar,
   },
   menus: { document: documentMenu, zoom: zoomMenu, 'page-settings': pageSettingsMenu },
+  strips: { annotation: annotationStrip },
 });
 
 /** Menu lookup by id (arbitrary string) — the schema object is a typed literal,
@@ -193,4 +214,9 @@ export function getMenu(id: string): MenuSchema | undefined {
 /** Secondary band lookup by mode-surface id. */
 export function getModeBar(id: string): BarSchema | undefined {
   return (chrome.modeBars as Record<string, BarSchema> | undefined)?.[id];
+}
+
+/** Contextual strip lookup by context id ('annotation', …). */
+export function getStrip(id: string): BarSchema | undefined {
+  return (chrome.strips as Record<string, BarSchema> | undefined)?.[id];
 }

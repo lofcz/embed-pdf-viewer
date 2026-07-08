@@ -6,6 +6,9 @@
  * document), and provides the page coordinate context. Every plugin and layer rides
  * on this — there is no per-plugin framework code.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/kernel';
 import * as React from 'react';
 import {
   createContext,

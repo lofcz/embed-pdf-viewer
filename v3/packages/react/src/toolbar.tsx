@@ -15,9 +15,12 @@
  * Rendering is render-prop driven with functional defaults: the app owns the
  * pixels, this component owns the physics.
  */
+
+// One-line-per-feature (ADAPTERS.md): registration travels with the UI.
+export * from '@embedpdf-x/ui-core';
 import * as React from 'react';
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { filterBar, normalizeBar, projectOverflow, solve } from '@embedpdf-x/ui-core';
+import { filterBar, normalizeBar, projectOverflow, projectStrip, solve } from '@embedpdf-x/ui-core';
 import type {
   BarSchema,
   FitMetrics,
@@ -26,9 +29,9 @@ import type {
   NormalizedUnit,
   OverflowSection,
 } from '@embedpdf-x/ui-core';
-import { CommandsToken } from '@embedpdf-x/plugin-commands';
+import { CommandsToken, resolvedCommandsEqual } from '@embedpdf-x/plugin-commands';
 import type { ResolvedCommand } from '@embedpdf-x/plugin-commands';
-import { useCapability, useDocumentId, useKernel } from './runtime';
+import { useCapability, useDocumentId, useKernel, useKernelValue } from './runtime';
 
 // ── public render-prop contracts ─────────────────────────────────────────────
 
@@ -63,6 +66,68 @@ export interface GroupDisclosureView {
   readonly role: 'buttons' | 'tabs';
   readonly commands: readonly ResolvedCommand[];
   execute(id: string): void;
+}
+
+// ── the strip view — a bar projected through the registry, live ──────────────
+
+export interface StripViewGroup {
+  readonly id: string;
+  readonly labelKey?: string;
+  /** Visible commands, bar order. Groups are separator boundaries. */
+  readonly commands: readonly ResolvedCommand[];
+}
+
+/** A contextual strip, resolved: only visible commands, only non-empty groups. */
+export interface StripView {
+  readonly groups: readonly StripViewGroup[];
+  execute(id: string): void;
+}
+
+const stripGroupsEqual = (a: readonly StripViewGroup[], b: readonly StripViewGroup[]): boolean =>
+  a.length === b.length &&
+  a.every(
+    (g, i) =>
+      g.id === b[i].id &&
+      g.commands.length === b[i].commands.length &&
+      g.commands.every((c, j) => resolvedCommandsEqual(c, b[i].commands[j])),
+  );
+
+const NO_STRIP_GROUPS: readonly StripViewGroup[] = [];
+
+/**
+ * The live projection of a bar through the command registry — <Toolbar>'s
+ * un-measured sibling, for contextual strips (ChromeSchema.strips). The schema
+ * declares what COULD appear; each command's `visible` derivation decides what
+ * DOES; null means nothing currently applies, so `if (!view) return null` is
+ * the caller's entire show/hide logic. `execute` is pre-bound to this
+ * subtree's document. Reads are value-equal (resolvedCommandsEqual), so
+ * consumers re-render on real change, not on every store action.
+ */
+export function useStripView(bar: BarSchema | undefined): StripView | null {
+  const commands = useCapability(CommandsToken);
+  const documentId = useDocumentId();
+  const normalized = useMemo(() => (bar ? normalizeBar(bar) : null), [bar]);
+  const groups = useKernelValue(() => {
+    if (!normalized) return NO_STRIP_GROUPS;
+    const resolved = new Map<string, ResolvedCommand>();
+    const visible = (id: string) => {
+      const cmd = commands.resolve(id, documentId ?? undefined);
+      if (cmd) resolved.set(id, cmd);
+      return cmd?.visible === true;
+    };
+    return projectStrip(normalized, visible).map((g) => ({
+      id: g.id,
+      labelKey: g.labelKey,
+      commands: g.commands.map((id) => resolved.get(id)!),
+    }));
+  }, stripGroupsEqual);
+  return useMemo(
+    () =>
+      groups.length === 0
+        ? null
+        : { groups, execute: (id: string) => commands.execute(id, documentId ?? undefined) },
+    [groups, commands, documentId],
+  );
 }
 
 export interface ToolbarProps {

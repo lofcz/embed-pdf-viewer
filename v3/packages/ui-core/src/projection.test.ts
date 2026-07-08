@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { group, item, custom, normalizeBar } from './schema';
 import { solve, type FitMetrics } from './solver';
-import { projectOverflow, projectShed, type ResolveMenuTarget } from './projection';
+import { projectOverflow, projectShed, projectStrip, type ResolveMenuTarget } from './projection';
 
 const metrics: FitMetrics = {
   unit: () => 40,
@@ -183,6 +183,54 @@ describe('projectOverflow', () => {
     const fit = solve(bar, metrics, 0);
     expect(projectOverflow(bar, fit, () => null)).toEqual([
       { labelKey: undefined, role: undefined, rows: [{ type: 'command', command: 'mystery' }] },
+    ]);
+  });
+});
+
+describe('projectStrip', () => {
+  // The annotation strip: actions + a separated danger group, visibility
+  // decided per-command by the registry (group only when groupable, …).
+  const strip = normalizeBar({
+    id: 'annotation-strip',
+    sections: {
+      center: [
+        group('actions', ['annotation:comment', 'annotation:style', 'annotation:group']),
+        group('danger', ['annotation:delete']),
+      ],
+    },
+  });
+
+  it('keeps bar order and group boundaries for visible commands', () => {
+    expect(projectStrip(strip, () => true)).toEqual([
+      {
+        id: 'actions',
+        labelKey: undefined,
+        commands: ['annotation:comment', 'annotation:style', 'annotation:group'],
+      },
+      { id: 'danger', labelKey: undefined, commands: ['annotation:delete'] },
+    ]);
+  });
+
+  it('drops hidden commands and vanishes groups that empty out', () => {
+    const visible = (id: string) => id === 'annotation:delete';
+    expect(projectStrip(strip, visible)).toEqual([
+      { id: 'danger', labelKey: undefined, commands: ['annotation:delete'] },
+    ]);
+  });
+
+  it('projects an all-hidden bar to [] — "render nothing" falls out', () => {
+    expect(projectStrip(strip, () => false)).toEqual([]);
+  });
+
+  it('projects custom units through their terminal command', () => {
+    const bar = normalizeBar({
+      id: 'b',
+      sections: {
+        start: [group('g', [custom('zoom-controls', { terminal: 'zoom:menu' }), 'zoom:in'])],
+      },
+    });
+    expect(projectStrip(bar, () => true)).toEqual([
+      { id: 'g', labelKey: undefined, commands: ['zoom:menu', 'zoom:in'] },
     ]);
   });
 });

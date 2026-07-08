@@ -32,7 +32,8 @@ export type {
   Viewpoint,
   VisiblePage,
 } from './types';
-// Re-export the view-vocabulary types the shell needs (spread modes, sizing, zoom, …).
+// Re-export the view-vocabulary the shell needs (spread modes, sizing, zoom, …).
+export { ZoomMode } from '@embedpdf-x/stage-core';
 export type {
   Align,
   Alignment,

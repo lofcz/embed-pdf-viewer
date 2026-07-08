@@ -13,22 +13,28 @@
  *   form/insert/redact tools               → inert interaction tools (demo-tools)
  *   history undo/redo                      → disabled (no history plugin in v3 yet)
  */
-import type { CommandDef, IconAccent } from '@embedpdf-x/plugin-commands';
-import { DocumentsToken } from '@embedpdf-x/kernel';
-import { StageToken } from '@embedpdf-x/plugin-stage';
-import type { SpreadMode } from '@embedpdf-x/plugin-stage';
-import { ZoomMode } from '@embedpdf-x/stage-core';
-import { InteractionToken } from '@embedpdf-x/plugin-interaction';
-import { PageEditToken } from '@embedpdf-x/plugin-page-edit';
-import { ShellToken } from '@embedpdf-x/plugin-shell';
-import { AnnotationToken } from '@embedpdf-x/plugin-annotation';
-import type { PropSpec } from '@embedpdf-x/plugin-annotation';
+import type { CommandDef, IconAccent } from '@embedpdf-x/react/commands';
+import { DocumentsToken } from '@embedpdf-x/react/runtime';
+import { StageToken, ZoomMode } from '@embedpdf-x/react/stage';
+import type { SpreadMode } from '@embedpdf-x/react/stage';
+import { InteractionToken } from '@embedpdf-x/react/interaction';
+import { PageEditToken } from '@embedpdf-x/react/page-edit';
+import { ShellToken } from '@embedpdf-x/react/shell';
+import { AnnotationToken } from '@embedpdf-x/react/annotation';
+import type { PropSpec } from '@embedpdf-x/react/annotation';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 type Ctx = Parameters<NonNullable<CommandDef['run']>>[0];
 
 const stage = (c: Ctx) => c.tryGet(StageToken);
 const interaction = (c: Ctx) => c.tryGet(InteractionToken);
+const anno = (c: Ctx) => c.tryGet(AnnotationToken);
+
+// ── annotation-selection predicates (drive the floating strip's contents) ────
+const hasAnnotationSelection = (c: Ctx) => (anno(c)?.selection().length ?? 0) > 0;
+/** v2 gated strip items per subtype (comment hidden on links/widgets) — here
+ *  it's one derivation over the selected DTOs instead of per-command lookups. */
+const selectionSubtypes = (c: Ctx) => new Set((anno(c)?.getSelected() ?? []).map((a) => a.subtype));
 
 // ── tool icon accents: THIS viewer's design decision ─────────────────────────
 // A tool icon previews its drawing defaults: primary = the kind's FIRST color
@@ -362,6 +368,58 @@ export const commands: CommandDef[] = [
 
   // ── redact tools (inert) ────────────────────────────────────────────────
   tool('redaction:redact', 'redact', 'commands.redact.mark', 'redact'),
+
+  // ── annotation selection (the floating strip's verbs) ──────────────────
+  {
+    id: 'annotation:delete',
+    labelKey: 'commands.annotate.delete',
+    icon: 'trash',
+    categories: ['annotation'],
+    run: (c) => anno(c)?.deleteSelection(),
+    visible: hasAnnotationSelection,
+    // Mirrors the engine's own authorization: locked/unauthorized annotations
+    // keep the button visible but disabled (the engine still enforces).
+    enabled: (c) => {
+      const a = anno(c);
+      const refs = a?.getSelection() ?? [];
+      return refs.length > 0 && refs.every((r) => a!.canDelete(r));
+    },
+  },
+  {
+    id: 'annotation:comment',
+    labelKey: 'commands.comment',
+    icon: 'comment',
+    categories: ['annotation'],
+    // Same 'comment' surface panel:comment toggles — `active` derives from it.
+    panel: { id: 'comment', exclusive: 'right' },
+    visible: (c) => hasAnnotationSelection(c) && !selectionSubtypes(c).has('widget'),
+  },
+  {
+    id: 'annotation:style',
+    labelKey: 'commands.style',
+    icon: 'palette',
+    categories: ['annotation'],
+    panel: { id: 'annotation-style', exclusive: 'right' },
+    // The kind table decides: no declared editable props → no style button
+    // (v2 hardcoded a subtype blocklist for this).
+    visible: (c) => (anno(c)?.getSelectionProps().specs.length ?? 0) > 0,
+  },
+  {
+    id: 'annotation:group',
+    labelKey: 'commands.annotate.group',
+    icon: 'group',
+    categories: ['annotation'],
+    run: (c) => void anno(c)?.group(),
+    visible: (c) => anno(c)?.canGroup() ?? false,
+  },
+  {
+    id: 'annotation:ungroup',
+    labelKey: 'commands.annotate.ungroup',
+    icon: 'ungroup',
+    categories: ['annotation'],
+    run: (c) => void anno(c)?.ungroup(),
+    visible: (c) => anno(c)?.canUngroup() ?? false,
+  },
 
   // ── history (no plugin yet → disabled, shows the disabled styling) ──────
   {

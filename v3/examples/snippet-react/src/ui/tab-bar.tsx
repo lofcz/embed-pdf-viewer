@@ -8,8 +8,8 @@
  * (useDocuments) already is the tab model — open/close/setActive, reactive.
  */
 import { useRef } from 'react';
-import { useDocuments } from '@embedpdf-x/react';
-import type { OpenInput } from '@embedpdf-x/kernel';
+import { useDocuments } from '@embedpdf-x/react/runtime';
+import type { OpenInput } from '@embedpdf-x/react/runtime';
 import { Icon } from './icons';
 
 export type TabBarVisibility = 'always' | 'multiple' | 'never';

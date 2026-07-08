@@ -6,9 +6,9 @@
  * registry: label, icon, active tick, enabled state.
  */
 import { useState } from 'react';
-import { useCommand, useCommands } from '@embedpdf-x/react';
-import { useT } from '@embedpdf-x/react';
-import type { MenuSchema } from '@embedpdf-x/ui-core';
+import { useCommand, useCommands } from '@embedpdf-x/react/commands';
+import { useT } from '@embedpdf-x/react/i18n';
+import type { MenuSchema } from '@embedpdf-x/react/toolbar';
 import { Icon } from './icons';
 import { getMenu } from '../config/chrome';
 
