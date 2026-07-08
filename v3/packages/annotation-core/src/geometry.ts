@@ -179,6 +179,14 @@ const DEG2RAD = Math.PI / 180;
 /** How far (content units) the rotate knob hangs off the top edge of the box. */
 export const ROTATE_KNOB_OFFSET = 24;
 
+/** Fallback chrome geometry (content units) when the caller supplies none —
+ *  the pre-settings behavior, so bare-core callers and tests stay stable. */
+export const DEFAULT_CHROME_GEOM = {
+  handleTol: 6,
+  knobTol: 6,
+  knobOffset: ROTATE_KNOB_OFFSET,
+} as const;
+
 /** Normalize degrees into `[0, 360)`. */
 export const normalizeDeg = (d: number): number => ((d % 360) + 360) % 360;
 
@@ -406,6 +414,36 @@ export function rotateKnob(corners: [Vec, Vec, Vec, Vec], offset: number): { at:
 
 const insideRect = (r: Rect, p: Vec): boolean =>
   p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+
+/**
+ * The chord of `box` cut by the infinite line through `p` at `angleDeg` (CW,
+ * y-down) — the full-bleed rotation guide: no magic lengths, the line simply
+ * spans the page. Slab-clipped (Liang–Barsky); null when the line misses the
+ * box entirely (a far-off-page pivot).
+ */
+export function chordThrough(box: Rect, p: Vec, angleDeg: number): { a: Vec; b: Vec } | null {
+  const d = { x: Math.cos(angleDeg * DEG2RAD), y: Math.sin(angleDeg * DEG2RAD) };
+  let tMin = -Infinity;
+  let tMax = Infinity;
+  for (const [dc, pc, lo, hi] of [
+    [d.x, p.x, box.x, box.x + box.width],
+    [d.y, p.y, box.y, box.y + box.height],
+  ] as const) {
+    if (Math.abs(dc) < 1e-12) {
+      if (pc < lo || pc > hi) return null; // parallel outside the slab
+      continue;
+    }
+    const t1 = (lo - pc) / dc;
+    const t2 = (hi - pc) / dc;
+    tMin = Math.max(tMin, Math.min(t1, t2));
+    tMax = Math.min(tMax, Math.max(t1, t2));
+  }
+  if (tMin >= tMax || !Number.isFinite(tMin) || !Number.isFinite(tMax)) return null;
+  return {
+    a: { x: p.x + d.x * tMin, y: p.y + d.y * tMin },
+    b: { x: p.x + d.x * tMax, y: p.y + d.y * tMax },
+  };
+}
 
 /**
  * `rotateKnob` with a TOTAL page-bound placement policy: annotations, gestures

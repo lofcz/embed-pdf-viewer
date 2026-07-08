@@ -36,7 +36,10 @@ export type Phase = 'down' | 'move' | 'up';
 export interface PointerSample {
   phase: Phase;
   viewport: Point;
-  page?: { pon: PageObjectNumber; point: Point };
+  /** `scale` is the hit page's VIEW px per content unit — handlers use it to
+   *  convert screen-px chrome settings into content-space tolerances, so grab
+   *  zones stay screen-constant across zoom. Absent when the source can't say. */
+  page?: { pon: PageObjectNumber; point: Point; scale?: number };
   modifiers: Modifiers;
   /**
    * Click count for a `down` (1 = single, 2 = double, 3 = triple), from the

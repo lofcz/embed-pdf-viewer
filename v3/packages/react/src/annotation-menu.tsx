@@ -30,7 +30,19 @@ export function AnnotationMenu({ children, gap = 15, placement = 'top' }: Annota
   // Reposition on pan/zoom AND rotation/layout changes. `visiblePages()` folds in
   // the scene key, camera, viewport, and DPR, while staying referentially stable.
   useSelector(StageToken, (c) => c.visiblePages());
-  const anchor = useSelector(AnnotationHostToken, (c) => c.selectionAnchor(), sameAnchor);
+  // Two-step anchor resolve: the pon comes from the scale-less anchor, then the
+  // knob is re-projected with THAT page's view scale so the menu dodges the knob
+  // where it actually renders (screen-constant stalk).
+  const anchor = useSelector(
+    AnnotationHostToken,
+    (c) => {
+      const a = c.selectionAnchor();
+      if (!a) return null;
+      const scale = stage.pageRect(a.pon)?.transform.viewScale;
+      return scale ? c.selectionAnchor(scale) : a;
+    },
+    sameAnchor,
+  );
   const selected = useAnnotationSelected();
 
   // Isolate the menu from the Stage's pointer forwarding: a pointerdown inside it

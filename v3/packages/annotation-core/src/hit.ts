@@ -8,11 +8,18 @@ import {
   selectionCenter,
   selectionQuad,
   unionRect,
-  ROTATE_KNOB_OFFSET,
 } from './geometry';
 import { capsFor, isMarkup } from './kinds';
 import { groupCaps } from './group';
-import { type Annot, type Cursor, type Id, type Model, type Rect, type Vec } from './types';
+import {
+  type Annot,
+  type ChromeGeom,
+  type Cursor,
+  type Id,
+  type Model,
+  type Rect,
+  type Vec,
+} from './types';
 
 export type Target =
   | { t: 'handle'; id: Id; handle: string; cursor: Cursor }
@@ -116,7 +123,7 @@ export function hitTest(
   m: Model,
   pon: number,
   p: Vec,
-  handleTol: number,
+  geom: ChromeGeom,
   strokeMargin: number,
   pageBox?: Rect,
 ): Target {
@@ -129,8 +136,11 @@ export function hitTest(
       if (capsFor(a.subtype).rotatable) {
         const obb = obbFromGeom(a.geom, a.style.strokeWidth, a.style.border);
         if (obb) {
-          const knob = placeRotateKnob(obb.corners, ROTATE_KNOB_OFFSET, pageBox);
-          if (Math.abs(knob.at.x - p.x) <= handleTol && Math.abs(knob.at.y - p.y) <= handleTol) {
+          const knob = placeRotateKnob(obb.corners, geom.knobOffset, pageBox);
+          if (
+            Math.abs(knob.at.x - p.x) <= geom.knobTol &&
+            Math.abs(knob.at.y - p.y) <= geom.knobTol
+          ) {
             return {
               t: 'rotate',
               ids: [a.id],
@@ -141,7 +151,10 @@ export function hitTest(
       }
       if (hasHandles(a.subtype)) {
         for (const h of geomHandles(a.geom)) {
-          if (Math.abs(h.at.x - p.x) <= handleTol && Math.abs(h.at.y - p.y) <= handleTol) {
+          if (
+            Math.abs(h.at.x - p.x) <= geom.handleTol &&
+            Math.abs(h.at.y - p.y) <= geom.handleTol
+          ) {
             return { t: 'handle', id: a.id, handle: h.id, cursor: h.cursor };
           }
         }
@@ -160,8 +173,11 @@ export function hitTest(
           { x: union.x + union.width, y: union.y + union.height },
           { x: union.x, y: union.y + union.height },
         ];
-        const knob = placeRotateKnob(corners, ROTATE_KNOB_OFFSET, pageBox);
-        if (Math.abs(knob.at.x - p.x) <= handleTol && Math.abs(knob.at.y - p.y) <= handleTol) {
+        const knob = placeRotateKnob(corners, geom.knobOffset, pageBox);
+        if (
+          Math.abs(knob.at.x - p.x) <= geom.knobTol &&
+          Math.abs(knob.at.y - p.y) <= geom.knobTol
+        ) {
           const pivot = { x: union.x + union.width / 2, y: union.y + union.height / 2 };
           return { t: 'rotate', ids: m.selected.filter((id) => m.byId[id]?.pon === pon), pivot };
         }
@@ -171,7 +187,10 @@ export function hitTest(
       const union = groupUnionBounds(m, pon);
       if (union) {
         for (const h of rectHandlesFor(union)) {
-          if (Math.abs(h.at.x - p.x) <= handleTol && Math.abs(h.at.y - p.y) <= handleTol) {
+          if (
+            Math.abs(h.at.x - p.x) <= geom.handleTol &&
+            Math.abs(h.at.y - p.y) <= geom.handleTol
+          ) {
             return {
               t: 'group-handle',
               ids: m.selected.filter((id) => m.byId[id]?.pon === pon),
@@ -217,11 +236,11 @@ export function cursorAt(
   m: Model,
   pon: number,
   p: Vec,
-  handleTol: number,
+  geom: ChromeGeom,
   strokeMargin: number,
   pageBox?: Rect,
 ): Cursor | null {
-  const t = hitTest(m, pon, p, handleTol, strokeMargin, pageBox);
+  const t = hitTest(m, pon, p, geom, strokeMargin, pageBox);
   if (t.t === 'handle') return t.cursor;
   if (t.t === 'group-handle') return t.cursor;
   if (t.t === 'rotate') return 'grab';

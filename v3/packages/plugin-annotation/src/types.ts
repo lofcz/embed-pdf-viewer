@@ -24,12 +24,85 @@ import type {
   Vec,
 } from '@embedpdf-x/annotation-core';
 
+/**
+ * Selection-chrome settings: the outline, resize/vertex handles, and the rotate
+ * knob. ONE unit story — every length is CSS px, screen-constant across zoom
+ * (the plugin converts to content units per event/page via the view scale).
+ * Every color falls back to `accent`, so the common case is one line:
+ * `annotationPlugin({ chrome: { accent: '#e91e63' } })`. Deep-partial merged
+ * over {@link DEFAULT_CHROME}; live-adjustable via
+ * {@link AnnotationCapability.setChrome}.
+ */
+export interface ChromeSettings {
+  /** The one color every chrome piece derives from unless overridden. */
+  accent: string;
+  outline: {
+    /** ONE style at rest AND while rotated — the box never flips style mid-gesture. */
+    style: 'solid' | 'dashed';
+    /** Stroke width, px. */
+    width: number;
+    /** Overrides `accent`. */
+    color?: string;
+  };
+  /** Resize + vertex handles (independent of the knob — size them apart). */
+  handles: {
+    /** Visual square side, px. */
+    size: number;
+    /** Grab-zone square side, px — keep ≥ 24 for touch. */
+    hitSize: number;
+    fill: string;
+    /** Overrides `accent`. */
+    stroke?: string;
+  };
+  /** The rotate handle. Page-bound placement (flip/clamp) always applies. */
+  knob: {
+    /** Grab-dot diameter, px. */
+    size: number;
+    /** Grab-zone square side, px — keep ≥ 24 for touch. */
+    hitSize: number;
+    /** Stalk length, px — selection edge to dot centre. */
+    offset: number;
+    /** Draw the connector stalk. */
+    stalk: boolean;
+    fill: string;
+    /** Overrides `accent` (dot outline + stalk). */
+    stroke?: string;
+  };
+  /** The rotation guides shown while a rotate gesture runs: a fixed 0°/90°
+   *  reference cross + a live indicator line, drawn as full-bleed chords of the
+   *  page through the pivot. */
+  guides: {
+    /** Show the guides at all. Default true. */
+    enabled: boolean;
+    style: 'solid' | 'dashed';
+    /** Stroke width, px. */
+    width: number;
+    /** The fixed reference cross. Color overrides `accent`. */
+    axisColor?: string;
+    axisOpacity: number;
+    /** The line riding the live angle. Color overrides `accent`. */
+    indicatorColor?: string;
+    indicatorOpacity: number;
+  };
+}
+
+/** Deep-partial patch for {@link ChromeSettings} — config + `setChrome` input. */
+export interface ChromeSettingsPatch {
+  accent?: string;
+  outline?: Partial<ChromeSettings['outline']>;
+  handles?: Partial<ChromeSettings['handles']>;
+  knob?: Partial<ChromeSettings['knob']>;
+  guides?: Partial<ChromeSettings['guides']>;
+}
+
 export interface AnnotationState {
   model: Model;
+  chrome: ChromeSettings;
 }
 
 /** Registration options for {@link annotationPlugin} — the initial values of the
- *  live-adjustable {@link AnnotationCapability.setSnap} settings. */
+ *  live-adjustable {@link AnnotationCapability.setSnap} /
+ *  {@link AnnotationCapability.setChrome} settings. */
 export interface AnnotationConfig {
   snap?: {
     /** Alignment guides while moving (snap to other annotations + the page).
@@ -44,8 +117,12 @@ export interface AnnotationConfig {
     /** Rotation snap tolerance, degrees. Default 4. */
     rotationThreshold?: number;
   };
+  /** Selection-chrome styling + grab geometry (all lengths CSS px). */
+  chrome?: ChromeSettingsPatch;
 }
-export type AnnotationAction = { type: 'SET_MODEL'; model: Model };
+export type AnnotationAction =
+  | { type: 'SET_MODEL'; model: Model }
+  | { type: 'SET_CHROME'; patch: ChromeSettingsPatch };
 
 /** A plugin (forms, links) marks some annotations as interactive: while engaged,
  *  they render their own DOM and are NOT geometry-editable. Suspend → editable. */
@@ -192,6 +269,13 @@ export interface AnnotationCapability {
   setSnap(patch: Partial<SnapSettings>): void;
   /** The current snap settings. */
   snapSettings(): SnapSettings;
+  // ── selection chrome (outline / handles / rotate knob; all lengths CSS px) ──
+  /** Live-adjust the selection chrome — wire theming here (e.g.
+   *  `setChrome({ accent: '#e91e63' })`). Deep-partial merge; initial values
+   *  come from the plugin's registration config ({@link AnnotationConfig}). */
+  setChrome(patch: ChromeSettingsPatch): void;
+  /** The current (fully resolved) chrome settings. */
+  chromeSettings(): ChromeSettings;
   // ── rotation (selection-scoped; rotatable kinds only) ──
   /** Rotate the current selection a quarter-turn clockwise about its centre
    *  (a single shape's own centre / the union-box centre for a group). */
@@ -235,11 +319,15 @@ export interface StampToolInput {
 export interface AnnotationHostCapability extends AnnotationCapability {
   // ── render projection (consumed by the framework render layer) ──
   pageItems(pon: PageObjectNumber): RenderItem[];
-  chrome(pon: PageObjectNumber): ChromeNode[];
+  /** `scale` (view px per content unit, from the page's transform) converts the
+   *  px chrome settings into content units — pass it so the knob stalk and grab
+   *  zones are screen-constant. Absent → settings are read as content units. */
+  chrome(pon: PageObjectNumber, scale?: number): ChromeNode[];
   /** The anchor for a selection-aware floating menu: the primary page + the
    *  selection's union box on that page (content space), or null when nothing
-   *  selectable is selected. One anchor regardless of cross-page selection. */
-  selectionAnchor(): { pon: PageObjectNumber; bounds: Rect; knob?: Vec } | null;
+   *  selectable is selected. One anchor regardless of cross-page selection.
+   *  `scale` as in {@link chrome} (the anchor page's view scale). */
+  selectionAnchor(scale?: number): { pon: PageObjectNumber; bounds: Rect; knob?: Vec } | null;
   /** The anchor + action state for a live multi-click creation draft, or null. */
   creationDraftAnchor(): CreationDraftAnchor | null;
   /** Cache key for a page's baked appearances: the COMMITTED id + AP box of every
@@ -274,19 +362,22 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   beginTextEdit(ref: AnnotationRef): void;
   /** Enter text-edit on whatever free-text box is under a content point — wired
    *  to a double-click by the interaction edit handler. */
-  beginTextEditAt(pon: PageObjectNumber, point: Vec): void;
+  beginTextEditAt(pon: PageObjectNumber, point: Vec, scale?: number): void;
   /** Apply the editor's plain text — optimistic locally, debounced to the engine. */
   setContents(ref: AnnotationRef, text: string): void;
   /** Leave text-edit (flush any pending write). */
   endTextEdit(): void;
   // ── hit-testing & cursor (consumed by the interaction edit handler) ──
-  /** What's under a content point — for the edit handler's capture decision. */
+  /** What's under a content point — for the edit handler's capture decision.
+   *  `scale` (the page's view px per content unit) keeps grab zones
+   *  screen-constant; pass it from the pointer sample. */
   hitKind(
     pon: PageObjectNumber,
     point: Vec,
+    scale?: number,
   ): 'handle' | 'rotate' | 'group-handle' | 'annot' | 'empty';
   /** The cursor to show at a content point (resize over a handle, move/pointer over a body, else null). */
-  cursorAt(pon: PageObjectNumber, point: Vec): string | null;
+  cursorAt(pon: PageObjectNumber, point: Vec, scale?: number): string | null;
   behaviorFor(a: { subtype: Subtype; ref: AnnotationRef | null }): Behavior | null;
   // ── interaction intents (run the pure core + perform engine effects) ──
   editPointer(
@@ -294,6 +385,7 @@ export interface AnnotationHostCapability extends AnnotationCapability {
     pon: PageObjectNumber,
     point: Vec,
     shift: boolean,
+    scale?: number,
   ): void;
   marqueePointer(
     phase: 'down' | 'move' | 'up',

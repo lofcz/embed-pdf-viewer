@@ -11,6 +11,7 @@ import { canMove, groupUnionBounds, hitTest, isSelectable } from './hit';
 import { capsFor } from './kinds';
 import {
   caretRectFromTextEnd,
+  DEFAULT_CHROME_GEOM,
   geomDragHandle,
   geomResetRotation,
   geomRotateAbout,
@@ -50,7 +51,6 @@ import type {
 } from './types';
 
 const MIN_DRAG = 3;
-const HANDLE_TOL = 6;
 const isPolySubtype = (subtype: Subtype): subtype is 'polygon' | 'polyline' =>
   subtype === 'polygon' || subtype === 'polyline';
 
@@ -283,9 +283,17 @@ function editPointer(
 }
 
 function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
-  // `pageBox` reaches the hit-test so the page-bound rotate knob (flipped /
-  // clamped near an edge) is grabbed exactly where the chrome drew it.
-  const hit = hitTest(m, input.pon, input.point, HANDLE_TOL, m.hitMargin, input.pageBox);
+  // `pageBox` + `chrome` reach the hit-test so the page-bound rotate knob
+  // (flipped / clamped near an edge) is grabbed exactly where the chrome drew
+  // it, with the caller's (screen-constant) grab zones.
+  const hit = hitTest(
+    m,
+    input.pon,
+    input.point,
+    input.chrome ?? DEFAULT_CHROME_GEOM,
+    m.hitMargin,
+    input.pageBox,
+  );
   if (hit.t === 'handle') {
     const base = m.byId[hit.id].geom;
     return [{ ...m, draft: { g: 'handle', id: hit.id, handle: hit.handle, base, cur: base } }, []];

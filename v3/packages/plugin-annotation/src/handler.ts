@@ -69,7 +69,7 @@ export function createEditHandler(
       // relying on a DOM blur, which races the focus-steal of the entering gesture.
       const wasEditing = anno.currentEditing() != null;
       if (wasEditing) anno.endTextEdit();
-      if (anno.hitKind(s.page.pon, s.page.point) === 'empty') {
+      if (anno.hitKind(s.page.pon, s.page.point, s.page.scale) === 'empty') {
         // Plain empty click drops the selection. Shift-empty preserves it so the
         // lower-priority marquee handler can additive/toggle-select.
         if (!s.modifiers.shift) anno.deselect();
@@ -81,10 +81,10 @@ export function createEditHandler(
       }
       // Double-click over a free-text box → enter text edit (not a move).
       if ((s.clickCount ?? 1) >= 2) {
-        anno.beginTextEditAt(s.page.pon, s.page.point);
+        anno.beginTextEditAt(s.page.pon, s.page.point, s.page.scale);
         return true;
       }
-      anno.editPointer('down', s.page.pon, s.page.point, s.modifiers.shift);
+      anno.editPointer('down', s.page.pon, s.page.point, s.modifiers.shift, s.page.scale);
       origin = { pon: s.page.pon, point: s.page.point };
       return true;
     },
@@ -107,7 +107,7 @@ export function createEditHandler(
       // priority 20 → beats text-select's 'text' (10) over an annotation; null clears.
       interaction.setCursor(
         'annotation',
-        s.page ? anno.cursorAt(s.page.pon, s.page.point) : null,
+        s.page ? anno.cursorAt(s.page.pon, s.page.point, s.page.scale) : null,
         20,
       );
     },

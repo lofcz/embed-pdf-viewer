@@ -323,7 +323,7 @@ export interface StageCapability {
    * needs so a single pointer source can drive page-aware features (text
    * selection, annotations) AND cross-page drags.
    */
-  pageAt(screen: Point): { pon: PageObjectNumber; point: Point } | null;
+  pageAt(screen: Point): { pon: PageObjectNumber; point: Point; scale: number } | null;
   /**
    * Screen point → `pon`'s content space, UNCLAMPED — valid even when the point
    * is outside the page's bounds (coordinates then fall outside `[0, size]`).

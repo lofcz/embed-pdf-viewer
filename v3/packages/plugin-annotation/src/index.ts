@@ -11,12 +11,15 @@ import type { AnnotationCapability } from './types';
 
 export { annotationPlugin } from './annotation.plugin';
 export { fromDTO, toCreateDraft, toPatch, refKey, styleFromDTO } from './repository';
+export { DEFAULT_CHROME } from './reducer';
 export type {
   AnnotationCapability,
   AnnotationConfig,
   AnnotationState,
   AnnotationAction,
   Behavior,
+  ChromeSettings,
+  ChromeSettingsPatch,
   SelectionProps,
   StampToolInput,
   TextItem,

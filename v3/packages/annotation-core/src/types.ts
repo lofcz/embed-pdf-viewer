@@ -323,6 +323,21 @@ export interface Model {
   snap: SnapSettings;
 }
 
+/**
+ * Selection-chrome geometry in CONTENT units — the grab zones and the knob
+ * stalk. The core is unit-agnostic and zoom-free: callers own the px→content
+ * conversion (settings are CSS px; divide by the page's view scale), so grab
+ * zones stay screen-constant across zoom.
+ */
+export interface ChromeGeom {
+  /** Half-side of a resize/vertex handle's square grab zone. */
+  handleTol: number;
+  /** Half-side of the rotate knob's square grab zone. */
+  knobTol: number;
+  /** How far the rotate knob hangs off the selection edge. */
+  knobOffset: number;
+}
+
 export interface PointerInput {
   pon: PageObjectNumber;
   point: Vec;
@@ -335,6 +350,12 @@ export interface PointerInput {
    * points pin to the edge. Annotations are page-bound; the pointer isn't.
    */
   pageBox?: Rect;
+  /**
+   * Chrome grab-zone geometry for this event — per-event environmental context
+   * exactly like `pageBox` (the caller converts its CSS-px settings by the
+   * page's view scale at dispatch). Absent → `DEFAULT_CHROME_GEOM`.
+   */
+  chrome?: ChromeGeom;
 }
 
 export type Msg =
@@ -490,4 +511,14 @@ export type ChromeNode =
   // The live rotation readout while a rotate gesture is active: `at` is the
   // pointer (content space), `angle` the selection's absolute angle (deg, CW).
   | { kind: 'angle-chip'; at: Vec; angle: number }
+  // Rotation guides while a rotate gesture is active: finished line segments —
+  // chords of the page through the pivot — so painters just draw. Two `axis`
+  // lines (the fixed 0°/90° reference cross) + one `indicator` at the live
+  // `angle` (the SAME snapped angle the chip shows and the commit applies).
+  | {
+      kind: 'rotate-guides';
+      center: Vec;
+      angle: number;
+      lines: Array<{ a: Vec; b: Vec; role: 'axis' | 'indicator' }>;
+    }
   | { kind: 'marquee'; rect: Rect };

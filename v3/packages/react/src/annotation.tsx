@@ -58,7 +58,14 @@ import {
 
 export type { AnnotationMenuPlacement } from './annotation-menu-position';
 
-const ACCENT = '#3858e9';
+/** `#rrggbb` → `rgba(...)` — the marquee's translucent fill derives from the
+ *  accent, so one `setChrome({ accent })` restyles every piece of chrome. */
+const rgba = (hex: string, alpha: number): string => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+};
 
 export interface AnnotationLayerProps {
   customRenderer?: (args: {
@@ -201,7 +208,20 @@ function BakedImage({
 }
 
 function Chrome({ page }: { page: PageContextValue }) {
-  const nodes = useSelector(AnnotationHostToken, (c) => c.chrome(page.pon), shallowArray);
+  // The page's view scale converts the CSS-px chrome settings into content
+  // units inside the core (knob stalk, grab zones) — screen-constant at every
+  // zoom. The painter's own px values (handle glyphs, dot radius) are drawn in
+  // screen space and need no conversion.
+  const scale = page.transform.viewScale;
+  const nodes = useSelector(AnnotationHostToken, (c) => c.chrome(page.pon, scale), shallowArray);
+  const cs = useSelector(AnnotationHostToken, (c) => c.chromeSettings());
+  // The accent cascade: each piece's color falls back to the one accent.
+  const outlineStroke = cs.outline.color ?? cs.accent;
+  const handleStroke = cs.handles.stroke ?? cs.accent;
+  const knobStroke = cs.knob.stroke ?? cs.accent;
+  // ONE outline style for the resting rect AND the rotated obb — the selection
+  // box must never flip dashed↔solid when a rotation starts.
+  const outlineDash = cs.outline.style === 'dashed' ? '4 3' : undefined;
   // The live rotation readout — an HTML chip (rounded box + padded text beats
   // hand-rolling it in SVG), riding the pointer like v2's.
   const chip = nodes.find((n) => n.kind === 'angle-chip');
@@ -213,15 +233,16 @@ function Chrome({ page }: { page: PageContextValue }) {
           if (n.kind === 'angle-chip') return null; // rendered as HTML below
           if (n.kind === 'handle') {
             const p = page.transform.pageToContent(n.at);
+            const hs = cs.handles.size;
             return (
               <rect
                 key={i}
-                x={p.x - 4}
-                y={p.y - 4}
-                width={8}
-                height={8}
-                fill="#fff"
-                stroke={ACCENT}
+                x={p.x - hs / 2}
+                y={p.y - hs / 2}
+                width={hs}
+                height={hs}
+                fill={cs.handles.fill}
+                stroke={handleStroke}
                 strokeWidth={1.5}
                 // The square rides a rotated box's orientation (spin about itself).
                 {...(n.rot ? { transform: `rotate(${n.rot} ${p.x} ${p.y})` } : {})}
@@ -259,7 +280,48 @@ function Chrome({ page }: { page: PageContextValue }) {
                 return `${p.x},${p.y}`;
               })
               .join(' ');
-            return <polygon key={i} points={pts} fill="none" stroke={ACCENT} strokeWidth={1} />;
+            return (
+              <polygon
+                key={i}
+                points={pts}
+                fill="none"
+                stroke={outlineStroke}
+                strokeWidth={cs.outline.width}
+                strokeDasharray={outlineDash}
+              />
+            );
+          }
+          // Rotation guides (live rotate only): the faint 0°/90° reference cross
+          // + the prominent indicator riding the angle — pre-cut page chords, so
+          // this is a dumb line loop.
+          if (n.kind === 'rotate-guides') {
+            const guideDash = cs.guides.style === 'dashed' ? '4 3' : undefined;
+            return (
+              <g key={i}>
+                {n.lines.map((l, j) => {
+                  const a = page.transform.pageToContent(l.a);
+                  const b = page.transform.pageToContent(l.b);
+                  const axis = l.role === 'axis';
+                  return (
+                    <line
+                      key={j}
+                      x1={a.x}
+                      y1={a.y}
+                      x2={b.x}
+                      y2={b.y}
+                      stroke={
+                        axis
+                          ? (cs.guides.axisColor ?? cs.accent)
+                          : (cs.guides.indicatorColor ?? cs.accent)
+                      }
+                      opacity={axis ? cs.guides.axisOpacity : cs.guides.indicatorOpacity}
+                      strokeWidth={cs.guides.width}
+                      strokeDasharray={guideDash}
+                    />
+                  );
+                })}
+              </g>
+            );
           }
           // The rotate knob: a stalk from the top-edge midpoint out to a grab dot.
           if (n.kind === 'rotate-knob') {
@@ -267,12 +329,45 @@ function Chrome({ page }: { page: PageContextValue }) {
             const from = page.transform.pageToContent(n.from);
             return (
               <g key={i}>
-                <line x1={from.x} y1={from.y} x2={at.x} y2={at.y} stroke={ACCENT} strokeWidth={1} />
-                <circle cx={at.x} cy={at.y} r={5} fill="#fff" stroke={ACCENT} strokeWidth={1.5} />
+                {cs.knob.stalk && (
+                  <line
+                    x1={from.x}
+                    y1={from.y}
+                    x2={at.x}
+                    y2={at.y}
+                    stroke={knobStroke}
+                    strokeWidth={1}
+                  />
+                )}
+                <circle
+                  cx={at.x}
+                  cy={at.y}
+                  r={cs.knob.size / 2}
+                  fill={cs.knob.fill}
+                  stroke={knobStroke}
+                  strokeWidth={1.5}
+                />
               </g>
             );
           }
           const b = boxOf(n.rect, page);
+          // The marquee rubber band keeps its own look (translucent accent fill,
+          // always dashed); the selection outline follows the settings.
+          if (n.kind === 'marquee') {
+            return (
+              <rect
+                key={i}
+                x={b.left}
+                y={b.top}
+                width={b.width}
+                height={b.height}
+                fill={rgba(cs.accent, 0.08)}
+                stroke={cs.accent}
+                strokeWidth={1}
+                strokeDasharray="4 3"
+              />
+            );
+          }
           return (
             <rect
               key={i}
@@ -280,10 +375,10 @@ function Chrome({ page }: { page: PageContextValue }) {
               y={b.top}
               width={b.width}
               height={b.height}
-              fill={n.kind === 'marquee' ? 'rgba(56,88,233,0.08)' : 'none'}
-              stroke={ACCENT}
-              strokeWidth={1}
-              strokeDasharray="4 3"
+              fill="none"
+              stroke={outlineStroke}
+              strokeWidth={cs.outline.width}
+              strokeDasharray={outlineDash}
             />
           );
         })}
@@ -640,7 +735,13 @@ export interface AnnotationDraftMenuProps {
 export function PageAnnotationMenu({ children, gap = 8, placement = 'top' }: AnnotationMenuProps) {
   const page = usePage();
   const anno = useCapability(AnnotationHostToken);
-  const anchor = useSelector(AnnotationHostToken, (c) => c.selectionAnchor(), sameAnchor);
+  // This page's view scale sizes the knob the menu dodges; when the anchor is
+  // for another page the value is unused (the `here` guard below bails).
+  const anchor = useSelector(
+    AnnotationHostToken,
+    (c) => c.selectionAnchor(page.transform.viewScale),
+    sameAnchor,
+  );
   const selected = useAnnotationSelected();
   const [pos, setPos] = useState<AnnotationMenuPosition | null>(null);
   const here = !!anchor && anchor.pon === page.pon;

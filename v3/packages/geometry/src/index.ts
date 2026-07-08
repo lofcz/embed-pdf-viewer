@@ -141,6 +141,9 @@ export interface PageTransform {
   readonly deviceHeight: number;
   /** Device px per PDF point (uniform). */
   readonly renderScale: number;
+  /** VIEW px per PDF point (uniform, device-snapped) — the one factor for
+   *  screen-constant chrome: content units = CSS px ÷ `viewScale`. */
+  readonly viewScale: number;
   /** Content point → UN-rotated content view px. For overlays INSIDE the rotated
    *  content wrapper (markers, annotations) — they ride the wrapper's rotation,
    *  so they place in content space and only scale here. */
@@ -214,6 +217,7 @@ export function pageTransform(input: {
     deviceWidth,
     deviceHeight,
     renderScale,
+    viewScale,
     pageToContent,
     pageToView,
     pageToViewRect,

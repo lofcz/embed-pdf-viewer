@@ -27,6 +27,7 @@ import {
   update,
   type Annot,
   type AnnotationProps,
+  type ChromeGeom,
   type ChromeNode,
   type CreationDraftAnchor,
   type Effect,
@@ -44,11 +45,10 @@ import type {
   AnnotationHostCapability,
   AnnotationState,
   Behavior,
+  ChromeSettings,
   SelectionProps,
   TextItem,
 } from './types';
-
-const HANDLE_TOL = 6; // content units (PDF points)
 
 /** Broad annotate-write capability (PDF bit 6). The engine independently
  *  enforces this AND the per-owner collab rules; `canEdit`/`canDelete` are the
@@ -79,12 +79,30 @@ export function createAnnotationCapability(
   const textTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   const model = (): Model => ctx.getState().model;
+  const chromeSettings = (): ChromeSettings => ctx.getState().chrome;
 
-  // Memoize the derived per-page arrays by model identity, so a selector returns
+  /** The CSS-px chrome settings converted to CONTENT units by the page's view
+   *  scale (px per content unit) — screen-constant grab zones + stalk at every
+   *  zoom. No scale → the values are read as content units (headless callers). */
+  const chromeGeomAt = (scale?: number): ChromeGeom => {
+    const cs = chromeSettings();
+    const s = scale || 1;
+    return {
+      handleTol: cs.handles.hitSize / 2 / s,
+      knobTol: cs.knob.hitSize / 2 / s,
+      knobOffset: cs.knob.offset / s,
+    };
+  };
+
+  // Memoize the derived per-page arrays by input identity, so a selector returns
   // a STABLE reference between dispatches (useSyncExternalStore needs this — the
-  // model object only changes when `update` produces a new one).
+  // model object only changes when `update` produces a new one; chrome also keys
+  // on the settings object + the page scale it was projected with).
   const itemsCache = new Map<number, { model: Model; v: RenderItem[] }>();
-  const chromeCache = new Map<number, { model: Model; v: ChromeNode[] }>();
+  const chromeCache = new Map<
+    number,
+    { model: Model; cs: ChromeSettings; scale: number | undefined; v: ChromeNode[] }
+  >();
   const memoItems = (pon: number): RenderItem[] => {
     const m = model();
     const c = itemsCache.get(pon);
@@ -93,23 +111,38 @@ export function createAnnotationCapability(
     itemsCache.set(pon, { model: m, v });
     return v;
   };
-  const memoChrome = (pon: number): ChromeNode[] => {
+  const memoChrome = (pon: number, scale?: number): ChromeNode[] => {
     const m = model();
+    const cs = chromeSettings();
     const c = chromeCache.get(pon);
-    if (c && c.model === m) return c.v;
-    const v = coreChrome(m, pon, pageBoxOf(pon));
-    chromeCache.set(pon, { model: m, v });
+    if (c && c.model === m && c.cs === cs && c.scale === scale) return c.v;
+    let v = coreChrome(m, pon, pageBoxOf(pon), chromeGeomAt(scale).knobOffset);
+    // `guides.enabled` is presentation config, filtered HERE so the emitted
+    // chrome stays authoritative for every painter (default and headless alike).
+    if (!cs.guides.enabled) v = v.filter((n) => n.kind !== 'rotate-guides');
+    chromeCache.set(pon, { model: m, cs, scale, v });
     return v;
   };
-  // Anchor for the selection menu — memoized by model identity so the selector
+  // Anchor for the selection menu — memoized by input identity so the selector
   // returns a stable reference between unrelated dispatches.
-  let anchorCache: { model: Model; v: { pon: number; bounds: Rect; knob?: Vec } | null } | null =
-    null;
-  const memoAnchor = (): { pon: number; bounds: Rect; knob?: Vec } | null => {
+  let anchorCache: {
+    model: Model;
+    cs: ChromeSettings;
+    scale: number | undefined;
+    v: { pon: number; bounds: Rect; knob?: Vec } | null;
+  } | null = null;
+  const memoAnchor = (scale?: number): { pon: number; bounds: Rect; knob?: Vec } | null => {
     const m = model();
-    if (anchorCache && anchorCache.model === m) return anchorCache.v;
-    const v = coreSelectionAnchor(m, pageBoxOf);
-    anchorCache = { model: m, v };
+    const cs = chromeSettings();
+    if (
+      anchorCache &&
+      anchorCache.model === m &&
+      anchorCache.cs === cs &&
+      anchorCache.scale === scale
+    )
+      return anchorCache.v;
+    const v = coreSelectionAnchor(m, pageBoxOf, () => chromeGeomAt(scale).knobOffset);
+    anchorCache = { model: m, cs, scale, v };
     return v;
   };
   let draftAnchorCache: { model: Model; v: CreationDraftAnchor | null } | null = null;
@@ -384,14 +417,14 @@ export function createAnnotationCapability(
 
     // selectors
     pageItems: (pon) => memoItems(pon),
-    chrome: (pon) => memoChrome(pon),
-    selectionAnchor: () => memoAnchor(),
+    chrome: (pon, scale) => memoChrome(pon, scale),
+    selectionAnchor: (scale) => memoAnchor(scale),
     creationDraftAnchor: () => memoDraftAnchor(),
     selection: () => model().selected,
-    hitKind: (pon, point) =>
-      hitTest(model(), pon, point, HANDLE_TOL, model().hitMargin, pageBoxOf(pon)).t,
-    cursorAt: (pon, point) =>
-      cursorAt(model(), pon, point, HANDLE_TOL, model().hitMargin, pageBoxOf(pon)),
+    hitKind: (pon, point, scale) =>
+      hitTest(model(), pon, point, chromeGeomAt(scale), model().hitMargin, pageBoxOf(pon)).t,
+    cursorAt: (pon, point, scale) =>
+      cursorAt(model(), pon, point, chromeGeomAt(scale), model().hitMargin, pageBoxOf(pon)),
     behaviorFor: (a) => behaviors.find((b) => b.matches(a) && b.engaged()) ?? null,
 
     appearanceEpoch: (pon) => {
@@ -430,8 +463,12 @@ export function createAnnotationCapability(
     },
 
     // intents
-    editPointer: (phase, pon, point, shift) =>
-      apply({ t: 'editPointer', phase, in: { pon, point, shift, pageBox: pageBoxOf(pon) } }),
+    editPointer: (phase, pon, point, shift, scale) =>
+      apply({
+        t: 'editPointer',
+        phase,
+        in: { pon, point, shift, pageBox: pageBoxOf(pon), chrome: chromeGeomAt(scale) },
+      }),
     marqueePointer: (phase, pon, point, shift) =>
       apply({ t: 'marqueePointer', phase, in: { pon, point, shift, pageBox: pageBoxOf(pon) } }),
     createPointer: (subtype, phase, pon, point, finish = false) =>
@@ -452,6 +489,9 @@ export function createAnnotationCapability(
     // Live-adjustable snapping (a UI toggle); seeded by the registration config.
     setSnap: (patch) => apply({ t: 'setSnap', patch }),
     snapSettings: () => model().snap,
+    // Live-adjustable selection chrome (theming); seeded by the registration config.
+    setChrome: (patch) => ctx.dispatch({ type: 'SET_CHROME', patch }),
+    chromeSettings: () => chromeSettings(),
     deleteSelection: () => apply({ t: 'delete' }),
     deselect: () => apply({ t: 'deselect' }),
     cancel: () => apply({ t: 'cancel' }),
@@ -548,9 +588,9 @@ export function createAnnotationCapability(
     textItems: (pon) => memoTexts(pon),
     currentEditing: () => model().editing,
     beginTextEdit: (ref) => apply({ t: 'beginTextEdit', id: refKey(ref) }),
-    beginTextEditAt: (pon, point) => {
+    beginTextEditAt: (pon, point, scale) => {
       const m = model();
-      const h = hitTest(m, pon, point, HANDLE_TOL, m.hitMargin, pageBoxOf(pon));
+      const h = hitTest(m, pon, point, chromeGeomAt(scale), m.hitMargin, pageBoxOf(pon));
       // A double-click on the box body OR one of its resize handles both target the
       // same annotation; either should open it for editing.
       const id = h.t === 'annot' || h.t === 'handle' ? h.id : null;

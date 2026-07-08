@@ -12,6 +12,7 @@ import {
 import { cursorAt, groupUnionBounds, hitTest } from './hit';
 import { capsFor } from './kinds';
 import {
+  chordThrough,
   geomBounds,
   geomHit,
   geomScene,
@@ -34,6 +35,7 @@ import {
   geomResetRotation,
   obbFromGeom,
   placeRotateKnob,
+  DEFAULT_CHROME_GEOM,
   rotateKnob,
   rotatedAabb,
   normalizeDeg,
@@ -284,12 +286,12 @@ describe('annotation-core', () => {
     const corner = { x: 290, y: 110 }; // inside the bbox, far from the diagonal stroke
     let m = update(initialModel, { t: 'loaded', annots: [arrow] })[0];
     // UNSELECTED → only the painted region (stroke + arrowhead) hits; the corner misses
-    expect(hitTest(m, PON, corner, 6, 6).t).toBe('empty');
+    expect(hitTest(m, PON, corner, DEFAULT_CHROME_GEOM, 6).t).toBe('empty');
     // select it (click on the stroke at its midpoint)…
     m = run(m, [editPtr('down', 200, 150), editPtr('up', 200, 150)]);
     expect(m.selected).toEqual(['A1']);
     // …now the whole selection outline is grabbable — the grab area == the outline
-    expect(hitTest(m, PON, corner, 6, 6)).toEqual({ t: 'annot', id: 'A1' });
+    expect(hitTest(m, PON, corner, DEFAULT_CHROME_GEOM, 6)).toEqual({ t: 'annot', id: 'A1' });
     expect(selectionBounds(arrow.geom, 6)).toEqual(geomVisualBounds(arrow.geom, 6)); // line: outline == visual bounds
   });
 
@@ -391,9 +393,9 @@ describe('annotation-core', () => {
       createPtr('square', 'move', 200, 200),
       createPtr('square', 'up', 200, 200),
     ]);
-    expect(cursorAt(m, PON, { x: 200, y: 200 }, 6, 6)).toBe('nwse-resize'); // SE handle
-    expect(cursorAt(m, PON, { x: 150, y: 150 }, 6, 6)).toBe('move'); // selected body
-    expect(cursorAt(m, PON, { x: 600, y: 600 }, 6, 6)).toBeNull(); // empty
+    expect(cursorAt(m, PON, { x: 200, y: 200 }, DEFAULT_CHROME_GEOM, 6)).toBe('nwse-resize'); // SE handle
+    expect(cursorAt(m, PON, { x: 150, y: 150 }, DEFAULT_CHROME_GEOM, 6)).toBe('move'); // selected body
+    expect(cursorAt(m, PON, { x: 600, y: 600 }, DEFAULT_CHROME_GEOM, 6)).toBeNull(); // empty
   });
 
   it('view: a single selection emits 8 handles (carrying cursors)', () => {
@@ -919,7 +921,10 @@ describe('annotation-core', () => {
     };
     const m0 = update(initialModel, { t: 'loaded', annots: [hl] })[0];
     // clicking the markup selects it…
-    expect(hitTest(m0, PON, { x: 50, y: 20 }, 6, 6)).toEqual({ t: 'annot', id: 'H1' });
+    expect(hitTest(m0, PON, { x: 50, y: 20 }, DEFAULT_CHROME_GEOM, 6)).toEqual({
+      t: 'annot',
+      id: 'H1',
+    });
     const m1 = update(m0, editPtr('down', 50, 20))[0];
     expect(m1.selected).toEqual(['H1']);
     // …but no move gesture is armed (anchored), and chrome is a bare outline.
@@ -1025,7 +1030,7 @@ describe('annotation-core', () => {
     m = run(m, [editPtr('down', 215, 215), editPtr('up', 215, 215)]); // select the whole group
     expect(m.selected).toEqual(['P', 'C1', 'C2']);
     // the gap is no longer "empty" — it hits a selected member so the group can drag
-    expect(hitTest(m, PON, { x: 170, y: 170 }, 6, 6).t).toBe('annot');
+    expect(hitTest(m, PON, { x: 170, y: 170 }, DEFAULT_CHROME_GEOM, 6).t).toBe('annot');
     m = run(m, [editPtr('down', 170, 170), editPtr('move', 190, 200), editPtr('up', 190, 200)]);
     // every member translated by the same delta (+20, +30)
     expect(rectGeom(m.byId['P'].geom)).toMatchObject({ x: 120, y: 130 });
@@ -1036,10 +1041,10 @@ describe('annotation-core', () => {
   it('the gap inside a multi-selection shows the move cursor; outside the union still clears', () => {
     let m = grouped();
     m = run(m, [editPtr('down', 215, 215), editPtr('up', 215, 215)]); // group selected
-    expect(cursorAt(m, PON, { x: 170, y: 170 }, 6, 6)).toBe('move'); // gap → move
+    expect(cursorAt(m, PON, { x: 170, y: 170 }, DEFAULT_CHROME_GEOM, 6)).toBe('move'); // gap → move
     // a click well outside the union box is still empty (so it deselects)
-    expect(hitTest(m, PON, { x: 500, y: 500 }, 6, 6).t).toBe('empty');
-    expect(cursorAt(m, PON, { x: 500, y: 500 }, 6, 6)).toBeNull();
+    expect(hitTest(m, PON, { x: 500, y: 500 }, DEFAULT_CHROME_GEOM, 6).t).toBe('empty');
+    expect(cursorAt(m, PON, { x: 500, y: 500 }, DEFAULT_CHROME_GEOM, 6)).toBeNull();
   });
 
   it('the union grab needs 2+ movable members: a lone selection leaves its gap empty', () => {
@@ -1048,7 +1053,7 @@ describe('annotation-core', () => {
     let m = update(initialModel, { t: 'loaded', annots: [sq('S', 100)] })[0];
     m = run(m, [editPtr('down', 115, 115), editPtr('up', 115, 115)]);
     expect(m.selected).toEqual(['S']);
-    expect(hitTest(m, PON, { x: 300, y: 300 }, 6, 6).t).toBe('empty');
+    expect(hitTest(m, PON, { x: 300, y: 300 }, DEFAULT_CHROME_GEOM, 6).t).toBe('empty');
   });
 
   it('markups always sit beneath other annotations, regardless of creation order', () => {
@@ -1100,7 +1105,10 @@ describe('annotation-core', () => {
     // pageItems paints back→front: the markup comes first (beneath), the square last (on top).
     expect(pageItems(m, PON).map((i) => i.id)).toEqual(['H1', 'S1']);
     // and the overlap hit-tests to the square (the top-most painted), not the highlight.
-    expect(hitTest(m, PON, { x: 50, y: 50 }, 6, 6)).toEqual({ t: 'annot', id: 'S1' });
+    expect(hitTest(m, PON, { x: 50, y: 50 }, DEFAULT_CHROME_GEOM, 6)).toEqual({
+      t: 'annot',
+      id: 'S1',
+    });
   });
 });
 
@@ -1469,9 +1477,12 @@ describe('annotation-core — rotation-aware selection (grab + menu + group)', (
     const rotated = update({ ...base, selected: ['s1'] }, { t: 'rotate90' })[0];
 
     // (150,90): inside the tilted box but ABOVE the old footprint (y<100) — now grabs.
-    expect(hitTest(rotated, PON, { x: 150, y: 90 }, 6, 3)).toEqual({ t: 'annot', id: 's1' });
+    expect(hitTest(rotated, PON, { x: 150, y: 90 }, DEFAULT_CHROME_GEOM, 3)).toEqual({
+      t: 'annot',
+      id: 's1',
+    });
     // (110,140): inside the old footprint but LEFT of the tilted box (x<125) — vacated.
-    expect(hitTest(rotated, PON, { x: 110, y: 140 }, 6, 3).t).toBe('empty');
+    expect(hitTest(rotated, PON, { x: 110, y: 140 }, DEFAULT_CHROME_GEOM, 3).t).toBe('empty');
   });
 
   it('the menu anchor is the ROTATED AABB and tracks rot (not the fixed unrotated box)', () => {
@@ -2396,7 +2407,7 @@ describe('page-bound rotate knob', () => {
     expect(node?.kind).toBe('rotate-knob');
     if (node?.kind === 'rotate-knob') expect(node.at).toEqual(knob.at);
     // …and the hit-test grabs it exactly there (WYSIWYG)
-    expect(hitTest(m, PON, knob.at, 6, m.hitMargin, BOX).t).toBe('rotate');
+    expect(hitTest(m, PON, knob.at, DEFAULT_CHROME_GEOM, m.hitMargin, BOX).t).toBe('rotate');
   });
 
   it('chrome and hitTest agree everywhere: the knob is always on-page and always grabbable', () => {
@@ -2414,7 +2425,10 @@ describe('page-bound rotate knob', () => {
       expect(node?.kind, JSON.stringify(c)).toBe('rotate-knob');
       if (node?.kind !== 'rotate-knob') continue;
       inside(node.at);
-      expect(hitTest(m, PON, node.at, 6, m.hitMargin, BOX).t, JSON.stringify(c)).toBe('rotate');
+      expect(
+        hitTest(m, PON, node.at, DEFAULT_CHROME_GEOM, m.hitMargin, BOX).t,
+        JSON.stringify(c),
+      ).toBe('rotate');
     }
   });
 
@@ -2436,7 +2450,7 @@ describe('page-bound rotate knob', () => {
     const knob = selectionKnob(m, PON, BOX)!;
     expect(knob.at.y).toBeGreaterThan(45); // below the union bottom
     inside(knob.at);
-    const t = hitTest(m, PON, knob.at, 6, m.hitMargin, BOX);
+    const t = hitTest(m, PON, knob.at, DEFAULT_CHROME_GEOM, m.hitMargin, BOX);
     expect(t.t).toBe('rotate');
     if (t.t === 'rotate') expect([...t.ids].sort()).toEqual(['S1', 'S2']);
   });
@@ -2462,5 +2476,245 @@ describe('page-bound rotate knob', () => {
     m = run(m, [editB('up', pivot.x + 100, pivot.y)]);
     expect(m.draft).toBeNull();
     inside(selectionKnob(m, PON, BOX)!.at);
+  });
+
+  it('ChromeGeom: knob and handle grab zones are independent; the offset is configurable', () => {
+    const m = loadSelect({ x: 100, y: 100, width: 100, height: 50 });
+    // knob at (150, ~75.5); a point ~10 above it hits with knobTol 12, not 6
+    const knob = selectionKnob(m, PON, BOX)!;
+    const near = { x: knob.at.x, y: knob.at.y - 10 };
+    const wide = { ...DEFAULT_CHROME_GEOM, knobTol: 12 };
+    expect(hitTest(m, PON, near, DEFAULT_CHROME_GEOM, m.hitMargin, BOX).t).not.toBe('rotate');
+    expect(hitTest(m, PON, near, wide, m.hitMargin, BOX).t).toBe('rotate');
+    // …while the handle zone is untouched: 10 off the SE handle misses either way
+    const offHandle = { x: 210, y: 150 };
+    expect(hitTest(m, PON, offHandle, wide, m.hitMargin, BOX).t).not.toBe('handle');
+    // a custom offset moves the DRAWN knob and the HIT target together
+    const far = { ...DEFAULT_CHROME_GEOM, knobOffset: 48 };
+    const node = chrome(m, PON, BOX, 48).find((n) => n.kind === 'rotate-knob');
+    expect(node?.kind).toBe('rotate-knob');
+    if (node?.kind !== 'rotate-knob') return;
+    expect(knob.at.y - node.at.y).toBeCloseTo(24, 4); // 48 − 24 further out
+    expect(hitTest(m, PON, node.at, far, m.hitMargin, BOX).t).toBe('rotate');
+  });
+});
+
+/**
+ * The rotate-mode chrome switch (v2 behaviour, structural): while a rotate
+ * gesture runs, the guides own the page — full-bleed chords through the pivot
+ * (a fixed 0°/90° reference cross + the live indicator on the SAME snapped
+ * angle rule as the chip/commit) — and the handles, knob, and menu anchor are
+ * suppressed. Release restores everything.
+ */
+describe('rotate guides (live rotate chrome mode)', () => {
+  const BOX = { x: 0, y: 0, width: 612, height: 792 };
+  type Box = { x: number; y: number; width: number; height: number };
+  const inside = (p: Vec) => {
+    expect(p.x).toBeGreaterThanOrEqual(BOX.x - 1e-9);
+    expect(p.x).toBeLessThanOrEqual(BOX.x + BOX.width + 1e-9);
+    expect(p.y).toBeGreaterThanOrEqual(BOX.y - 1e-9);
+    expect(p.y).toBeLessThanOrEqual(BOX.y + BOX.height + 1e-9);
+  };
+  const stampAt = (rect: Box): Annot => ({
+    id: 'S1',
+    ref: { kind: 'objectNumber', pageObjectNumber: PON, annotObjectNumber: 900 },
+    pon: PON,
+    subtype: 'stamp',
+    geom: { t: 'rect', rect: { ...rect }, ellipse: false },
+    style: {
+      color: '#000000',
+      interiorColor: null,
+      strokeWidth: 1,
+      opacity: 1,
+      border: { kind: 'solid' },
+    },
+    locked: false,
+    source: 'baked',
+    apBox: { ...rect },
+  });
+  const loadSelect = (rect: Box): Model => {
+    const m = update(initialModel, { t: 'loaded', annots: [stampAt(rect)] })[0];
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + rect.height / 2;
+    return run(m, [editPtr('down', cx, cy), editPtr('up', cx, cy)]);
+  };
+  const editB = (phase: 'down' | 'move' | 'up', x: number, y: number): Msg => ({
+    t: 'editPointer',
+    phase,
+    in: { pon: PON, point: { x, y }, shift: false, pageBox: BOX },
+  });
+
+  it('chordThrough: full-bleed chords of a box through a point', () => {
+    // horizontal / vertical through an interior point
+    expect(chordThrough(BOX, { x: 150, y: 35 }, 0)).toEqual({
+      a: { x: 0, y: 35 },
+      b: { x: 612, y: 35 },
+    });
+    const v = chordThrough(BOX, { x: 150, y: 35 }, 90)!;
+    expect(v.a.x).toBeCloseTo(150);
+    expect(v.a.y).toBeCloseTo(0);
+    expect(v.b.x).toBeCloseTo(150);
+    expect(v.b.y).toBeCloseTo(792);
+    // 45° through the centre exits through the left/right edges
+    const d = chordThrough(BOX, { x: 306, y: 396 }, 45)!;
+    expect(d.a.x).toBeCloseTo(0);
+    expect(d.a.y).toBeCloseTo(90);
+    expect(d.b.x).toBeCloseTo(612);
+    expect(d.b.y).toBeCloseTo(702);
+    // a line parallel to an edge but outside the box misses entirely
+    expect(chordThrough(BOX, { x: -50, y: -50 }, 0)).toBeNull();
+    expect(chordThrough(BOX, { x: -1000, y: 500 }, 90)).toBeNull();
+  });
+
+  it('a live rotate switches chrome to guides mode; release restores it', () => {
+    let m = loadSelect({ x: 200, y: 300, width: 100, height: 50 });
+    // at rest: knob + handles, no guides, menu anchored
+    const rest = chrome(m, PON, BOX);
+    expect(rest.some((n) => n.kind === 'rotate-knob')).toBe(true);
+    expect(rest.some((n) => n.kind === 'handle')).toBe(true);
+    expect(rest.some((n) => n.kind === 'rotate-guides')).toBe(false);
+    expect(selectionAnchor(m)).not.toBeNull();
+    // grab the knob → guides mode
+    const knob = selectionKnob(m, PON, BOX)!;
+    m = run(m, [editB('down', knob.at.x, knob.at.y)]);
+    const draft = m.draft;
+    if (draft?.g !== 'rotate') throw new Error('expected a rotate draft');
+    const live = chrome(m, PON, BOX);
+    expect(live.some((n) => n.kind === 'rotate-knob')).toBe(false);
+    expect(live.some((n) => n.kind === 'handle')).toBe(false);
+    expect(selectionAnchor(m)).toBeNull(); // menu hides while rotating
+    const g = live.find((n) => n.kind === 'rotate-guides');
+    expect(g?.kind).toBe('rotate-guides');
+    if (g?.kind !== 'rotate-guides') throw new Error('guides node expected');
+    expect(g.center).toEqual(draft.pivot);
+    expect(g.lines.filter((l) => l.role === 'axis')).toHaveLength(2);
+    expect(g.lines.filter((l) => l.role === 'indicator')).toHaveLength(1);
+    for (const l of g.lines) {
+      inside(l.a); // page chords: every endpoint on the page
+      inside(l.b);
+    }
+    // quarter turn (snaps to 270): the indicator rides the SAME angle rule as
+    // the chip — it turns vertical through the pivot
+    const pivot = draft.pivot;
+    m = run(m, [editB('move', pivot.x + 100, pivot.y)]);
+    const live2 = chrome(m, PON, BOX);
+    const g2 = live2.find((n) => n.kind === 'rotate-guides');
+    const chip = live2.find((n) => n.kind === 'angle-chip');
+    if (g2?.kind !== 'rotate-guides' || chip?.kind !== 'angle-chip') throw new Error();
+    expect(Math.round(g2.angle)).toBe(chip.angle);
+    const ind = g2.lines.find((l) => l.role === 'indicator')!;
+    expect(ind.a.x).toBeCloseTo(pivot.x, 4);
+    expect(ind.b.x).toBeCloseTo(pivot.x, 4);
+    // release: guides gone, knob + handles + menu anchor return
+    m = run(m, [editB('up', pivot.x + 100, pivot.y)]);
+    const settled = chrome(m, PON, BOX);
+    expect(settled.some((n) => n.kind === 'rotate-guides')).toBe(false);
+    expect(settled.some((n) => n.kind === 'rotate-knob')).toBe(true);
+    expect(settled.some((n) => n.kind === 'handle')).toBe(true);
+    expect(selectionAnchor(m)).not.toBeNull();
+  });
+});
+
+/**
+ * Group chrome rides live gestures: the multi-selection's union outline, its
+ * handles, and its rotate knob follow the DRAFT-EFFECTIVE geometry, exactly
+ * like single-selection chrome — the outline must never park at the committed
+ * union while the members slide away, then teleport on release.
+ */
+describe('group chrome rides live gestures', () => {
+  type Box = { x: number; y: number; width: number; height: number };
+  const stampAt = (id: string, rect: Box, n: number): Annot => ({
+    id,
+    ref: { kind: 'objectNumber', pageObjectNumber: PON, annotObjectNumber: n },
+    pon: PON,
+    subtype: 'stamp',
+    geom: { t: 'rect', rect: { ...rect }, ellipse: false },
+    style: {
+      color: '#000000',
+      interiorColor: null,
+      strokeWidth: 1,
+      opacity: 1,
+      border: { kind: 'solid' },
+    },
+    locked: false,
+    source: 'baked',
+    apBox: { ...rect },
+  });
+  /** Two stamps side by side, both selected (click + shift-click). */
+  const loadPair = (): Model => {
+    const m = update(initialModel, {
+      t: 'loaded',
+      annots: [
+        stampAt('S1', { x: 100, y: 100, width: 60, height: 50 }, 901),
+        stampAt('S2', { x: 200, y: 100, width: 60, height: 50 }, 902),
+      ],
+    })[0];
+    return run(m, [
+      editPtr('down', 130, 125),
+      editPtr('up', 130, 125),
+      editPtr('down', 230, 125, true),
+      editPtr('up', 230, 125, true),
+    ]);
+  };
+  const outlineOf = (nodes: ReturnType<typeof chrome>) => {
+    const o = nodes.find((n) => n.kind === 'outline');
+    if (o?.kind !== 'outline') throw new Error('outline expected');
+    return o.rect;
+  };
+
+  it('the union outline, handles, and knob follow a live group move — and do not jump on release', () => {
+    let m = loadPair();
+    const rest = chrome(m, PON);
+    const restOutline = outlineOf(rest);
+    const restHandles = rest.filter((n) => n.kind === 'handle');
+    const restKnob = rest.find((n) => n.kind === 'rotate-knob');
+    expect(restHandles.length).toBeGreaterThan(0);
+    expect(restKnob?.kind).toBe('rotate-knob');
+    // arm a move on S1's body and drag +40/+25 WITHOUT releasing
+    m = run(m, [editPtr('down', 130, 125), editPtr('move', 170, 150)]);
+    expect(m.draft?.g).toBe('move');
+    const live = chrome(m, PON);
+    // outline = the rest union translated by exactly the live delta
+    expect(outlineOf(live)).toEqual({
+      ...restOutline,
+      x: restOutline.x + 40,
+      y: restOutline.y + 25,
+    });
+    // every group handle rode along…
+    const liveHandles = live.filter((n) => n.kind === 'handle');
+    expect(liveHandles).toHaveLength(restHandles.length);
+    liveHandles.forEach((h, i) => {
+      const r = restHandles[i];
+      if (h.kind !== 'handle' || r.kind !== 'handle') throw new Error();
+      expect(h.at.x).toBeCloseTo(r.at.x + 40, 6);
+      expect(h.at.y).toBeCloseTo(r.at.y + 25, 6);
+    });
+    // …and so did the rotate knob
+    const liveKnob = live.find((n) => n.kind === 'rotate-knob');
+    if (liveKnob?.kind !== 'rotate-knob' || restKnob?.kind !== 'rotate-knob') throw new Error();
+    expect(liveKnob.at.x).toBeCloseTo(restKnob.at.x + 40, 6);
+    expect(liveKnob.at.y).toBeCloseTo(restKnob.at.y + 25, 6);
+    // release: the committed outline IS the live outline — no teleport
+    m = run(m, [editPtr('up', 170, 150)]);
+    expect(m.draft).toBeNull();
+    expect(outlineOf(chrome(m, PON))).toEqual(outlineOf(live));
+  });
+
+  it('the union outline follows a live group scale', () => {
+    let m = loadPair();
+    const restOutline = outlineOf(chrome(m, PON));
+    // grab the union's SE group handle and drag +50/+30 WITHOUT releasing
+    const se = { x: restOutline.x + restOutline.width, y: restOutline.y + restOutline.height };
+    m = run(m, [editPtr('down', se.x, se.y), editPtr('move', se.x + 50, se.y + 30)]);
+    expect(m.draft?.g).toBe('group');
+    const liveOutline = outlineOf(chrome(m, PON));
+    // the box grew live (stroke padding stays constant, hence the tolerance)
+    expect(liveOutline.x).toBeCloseTo(restOutline.x, 1);
+    expect(liveOutline.y).toBeCloseTo(restOutline.y, 1);
+    expect(Math.abs(liveOutline.width - (restOutline.width + 50))).toBeLessThan(2);
+    expect(Math.abs(liveOutline.height - (restOutline.height + 30))).toBeLessThan(2);
+    // release: committed == live, no jump
+    m = run(m, [editPtr('up', se.x + 50, se.y + 30)]);
+    expect(outlineOf(chrome(m, PON))).toEqual(liveOutline);
   });
 });

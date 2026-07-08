@@ -667,7 +667,11 @@ export function createStageCapability(
         const lx = screen.x - p.screenX;
         const ly = screen.y - p.screenY;
         if (lx >= 0 && ly >= 0 && lx <= p.transform.viewWidth && ly <= p.transform.viewHeight) {
-          return { pon: p.pon, point: p.transform.viewToPage({ x: lx, y: ly }) };
+          return {
+            pon: p.pon,
+            point: p.transform.viewToPage({ x: lx, y: ly }),
+            scale: p.transform.viewScale,
+          };
         }
       }
       return null;

@@ -4,6 +4,7 @@
  * (handles carry their resize cursor, group box, marquee).
  */
 import {
+  chordThrough,
   geomHandles,
   geomRotateAbout,
   geomRotation,
@@ -23,7 +24,7 @@ import {
   ROTATE_KNOB_OFFSET,
 } from './geometry';
 import { groupCaps } from './group';
-import { groupUnionBounds, isSelectable, paintOrder } from './hit';
+import { isSelectable, paintOrder } from './hit';
 import { capsFor } from './kinds';
 import { blendFor } from './scene';
 import { styleFromProps } from './props';
@@ -275,6 +276,24 @@ const boxCorners = (r: Rect): [Vec, Vec, Vec, Vec] => [
   { x: r.x, y: r.y + r.height },
 ];
 
+/**
+ * The union of the selection's bounds on `pon`, reading each member through
+ * `geomOf` — `effGeom` for the group chrome, so the outline/handles/knob RIDE
+ * a live move/scale exactly like single-selection chrome; the COMMITTED
+ * geometry for a rotate gesture's rest anchor. Hit-testing keeps its own
+ * committed union (hit.ts `groupUnionBounds`): hits only happen between
+ * gestures, where the two are identical.
+ */
+function unionBoundsOf(m: Model, pon: number, geomOf: (id: Id) => Geom): Rect | null {
+  const corners: Vec[] = [];
+  for (const id of m.selected) {
+    const a = m.byId[id];
+    if (!a || a.pon !== pon) continue;
+    corners.push(...selectionQuad(geomOf(id), a.style.strokeWidth, a.style.border));
+  }
+  return corners.length ? unionRect(corners) : null;
+}
+
 /** The page-bound knob placement for the selection on `pon`, reading each
  *  member's geometry through `geomOf` — `effGeom` for the live view, the
  *  COMMITTED geometry for a rotate gesture's rest anchor (see `selectionKnob`). */
@@ -282,6 +301,7 @@ function placeSelectionKnob(
   m: Model,
   pon: number,
   pageBox: Rect | undefined,
+  knobOffset: number,
   geomOf: (id: Id) => Geom,
 ): { at: Vec; from: Vec } | null {
   const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
@@ -289,11 +309,11 @@ function placeSelectionKnob(
     const a = m.byId[sel[0]];
     if (!capsFor(a.subtype).rotatable) return null;
     const obb = obbFromGeom(geomOf(sel[0]), a.style.strokeWidth, a.style.border);
-    return obb ? placeRotateKnob(obb.corners, ROTATE_KNOB_OFFSET, pageBox) : null;
+    return obb ? placeRotateKnob(obb.corners, knobOffset, pageBox) : null;
   }
   if (sel.length > 1 && groupCaps(m, sel).rotatable) {
-    const union = groupUnionBounds(m, pon);
-    if (union) return placeRotateKnob(boxCorners(union), ROTATE_KNOB_OFFSET, pageBox);
+    const union = unionBoundsOf(m, pon, geomOf);
+    if (union) return placeRotateKnob(boxCorners(union), knobOffset, pageBox);
   }
   return null;
 }
@@ -318,10 +338,11 @@ export function selectionKnob(
   m: Model,
   pon: number,
   pageBox?: Rect,
+  knobOffset: number = ROTATE_KNOB_OFFSET,
 ): { at: Vec; from: Vec } | null {
   const d = m.draft;
   if (d?.g === 'rotate' && m.byId[d.ids[0]]?.pon === pon) {
-    const rest = placeSelectionKnob(m, pon, pageBox, (id) => m.byId[id].geom);
+    const rest = placeSelectionKnob(m, pon, pageBox, knobOffset, (id) => m.byId[id].geom);
     if (!rest) return null;
     const { delta } = rotateDraftDelta(m, d);
     return {
@@ -329,10 +350,15 @@ export function selectionKnob(
       from: rotatePoint(rest.from, d.pivot, delta),
     };
   }
-  return placeSelectionKnob(m, pon, pageBox, (id) => effGeom(m, id));
+  return placeSelectionKnob(m, pon, pageBox, knobOffset, (id) => effGeom(m, id));
 }
 
-export function chrome(m: Model, pon: number, pageBox?: Rect): ChromeNode[] {
+export function chrome(
+  m: Model,
+  pon: number,
+  pageBox?: Rect,
+  knobOffset: number = ROTATE_KNOB_OFFSET,
+): ChromeNode[] {
   const nodes: ChromeNode[] = [];
   if (m.draft?.g === 'marquee' && m.draft.pon === pon) {
     nodes.push({ kind: 'marquee', rect: rectFromPoints(m.draft.from, m.draft.to) });
@@ -343,10 +369,29 @@ export function chrome(m: Model, pon: number, pageBox?: Rect): ChromeNode[] {
     for (const g of m.draft.guides)
       nodes.push({ kind: 'guide', axis: g.axis, at: g.at, lo: g.lo, hi: g.hi });
   }
-  // Live rotation readout: the selection's absolute angle, riding the pointer.
-  if (m.draft?.g === 'rotate' && m.byId[m.draft.ids[0]]?.pon === pon) {
-    const { angle } = rotateDraftDelta(m, m.draft);
-    nodes.push({ kind: 'angle-chip', at: m.draft.cur, angle: Math.round(angle) });
+  // A live rotate on THIS page's selection. While it runs, the chrome switches
+  // modes (v2 behaviour): the readout chip + full-bleed guides appear, and the
+  // handles/knob are suppressed below — the pointer holds capture, so grab
+  // affordances are noise; "how far am I" feedback is everything.
+  const rd = m.draft?.g === 'rotate' && m.byId[m.draft.ids[0]]?.pon === pon ? m.draft : null;
+  if (rd) {
+    const { angle } = rotateDraftDelta(m, rd);
+    nodes.push({ kind: 'angle-chip', at: rd.cur, angle: Math.round(angle) });
+    // Guides as chords of the PAGE through the pivot — the fixed 0°/90°
+    // reference cross + the live indicator at the SAME snapped angle the chip
+    // shows and the commit applies. Full-bleed beats a magic length constant;
+    // no pageBox (headless) → a generous fixed span around the pivot.
+    const span = pageBox ?? { x: rd.pivot.x - 300, y: rd.pivot.y - 300, width: 600, height: 600 };
+    const lines: Array<{ a: Vec; b: Vec; role: 'axis' | 'indicator' }> = [];
+    for (const [deg, role] of [
+      [0, 'axis'],
+      [90, 'axis'],
+      [angle, 'indicator'],
+    ] as const) {
+      const c = chordThrough(span, rd.pivot, deg);
+      if (c) lines.push({ ...c, role });
+    }
+    nodes.push({ kind: 'rotate-guides', center: rd.pivot, angle, lines });
   }
   const sel = m.selected.filter((id) => isSelectable(m, id) && m.byId[id].pon === pon);
   if (sel.length === 1) {
@@ -367,12 +412,17 @@ export function chrome(m: Model, pon: number, pageBox?: Rect): ChromeNode[] {
     // handles for kinds that resize (box) or vertex-edit; anchored/markup show a
     // bare outline. `geomHandles` already places them on the rotated box; `rot`
     // additionally tilts each handle GLYPH so it rides the box's orientation.
-    if (caps.resizable || caps.vertexEditable) {
+    // Suppressed during a live rotate (`rd`) — guides own that mode.
+    if (!rd && (caps.resizable || caps.vertexEditable)) {
       for (const h of geomHandles(g))
         nodes.push({ kind: 'handle', at: h.at, cursor: h.cursor, ...(rot ? { rot } : {}) });
     }
-  } else if (sel.length > 1) {
-    const union = groupUnionBounds(m, pon);
+  } else if (sel.length > 1 && !rd) {
+    // The LIVE union (draft-effective geometry): the outline and its handles
+    // ride a group move/scale exactly like single-selection chrome. During a
+    // live rotate the members spin away from any axis-aligned box, so the
+    // whole block is suppressed — the guides own that mode.
+    const union = unionBoundsOf(m, pon, (id) => effGeom(m, id));
     if (union) {
       nodes.push({ kind: 'outline', rect: union });
       const gc = groupCaps(m, sel);
@@ -383,9 +433,12 @@ export function chrome(m: Model, pon: number, pageBox?: Rect): ChromeNode[] {
     }
   }
   // The rotate knob (single shape or group) — one source of truth with the menu
-  // anchor, so the menu is always pushed clear of exactly this point.
-  const knob = selectionKnob(m, pon, pageBox);
-  if (knob) nodes.push({ kind: 'rotate-knob', at: knob.at, from: knob.from });
+  // anchor, so the menu is always pushed clear of exactly this point. Hidden
+  // while a rotate runs (the gesture holds capture; the guides own the mode).
+  if (!rd) {
+    const knob = selectionKnob(m, pon, pageBox, knobOffset);
+    if (knob) nodes.push({ kind: 'rotate-knob', at: knob.at, from: knob.from });
+  }
   return nodes;
 }
 
@@ -413,7 +466,11 @@ export function selectionBoundsOnPage(m: Model, pon: number): Rect | null {
 export function selectionAnchor(
   m: Model,
   pageBoxOf?: (pon: number) => Rect | undefined,
+  knobOffsetOf?: (pon: number) => number | undefined,
 ): { pon: number; bounds: Rect; knob?: Vec } | null {
+  // No menu while a rotate gesture runs (v2 behaviour): the chrome is in
+  // guides mode and a floating menu chasing a spinning box is pure noise.
+  if (m.draft?.g === 'rotate') return null;
   const id = m.selected.find((x) => isSelectable(m, x));
   if (id == null) return null;
   const pon = m.byId[id].pon;
@@ -422,7 +479,7 @@ export function selectionAnchor(
   // `bounds` is the plain selection box (the menu stays centred on it). The knob
   // rides ALONGSIDE it so the menu can nudge ONLY the edge it sits on, and only
   // when the handle would otherwise hide under it — never shifting the centre.
-  const knob = selectionKnob(m, pon, pageBoxOf?.(pon));
+  const knob = selectionKnob(m, pon, pageBoxOf?.(pon), knobOffsetOf?.(pon) ?? ROTATE_KNOB_OFFSET);
   return knob ? { pon, bounds, knob: knob.at } : { pon, bounds };
 }
 
