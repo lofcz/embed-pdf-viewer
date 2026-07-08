@@ -10,6 +10,8 @@ export type { StagePluginOptions } from './stage.plugin';
 export { StageToken } from './types';
 export { destinationToReveal } from './destination';
 export type { DestinationReveal } from './destination';
+export { wheelZoomFactor } from './wheel';
+export type { WheelSample } from './wheel';
 export { DEFAULT_SETTINGS, settingsEqual } from './settings';
 export type {
   FlowMode,

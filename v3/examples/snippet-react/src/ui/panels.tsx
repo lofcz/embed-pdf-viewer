@@ -104,6 +104,7 @@ function ThumbnailList() {
   return (
     <Stage
       token={ThumbsStageToken}
+      zoomGestures={false} // fixed-magnification rail: cmd+wheel/pinch scrolls, never zooms
       className="flex-1"
       style={{ position: 'relative' }}
       pageChrome={(page) => (

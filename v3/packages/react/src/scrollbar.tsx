@@ -73,6 +73,17 @@ export interface ScrollbarProps {
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
+/** Best-effort pointer capture: an already-released pointer (pen/touch races,
+ *  synthetic events in tests) throws NotFoundError — the press must still work,
+ *  just without capture (moves keep arriving while the pointer stays on us). */
+const capturePointer = (el: Element, pointerId: number) => {
+  try {
+    el.setPointerCapture(pointerId);
+  } catch {
+    /* uncaptured is fine */
+  }
+};
+
 /** Thumb geometry from metrics + a measured track. One formula for render,
  *  drag capture, and paging — they can never disagree. */
 const geometry = (m: ScrollMetrics, vertical: boolean, trackPx: number, minThumbSize: number) => {
@@ -173,14 +184,14 @@ export function Scrollbar({
     if (e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
-    (e.target as Element).setPointerCapture(e.pointerId);
+    capturePointer(e.target as Element, e.pointerId);
     beginDrag(ptrPos(e) - g.thumbPos, g.offset);
   };
 
   const onTrackDown = (e: React.PointerEvent) => {
     if (e.button !== 0 || e.target !== e.currentTarget) return; // thumb handles its own
     e.preventDefault();
-    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    capturePointer(e.currentTarget as Element, e.pointerId);
     const p = (lastPtr.current = ptrPos(e));
 
     if (trackPress === 'jump') {

@@ -10,7 +10,7 @@
 export * from '@embedpdf-x/plugin-stage';
 import * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
-import { StageToken, settingsEqual } from '@embedpdf-x/plugin-stage';
+import { StageToken, settingsEqual, wheelZoomFactor } from '@embedpdf-x/plugin-stage';
 import type { StageCapability, VisiblePage } from '@embedpdf-x/plugin-stage';
 import type { CapabilityToken } from '@embedpdf-x/kernel';
 
@@ -143,6 +143,14 @@ export interface StageProps {
    * Pair with `stagePlugin({ interaction: true })`. Default false (built-in pan).
    */
   interaction?: boolean;
+  /**
+   * Ambient ZOOM gestures on this stage: ctrl/cmd+wheel and trackpad pinch
+   * (Safari gesture events included). Default true. Turn OFF for follower
+   * lenses with a fixed magnification — a thumbnail rail should scroll under
+   * cmd+wheel, not zoom — so a zoom-wheel falls through to ordinary wheel
+   * pan, and pinches are still swallowed (they never page-zoom the browser).
+   */
+  zoomGestures?: boolean;
   /** The stage lens to drive (default: the main StageToken). */
   token?: StageTokenProp;
   className?: string;
@@ -154,6 +162,7 @@ export function Stage({
   pageChrome,
   overlay,
   interaction = false,
+  zoomGestures = true,
   token = StageToken,
   className,
   style,
@@ -199,15 +208,16 @@ export function Stage({
     };
     reportDpr();
 
-    // Wheel is ambient navigation in BOTH modes: ctrl/meta zooms, else scrolls.
+    // Wheel is ambient navigation in BOTH modes: ctrl/meta zooms (classified
+    // per input — synthesized pinch, mouse notch, cmd-scroll scrub — by
+    // wheelZoomFactor), else scrolls. With zoom gestures off, a zoom-wheel
+    // falls through to ordinary pan (a cmd+scroll over a thumbnail rail
+    // scrolls the rail).
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      if (e.ctrlKey || e.metaKey) {
-        stage.zoomAround(
-          { x: e.clientX - r.left, y: e.clientY - r.top },
-          Math.exp(-e.deltaY * 0.0015),
-        );
+      if (zoomGestures && (e.ctrlKey || e.metaKey)) {
+        stage.zoomAround({ x: e.clientX - r.left, y: e.clientY - r.top }, wheelZoomFactor(e));
       } else {
         const dx = e.shiftKey ? e.deltaY : e.deltaX;
         const dy = e.shiftKey ? e.deltaX : e.deltaY;
@@ -215,6 +225,34 @@ export function Stage({
       }
     };
     el.addEventListener('wheel', onWheel, { passive: false });
+
+    // Safari never synthesizes ctrl+wheel for trackpad pinch — it fires
+    // proprietary gesture events carrying an ABSOLUTE scale; convert to the
+    // per-event ratio the camera physics wants. Feature-detected: Chrome and
+    // Firefox don't have GestureEvent, so this wiring costs them nothing.
+    // preventDefault runs even with zoom gestures off — a pinch over the
+    // stage must never zoom the page itself.
+    let lastScale = 1;
+    const onGestureStart = (e: Event) => {
+      e.preventDefault();
+      lastScale = (e as unknown as { scale?: number }).scale ?? 1;
+    };
+    const onGestureChange = (e: Event) => {
+      e.preventDefault();
+      const g = e as unknown as { scale?: number; clientX: number; clientY: number };
+      const scale = g.scale ?? 1;
+      if (zoomGestures && scale > 0) {
+        const r = el.getBoundingClientRect();
+        stage.zoomAround({ x: g.clientX - r.left, y: g.clientY - r.top }, scale / lastScale);
+      }
+      lastScale = scale;
+    };
+    const hasGestureEvents = 'GestureEvent' in window;
+    if (hasGestureEvents) {
+      el.addEventListener('gesturestart', onGestureStart);
+      el.addEventListener('gesturechange', onGestureChange);
+      el.addEventListener('gestureend', onGestureStart); // reset the base
+    }
 
     const cleanups: Array<() => void> = [];
     if (useHub && ix) {
@@ -296,9 +334,14 @@ export function Stage({
       ro.disconnect();
       mq?.removeEventListener('change', reportDpr);
       el.removeEventListener('wheel', onWheel);
+      if (hasGestureEvents) {
+        el.removeEventListener('gesturestart', onGestureStart);
+        el.removeEventListener('gesturechange', onGestureChange);
+        el.removeEventListener('gestureend', onGestureStart);
+      }
       cleanups.forEach((fn) => fn());
     };
-  }, [stage, ix, useHub]);
+  }, [stage, ix, useHub, zoomGestures]);
 
   return (
     <div
