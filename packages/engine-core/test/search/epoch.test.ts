@@ -94,26 +94,25 @@ describe('searchContentEpoch', () => {
 
 describe('canonicalSearchQuery', () => {
   test('folds default literal queries to one cache identity', () => {
-    const a = canonicalSearchQuery({ kind: 'literal', text: 'Café' });
-    const b = canonicalSearchQuery({ kind: 'literal', text: 'CAFE' });
+    const a = canonicalSearchQuery({ text: 'Café' });
+    const b = canonicalSearchQuery({ text: 'CAFE' });
     expect(a).toEqual(b);
-    expect(a).toEqual({ kind: 'literal', text: 'cafe' });
+    expect(a).toEqual({ text: 'cafe' });
   });
 
   test('is idempotent', () => {
-    const once = canonicalSearchQuery({ kind: 'literal', text: 'Straße  und\tmehr' });
+    const once = canonicalSearchQuery({ text: 'Straße  und\tmehr' });
     expect(canonicalSearchQuery(once)).toEqual(once);
   });
 
   test('preserves wholeWord and leaves sensitive/regex queries untouched', () => {
-    expect(canonicalSearchQuery({ kind: 'literal', text: 'Cat', wholeWord: true })).toEqual({
-      kind: 'literal',
+    expect(canonicalSearchQuery({ text: 'Cat', wholeWord: true })).toEqual({
       text: 'cat',
       wholeWord: true,
     });
-    const caseSensitive = { kind: 'literal', text: 'Cat', matchCase: true } as const;
+    const caseSensitive = { text: 'Cat', matchCase: true } as const;
     expect(canonicalSearchQuery(caseSensitive)).toEqual(caseSensitive);
-    const regex = { kind: 'regex', pattern: 'C\\d+' } as const;
+    const regex = { text: 'C\\d+', regex: true } as const;
     expect(canonicalSearchQuery(regex)).toEqual(regex);
   });
 });

@@ -119,15 +119,11 @@ export class CloudDocumentSearchService implements DocumentSearchService {
 
 /** Query identity for cursor validation (option order pinned by hand). */
 function queryIdentity(query: SearchQuery): string {
-  return JSON.stringify(
-    query.kind === 'literal'
-      ? [
-          'l',
-          query.text,
-          query.matchCase ? 1 : 0,
-          query.matchDiacritics ? 1 : 0,
-          query.wholeWord ? 1 : 0,
-        ]
-      : ['r', query.pattern, query.matchCase ? 1 : 0],
-  );
+  return JSON.stringify([
+    query.regex ? 'r' : 'l',
+    query.text,
+    query.matchCase ? 1 : 0,
+    query.matchDiacritics ? 1 : 0,
+    query.wholeWord ? 1 : 0,
+  ]);
 }

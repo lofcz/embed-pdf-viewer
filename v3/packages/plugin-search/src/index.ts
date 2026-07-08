@@ -2,14 +2,22 @@ export { searchPlugin } from './search.plugin';
 export { SearchToken } from './types';
 export type {
   SearchCapability,
+  SearchExecOptions,
+  SearchFindAllOptions,
   SearchHit,
-  SearchOptions,
   SearchPluginConfig,
   SearchRevealOptions,
   SearchState,
   SearchStatus,
 } from './types';
-// Early pattern feedback for regex-mode inputs (same validator the engine
-// enforces) — so the UI can flag a bad pattern on keystroke, before a query.
-export { validateSearchRegex } from '@embedpdf/engine-core/runtime';
-export type { SearchRegexValidation, SearchSnippet } from '@embedpdf/engine-core/runtime';
+// THE query shape (engine → wire → state → search box) and its validator —
+// call validateSearchQuery on keystroke for early feedback (regex dialect +
+// flag combos, e.g. regex+matchDiacritics); engines enforce the same rules.
+export { validateSearchQuery, validateSearchRegex } from '@embedpdf/engine-core/runtime';
+export type {
+  SearchQuery,
+  SearchQueryIssue,
+  SearchQueryValidation,
+  SearchRegexValidation,
+  SearchSnippet,
+} from '@embedpdf/engine-core/runtime';

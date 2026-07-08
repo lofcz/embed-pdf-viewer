@@ -66,12 +66,12 @@ export const RenderTokenSchema = {
 export const SearchTokenSchema = {
   fields: [
     'epoch',
-    'kind',
     'matchCase',
     'matchDiacritics',
     'maxMatches',
     'maxPages',
     'q',
+    'regex',
     'skip',
     'startPage',
     'wholeWord',

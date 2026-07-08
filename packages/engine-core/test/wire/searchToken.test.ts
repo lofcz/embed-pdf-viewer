@@ -33,7 +33,7 @@ describe('search token codec', () => {
   test('round-trips the full state', () => {
     const token: SearchToken = {
       epoch: 'a1b2c3d4e5f60718',
-      query: { kind: 'literal', text: 'net income', wholeWord: true },
+      query: { text: 'net income', wholeWord: true },
       startPage: 3056,
       skip: 128,
       budget: { maxPages: 1, maxMatches: 50 },
@@ -44,7 +44,7 @@ describe('search token codec', () => {
   test('round-trips regex queries', () => {
     const token: SearchToken = {
       epoch: '00000000000000ff',
-      query: { kind: 'regex', pattern: 'I-\\d{3}', matchCase: true },
+      query: { text: 'I-\\d{3}', regex: true, matchCase: true },
       skip: 0,
     };
     expect(decodeSearchToken(encodeSearchToken(token))).toEqual(token);
@@ -53,10 +53,10 @@ describe('search token codec', () => {
   test('canonical: defaults are omitted, equal searches are byte-equal', () => {
     const a = encodeSearchToken({
       epoch: 'e',
-      query: { kind: 'literal', text: 'x', matchCase: undefined, wholeWord: undefined },
+      query: { text: 'x', matchCase: undefined, wholeWord: undefined },
       skip: 0,
     });
-    const b = encodeSearchToken({ epoch: 'e', query: { kind: 'literal', text: 'x' }, skip: 0 });
+    const b = encodeSearchToken({ epoch: 'e', query: { text: 'x' }, skip: 0 });
     expect(a).toBe(b);
     expect(a).not.toContain('matchCase');
     expect(a).not.toContain('skip');
@@ -65,7 +65,7 @@ describe('search token codec', () => {
   test('the token is URL-path safe', () => {
     const token = encodeSearchToken({
       epoch: 'a1b2c3d4e5f60718',
-      query: { kind: 'literal', text: 'was kostet das? 50%/Tag' },
+      query: { text: 'was kostet das? 50%/Tag' },
       skip: 64,
     });
     expect(encodeURIComponent(token)).toBe(token.replace(/,/g, '%2C').replace(/=/g, '%3D'));

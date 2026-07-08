@@ -1,31 +1,45 @@
 /**
- * The search panel — the v2 snippet's search sidebar, rebuilt on the v3
- * plugin-search capability. v2 kept the query/flags/results IN the plugin
- * state; v3's search state is leaner (status + counts + activeIndex only), so
- * the raw input text and option flags live here as local state and every
- * change re-issues `search(text, options)`. Results stream in — the list
- * updates slice by slice while `status === 'searching'`.
+ * The search panel — the v2 snippet's search sidebar on the v3 plugin-search
+ * capability. ONE shape end to end: the flat `SearchQuery` {text, regex,
+ * matchCase, wholeWord} is what the engine matches, what the plugin stores
+ * (document-scoped, survives the sidebar closing), and what this box renders.
+ * The panel keeps only a DRAFT of it for keystroke/debounce echo.
  *
  * Data flow:
- *   type / toggle → (debounced) search(text, { matchCase, wholeWord })
- *   useSearchState() → status / hitCount / activeIndex (reactive chrome)
+ *   type / toggle → validateSearchQuery → (debounced) search(draftQuery)
+ *   useSearchState() → query / status / hitCount / activeIndex (reactive)
  *   useSelector(SearchToken, c => c.hits()) → the streamed hit list
  *   click a hit / prev / next → goTo/prev/next (capability reveals it on-page)
  *
  * The look is ported 1:1 from viewers/snippet's search-sidebar (magnifier
- * input with clear button, case/whole-word checkboxes, results-found counter
- * with prev/next, per-page grouped snippet list with the match bolded and the
- * active hit accented), retinted to this app's semantic tokens.
+ * input with clear button, option checkboxes, results-found counter with
+ * prev/next, per-page grouped snippet list with the match bolded and the
+ * active hit accented), retinted to this app's semantic tokens. The regex
+ * toggle is new in v3 (v2 had no pattern search); matchDiacritics exists in
+ * the engine but is deliberately not exposed here — v2 parity.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearch, useSearchState, SearchToken } from '@embedpdf-x/react/search';
-import type { SearchHit, SearchSnippet } from '@embedpdf-x/react/search';
+import {
+  useSearch,
+  useSearchState,
+  validateSearchQuery,
+  SearchToken,
+} from '@embedpdf-x/react/search';
+import type { SearchHit, SearchQuery, SearchSnippet } from '@embedpdf-x/react/search';
 import { useSelector } from '@embedpdf-x/react/runtime';
 import { useT } from '@embedpdf-x/react/i18n';
 import { Icon } from './icons';
 import { buttonClass } from './toolbar';
 
 const DEBOUNCE_MS = 300;
+
+/** Field-wise equality on the flat query — the mount/echo no-op guard. */
+const sameQuery = (a: SearchQuery | null, b: SearchQuery) =>
+  a != null &&
+  a.text === b.text &&
+  !!a.regex === !!b.regex &&
+  !!a.matchCase === !!b.matchCase &&
+  !!a.wholeWord === !!b.wholeWord;
 
 // ── option checkbox (v2's peer-checked custom box) ───────────────────────────
 function Checkbox({
@@ -110,27 +124,37 @@ function HitLine({
 export function SearchPanel() {
   const t = useT();
   const search = useSearch();
-  const { status, hitCount, activeIndex } = useSearchState();
+  const { query, status, hitCount, activeIndex } = useSearchState();
   const hits = useSelector(SearchToken, (c) => c.hits());
 
-  const [input, setInput] = useState('');
-  const [matchCase, setMatchCase] = useState(false);
-  const [wholeWord, setWholeWord] = useState(false);
+  // `query` is the document-scoped stored search (survives the sidebar
+  // closing). The box is a controlled draft that STARTS from it; the panel is
+  // keyed on the document (see panels.tsx), so this one-time seed is always
+  // the right document's query — switching tabs remounts and reseeds.
+  const [draft, setDraft] = useState(() => query?.text ?? '');
+  const [matchCase, setMatchCase] = useState(() => query?.matchCase ?? false);
+  const [wholeWord, setWholeWord] = useState(() => query?.wholeWord ?? false);
+  const [regex, setRegex] = useState(() => query?.regex ?? false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const firstRun = useRef(true);
 
-  // Debounced query. Skip the mount pass when the box is empty: the panel can
-  // be closed and reopened (plugin state persists) — firing search('') then
-  // would wipe results the user left running. A manual clear (input → '') is
-  // NOT the mount pass, so it still clears as expected.
+  // The draft IS a SearchQuery — same shape the engine matches on.
+  const draftQuery: SearchQuery = { text: draft, regex, matchCase, wholeWord };
+  // Early feedback on keystroke: the same validator the engine enforces
+  // (regex dialect). Invalid patterns never fire a query.
+  const validation = draft && regex ? validateSearchQuery(draftQuery) : { ok: true as const };
+
+  // Debounced query. The sameQuery guard makes the mount pass (and our own
+  // echo coming back through state) a no-op — nothing re-runs until the user
+  // actually changes the text or a toggle. Clearing the box clears results.
   useEffect(() => {
-    if (firstRun.current) {
-      firstRun.current = false;
-      if (input === '') return;
-    }
-    const id = setTimeout(() => search.search(input, { matchCase, wholeWord }), DEBOUNCE_MS);
+    // No-ops: invalid pattern, draft already the stored query (mount pass /
+    // our own echo), or an empty box with nothing stored to clear.
+    if (!validation.ok || sameQuery(query, draftQuery)) return;
+    if (draft === '' && query === null) return;
+    const id = setTimeout(() => search.search(draftQuery), DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [input, matchCase, wholeWord, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, matchCase, wholeWord, regex, query, validation.ok, search]);
 
   // Group hits by page, preserving page order, for the sectioned list.
   const grouped = useMemo(() => {
@@ -156,16 +180,20 @@ export function SearchPanel() {
           <input
             ref={inputRef}
             type="text"
-            value={input}
+            value={draft}
             placeholder={t('demo.searchPlaceholder')}
-            onChange={(e) => setInput(e.target.value)}
-            className="border-border bg-surface text-fg focus:border-accent focus:ring-accent w-full rounded-md border py-1.5 pl-8 pr-9 text-sm outline-none focus:ring-1"
+            onChange={(e) => setDraft(e.target.value)}
+            className={`bg-surface text-fg w-full rounded-md border py-1.5 pl-8 pr-9 text-sm outline-none focus:ring-1 ${
+              validation.ok
+                ? 'border-border focus:border-accent focus:ring-accent'
+                : 'border-red-400 focus:border-red-400 focus:ring-red-400'
+            }`}
           />
-          {input && (
+          {draft && (
             <button
               type="button"
               onClick={() => {
-                setInput('');
+                setDraft('');
                 inputRef.current?.focus();
               }}
               className="text-fg-muted hover:text-fg-secondary absolute inset-y-0 right-0 flex items-center pr-2.5"
@@ -175,7 +203,10 @@ export function SearchPanel() {
           )}
         </div>
 
-        {/* options */}
+        {/* the invalid-pattern message, straight from the shared validator */}
+        {!validation.ok && <p className="mt-1.5 text-xs text-red-500">{validation.message}</p>}
+
+        {/* options — the three VS Code toggles, all composable */}
         <div className="mt-3 flex flex-col gap-2">
           <Checkbox
             label={t('demo.searchCaseSensitive')}
@@ -183,6 +214,7 @@ export function SearchPanel() {
             onChange={setMatchCase}
           />
           <Checkbox label={t('demo.searchWholeWord')} checked={wholeWord} onChange={setWholeWord} />
+          <Checkbox label={t('demo.searchRegex')} checked={regex} onChange={setRegex} />
         </div>
 
         <hr className="border-border-subtle mb-2 mt-4" />

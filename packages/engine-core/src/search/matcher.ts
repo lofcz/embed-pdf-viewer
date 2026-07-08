@@ -12,6 +12,6 @@ import type { SearchQuery } from './types';
  * here.
  */
 export function matchPageText(text: string, query: SearchQuery): SearchMatchRange[] {
-  if (query.kind === 'regex') return matchRegex(text, query);
+  if (query.regex) return matchRegex(text, query);
   return matchLiteral(foldText(text, foldOptionsFor(query)), query);
 }

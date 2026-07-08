@@ -20,7 +20,6 @@ import type {
   SearchAction,
   SearchCapability,
   SearchHit,
-  SearchOptions,
   SearchPluginConfig,
   SearchRevealOptions,
   SearchState,
@@ -57,7 +56,6 @@ export function createSearchCapability(
 ): SearchCapability {
   let generation = 0;
   let inflight: { abort(reason?: unknown): void } | null = null;
-  let lastInput: { text: string; options: SearchOptions } | null = null;
 
   const toContent = (m: ReturnType<typeof pageGeometry>['pdfToContent'], b: PdfRect): Rect =>
     applyRect(
@@ -112,40 +110,38 @@ export function createSearchCapability(
     return hits;
   }
 
-  function buildQuery(text: string, options: SearchOptions): SearchQuery {
-    return options.regex
-      ? { kind: 'regex', pattern: text, matchCase: options.matchCase }
-      : {
-          kind: 'literal',
-          text,
-          matchCase: options.matchCase,
-          matchDiacritics: options.matchDiacritics,
-          wholeWord: options.wholeWord,
-        };
+  /** How a collect() consumer observes the loop — the session dispatches
+   *  into state, findAll accumulates locally. */
+  interface CollectSink {
+    /** Called before the first slice AND again on a stale-cursor restart —
+     *  reset any accumulation. */
+    onStart: () => void;
+    onSlice: (hits: SearchHit[], scanned: number, total: number) => void;
+    /** Superseded / aborted — the loop stops without completing. */
+    isCancelled: () => boolean;
+    setInflight: (pending: { abort(reason?: unknown): void } | null) => void;
   }
 
-  async function run(text: string, options: SearchOptions): Promise<void> {
-    const gen = ++generation;
-    inflight?.abort('superseded');
-    inflight = null;
-
+  /**
+   * THE MECHANISM — one cursor loop over the engine's budgeted slices,
+   * shared by the session (`search`) and the session-free service
+   * (`findAll`): permission fallback ('full' → 'rects' when snippets are
+   * denied, unless the caller pinned a mode), restart-once on a stale
+   * cursor, rect conversion per slice. Resolves true on exhaustion, false
+   * when cancelled; throws on error.
+   */
+  async function collect(
+    query: SearchQuery,
+    opts: { startPage?: PageObjectNumber; mode?: SearchMode },
+    sink: CollectSink,
+  ): Promise<boolean> {
     const doc = ctx.doc;
-    if (!doc || text.length === 0) {
-      ctx.dispatch({ type: 'CLEAR' });
-      return;
-    }
+    if (!doc) return false;
 
-    const query = buildQuery(text, options);
-    ctx.dispatch({ type: 'START', query });
+    sink.onStart();
 
-    // Viewport-first: begin scanning where the user is looking.
-    let startPage = options.startPage;
-    if (startPage === undefined) {
-      const stage = ctx.tryGet(StageToken);
-      if (stage) startPage = ctx.document()?.pages[stage.currentPage()]?.pageObjectNumber;
-    }
-
-    let mode: SearchMode = 'full';
+    let mode: SearchMode = opts.mode ?? 'full';
+    const modePinned = opts.mode !== undefined;
     let cursor: string | undefined;
     let restarted = false;
     for (;;) {
@@ -154,16 +150,20 @@ export function createSearchCapability(
         const request = {
           query,
           mode,
-          ...(cursor !== undefined ? { cursor } : startPage !== undefined ? { startPage } : {}),
+          ...(cursor !== undefined
+            ? { cursor }
+            : opts.startPage !== undefined
+              ? { startPage: opts.startPage }
+              : {}),
         };
         const pending = doc.search.query(request);
-        inflight = pending;
+        sink.setInflight(pending);
         slice = await pending;
       } catch (err) {
-        if (gen !== generation) return; // superseded — the abort was ours
+        if (sink.isCancelled()) return false; // superseded — the abort was ours
         // Snippets denied (no doc.text.copy)? Degrade to rect-only matches
         // instead of failing the whole search — find still works.
-        if (mode === 'full' && cursor === undefined && isPermissionDenied(err)) {
+        if (!modePinned && mode === 'full' && cursor === undefined && isPermissionDenied(err)) {
           mode = 'rects';
           continue;
         }
@@ -173,25 +173,55 @@ export function createSearchCapability(
         if (cursor !== undefined && !restarted && EngineError.is(err, EngineErrorCode.InvalidArg)) {
           restarted = true;
           cursor = undefined;
-          ctx.dispatch({ type: 'START', query });
+          sink.onStart();
           continue;
         }
-        ctx.dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
-        return;
+        throw err;
       }
-      if (gen !== generation) return;
-      ctx.dispatch({
-        type: 'APPEND',
-        hits: hitsFromSlice(slice),
-        scanned: slice.scannedPages,
-        total: slice.totalPages,
-      });
+      if (sink.isCancelled()) return false;
+      sink.onSlice(hitsFromSlice(slice), slice.scannedPages, slice.totalPages);
       if (slice.nextCursor === null) {
-        inflight = null;
-        ctx.dispatch({ type: 'COMPLETE' });
-        return;
+        sink.setInflight(null);
+        return true;
       }
       cursor = slice.nextCursor;
+    }
+  }
+
+  /** THE SESSION — collect() with state as the sink, generation-guarded. */
+  async function runSession(query: SearchQuery, startPage?: PageObjectNumber): Promise<void> {
+    const gen = ++generation;
+    inflight?.abort('superseded');
+    inflight = null;
+
+    if (!ctx.doc) {
+      ctx.dispatch({ type: 'CLEAR' });
+      return;
+    }
+
+    // Viewport-first: begin scanning where the user is looking.
+    if (startPage === undefined) {
+      const stage = ctx.tryGet(StageToken);
+      if (stage) startPage = ctx.document()?.pages[stage.currentPage()]?.pageObjectNumber;
+    }
+
+    try {
+      const complete = await collect(
+        query,
+        { startPage },
+        {
+          onStart: () => ctx.dispatch({ type: 'START', query }),
+          onSlice: (hits, scanned, total) => ctx.dispatch({ type: 'APPEND', hits, scanned, total }),
+          isCancelled: () => gen !== generation,
+          setInflight: (pending) => {
+            if (gen === generation) inflight = pending;
+          },
+        },
+      );
+      if (complete && gen === generation) ctx.dispatch({ type: 'COMPLETE' });
+    } catch (err) {
+      if (gen !== generation) return;
+      ctx.dispatch({ type: 'ERROR', message: err instanceof Error ? err.message : String(err) });
     }
   }
 
@@ -212,29 +242,63 @@ export function createSearchCapability(
     return hit;
   }
 
+  const clear = () => {
+    generation++;
+    inflight?.abort('cleared');
+    inflight = null;
+    ctx.dispatch({ type: 'CLEAR' });
+  };
+
   return {
-    search: (text, options = {}) => {
-      lastInput = { text, options };
-      void run(text, options);
-    },
+    // An empty text is "stop searching", not a query — identical to clear().
+    search: (query, exec) =>
+      query.text.length === 0 ? clear() : void runSession(query, exec?.startPage),
 
+    // Replay the stored query verbatim; the rescan starts viewport-first.
     rerun: () => {
-      if (lastInput && ctx.getState().status !== 'idle') {
-        void run(lastInput.text, lastInput.options);
-      }
+      const { query, status } = ctx.getState();
+      if (query && status !== 'idle') void runSession(query);
     },
 
-    clear: () => {
-      generation++;
-      inflight?.abort('cleared');
-      inflight = null;
-      lastInput = null;
-      ctx.dispatch({ type: 'CLEAR' });
-    },
+    clear,
 
     next: () => goTo(ctx.getState().activeIndex + 1),
     prev: () => goTo(ctx.getState().activeIndex - 1),
     goTo,
+
+    query: () => ctx.getState().query,
+
+    findAll: async (query, opts = {}) => {
+      if (!ctx.doc) return [];
+      const all: SearchHit[] = [];
+      const signal = opts.signal;
+      // Independent lifecycle: its own abort handle, never the session's
+      // generation counter — a findAll can neither supersede the user's
+      // visible search nor be superseded by it.
+      let pending: { abort(reason?: unknown): void } | null = null;
+      const onAbort = () => pending?.abort(signal?.reason);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      try {
+        await collect(
+          query,
+          { mode: opts.mode },
+          {
+            onStart: () => {
+              all.length = 0;
+            },
+            onSlice: (hits) => all.push(...hits),
+            isCancelled: () => signal?.aborted ?? false,
+            setInflight: (p) => {
+              pending = p;
+            },
+          },
+        );
+        if (signal?.aborted) throw signal.reason ?? new Error('findAll aborted');
+        return all;
+      } finally {
+        signal?.removeEventListener('abort', onAbort);
+      }
+    },
 
     status: () => ctx.getState().status,
     hits: () => ctx.getState().hits,

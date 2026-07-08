@@ -100,6 +100,7 @@ export const en: Locale = {
       searchTitle: 'Search',
       searchCaseSensitive: 'Case sensitive',
       searchWholeWord: 'Whole word',
+      searchRegex: 'Regular expression',
       searchSearching: 'Searching…',
       searchResults: '{count} results found',
       searchNoResults: 'No results',

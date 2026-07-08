@@ -400,24 +400,17 @@ export const PageGeometrySnapshotSchema: z.ZodType<PageGeometrySnapshot> = z.obj
 
 /**
  * Search wire shapes: the request body of the layer search route and the
- * `search.query` worker/route result. The server re-validates the regex
- * dialect (`validateSearchRegex`) after parse — the schema only checks
- * structure.
+ * `search.query` worker/route result. The server re-validates the query
+ * semantics (`validateSearchQuery`: regex dialect + flag combos) after
+ * parse — the schema only checks structure.
  */
-export const SearchQuerySchema: z.ZodType<SearchQuery> = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('literal'),
-    text: z.string(),
-    matchCase: z.boolean().optional(),
-    matchDiacritics: z.boolean().optional(),
-    wholeWord: z.boolean().optional(),
-  }),
-  z.object({
-    kind: z.literal('regex'),
-    pattern: z.string(),
-    matchCase: z.boolean().optional(),
-  }),
-]);
+export const SearchQuerySchema: z.ZodType<SearchQuery> = z.object({
+  text: z.string(),
+  regex: z.boolean().optional(),
+  matchCase: z.boolean().optional(),
+  wholeWord: z.boolean().optional(),
+  matchDiacritics: z.boolean().optional(),
+});
 
 export const SearchModeSchema = z.enum(['rects', 'full']);
 

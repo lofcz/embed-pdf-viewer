@@ -1,6 +1,6 @@
 import type { DocumentManifest } from '../dto/DocumentManifest';
 import { foldText } from './fold';
-import type { SearchLiteralQuery, SearchQuery } from './types';
+import type { SearchQuery } from './types';
 
 /**
  * The search CONTENT EPOCH: a deterministic fingerprint of everything a
@@ -45,11 +45,8 @@ function fnv1a64(input: string): string {
  * untouched (their raw form IS the query).
  */
 export function canonicalSearchQuery(query: SearchQuery): SearchQuery {
-  if (query.kind !== 'literal' || query.matchCase || query.matchDiacritics) return query;
-  const canonical: SearchLiteralQuery = {
-    kind: 'literal',
-    text: foldText(query.text).folded,
-  };
+  if (query.regex || query.matchCase || query.matchDiacritics) return query;
+  const canonical: SearchQuery = { text: foldText(query.text).folded };
   if (query.wholeWord) canonical.wholeWord = true;
   return canonical;
 }

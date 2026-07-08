@@ -103,6 +103,7 @@ export const es: Locale = {
       searchTitle: 'Buscar',
       searchCaseSensitive: 'Distinguir mayúsculas',
       searchWholeWord: 'Palabra completa',
+      searchRegex: 'Expresión regular',
       searchSearching: 'Buscando…',
       searchResults: '{count} resultados encontrados',
       searchNoResults: 'Sin resultados',

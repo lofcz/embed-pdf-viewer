@@ -318,8 +318,6 @@ export type {
 // engines is a design invariant, not a test hope.
 export type {
   SearchQuery,
-  SearchLiteralQuery,
-  SearchRegexQuery,
   SearchMode,
   SearchSliceBudget,
   SearchRequest,
@@ -329,9 +327,19 @@ export type {
 } from './search/types';
 export { SEARCH_FOLD_VERSION, foldText, toOriginalRange } from './search/fold';
 export type { FoldOptions, FoldedText, SearchMatchRange } from './search/fold';
-export { foldOptionsFor, matchLiteral } from './search/literal';
-export { SEARCH_REGEX_MAX_LENGTH, validateSearchRegex, matchRegex } from './search/regex';
-export type { SearchRegexIssue, SearchRegexValidation } from './search/regex';
+export { foldOptionsFor, matchLiteral, wordAt, wordBefore } from './search/literal';
+export {
+  SEARCH_REGEX_MAX_LENGTH,
+  validateSearchRegex,
+  validateSearchQuery,
+  matchRegex,
+} from './search/regex';
+export type {
+  SearchRegexIssue,
+  SearchRegexValidation,
+  SearchQueryIssue,
+  SearchQueryValidation,
+} from './search/regex';
 export { matchPageText } from './search/matcher';
 export { SEARCH_SNIPPET_CONTEXT, buildSnippet } from './search/snippet';
 export { searchRectsForRange } from './search/rects';

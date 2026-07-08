@@ -108,12 +108,12 @@ export const encodeSearchToken = (input: SearchToken): string => {
   const q = input.query;
   return encodeToken(SearchTokenSchema, {
     epoch: input.epoch,
-    kind: q.kind,
-    q: encodeTokenText(q.kind === 'literal' ? q.text : q.pattern),
+    q: encodeTokenText(q.text),
     // Canonical keys: every default is OMITTED, never encoded as false/0.
+    regex: q.regex ? true : undefined,
     matchCase: q.matchCase ? true : undefined,
-    matchDiacritics: q.kind === 'literal' && q.matchDiacritics ? true : undefined,
-    wholeWord: q.kind === 'literal' && q.wholeWord ? true : undefined,
+    matchDiacritics: q.matchDiacritics ? true : undefined,
+    wholeWord: q.wholeWord ? true : undefined,
     startPage: input.startPage,
     skip: input.skip > 0 ? input.skip : undefined,
     maxPages: input.budget?.maxPages,
@@ -125,25 +125,13 @@ export const decodeSearchToken = (raw: string): SearchToken => {
   const t = decodeToken(SearchTokenSchema, raw);
   if (t.epoch === undefined) throw new Error('search token is missing "epoch"');
   if (t.q === undefined) throw new Error('search token is missing "q"');
-  const text = decodeTokenText(t.q);
-  let query: SearchQuery;
-  if (t.kind === 'regex') {
-    query = {
-      kind: 'regex',
-      pattern: text,
-      ...(t.matchCase === 'true' ? { matchCase: true } : {}),
-    };
-  } else if (t.kind === 'literal' || t.kind === undefined) {
-    query = {
-      kind: 'literal',
-      text,
-      ...(t.matchCase === 'true' ? { matchCase: true } : {}),
-      ...(t.matchDiacritics === 'true' ? { matchDiacritics: true } : {}),
-      ...(t.wholeWord === 'true' ? { wholeWord: true } : {}),
-    };
-  } else {
-    throw new Error(`token field "kind" must be "literal" or "regex"`);
-  }
+  const query: SearchQuery = {
+    text: decodeTokenText(t.q),
+    ...(t.regex === 'true' ? { regex: true } : {}),
+    ...(t.matchCase === 'true' ? { matchCase: true } : {}),
+    ...(t.matchDiacritics === 'true' ? { matchDiacritics: true } : {}),
+    ...(t.wholeWord === 'true' ? { wholeWord: true } : {}),
+  };
   const maxPages =
     t.maxPages === undefined ? undefined : decodePositiveInteger(t.maxPages, 'maxPages');
   const maxMatches =

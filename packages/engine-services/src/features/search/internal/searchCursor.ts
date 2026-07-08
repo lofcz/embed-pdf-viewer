@@ -26,18 +26,14 @@ export interface SearchCursorState {
 
 /** Stable identity for query + mode (option order pinned by hand). */
 export function searchQueryKey(query: SearchQuery, mode: string): string {
-  return JSON.stringify(
-    query.kind === 'literal'
-      ? [
-          'l',
-          query.text,
-          query.matchCase ? 1 : 0,
-          query.matchDiacritics ? 1 : 0,
-          query.wholeWord ? 1 : 0,
-          mode,
-        ]
-      : ['r', query.pattern, query.matchCase ? 1 : 0, mode],
-  );
+  return JSON.stringify([
+    query.regex ? 'r' : 'l',
+    query.text,
+    query.matchCase ? 1 : 0,
+    query.matchDiacritics ? 1 : 0,
+    query.wholeWord ? 1 : 0,
+    mode,
+  ]);
 }
 
 export function encodeSearchCursor(state: SearchCursorState): string {

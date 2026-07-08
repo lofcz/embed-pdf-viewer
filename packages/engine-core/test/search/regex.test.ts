@@ -1,10 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import { SEARCH_REGEX_MAX_LENGTH, matchRegex, validateSearchRegex } from '../../src/shared';
-import type { SearchRegexQuery } from '../../src/shared';
+import {
+  SEARCH_REGEX_MAX_LENGTH,
+  matchRegex,
+  validateSearchQuery,
+  validateSearchRegex,
+} from '../../src/shared';
+import type { SearchQuery } from '../../src/shared';
 
-const q = (pattern: string, matchCase?: boolean): SearchRegexQuery => ({
-  kind: 'regex',
-  pattern,
+const q = (pattern: string, matchCase?: boolean): SearchQuery => ({
+  text: pattern,
+  regex: true,
   matchCase,
 });
 
@@ -92,5 +97,65 @@ describe('matchRegex', () => {
 
   test('throws on dialect violations', () => {
     expect(() => matchRegex('x', q('(a)\\1'))).toThrow(/backreference/);
+  });
+
+  test('wholeWord post-filters at word boundaries', () => {
+    // 'cat' standalone matches; inside 'concatenate' it does not.
+    expect(matchRegex('cat concatenate cat', { ...q('cat'), wholeWord: true })).toEqual([
+      { start: 0, length: 3 },
+      { start: 16, length: 3 },
+    ]);
+  });
+
+  test('wholeWord uses the UNICODE word test, not ASCII \\b', () => {
+    // JS \b would treat the é in "café" as a boundary and match 'caf'
+    // inside it; the shared word test must not — same semantics as the
+    // literal path's wholeWord.
+    expect(matchRegex('café caf', { ...q('caf'), wholeWord: true })).toEqual([
+      { start: 5, length: 3 },
+    ]);
+  });
+
+  test('wholeWord composes with alternation (the "why not hand-write \\b" case)', () => {
+    expect(matchRegex('color colour colorful', { ...q('col(o|ou)r'), wholeWord: true })).toEqual([
+      { start: 0, length: 5 },
+      { start: 6, length: 6 },
+    ]);
+  });
+
+  test('throws on regex + matchDiacritics', () => {
+    expect(() => matchRegex('x', { ...q('a'), matchDiacritics: true })).toThrow(
+      /diacritics-with-regex/,
+    );
+  });
+});
+
+describe('validateSearchQuery', () => {
+  test('literal queries are always valid — even empty (finds nothing)', () => {
+    expect(validateSearchQuery({ text: '' }).ok).toBe(true);
+    expect(validateSearchQuery({ text: 'café', matchDiacritics: true }).ok).toBe(true);
+  });
+
+  test('regex queries validate the dialect', () => {
+    expect(validateSearchQuery({ text: '\\d+', regex: true }).ok).toBe(true);
+    expect(validateSearchQuery({ text: '(a)\\1', regex: true })).toMatchObject({
+      ok: false,
+      issue: 'backreference',
+    });
+    expect(validateSearchQuery({ text: '', regex: true })).toMatchObject({
+      ok: false,
+      issue: 'empty',
+    });
+  });
+
+  test('regex + matchDiacritics is the one rejected flag combo', () => {
+    expect(validateSearchQuery({ text: 'a', regex: true, matchDiacritics: true })).toMatchObject({
+      ok: false,
+      issue: 'diacritics-with-regex',
+    });
+    // every other combination is legal
+    expect(
+      validateSearchQuery({ text: 'a', regex: true, matchCase: true, wholeWord: true }).ok,
+    ).toBe(true);
   });
 });

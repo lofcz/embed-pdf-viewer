@@ -2,40 +2,42 @@ import type { PdfRect } from '../geometry/primitives';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 
 /**
- * What to search for. A discriminated union because the two kinds carry
- * different knobs: literal queries fold (case/diacritics) and support
- * whole-word matching; regex queries run the RE2-compatible dialect
- * (see `validateSearchRegex`) against the raw page text, where only case
- * sensitivity applies.
+ * What to search for — THE one shape, engine → wire → plugin state →
+ * search box. One flat object; the flags define behavior per mode instead
+ * of the mode changing the shape:
+ *
+ * | flag              | literal          | regex                          |
+ * |-------------------|------------------|--------------------------------|
+ * | `matchCase`       | fold case        | `i` flag                       |
+ * | `wholeWord`       | boundary check   | pattern is `\b(?:…)\b`-wrapped |
+ * | `matchDiacritics` | mark fold        | REJECTED (`InvalidArg`)        |
+ *
+ * Literal queries match over FOLDED text; regex queries run the portable
+ * dialect against the RAW page text — which is why `matchDiacritics`
+ * cannot apply to them (diacritic folding is a property of the folded
+ * text plane). Validate with `validateSearchQuery` for early UI feedback;
+ * engines re-validate and reject with `EngineErrorCode.InvalidArg`.
  */
-export type SearchQuery = SearchLiteralQuery | SearchRegexQuery;
-
-export interface SearchLiteralQuery {
-  kind: 'literal';
+export interface SearchQuery {
+  /**
+   * The literal text — or, when `regex`, a pattern in the portable
+   * search-regex dialect: JavaScript `u`-mode syntax MINUS backreferences
+   * and lookaround, so every valid pattern also runs on RE2 (the
+   * server-side engine).
+   */
   text: string;
-  /** Exact-case matching. Default false (case-folded). */
+  /** Interpret `text` as a regex pattern. Default false (literal). */
+  regex?: boolean;
+  /** Exact-case matching. Default false (case-folded / `i` semantics). */
   matchCase?: boolean;
+  /** Only match at word boundaries (letters/digits end the word). */
+  wholeWord?: boolean;
   /**
    * Treat diacritics as significant ("café" ≠ "cafe"). Default false —
    * marks are stripped on both sides, which is what viewers ship.
+   * LITERAL ONLY: combined with `regex` the query is rejected.
    */
   matchDiacritics?: boolean;
-  /** Only match at word boundaries (letters/digits end the word). */
-  wholeWord?: boolean;
-}
-
-export interface SearchRegexQuery {
-  kind: 'regex';
-  /**
-   * Pattern in the portable search-regex dialect: JavaScript `u`-mode
-   * syntax MINUS backreferences and lookaround, so every valid pattern
-   * also runs on RE2 (the server-side engine). Validate client-side with
-   * `validateSearchRegex` for early feedback; engines re-validate and
-   * reject with `EngineErrorCode.InvalidArg`.
-   */
-  pattern: string;
-  /** Exact-case matching. Default false (`i` semantics). */
-  matchCase?: boolean;
 }
 
 /**

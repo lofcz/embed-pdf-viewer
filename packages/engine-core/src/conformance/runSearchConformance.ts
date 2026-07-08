@@ -73,7 +73,7 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const { matches } = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.presentLiteral },
+          query: { text: fixture.presentLiteral },
         });
         expect(matches.length > 0).toBe(true);
         expect(matches.some((m) => m.pageObjectNumber === fixture.presentPageObjectNumber)).toBe(
@@ -96,10 +96,10 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const lower = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.presentLiteral.toLowerCase() },
+          query: { text: fixture.presentLiteral.toLowerCase() },
         });
         const upper = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.presentLiteral.toUpperCase() },
+          query: { text: fixture.presentLiteral.toUpperCase() },
         });
         expect(lower.matches.length).toBe(upper.matches.length);
         expect(lower.matches.length > 0).toBe(true);
@@ -112,7 +112,7 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const full = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.presentLiteral },
+          query: { text: fixture.presentLiteral },
           mode: 'full',
         });
         for (const m of full.matches) {
@@ -124,7 +124,7 @@ export function runSearchConformance(
           expect(foldText(hit).folded).toBe(foldText(fixture.presentLiteral).folded);
         }
         const rects = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.presentLiteral },
+          query: { text: fixture.presentLiteral },
           mode: 'rects',
         });
         expect(rects.matches.length).toBe(full.matches.length);
@@ -138,7 +138,7 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const { matches, slices } = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.absentLiteral },
+          query: { text: fixture.absentLiteral },
         });
         expect(matches.length).toBe(0);
         const last = slices[slices.length - 1];
@@ -153,10 +153,10 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const whole = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.presentLiteral },
+          query: { text: fixture.presentLiteral },
         });
         const sliced = await collectAll(doc, {
-          query: { kind: 'literal', text: fixture.presentLiteral },
+          query: { text: fixture.presentLiteral },
           budget: { maxPages: 1 },
         });
         expect(sliced.matches.length).toBe(whole.matches.length);
@@ -172,7 +172,7 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const slice = await doc.search.query({
-          query: { kind: 'literal', text: fixture.presentLiteral },
+          query: { text: fixture.presentLiteral },
           startPage: fixture.presentPageObjectNumber,
           budget: { maxPages: 1 },
         });
@@ -187,14 +187,14 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const first = await doc.search.query({
-          query: { kind: 'literal', text: fixture.presentLiteral },
+          query: { text: fixture.presentLiteral },
           budget: { maxPages: 1 },
         });
         expect(first.nextCursor !== null).toBe(true);
         let caught: unknown;
         try {
           await doc.search.query({
-            query: { kind: 'literal', text: fixture.absentLiteral },
+            query: { text: fixture.absentLiteral },
             cursor: first.nextCursor!,
           });
         } catch (err) {
@@ -212,7 +212,7 @@ export function runSearchConformance(
         let caught: unknown;
         try {
           await doc.search.query({
-            query: { kind: 'literal', text: fixture.presentLiteral },
+            query: { text: fixture.presentLiteral },
             cursor: 'not a cursor',
           });
         } catch (err) {
@@ -228,7 +228,7 @@ export function runSearchConformance(
       const doc = await openFixture(engine, opts);
       try {
         const { matches } = await collectAll(doc, {
-          query: { kind: 'regex', pattern: fixture.presentRegex },
+          query: { text: fixture.presentRegex, regex: true },
         });
         expect(matches.length > 0).toBe(true);
         for (const m of matches) {
@@ -240,13 +240,52 @@ export function runSearchConformance(
       }
     });
 
+    test('regex flags are restrictions: matchCase and wholeWord return subsets', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const all = await collectAll(doc, {
+          query: { text: fixture.presentRegex, regex: true },
+        });
+        const key = (m: SearchMatch) => `${m.pageObjectNumber}:${m.charStart}:${m.charCount}`;
+        const allKeys = new Set(all.matches.map(key));
+        // Each flag can only REMOVE matches, never invent them — true for
+        // any fixture pattern, so the suite needs no per-fixture counts.
+        for (const flags of [{ matchCase: true }, { wholeWord: true }]) {
+          const restricted = await collectAll(doc, {
+            query: { text: fixture.presentRegex, regex: true, ...flags },
+          });
+          expect(restricted.matches.length <= all.matches.length).toBe(true);
+          for (const m of restricted.matches) expect(allKeys.has(key(m))).toBe(true);
+        }
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('regex + matchDiacritics is rejected with InvalidArg', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        let caught: unknown;
+        try {
+          await doc.search.query({
+            query: { text: fixture.presentRegex, regex: true, matchDiacritics: true },
+          });
+        } catch (err) {
+          caught = err;
+        }
+        expect(EngineError.is(caught, EngineErrorCode.InvalidArg)).toBe(true);
+      } finally {
+        await doc.close();
+      }
+    });
+
     test('dialect violations are rejected with InvalidArg', async () => {
       const doc = await openFixture(engine, opts);
       try {
         for (const pattern of ['(a)\\1', '(?=x)y', '(']) {
           let caught: unknown;
           try {
-            await doc.search.query({ query: { kind: 'regex', pattern } });
+            await doc.search.query({ query: { text: pattern, regex: true } });
           } catch (err) {
             caught = err;
           }
@@ -260,7 +299,7 @@ export function runSearchConformance(
     test('an empty needle returns an exhausted, empty slice', async () => {
       const doc = await openFixture(engine, opts);
       try {
-        const slice = await doc.search.query({ query: { kind: 'literal', text: '   ' } });
+        const slice = await doc.search.query({ query: { text: '   ' } });
         expect(slice.matches.length).toBe(0);
         expect(slice.nextCursor).toBe(null);
       } finally {
@@ -271,7 +310,7 @@ export function runSearchConformance(
     test('abort() on query rejects with AbortError', async () => {
       const doc = await openFixture(engine, opts);
       try {
-        const p = doc.search.query({ query: { kind: 'literal', text: fixture.presentLiteral } });
+        const p = doc.search.query({ query: { text: fixture.presentLiteral } });
         p.abort('test');
         await expect(p).rejects.toBeInstanceOf(AbortError);
       } finally {
@@ -284,7 +323,7 @@ export function runSearchConformance(
       await doc.close();
       let caught: unknown;
       try {
-        await doc.search.query({ query: { kind: 'literal', text: fixture.presentLiteral } });
+        await doc.search.query({ query: { text: fixture.presentLiteral } });
       } catch (err) {
         caught = err;
       }

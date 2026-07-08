@@ -871,12 +871,13 @@ function SearchControls() {
   const patternError =
     regex && text.trim() ? (validateSearchRegex(text.trim()).ok ? null : 'invalid pattern') : null;
 
-  // Debounced type-as-you-search; options re-run the query too.
+  // Debounced type-as-you-search; options re-run the query too. The query
+  // IS the box: one flat SearchQuery from engine to input element.
   useEffect(() => {
     const t = setTimeout(() => {
       const needle = text.trim();
       if (!needle || patternError) search.clear();
-      else search.search(needle, { matchCase, wholeWord, regex });
+      else search.search({ text: needle, matchCase, wholeWord, regex });
     }, 300);
     return () => clearTimeout(t);
   }, [text, matchCase, wholeWord, regex, patternError, search]);

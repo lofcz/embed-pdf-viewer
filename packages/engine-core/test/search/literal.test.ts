@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { foldOptionsFor, foldText, matchLiteral } from '../../src/shared';
-import type { SearchLiteralQuery } from '../../src/shared';
+import type { SearchQuery } from '../../src/shared';
 
-function find(text: string, query: Omit<SearchLiteralQuery, 'kind'> & { text: string }) {
-  const q: SearchLiteralQuery = { kind: 'literal', ...query };
-  return matchLiteral(foldText(text, foldOptionsFor(q)), q);
+function find(text: string, query: SearchQuery) {
+  return matchLiteral(foldText(text, foldOptionsFor(query)), query);
 }
 
 describe('matchLiteral', () => {

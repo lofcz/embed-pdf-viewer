@@ -72,8 +72,9 @@ export function useSearch() {
   return useCapability(SearchToken);
 }
 
-/** Reactive search read-model for chrome: status, counts, progress. */
+/** Reactive search read-model for chrome: the query, status, counts, progress. */
 export function useSearchState() {
+  const query = useSelector(SearchToken, (c) => c.query());
   const status = useSelector(SearchToken, (c) => c.status());
   const hitCount = useSelector(SearchToken, (c) => c.hitCount());
   const activeIndex = useSelector(SearchToken, (c) => c.activeIndex());
@@ -83,5 +84,5 @@ export function useSearchState() {
     (a, b) => a.scanned === b.scanned && a.total === b.total,
   );
   const error = useSelector(SearchToken, (c) => c.errorMessage());
-  return { status, hitCount, activeIndex, progress, error };
+  return { query, status, hitCount, activeIndex, progress, error };
 }

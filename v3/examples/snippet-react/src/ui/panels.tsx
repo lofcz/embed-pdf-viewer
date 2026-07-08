@@ -5,7 +5,7 @@
  * open state from plugin-shell; the app owns their DOM.
  */
 import { useEffect } from 'react';
-import { useSelector } from '@embedpdf-x/react/runtime';
+import { useSelector, useDocumentId } from '@embedpdf-x/react/runtime';
 import { Stage, StageToken, usePages } from '@embedpdf-x/react/stage';
 import { RenderLayer } from '@embedpdf-x/react/render';
 import { useSurface } from '@embedpdf-x/react/shell';
@@ -159,6 +159,10 @@ function ThumbnailList() {
 // ── right sidebar (search / comment / style) ─────────────────────────────────
 export function RightSidebar() {
   const t = useT();
+  // Keys the SearchPanel below: the panel seeds its query box from the active
+  // document's search state on mount, so it must remount when the active
+  // document changes (switching tabs with the sidebar open) to re-seed.
+  const documentId = useDocumentId();
   const search = useSurface('search');
   const comment = useSurface('comment');
   const style = useSurface('annotation-style');
@@ -195,7 +199,7 @@ export function RightSidebar() {
       {active === 'style' ? (
         <AnnotationStylePanel />
       ) : active === 'search' ? (
-        <SearchPanel />
+        <SearchPanel key={documentId ?? 'none'} />
       ) : (
         <div className="p-3">
           <p className="text-fg-muted text-sm">{t('demo.empty')}</p>

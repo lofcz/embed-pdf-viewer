@@ -1,5 +1,6 @@
 import type { SearchMatchRange } from './fold';
-import type { SearchRegexQuery } from './types';
+import { wordAt, wordBefore } from './literal';
+import type { SearchQuery } from './types';
 
 /**
  * The portable search-regex dialect: JavaScript `u`-mode syntax MINUS the
@@ -97,17 +98,48 @@ export function validateSearchRegex(pattern: string): SearchRegexValidation {
 }
 
 /**
+ * Every flag combination has DEFINED semantics — most by behavior, one by
+ * loud rejection (see the {@link SearchQuery} table). The single validator
+ * a UI needs: call it on keystroke to grey out the diacritics toggle in
+ * regex mode and flag bad patterns early; engines run the same check and
+ * reject with `InvalidArg`. Literal queries are always valid (an empty
+ * literal simply finds nothing).
+ */
+export type SearchQueryIssue = SearchRegexIssue | 'diacritics-with-regex';
+
+export type SearchQueryValidation =
+  | { ok: true }
+  | { ok: false; issue: SearchQueryIssue; message: string };
+
+export function validateSearchQuery(query: SearchQuery): SearchQueryValidation {
+  if (!query.regex) return { ok: true };
+  if (query.matchDiacritics) {
+    return {
+      ok: false,
+      issue: 'diacritics-with-regex',
+      message:
+        'Diacritic-sensitive matching is not available for regex patterns (regex runs on the raw text plane).',
+    };
+  }
+  return validateSearchRegex(query.text);
+}
+
+/**
  * All matches of a dialect-valid pattern over the RAW page text (regex
  * does not run against folded text — case handling is the `i` flag, and
- * diacritic folding never applies). Zero-length matches are skipped:
- * search UI cannot highlight nothing, and skipping them is also the
- * infinite-loop guard for patterns like `a*`.
+ * diacritic folding never applies). `wholeWord` is a boundary POST-FILTER
+ * using the same Unicode word test as the literal path — never `\b`,
+ * whose ASCII word set would give the toggle different semantics in regex
+ * mode ("caf" whole-word matching inside "café"). Filtering after the
+ * match also survives the move to RE2 server-side. Zero-length matches
+ * are skipped: search UI cannot highlight nothing, and skipping them is
+ * also the infinite-loop guard for patterns like `a*`.
  */
-export function matchRegex(text: string, query: SearchRegexQuery): SearchMatchRange[] {
-  const valid = validateSearchRegex(query.pattern);
-  if (!valid.ok) throw new Error(`Invalid search pattern (${valid.issue}): ${valid.message}`);
+export function matchRegex(text: string, query: SearchQuery): SearchMatchRange[] {
+  const valid = validateSearchQuery({ ...query, regex: true });
+  if (!valid.ok) throw new Error(`Invalid search query (${valid.issue}): ${valid.message}`);
 
-  const re = new RegExp(query.pattern, query.matchCase ? 'gmu' : 'gimu');
+  const re = new RegExp(query.text, query.matchCase ? 'gmu' : 'gimu');
   const out: SearchMatchRange[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
@@ -115,6 +147,9 @@ export function matchRegex(text: string, query: SearchRegexQuery): SearchMatchRa
       // Advance one full code point past the empty match.
       const unit = text.charCodeAt(re.lastIndex);
       re.lastIndex += unit >= 0xd800 && unit <= 0xdbff ? 2 : 1;
+      continue;
+    }
+    if (query.wholeWord && (wordBefore(text, m.index) || wordAt(text, m.index + m[0].length))) {
       continue;
     }
     out.push({ start: m.index, length: m[0].length });

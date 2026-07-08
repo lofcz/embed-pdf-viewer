@@ -13,7 +13,7 @@ import {
   matchLiteral,
   matchRegex,
   searchRectsForRange,
-  validateSearchRegex,
+  validateSearchQuery,
 } from '@embedpdf/engine-core/runtime';
 import type { PdfRuntimeModule } from '@embedpdf/pdf-runtime';
 
@@ -61,21 +61,22 @@ export class SearchReader {
     const query = request.query;
     const mode = request.mode ?? 'full';
 
-    if (query.kind === 'regex') {
-      const valid = validateSearchRegex(query.pattern);
-      if (!valid.ok) {
-        throw new EngineError(
-          EngineErrorCode.InvalidArg,
-          `invalid search pattern (${valid.issue}): ${valid.message}`,
-        );
-      }
+    // One validator covers everything: regex dialect AND flag combos
+    // (regex + matchDiacritics is the rejected one). Literal queries are
+    // always valid.
+    const valid = validateSearchQuery(query);
+    if (!valid.ok) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `invalid search query (${valid.issue}): ${valid.message}`,
+      );
     }
 
     const records = this.session.allRecords();
     const totalPages = records.length;
 
     // Nothing findable — don't burn a scan on an empty needle.
-    if (query.kind === 'literal' && foldText(query.text).folded.trim().length === 0) {
+    if (!query.regex && foldText(query.text).folded.trim().length === 0) {
       return { matches: [], nextCursor: null, scannedPages: 0, totalPages };
     }
 
@@ -122,7 +123,7 @@ export class SearchReader {
       const corpus = acquirePageCorpus(this.runtime, this.session, pon, signal);
 
       let ranges: SearchMatchRange[];
-      if (query.kind === 'regex') {
+      if (query.regex) {
         ranges = matchRegex(corpus.original, query);
       } else if (query.matchCase || query.matchDiacritics) {
         // Non-default fold options: re-fold the cached raw text per query.

@@ -200,24 +200,16 @@ function searchStateFromParams(params: unknown): SearchGetState {
   if (q === undefined) {
     throw new EngineError(EngineErrorCode.InvalidArg, 'search param "q" is required');
   }
-  const kind = str('kind') ?? 'literal';
-  let query: SearchQuery;
-  if (kind === 'regex') {
-    query = { kind: 'regex', pattern: q, ...(bool('matchCase') ? { matchCase: true } : {}) };
-  } else if (kind === 'literal') {
-    query = {
-      kind: 'literal',
-      text: q,
-      ...(bool('matchCase') ? { matchCase: true } : {}),
-      ...(bool('matchDiacritics') ? { matchDiacritics: true } : {}),
-      ...(bool('wholeWord') ? { wholeWord: true } : {}),
-    };
-  } else {
-    throw new EngineError(
-      EngineErrorCode.InvalidArg,
-      `search param "kind" must be "literal" or "regex"`,
-    );
-  }
+  // One flat query shape — flags are independent params; semantic
+  // validation (regex dialect, regex+matchDiacritics) happens in the
+  // engine's validateSearchQuery, not here.
+  const query: SearchQuery = {
+    text: q,
+    ...(bool('regex') ? { regex: true } : {}),
+    ...(bool('matchCase') ? { matchCase: true } : {}),
+    ...(bool('matchDiacritics') ? { matchDiacritics: true } : {}),
+    ...(bool('wholeWord') ? { wholeWord: true } : {}),
+  };
 
   const maxPages = int('maxPages', 1);
   const maxMatches = int('maxMatches', 1);
