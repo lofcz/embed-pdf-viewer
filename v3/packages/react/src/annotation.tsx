@@ -209,6 +209,13 @@ function BakedImage({
         top: b.top,
         width: b.width,
         height: b.height,
+        // The AP box is sized in content units; a global `img { max-width: 100% }`
+        // reset would otherwise clamp it to the containing block and distort the
+        // aspect. This bites specifically when the box is WIDER than that block —
+        // a landscape stamp whose unrotated box overhangs a view-rotated (portrait)
+        // page — so honour the explicit size and let `rot` place it.
+        maxWidth: 'none',
+        maxHeight: 'none',
         pointerEvents: 'none',
         mixBlendMode: blend, // highlights multiply with the page beneath
         // Same CW convention as the free-text element: rotate about the centre.

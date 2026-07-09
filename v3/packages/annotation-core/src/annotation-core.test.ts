@@ -46,6 +46,7 @@ import {
   transposedAboutCenter,
   uprightAnchoredRect,
   uprightRotation,
+  fitStampBox,
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
@@ -2943,5 +2944,64 @@ describe('upright creation (counter-rotating the display rotation)', () => {
       uprightPtr('free-text', 'up', 100, 200, { displayRotation: 90, upright: true }),
     ]);
     expect(textGeom(lateUp.byId[lateUp.order[0]].geom)!.rot).toBeUndefined();
+  });
+});
+
+describe('fitStampBox (v2 rubber-stamp sizing: intrinsic, clamped to page)', () => {
+  const PAGE = { width: 612, height: 792 }; // US Letter points
+
+  it('keeps the intrinsic size when the image fits the page', () => {
+    const box = fitStampBox({ x: 300, y: 400 }, { width: 200, height: 100 }, PAGE, 0);
+    expect(box.width).toBe(200);
+    expect(box.height).toBe(100);
+    // centred on the click
+    expect(box.x).toBe(200);
+    expect(box.y).toBe(350);
+  });
+
+  it('scales an oversized image DOWN to fit, preserving aspect', () => {
+    // 1200×600 (2:1) into 612×792: width-bound → s = 612/1200 = 0.51
+    const box = fitStampBox({ x: 306, y: 396 }, { width: 1200, height: 600 }, PAGE, 0);
+    expect(box.width).toBeCloseTo(612, 3);
+    expect(box.height).toBeCloseTo(306, 3);
+    expect(box.width / box.height).toBeCloseTo(2, 5); // aspect preserved
+  });
+
+  it('clamps the box fully onto the page when placed near an edge', () => {
+    // click in the top-left corner: the 200×100 box would spill off (negative x/y)
+    const box = fitStampBox({ x: 5, y: 5 }, { width: 200, height: 100 }, PAGE, 0);
+    expect(box.x).toBe(0); // shifted fully on-page
+    expect(box.y).toBe(0);
+    expect(box.width).toBe(200);
+    expect(box.height).toBe(100);
+    // and near the far corner
+    const far = fitStampBox({ x: 610, y: 790 }, { width: 200, height: 100 }, PAGE, 0);
+    expect(far.x + far.width).toBeCloseTo(PAGE.width, 3);
+    expect(far.y + far.height).toBeCloseTo(PAGE.height, 3);
+  });
+
+  it('under an upright quarter-turn, fits by the ROTATED footprint (transposed)', () => {
+    // A landscape 1000×250 (4:1) placed upright at 90° (rotCW 270): its on-page
+    // footprint is 250×1000 (tall). Fitting THAT into 612×792 is height-bound:
+    // s = 792/1000 = 0.792 → logical box 792×198, footprint 198×792 (fits).
+    const box = fitStampBox({ x: 306, y: 396 }, { width: 1000, height: 250 }, PAGE, 270);
+    expect(box.width).toBeCloseTo(792, 2);
+    expect(box.height).toBeCloseTo(198, 2);
+    // the footprint (transposed) must fit the page on BOTH axes
+    const footprintW = box.height; // quarter-turn swaps
+    const footprintH = box.width;
+    expect(footprintW).toBeLessThanOrEqual(PAGE.width + 1e-6);
+    expect(footprintH).toBeLessThanOrEqual(PAGE.height + 1e-6);
+  });
+
+  it('clamps the rotated footprint onto the page near an edge (no spill)', () => {
+    // upright 90°, a 300×100 image near the top edge: footprint is 100×300 tall,
+    // so the centre must sit ≥150 from the top edge.
+    const box = fitStampBox({ x: 306, y: 5 }, { width: 300, height: 100 }, PAGE, 270);
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const footprintH = box.width; // 300
+    expect(cy).toBeCloseTo(footprintH / 2, 3); // pushed down so the tall footprint fits
+    expect(cy - footprintH / 2).toBeGreaterThanOrEqual(-1e-6);
   });
 });

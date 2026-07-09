@@ -9,11 +9,14 @@ import {
   applyPoint,
   applyRect,
   invert,
+  isQuarterTurn,
   pdfToContentMatrix,
   rotateAbout,
   type Mat2D,
+  type PageRotation,
   type PointIn,
   type RectIn,
+  type Size,
 } from '@embedpdf-x/geometry';
 import { cloudyBorderExtent, cloudyPath, cloudyPolyPath } from './cloudy';
 import { endingNodes, endingPoints } from './endings';
@@ -331,6 +334,37 @@ export function uprightAnchoredRect(
           ? { x: anchor.x - height / 2, y: anchor.y + width / 2 }
           : { x: anchor.x + width / 2, y: anchor.y + height / 2 };
   return { x: c.x - width / 2, y: c.y - height / 2, width, height };
+}
+
+const clampScalar = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+
+/**
+ * The LOGICAL (unrotated) content-space box for a stamp placed at `center`,
+ * sized `desired` (points), fit onto the page and clamped fully within it —
+ * the v2 rubber-stamp rule: keep the image's own size unless it would overflow
+ * the page, then scale down (aspect preserved, never up) so it just fits.
+ *
+ * Under an upright quarter-turn the on-page FOOTPRINT is the box transposed
+ * (w↔h), so BOTH the fit and the edge clamp use that footprint — a landscape
+ * stamp uprighted onto a portrait page fits by its rotated silhouette, not its
+ * logical box. The box centre and its footprint AABB centre coincide (rotation
+ * is about the centre), so clamping one clamps the other.
+ */
+export function fitStampBox(center: Vec, desired: Size, page: Size, rotCW: number): Rect {
+  const quarter = isQuarterTurn((normalizeDeg(rotCW) as PageRotation) ?? 0);
+  // Footprint (AABB) dims for the desired size, before fitting.
+  const fw0 = quarter ? desired.height : desired.width;
+  const fh0 = quarter ? desired.width : desired.height;
+  const s = Math.min(1, fw0 > 0 ? page.width / fw0 : 1, fh0 > 0 ? page.height / fh0 : 1);
+  const width = desired.width * s;
+  const height = desired.height * s;
+  const fw = quarter ? height : width;
+  const fh = quarter ? width : height;
+  // Clamp the centre so the footprint stays fully on the page (the fit above
+  // guarantees fw ≤ page.width and fh ≤ page.height, so the range is valid).
+  const cx = clampScalar(center.x, fw / 2, page.width - fw / 2);
+  const cy = clampScalar(center.y, fh / 2, page.height - fh / 2);
+  return { x: cx - width / 2, y: cy - height / 2, width, height };
 }
 
 /** Reset a geom to its as-authored orientation (`rot → 0`). Box: drop `rot`.

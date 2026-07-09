@@ -15,6 +15,7 @@ import {
   cursorAt,
   defaultsFor,
   expandGroups,
+  fitStampBox,
   groupKeyOf,
   hitTest,
   pageItems as corePageItems,
@@ -210,7 +211,29 @@ export function createAnnotationCapability(
    * Transient tool state — deliberately NOT in the model: it is never
    * rendered, never synced, and dies with the tool.
    */
+  // The DESIRED placement size (PDF points, pre page-clamp): the image's own
+  // intrinsic size unless the caller overrides it. Clamping to the page happens
+  // at placement, since it depends on which page (and rotation) receives it.
   let armedStamp: { source: BinarySource; width: number; height: number } | null = null;
+
+  /**
+   * The desired stamp size (PDF points) from sniffed bytes: the image's
+   * INTRINSIC pixel dimensions taken 1:1 as points (the v2 rule — keep the
+   * artwork's own size, then clamp to the page at placement). A `targetWidth`
+   * override scales to that width, aspect preserved. Vector (PDF) stamps carry
+   * no sniffed dimensions, so they fall back to a square target.
+   */
+  const desiredStampSize = (
+    meta: NonNullable<ReturnType<typeof sniffBinaryMetadata>>,
+    targetWidth?: number,
+  ): { width: number; height: number } => {
+    const intrinsic =
+      'width' in meta && meta.width > 0
+        ? { width: meta.width, height: meta.height }
+        : { width: targetWidth ?? 150, height: targetWidth ?? 150 };
+    if (targetWidth === undefined) return intrinsic;
+    return { width: targetWidth, height: targetWidth * (intrinsic.height / intrinsic.width) };
+  };
 
   const armStamp = async (input: { source: BinarySource; targetWidth?: number }): Promise<void> => {
     // Resolve + sniff up front: a bad payload fails HERE (at the button),
@@ -221,9 +244,7 @@ export function createAnnotationCapability(
     if (!meta) {
       throw new Error('[annotation] stamp source must be PNG, JPEG, or single-page PDF bytes');
     }
-    const width = input.targetWidth ?? 150;
-    const aspect = 'width' in meta && meta.width > 0 ? meta.height / meta.width : 1;
-    armedStamp = { source: input.source, width, height: width * aspect };
+    armedStamp = { source: input.source, ...desiredStampSize(meta, input.targetWidth) };
     ctx.tryGet(InteractionToken)?.activateTool('stamp');
   };
 
@@ -231,24 +252,26 @@ export function createAnnotationCapability(
     armedStamp = null;
   };
 
-  /** Create a stamp of `width`×`height` PDF points centred on a content point —
-   *  the one engine-write both the armed and the click-to-place paths funnel
-   *  through. `rotCW` (CW content degrees — the tool's upright counter-rotation)
-   *  emits the repository's box rotation fields, so the engine bakes the tilted
-   *  /AP exactly as an interactively rotated stamp would round-trip. Returns
-   *  false when the page/document isn't ready. */
+  /** Place a stamp of `desired` PDF-point size centred on a content point — the
+   *  one engine-write both the armed and click-to-place paths funnel through.
+   *  The size is fit to the page and clamped fully onto it (v2 rubber-stamp
+   *  rule: never larger than the page, aspect preserved), and never spills off
+   *  the edge. `rotCW` (the tool's upright counter-rotation, CW content degrees)
+   *  emits the repository's box rotation fields — the engine bakes the tilted
+   *  /AP exactly as an interactively rotated stamp round-trips, and the fit uses
+   *  the ROTATED footprint. Returns false when the page/document isn't ready. */
   const createStampAt = (
     pon: number,
     point: Vec,
     source: BinarySource,
-    width: number,
-    height: number,
+    desired: { width: number; height: number },
     rotCW = 0,
   ): boolean => {
     const doc = ctx.doc;
     const crop = cropOf(pon);
     if (!doc || !crop) return false;
-    const box: Rect = { x: point.x - width / 2, y: point.y - height / 2, width, height };
+    const page = { width: crop.right - crop.left, height: crop.top - crop.bottom };
+    const box: Rect = fitStampBox(point, desired, page, rotCW);
     doc
       .page(pon)
       .annotations.create({
@@ -281,20 +304,20 @@ export function createAnnotationCapability(
       pon,
       point,
       armed.source,
-      armed.width,
-      armed.height,
+      { width: armed.width, height: armed.height },
       uprightRotFor(displayRotation),
     );
   };
 
-  /** Sniff a stamp source (rejecting non-image bytes) and place it, sized from its
-   *  intrinsic aspect around `targetWidth` (PDF points, default 150). */
+  /** Sniff a stamp source (rejecting non-image bytes) and place it at its
+   *  intrinsic size (fit to the page in {@link createStampAt}); `targetWidth`
+   *  overrides the width, aspect preserved. */
   const placeStampSource = async (
     pon: number,
     point: Vec,
     source: BinarySource,
     rotCW: number,
-    targetWidth = 150,
+    targetWidth?: number,
   ): Promise<void> => {
     const resolved = await resolveBinarySource(source);
     const meta = sniffBinaryMetadata(resolved.bytes);
@@ -302,8 +325,7 @@ export function createAnnotationCapability(
       console.error('[annotation] stamp source must be PNG, JPEG, or single-page PDF bytes');
       return;
     }
-    const aspect = 'width' in meta && meta.width > 0 ? meta.height / meta.width : 1;
-    createStampAt(pon, point, source, targetWidth, targetWidth * aspect, rotCW);
+    createStampAt(pon, point, source, desiredStampSize(meta, targetWidth), rotCW);
   };
 
   /**

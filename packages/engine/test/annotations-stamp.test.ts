@@ -232,6 +232,93 @@ describe('stamp annotations: engine-local (inline transport, wasm runtime)', () 
     expect(redRow / width).toBeGreaterThan(0.9);
   });
 
+  test('rotated CONTAIN stamp fills the box — no compound-shrink padding', async () => {
+    // Regression: the writer used to fit the image into the ROTATED AABB /Rect,
+    // then the native re-fit fit that (padded) box into the unrotated box — a
+    // SECOND aspect shrink, so the image landed at ~aspect² size in white
+    // padding. Only under rotation (at 0° the two frames coincide). 'fill' hid
+    // it; 'contain' (the default, and what the viewer uses) exposes it.
+    const page = handle.page(PAGE_OBJECT_NUMBER);
+    const png = makePng(8, 4, [255, 0, 0, 255]); // 2:1 landscape
+    const unrotated = { left: 300, bottom: 400, right: 400, top: 450 }; // 100×50, 2:1 — matches image
+    // 90° CW about the centre (350, 425) → AABB 50×100 portrait.
+    const rect = { left: 325, bottom: 375, right: 375, top: 475 };
+    const { created } = await page.annotations.create({
+      subtype: 'stamp',
+      rect,
+      source: png,
+      fit: 'contain',
+      rotation: 90,
+      unrotatedRect: unrotated,
+    });
+    expect((created as StampAnnotationDTO).rotation).toBe(90);
+
+    const rendered = await page.annotations.renderAppearances();
+    const entry = rendered.appearances.find(
+      (a) =>
+        a.ref.kind === 'objectNumber' &&
+        created.ref.kind === 'objectNumber' &&
+        a.ref.annotObjectNumber === created.ref.annotObjectNumber,
+    );
+    expect(entry).toBeDefined();
+    // Authored in the unrotated frame: landscape raster, logical-box rect.
+    const { width, height, stride } = entry!.raster;
+    expect(width).toBeGreaterThan(height);
+    expect(entry!.rect.left).toBeCloseTo(unrotated.left, 0);
+    expect(entry!.rect.right).toBeCloseTo(unrotated.right, 0);
+    // The image aspect matches the box, so contain-fit FILLS it: BOTH the middle
+    // row AND the middle column are red edge-to-edge. Under the old double-shrink
+    // the image was ~1/4 size, so neither would be. Sampling both catches a
+    // shrink on either axis.
+    const data = new Uint8Array(entry!.raster.data);
+    const isRed = (i: number) => data[i + 3] > 0 && data[i] > 128 && data[i + 1] < 64;
+    let redRow = 0;
+    const midRow = Math.floor(height / 2) * stride;
+    for (let x = 0; x < width; x++) if (isRed(midRow + x * 4)) redRow++;
+    let redCol = 0;
+    const midX = Math.floor(width / 2) * 4;
+    for (let y = 0; y < height; y++) if (isRed(y * stride + midX)) redCol++;
+    expect(redRow / width).toBeGreaterThan(0.9);
+    expect(redCol / height).toBeGreaterThan(0.9);
+  });
+
+  test('rotate a stamp back to 0° clears the rotation — no spring-back', async () => {
+    // Regression: the stamp writer reconciled rotation metadata ONLY when the
+    // patch carried rotation fields. A plain re-position patch (rect only, no
+    // rotation — what the viewer emits when it drops the tilt) left the stale
+    // /EMBD_Metadata in place, so the DTO read back at the OLD angle and the
+    // viewer's re-sync sprang it back.
+    const page = handle.page(PAGE_OBJECT_NUMBER);
+    const png = makePng(4, 4, [0, 0, 255, 255]);
+    const unrotated = { left: 200, bottom: 200, right: 250, top: 250 };
+    const rect = { left: 200, bottom: 200, right: 250, top: 250 }; // square: AABB == box
+    const { created } = await page.annotations.create({
+      subtype: 'stamp',
+      rect,
+      source: png,
+      fit: 'contain',
+      rotation: 90,
+      unrotatedRect: unrotated,
+    });
+    expect((created as StampAnnotationDTO).rotation).toBe(90);
+
+    const flat = { left: 210, bottom: 210, right: 270, top: 260 };
+    const updated = await page.annotations.update(created.ref, { subtype: 'stamp', rect: flat });
+    expect((updated.updated as StampAnnotationDTO).rotation ?? 0).toBe(0);
+
+    // Re-read from the annot dict (not just the patch echo) to prove it persists.
+    const list = await page.annotations.list();
+    const re = list.annotations.find(
+      (a) =>
+        a.ref.kind === 'objectNumber' &&
+        created.ref.kind === 'objectNumber' &&
+        a.ref.annotObjectNumber === created.ref.annotObjectNumber,
+    ) as StampAnnotationDTO;
+    expect(re.rotation ?? 0).toBe(0);
+    expect(re.rect.left).toBeCloseTo(flat.left, 0);
+    expect(re.rect.right).toBeCloseTo(flat.right, 0);
+  });
+
   test('unsupported source bytes reject with InvalidArg before any transport', async () => {
     const page = handle.page(PAGE_OBJECT_NUMBER);
     await expect(

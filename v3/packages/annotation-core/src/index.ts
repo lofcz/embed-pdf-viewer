@@ -80,6 +80,7 @@ export {
   uprightRotation,
   transposedAboutCenter,
   uprightAnchoredRect,
+  fitStampBox,
   ROTATE_KNOB_OFFSET,
   MITER_LIMIT,
   // group scaling

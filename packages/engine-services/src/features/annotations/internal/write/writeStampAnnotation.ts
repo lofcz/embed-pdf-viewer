@@ -28,11 +28,11 @@ const STAMP_FIT_TO_CODE: Record<StampFit, number> = {
 };
 
 /**
- * Apply a stamp draft. Order mirrors the other writers (base → /Rect →
- * subtype fields), then the content pipeline:
+ * Apply a stamp draft. Order mirrors the other writers (base → subtype
+ * fields), then the appearance pipeline via {@link authorStampAppearance}:
  *   1. resolve the `{ resource }` ref against the mutation's binary payloads
  *   2. sniff the bytes (PNG/JPEG → image object, PDF → cloned form XObject)
- *   3. `EPDFAnnot_UpdateAppearanceToRect` fits the appearance into /Rect
+ *   3. `EPDFAnnot_UpdateAppearanceToRect` fits the appearance into the box
  *      honouring `fit` and any `/EMBD_Metadata` rotation.
  * The mutator's `EPDFAnnot_GenerateAppearance` pass afterwards is a no-op
  * for stamps (CPDF_GenerateAP has no stamp arm), so the appearance built
@@ -46,15 +46,18 @@ export function applyStampDraft(
   ctx?: AnnotationWriteContext,
 ): void {
   applyAnnotationBaseDraft(fn, mem, annotPtr, draft);
-  setAnnotRect(fn, mem, annotPtr, draft.rect);
   if (draft.name !== undefined) {
     setStampName(fn, annotPtr, draft.name);
   }
-  writeBoxTransformMetadata(fn, mem, annotPtr, {
-    rotation: draft.rotation,
-    unrotatedRect: draft.unrotatedRect,
-  });
-  setStampContent(fn, mem, annotPtr, draft.source, draft.fit ?? 'contain', draft.rect, ctx);
+  authorStampAppearance(
+    fn,
+    mem,
+    annotPtr,
+    draft.source,
+    draft.fit ?? 'contain',
+    { rect: draft.rect, unrotatedRect: draft.unrotatedRect, rotation: draft.rotation },
+    ctx,
+  );
 }
 
 export function applyStampPatch(
@@ -65,23 +68,45 @@ export function applyStampPatch(
   ctx?: AnnotationWriteContext,
 ): void {
   applyAnnotationBasePatch(fn, mem, annotPtr, patch);
-  if (patch.rect !== undefined) {
-    setAnnotRect(fn, mem, annotPtr, patch.rect);
-  }
   if (patch.name !== undefined) {
     setStampName(fn, annotPtr, patch.name);
   }
-  if (patch.rotation !== undefined || patch.unrotatedRect !== undefined) {
+  if (patch.source !== undefined) {
+    // Content replacement: rebuild the appearance from the new bytes, authored
+    // in the unrotated frame (see authorStampAppearance) so a rotated stamp
+    // never double-fits into its padded AABB.
+    const rect = patch.rect ?? readAnnotRect(fn, mem, annotPtr);
+    authorStampAppearance(
+      fn,
+      mem,
+      annotPtr,
+      patch.source,
+      patch.fit ?? 'contain',
+      { rect, unrotatedRect: patch.unrotatedRect, rotation: patch.rotation },
+      ctx,
+    );
+    return;
+  }
+  // No new bytes: geometry / rotation / fit only.
+  if (patch.rect !== undefined) {
+    setAnnotRect(fn, mem, annotPtr, patch.rect);
+  }
+  // Reconcile rotation whenever the geometry OR the rotation fields changed —
+  // matching the shape/free-text writers. This is what makes rotate-back-to-0
+  // CLEAR the stale /EMBD_Metadata: a plain re-position patch (rect only, no
+  // rotation) would otherwise leave `/Rotation` + `/UnrotatedRect` in place, so
+  // the appearance would spring back to the old angle on the next read.
+  if (
+    patch.rect !== undefined ||
+    patch.rotation !== undefined ||
+    patch.unrotatedRect !== undefined
+  ) {
     writeBoxTransformMetadata(fn, mem, annotPtr, {
       rotation: patch.rotation,
       unrotatedRect: patch.unrotatedRect,
     });
   }
-  if (patch.source !== undefined) {
-    // Content replacement: clear + rebuild the appearance from the new bytes.
-    const rect = patch.rect ?? readAnnotRect(fn, mem, annotPtr);
-    setStampContent(fn, mem, annotPtr, patch.source, patch.fit ?? 'contain', rect, ctx);
-  } else if (
+  if (
     patch.rect !== undefined ||
     patch.fit !== undefined ||
     patch.rotation !== undefined ||
@@ -121,6 +146,66 @@ function requireStampResource(
     );
   }
   return resource;
+}
+
+/** The box transform a stamp draft/patch carries (the box-kind rotation split). */
+interface StampBox {
+  /** `/Rect` — the rotated visual AABB when rotated; the box itself otherwise. */
+  rect: PdfRect;
+  /** The logical (pre-rotation) box; present only alongside a non-zero rotation. */
+  unrotatedRect?: PdfRect;
+  /** `/EMBD_Metadata/Rotation` (deg, PDF convention). */
+  rotation?: number;
+}
+
+/**
+ * Author a stamp's appearance from `source`, correct under rotation.
+ *
+ * The appearance MUST be built in the UNROTATED frame and rotated by an
+ * `/AP /Matrix` afterwards — the "FreeText pattern" the stamp draft documents.
+ * If instead the image is fit into the rotated AABB `/Rect` (a portrait box for
+ * a landscape image, say), the letterboxed bands get baked into the appearance,
+ * and the closing native re-fit — which records `EPDFOrigContentRect` from that
+ * padded box and then fits it into the unrotated box — shrinks the image by the
+ * aspect ratio a SECOND time. The result is a small image adrift in white
+ * padding, and only when rotated (at 0° the two frames coincide, so it fills).
+ *
+ * So for a rotated stamp we: author the image into the UNROTATED box with no
+ * rotation metadata active (its recorded `EPDFOrigContentRect` is the
+ * image-filled logical box), then write the rotation metadata, set the real
+ * AABB `/Rect`, and re-fit once — which bakes the `/Matrix` and leaves the
+ * appearance filling the box exactly as the 0° case does. The unrotated path is
+ * unchanged: author straight into `/Rect`.
+ */
+function authorStampAppearance(
+  fn: PdfFunctions,
+  mem: PdfRuntimeMemory,
+  annotPtr: Ptr,
+  source: ResourceRef,
+  fit: StampFit,
+  box: StampBox,
+  ctx: AnnotationWriteContext | undefined,
+): void {
+  const rotated = !!box.rotation && box.unrotatedRect !== undefined;
+  if (!rotated) {
+    setAnnotRect(fn, mem, annotPtr, box.rect);
+    setStampContent(fn, mem, annotPtr, source, fit, box.rect, ctx);
+    return;
+  }
+  const unrotated = box.unrotatedRect!;
+  // 1. Author in the unrotated frame — clear any rotation metadata first so the
+  //    internal re-fit records an image-shaped EPDFOrigContentRect, not the AABB.
+  writeBoxTransformMetadata(fn, mem, annotPtr, {});
+  setAnnotRect(fn, mem, annotPtr, unrotated);
+  setStampContent(fn, mem, annotPtr, source, fit, unrotated, ctx);
+  // 2. Apply the transform: metadata bakes the /Matrix, /Rect becomes the AABB,
+  //    and one re-fit reconciles BBox + Matrix from the now-recorded content.
+  writeBoxTransformMetadata(fn, mem, annotPtr, {
+    rotation: box.rotation,
+    unrotatedRect: unrotated,
+  });
+  setAnnotRect(fn, mem, annotPtr, box.rect);
+  refitAppearance(fn, annotPtr, fit);
 }
 
 function setStampContent(
