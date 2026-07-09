@@ -4,12 +4,14 @@ import type { AnnotationBase } from './base';
 import type {
   AnnotationBorderStyle,
   AnnotationFlags,
+  CaretIntent,
   Color,
   FreeTextIntent,
   LineEnding,
   LineEndings,
   PdfRectDifferences,
   StandardFont,
+  StrikeoutIntent,
   TextAlignment,
 } from './primitives';
 import { PdfPointSchema, PdfRectSchema, PdfQuadSchema } from '../geometry/schemas';
@@ -83,6 +85,10 @@ export const FreeTextIntentSchema: z.ZodType<FreeTextIntent> = z.enum([
   'free-text',
   'free-text-callout',
 ]);
+
+export const CaretIntentSchema: z.ZodType<CaretIntent> = z.literal('replace');
+
+export const StrikeoutIntentSchema: z.ZodType<StrikeoutIntent> = z.literal('strikeout-text-edit');
 
 export const AnnotationFlagsSchema: z.ZodType<AnnotationFlags> = z.object({
   invisible: z.boolean(),

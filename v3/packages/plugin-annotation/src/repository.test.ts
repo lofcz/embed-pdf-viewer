@@ -8,6 +8,7 @@ import type {
   CalloutLine,
   PdfRect,
 } from '@embedpdf/engine-core/runtime';
+import type { Annot } from '@embedpdf-x/annotation-core';
 import { fromDTO, refKey, toCreateDraft, toPatch } from './repository';
 
 const CROP: PdfRect = { left: 0, bottom: 0, right: 600, top: 800 };
@@ -81,6 +82,65 @@ describe('repository.fromDTO — group/relationship mapping', () => {
     const reply = fromDTO(squareDTO(12, { inReplyTo: parent, replyType: 'reply' }), CROP);
     expect(reply.irt).toBe(refKey(parent));
     expect(reply.group).toBeUndefined();
+  });
+});
+
+describe('repository — Replace Text authoring', () => {
+  const style = {
+    color: '#e44234',
+    interiorColor: null,
+    strokeWidth: 1,
+    opacity: 1,
+    border: { kind: 'solid' as const },
+  };
+
+  it('emits the normalized Caret and StrikeOut intents with print flags', () => {
+    const caret: Annot = {
+      id: 'tmp:1',
+      ref: null,
+      pon: 1,
+      subtype: 'caret',
+      intent: 'replace',
+      geom: { t: 'caret', rect: { x: 90, y: 40, width: 10, height: 10 } },
+      style,
+      locked: false,
+      source: 'vector',
+    };
+    const strikeout: Annot = {
+      id: 'tmp:2',
+      ref: null,
+      pon: 1,
+      subtype: 'strikeout',
+      intent: 'strikeout-text-edit',
+      geom: {
+        t: 'quads',
+        quads: [
+          [
+            { x: 10, y: 20 },
+            { x: 90, y: 20 },
+            { x: 10, y: 35 },
+            { x: 90, y: 35 },
+          ],
+        ],
+      },
+      style,
+      locked: false,
+      source: 'vector',
+      irt: caret.id,
+      group: caret.id,
+    };
+
+    expect(toCreateDraft(caret, CROP)).toMatchObject({
+      subtype: 'caret',
+      intent: 'replace',
+      flags: { print: true },
+      rectDifferences: { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 },
+    });
+    expect(toCreateDraft(strikeout, CROP)).toMatchObject({
+      subtype: 'strikeout',
+      intent: 'strikeout-text-edit',
+      flags: { print: true },
+    });
   });
 });
 

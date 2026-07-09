@@ -1,18 +1,14 @@
 /**
- * Text-markup authoring: the bridge that turns a TEXT SELECTION into highlight /
- * underline / strikeout / squiggly annotations. Markup has no gesture of its own —
- * its tools enable the selection plugin's `text-select` gesture, and this module
- * consumes selection's typed signals (`onCommit` to create, `onChange` to preview).
+ * Text-selection authoring: the bridge that turns a TEXT SELECTION into markup
+ * or a text-edit annotation (Insert / Replace). These tools have no gesture of
+ * their own — they enable the selection plugin's `text-select` gesture, and this
+ * module consumes its typed signals (`onCommit` to create, `onChange` to preview).
  * Selection is the producer; annotation the consumer — selection never knows
  * annotation exists. Kept out of the plugin-definition file so that stays lean.
  */
 import type { InteractionCapability } from '@embedpdf-x/plugin-interaction';
 import type { SelectionCapability } from '@embedpdf-x/plugin-selection';
 import type { AnnotationHostCapability } from './types';
-
-/** The markup tool ids (their annotation subtypes), used only to route a commit. */
-const MARKUP_SUBTYPES = new Set(['highlight', 'underline', 'strikeout', 'squiggly']);
-const INSERT_TEXT_TOOL = 'insert-text';
 
 /**
  * Wire the selection → annotation BRIDGE. The markup / caret TOOLS and their
@@ -30,12 +26,19 @@ export function wireMarkup(
   // selection). While a markup tool is active the blue highlight is suppressed and
   // the in-progress selection renders as a markup ghost instead.
   const sync = () => {
-    const markup = MARKUP_SUBTYPES.has(interaction.activeToolId());
-    selection.setHighlightVisible(!markup);
-    if (markup && selection.hasSelection()) {
+    const tool = annotation.tool(interaction.activeToolId());
+    const authoring = tool?.selection;
+    const previewSubtype =
+      authoring?.kind === 'markup'
+        ? tool!.subtype
+        : authoring?.kind === 'text-edit' && authoring.operation === 'replace'
+          ? 'strikeout'
+          : null;
+    selection.setHighlightVisible(previewSubtype == null);
+    if (previewSubtype && tool && selection.hasSelection()) {
       const rectsByPage: Record<number, ReturnType<typeof selection.rectsForPage>> = {};
       for (const page of selection.snapshot().pages) rectsByPage[page.pon] = page.rects;
-      annotation.previewMarkup(interaction.activeToolId(), rectsByPage);
+      annotation.previewMarkup(previewSubtype, rectsByPage, tool.preset);
     } else {
       annotation.clearMarkupPreview();
     }
@@ -45,15 +48,28 @@ export function wireMarkup(
 
   // On gesture-end, if a markup tool is active, turn the selection into markup.
   selection.onCommit(() => {
-    const tool = interaction.activeToolId();
+    const tool = annotation.tool(interaction.activeToolId());
+    const authoring = tool?.selection;
+    if (!tool || !authoring) return; // pointer tool → leave the selection (copy)
     const snapshot = selection.snapshot();
-    if (tool === INSERT_TEXT_TOOL) {
+    if (authoring.kind === 'text-edit' && authoring.operation === 'insert') {
       if (snapshot.end) annotation.createCaret(snapshot.end.pon, snapshot.end.rect);
       selection.clear();
       return;
     }
-    if (!MARKUP_SUBTYPES.has(tool)) return; // pointer tool → leave the selection (copy)
-    for (const page of snapshot.pages) annotation.createMarkup(tool, page.pon, page.rects);
+    if (authoring.kind === 'text-edit' && authoring.operation === 'replace') {
+      // `/IRT` relationships are page-local, so a cross-page selection becomes
+      // one self-contained Caret + StrikeOut pair per page.
+      for (const page of snapshot.pages) {
+        const endRect = page.rects[page.rects.length - 1];
+        if (endRect) annotation.createReplaceText(page.pon, page.rects, endRect, tool.preset);
+      }
+      selection.clear();
+      return;
+    }
+    for (const page of snapshot.pages) {
+      annotation.createMarkup(tool.subtype, page.pon, page.rects, tool.preset);
+    }
     selection.clear(); // fires onChange → preview clears; blue stays suppressed (markup tool still active)
   });
 }

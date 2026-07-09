@@ -238,6 +238,68 @@ describe('annotation-core', () => {
     });
   });
 
+  it('creates Replace Text as a Caret primary + grouped StrikeOut subordinate', () => {
+    let seeded = update(initialModel, {
+      t: 'setDefaults',
+      subtype: 'replace-text',
+      patch: { color: '#f97316', opacity: 0.8 },
+    })[0];
+    const rects = [
+      { x: 20, y: 40, width: 80, height: 20 },
+      { x: 20, y: 65, width: 50, height: 20 },
+    ];
+    const [m, fx] = update(seeded, {
+      t: 'createReplaceText',
+      pon: PON,
+      rects,
+      endRect: rects[1],
+      preset: 'replace-text',
+    });
+
+    expect(m.order).toHaveLength(2);
+    const caret = m.byId[m.order[0]];
+    const strikeout = m.byId[m.order[1]];
+    expect(caret).toMatchObject({
+      subtype: 'caret',
+      intent: 'replace',
+      geom: { t: 'caret' },
+      style: { color: '#f97316', opacity: 0.8 },
+    });
+    expect(strikeout).toMatchObject({
+      subtype: 'strikeout',
+      intent: 'strikeout-text-edit',
+      geom: { t: 'quads' },
+      irt: caret.id,
+      group: caret.id,
+      style: { color: '#f97316', opacity: 0.8 },
+    });
+    expect(m.selected).toEqual([caret.id, strikeout.id]);
+    expect(fx).toEqual([{ fx: 'createGroup', primary: caret.id, members: [strikeout.id] }]);
+  });
+
+  it('keeps Replace Text relationships coherent when the Caret temp id reconciles', () => {
+    const rect = { x: 20, y: 40, width: 80, height: 20 };
+    let m = update(initialModel, {
+      t: 'createReplaceText',
+      pon: PON,
+      rects: [rect],
+      endRect: rect,
+    })[0];
+    const [caretTemp, strikeoutTemp] = m.order;
+    const durableId = `obj:${PON}:42`;
+    m = update(m, {
+      t: 'created',
+      tempId: caretTemp,
+      id: durableId,
+      ref: { kind: 'objectNumber', pageObjectNumber: PON, annotObjectNumber: 42 },
+    })[0];
+    expect(m.byId[strikeoutTemp]).toMatchObject({
+      irt: durableId,
+      group: durableId,
+    });
+    expect(m.selected).toEqual([durableId, strikeoutTemp]);
+  });
+
   it('an UNFILLED rect is hit only on its stroke; a filled one anywhere inside', () => {
     const r: Geom = {
       t: 'rect',

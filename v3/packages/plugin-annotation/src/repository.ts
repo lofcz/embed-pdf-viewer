@@ -158,6 +158,9 @@ export function fromDTO(
     // unit). `/RT /R` (comment replies) keep `irt` but are NOT a visual group.
     ...(dto.inReplyTo ? { irt: refKey(dto.inReplyTo) } : {}),
     ...(dto.replyType === 'group' && dto.inReplyTo ? { group: refKey(dto.inReplyTo) } : {}),
+    ...((dto.subtype === 'caret' || dto.subtype === 'strikeout') && dto.intent
+      ? { intent: dto.intent }
+      : {}),
   };
   const geom = geomFromDTO(dto, crop);
   // Rotation-stripped appearances (mirrors the engine's EXACT condition — see
@@ -632,10 +635,23 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
     } as AnnotationDraft;
   }
   if (a.subtype === 'caret' && f && 'rect' in f)
-    return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
+    return {
+      subtype: 'caret',
+      rect: f.rect,
+      ...caretStyle(a.style),
+      ...(a.intent === 'replace' ? { intent: a.intent, flags: { print: true } } : {}),
+      ...(a.data?.contents != null ? { contents: a.data.contents } : {}),
+    };
   const quads = quadPointsFor(a, crop);
   if (TEXT_MARKUP.has(a.subtype) && quads)
-    return { subtype: a.subtype, quadPoints: quads, ...markupColor(a.style) } as AnnotationDraft;
+    return {
+      subtype: a.subtype,
+      quadPoints: quads,
+      ...markupColor(a.style),
+      ...(a.subtype === 'strikeout' && a.intent === 'strikeout-text-edit'
+        ? { intent: a.intent, flags: { print: true } }
+        : {}),
+    } as AnnotationDraft;
   return null;
 }
 
@@ -719,13 +735,24 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
     return { subtype: 'free-text', ...boxEmit(a, crop), ...freeTextStyle(a) } as AnnotationPatch;
   }
   if (a.subtype === 'caret' && f && 'rect' in f)
-    return { subtype: 'caret', rect: f.rect, ...caretStyle(a.style) };
+    return {
+      subtype: 'caret',
+      rect: f.rect,
+      ...caretStyle(a.style),
+      ...(a.intent === 'replace' ? { intent: a.intent } : {}),
+    };
   // stamp: geometry only — the visual is the engine-baked /AP, re-fit natively
   // when /Rect changes. Content replacement carries bytes and goes through
   // `capability.update` with an inline `source`, never through this path.
   if (a.subtype === 'stamp' && f && 'rect' in f) return { subtype: 'stamp', ...boxEmit(a, crop) };
   // markup: recolor / opacity only — /QuadPoints geometry isn't edited after create
   if (TEXT_MARKUP.has(a.subtype))
-    return { subtype: a.subtype, ...markupColor(a.style) } as AnnotationPatch;
+    return {
+      subtype: a.subtype,
+      ...markupColor(a.style),
+      ...(a.subtype === 'strikeout' && a.intent === 'strikeout-text-edit'
+        ? { intent: a.intent }
+        : {}),
+    } as AnnotationPatch;
   return null;
 }

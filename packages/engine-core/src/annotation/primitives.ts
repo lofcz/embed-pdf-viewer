@@ -107,6 +107,12 @@ export type TextAlignment = 'left' | 'center' | 'right';
  */
 export type FreeTextIntent = 'free-text' | 'free-text-callout';
 
+/** Caret `/IT` intent used by an Acrobat-compatible replace-text edit. */
+export type CaretIntent = 'replace';
+
+/** Strikeout `/IT` intent used by the subordinate part of a replace-text edit. */
+export type StrikeoutIntent = 'strikeout-text-edit';
+
 /**
  * Border/line style for shape annotations — the `/BS /S` (border style)
  * subset PDFium can author. Maps onto the ISO 32000 §8.4.3.3 border style

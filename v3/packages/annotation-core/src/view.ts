@@ -212,7 +212,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       subtype: m.preview.subtype,
       geom,
       box: geomVisualBounds(geom, 0),
-      style: styleFromProps(defaultsFor(m, m.preview.subtype)),
+      style: styleFromProps(defaultsFor(m, m.preview.preset)),
       source: 'ghost',
       selected: false,
     });

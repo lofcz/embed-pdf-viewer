@@ -124,6 +124,8 @@ export type {
   FreeTextFont,
   TextAlignment,
   FreeTextIntent,
+  CaretIntent,
+  StrikeoutIntent,
 } from './annotation/primitives';
 export { NO_ANNOTATION_FLAGS } from './annotation/primitives';
 

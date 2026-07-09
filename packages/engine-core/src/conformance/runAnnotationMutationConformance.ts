@@ -15,6 +15,7 @@ import type {
   PolygonDraft,
   PolylineDraft,
   SquareDraft,
+  StrikeoutDraft,
 } from '../annotation/kinds';
 import type { WeakAnnotationEditSession } from '../engine/DocumentAnnotationsService';
 import type { DocumentHandle } from '../engine/DocumentHandle';
@@ -549,6 +550,7 @@ export function runAnnotationMutationConformance(
 
         const caretDraft: CaretDraft = {
           subtype: 'caret',
+          intent: 'replace',
           contents: 'mutation conformance: caret',
           rect: shapeRect,
           color: { r: 0, g: 128, b: 255 },
@@ -561,6 +563,7 @@ export function runAnnotationMutationConformance(
         expect(caret.created.identityQuality).toBe('durable');
         expect(caret.created.ref.kind).toBe('objectNumber');
         if (caret.created.subtype === 'caret') {
+          expect(caret.created.intent).toBe('replace');
           expect(caret.created.color).toMatchObject({ r: 0, g: 128, b: 255 });
           expect(Math.round(caret.created.opacity * 100) / 100).toBe(0.7);
           // Caret carries no border or quads.
@@ -1398,6 +1401,62 @@ export function runAnnotationMutationConformance(
             a.ref.annotObjectNumber === caret.created.ref.annotObjectNumber,
         );
         expect(readCaret?.replyType).toBe('group');
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('replace-text round-trips /IT and groups StrikeOut under its Caret', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const caret = await page.annotations.create({
+          subtype: 'caret',
+          intent: 'replace',
+          contents: 'replacement text',
+          rect: shapeRect,
+          color: { r: 228, g: 66, b: 52 },
+          opacity: 1,
+          rectDifferences: { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 },
+        } satisfies CaretDraft);
+        const strikeout = await page.annotations.create({
+          subtype: 'strikeout',
+          intent: 'strikeout-text-edit',
+          quadPoints: quad,
+          color: { r: 228, g: 66, b: 52 },
+          opacity: 1,
+          inReplyTo: caret.created.ref,
+          replyType: 'group',
+        } satisfies StrikeoutDraft);
+
+        expect(caret.created.subtype).toBe('caret');
+        if (caret.created.subtype === 'caret') expect(caret.created.intent).toBe('replace');
+        expect(strikeout.created.subtype).toBe('strikeout');
+        if (strikeout.created.subtype === 'strikeout') {
+          expect(strikeout.created.intent).toBe('strikeout-text-edit');
+        }
+        expect(strikeout.created.replyType).toBe('group');
+        expect(strikeout.created.inReplyTo).toEqual(caret.created.ref);
+
+        const after = await page.annotations.list();
+        const readCaret = after.annotations.find(
+          (a) =>
+            a.ref.kind === 'objectNumber' &&
+            caret.created.ref.kind === 'objectNumber' &&
+            a.ref.annotObjectNumber === caret.created.ref.annotObjectNumber,
+        );
+        const readStrikeout = after.annotations.find(
+          (a) =>
+            a.ref.kind === 'objectNumber' &&
+            strikeout.created.ref.kind === 'objectNumber' &&
+            a.ref.annotObjectNumber === strikeout.created.ref.annotObjectNumber,
+        );
+        expect(readCaret?.subtype === 'caret' && readCaret.intent).toBe('replace');
+        expect(readStrikeout?.subtype === 'strikeout' && readStrikeout.intent).toBe(
+          'strikeout-text-edit',
+        );
+        expect(readStrikeout?.replyType).toBe('group');
+        expect(readStrikeout?.inReplyTo).toEqual(caret.created.ref);
       } finally {
         await doc.close();
       }

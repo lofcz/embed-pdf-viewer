@@ -458,12 +458,14 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   cancelCreationDraft(): void;
   /** Create one text-markup annotation on a page from the selected text's per-line
    *  rects (content space) — the `text-selection` create gesture. */
-  createMarkup(subtype: Subtype, pon: PageObjectNumber, rects: Rect[]): void;
+  createMarkup(subtype: Subtype, pon: PageObjectNumber, rects: Rect[], preset?: string): void;
   /** Create a caret annotation from the final line rect of a text selection. */
   createCaret(pon: PageObjectNumber, textEndRect: Rect): void;
+  /** Create one Adobe-compatible Caret + StrikeOut replace-text group. */
+  createReplaceText(pon: PageObjectNumber, rects: Rect[], textEndRect: Rect, preset?: string): void;
   /** Set the live markup preview from the selection's per-page rects (renders a
    *  ghost that looks like the markup it will become). */
-  previewMarkup(subtype: Subtype, rectsByPage: Record<number, Rect[]>): void;
+  previewMarkup(subtype: Subtype, rectsByPage: Record<number, Rect[]>, preset?: string): void;
   clearMarkupPreview(): void;
   // ── stamp placement (consumed by the interaction stamp handler) ──
   /** Place the armed stamp centred on a content point. Returns false (no
@@ -482,6 +484,8 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   // ── tool registry (consumed by the plugin init + interaction handlers) ──
   /** Every resolved tool (built-ins + config `tools`), for the registration loop. */
   tools(): ResolvedTool[];
+  /** One resolved tool by id, or null when it is not registered. */
+  tool(id: string): ResolvedTool | null;
   /** A tool's routing subtype (arrow → `line`) — how the draw handler picks the
    *  gesture and the created annotation's PDF kind. Falls back to the id. */
   toolSubtype(id: string): Subtype;

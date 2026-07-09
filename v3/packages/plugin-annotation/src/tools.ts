@@ -26,6 +26,11 @@ import type { BinarySource } from '@embedpdf/engine-core/runtime';
  */
 export type StampSourceSpec = { kind: 'bytes'; source: BinarySource } | { kind: 'prompt' };
 
+/** Declarative result of committing a text selection while a tool is active. */
+export type SelectionAuthoring =
+  | { kind: 'markup' }
+  | { kind: 'text-edit'; operation: 'insert' | 'replace' };
+
 /**
  * A tool definition — the public config vocabulary. Every field except `id` is
  * optional: the common cases are "configure a built-in" (`{ id, defaults }`) and
@@ -34,7 +39,8 @@ export type StampSourceSpec = { kind: 'bytes'; source: BinarySource } | { kind: 
 export interface AnnotationToolDef {
   /** Stable tool id — the value passed to `activateTool` and the `defaults` key. */
   id: string;
-  /** Inherit `subtype` / `propsKind` / `cursor` / `enables` / `source` / `meta`
+  /** Inherit `subtype` / `propsKind` / `cursor` / `enables` / `source` /
+   *  `selection` / `meta`
    *  from an existing tool id (a built-in or another entry). Own fields win. */
   extends?: string;
   /** The PDF subtype this tool authors (the geometry the core draws). Defaults to
@@ -56,6 +62,8 @@ export interface AnnotationToolDef {
   enables?: string[];
   /** Stamp-family only: how the click-to-place source resolves ({@link StampSourceSpec}). */
   source?: StampSourceSpec;
+  /** What a committed text selection authors. Omit for pointer/click tools. */
+  selection?: SelectionAuthoring;
   /**
    * Place annotations UPRIGHT: counter-rotate what this tool creates against the
    * page's TOTAL display rotation (document /Rotate + any stage view rotation),
@@ -86,6 +94,7 @@ export interface ResolvedTool {
   enables: ReadonlySet<string>;
   defaults?: AnnotationPropsPatch;
   source?: StampSourceSpec;
+  selection?: SelectionAuthoring;
   /** Counter-rotate creations against the page's display rotation (see
    *  {@link AnnotationToolDef.upright}). */
   upright: boolean;
@@ -143,6 +152,7 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     cursor: 'text',
     enables: MARKUP_TAGS,
     defaults: { color: '#ffe16a' },
+    selection: { kind: 'markup' },
   },
   {
     id: 'underline',
@@ -150,6 +160,7 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     cursor: 'text',
     enables: MARKUP_TAGS,
     defaults: { color: '#ef4444' },
+    selection: { kind: 'markup' },
   },
   {
     id: 'strikeout',
@@ -157,6 +168,7 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     cursor: 'text',
     enables: MARKUP_TAGS,
     defaults: { color: '#ef4444' },
+    selection: { kind: 'markup' },
   },
   {
     id: 'squiggly',
@@ -164,6 +176,7 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     cursor: 'text',
     enables: MARKUP_TAGS,
     defaults: { color: '#ef4444' },
+    selection: { kind: 'markup' },
   },
   {
     // The insert-caret tool authors a `caret` from a text selection. Its defaults
@@ -175,6 +188,16 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     cursor: 'text',
     enables: MARKUP_TAGS,
     defaults: { color: '#ef4444', strokeWidth: 1 },
+    selection: { kind: 'text-edit', operation: 'insert' },
+  },
+  {
+    id: 'replace-text',
+    subtype: 'strikeout',
+    propsKind: 'strikeout',
+    cursor: 'text',
+    enables: MARKUP_TAGS,
+    defaults: { color: '#ef4444' },
+    selection: { kind: 'text-edit', operation: 'replace' },
   },
   // stamp — click-to-place; 'prompt' asks the environment (the React adapter wires
   // a file dialog by default; an embedder can pass fixed bytes instead).
@@ -248,6 +271,7 @@ export function buildToolRegistry(overrides: AnnotationToolDef[] = []): Map<stri
       enables: new Set(def.enables ?? (base ? [...base.enables] : [])),
       defaults: mergeDefaults(base?.defaults, def.defaults),
       source: def.source ?? base?.source,
+      selection: def.selection ?? base?.selection,
       upright: def.upright ?? base?.upright ?? false,
       meta: base?.meta || def.meta ? { ...base?.meta, ...def.meta } : undefined,
     };

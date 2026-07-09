@@ -5,9 +5,11 @@ import {
   setAnnotColor,
   setAnnotOpacity,
   setAnnotRect,
+  setIntent,
   setRectangleDifferences,
 } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
+import { caretIntentToName } from '../textEditIntent';
 
 /** Default `/C` colour when a caret draft omits it (engine-wide default mark). */
 const DEFAULT_CARET_COLOR: Color = { r: 255, g: 0, b: 0 };
@@ -33,6 +35,7 @@ export function applyCaretDraft(
   setAnnotRect(fn, mem, annotPtr, draft.rect);
   setAnnotColor(fn, annotPtr, draft.color ?? DEFAULT_CARET_COLOR);
   setAnnotOpacity(fn, annotPtr, draft.opacity ?? DEFAULT_OPACITY);
+  if (draft.intent !== undefined) setIntent(fn, annotPtr, caretIntentToName(draft.intent));
   if (draft.rectDifferences !== undefined) {
     setRectangleDifferences(fn, annotPtr, draft.rectDifferences);
   }
@@ -57,6 +60,9 @@ export function applyCaretPatch(
   }
   if (patch.opacity !== undefined) {
     setAnnotOpacity(fn, annotPtr, patch.opacity);
+  }
+  if (patch.intent !== undefined) {
+    setIntent(fn, annotPtr, caretIntentToName(patch.intent));
   }
   if (patch.rectDifferences !== undefined) {
     setRectangleDifferences(fn, annotPtr, patch.rectDifferences);

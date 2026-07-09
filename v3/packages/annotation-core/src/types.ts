@@ -1,8 +1,10 @@
 import type {
   AnnotationDTO,
   AnnotationRef,
+  CaretIntent,
   LineEnding,
   LineEndings,
+  StrikeoutIntent,
 } from '@embedpdf/engine-core/runtime';
 import type { PageObjectNumber } from '@embedpdf-x/kernel';
 import type { PageRotation, Point, Rect as GeometryRect } from '@embedpdf-x/geometry';
@@ -190,6 +192,8 @@ export interface Annot {
    * draft that hasn't been committed to the engine yet (no DTO exists).
    */
   data?: AnnotationDTO;
+  /** Normalized PDF `/IT` for text-edit annotations authored before a DTO exists. */
+  intent?: CaretIntent | StrikeoutIntent;
   /**
    * Relationship to another annotation. `irt` ("in reply to") links a child to a
    * parent — a reply in a comment thread, or a caret bound to its strikeout in a
@@ -319,6 +323,8 @@ export type Draft =
  *  will become). Per page, since a selection can span pages. */
 export interface MarkupPreview {
   subtype: Subtype;
+  /** Defaults key, distinct from subtype for presets such as replace-text. */
+  preset: string;
   byPage: Record<number, Quad[]>;
 }
 
@@ -421,11 +427,29 @@ export type Msg =
     }
   | { t: 'finishCreationDraft' }
   | { t: 'createCaret'; pon: PageObjectNumber; rect: Rect }
+  | {
+      t: 'createReplaceText';
+      pon: PageObjectNumber;
+      rects: Rect[];
+      endRect: Rect;
+      preset?: string;
+    }
   // text markup: build one annotation from the selected text's per-line rects (the
   // `text-selection` create gesture). One message per page the selection covers.
-  | { t: 'createMarkup'; subtype: Subtype; pon: PageObjectNumber; rects: Rect[] }
+  | {
+      t: 'createMarkup';
+      subtype: Subtype;
+      pon: PageObjectNumber;
+      rects: Rect[];
+      preset?: string;
+    }
   // live markup preview (the selection rendered as the markup it will become)
-  | { t: 'setMarkupPreview'; subtype: Subtype; rectsByPage: Record<number, Rect[]> }
+  | {
+      t: 'setMarkupPreview';
+      subtype: Subtype;
+      rectsByPage: Record<number, Rect[]>;
+      preset?: string;
+    }
   | { t: 'clearMarkupPreview' }
   | { t: 'deselect' }
   // Apply a flat property patch to the current selection. Each member takes the
@@ -466,6 +490,7 @@ export type Msg =
 
 export type Effect =
   | { fx: 'create'; id: Id }
+  | { fx: 'createGroup'; primary: Id; members: Id[] }
   /** `apChanged` is set (to `true`) ONLY when this patch INVALIDATED a baked
    *  raster — the annotation stayed `baked` (an opaque-body kind) and the edit
    *  resized its `/AP` frame, so the engine's re-bake produces new content (in

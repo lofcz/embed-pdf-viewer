@@ -62,6 +62,7 @@ export const es: Locale = {
         ink: 'Dibujar',
         text: 'Texto',
         insertText: 'Insertar texto',
+        replaceText: 'Reemplazar texto',
         callout: 'Llamada',
         delete: 'Eliminar',
         group: 'Agrupar',

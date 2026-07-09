@@ -80,6 +80,7 @@ const annotateBar: BarSchema = {
       group('text', { importance: 2 }, [
         'annotation:add-text',
         'annotation:add-insert-text',
+        'annotation:add-replace-text',
         'annotation:add-callout',
       ]),
       style,

@@ -59,6 +59,7 @@ export const en: Locale = {
         ink: 'Draw',
         text: 'Text',
         insertText: 'Insert Text',
+        replaceText: 'Replace Text',
         callout: 'Callout',
         delete: 'Delete',
         group: 'Group',

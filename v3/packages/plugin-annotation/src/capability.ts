@@ -436,7 +436,72 @@ export function createAnnotationCapability(
   function perform(fx: Effect, m: Model): void {
     const doc = ctx.doc;
     if (!doc) return;
-    if (fx.fx === 'create') {
+    if (fx.fx === 'createGroup') {
+      const ids = [fx.primary, ...fx.members];
+      const annots = ids.map((id) => m.byId[id]);
+      const primary = annots[0];
+      if (!primary || annots.some((a) => !a || a.pon !== primary.pon)) {
+        apply({ t: 'remove', ids });
+        return;
+      }
+      const crop = cropOf(primary.pon);
+      const drafts = crop
+        ? annots.map((a) => (a ? toCreateDraft(a, crop) : null))
+        : annots.map(() => null);
+      if (drafts.some((d) => !d)) {
+        apply({ t: 'remove', ids });
+        return;
+      }
+
+      void (async () => {
+        const committed: Array<{ tempId: string; ref: AnnotationRef }> = [];
+        try {
+          const page = doc.page(primary.pon);
+          const primaryResult = await page.annotations.create(drafts[0]!);
+          committed.push({ tempId: fx.primary, ref: primaryResult.created.ref });
+          apply({
+            t: 'created',
+            tempId: fx.primary,
+            id: refKey(primaryResult.created.ref),
+            ref: primaryResult.created.ref,
+          });
+          syncDTO(primaryResult.created, 'vector');
+
+          for (let i = 0; i < fx.members.length; i++) {
+            const tempId = fx.members[i]!;
+            const draft = {
+              ...drafts[i + 1]!,
+              inReplyTo: primaryResult.created.ref,
+              replyType: 'group' as const,
+            } as AnnotationDraft;
+            const result = await page.annotations.create(draft);
+            committed.push({ tempId, ref: result.created.ref });
+            apply({
+              t: 'created',
+              tempId,
+              id: refKey(result.created.ref),
+              ref: result.created.ref,
+            });
+            syncDTO(result.created, 'vector');
+          }
+        } catch (error) {
+          // A PDF write cannot be transactional, so compensate in reverse: remove
+          // every committed part. Keep any part whose rollback itself fails in the
+          // model; the UI must reflect the authoritative PDF, never hide an orphan.
+          const removeIds = ids.filter((id) => !committed.some((c) => c.tempId === id));
+          for (const part of [...committed].reverse()) {
+            try {
+              await doc.page(primary.pon).annotations.delete(part.ref);
+              removeIds.push(refKey(part.ref));
+            } catch {
+              // `syncDTO` already made this committed annotation visible.
+            }
+          }
+          if (removeIds.length) apply({ t: 'remove', ids: removeIds });
+          console.error('[annotation] grouped annotation creation failed:', error);
+        }
+      })();
+    } else if (fx.fx === 'create') {
       const a = m.byId[fx.id];
       const crop = a && cropOf(a.pon);
       const draft = a && crop ? toCreateDraft(a, crop) : null;
@@ -509,6 +574,7 @@ export function createAnnotationCapability(
     },
     // ── tool registry ──
     tools: () => [...registry.values()],
+    tool: (id) => registry.get(id) ?? null,
     toolSubtype: (id) => registry.get(id)?.subtype ?? (id as Subtype),
     registerTool: (def: AnnotationToolDef) => {
       // Re-resolve against the same base pool so `extends` can reach built-ins /
@@ -654,9 +720,13 @@ export function createAnnotationCapability(
     },
     finishCreationDraft: () => apply({ t: 'finishCreationDraft' }),
     cancelCreationDraft: () => apply({ t: 'cancel' }),
-    createMarkup: (subtype, pon, rects) => apply({ t: 'createMarkup', subtype, pon, rects }),
+    createMarkup: (subtype, pon, rects, preset) =>
+      apply({ t: 'createMarkup', subtype, pon, rects, preset }),
     createCaret: (pon, textEndRect) => apply({ t: 'createCaret', pon, rect: textEndRect }),
-    previewMarkup: (subtype, rectsByPage) => apply({ t: 'setMarkupPreview', subtype, rectsByPage }),
+    createReplaceText: (pon, rects, textEndRect, preset) =>
+      apply({ t: 'createReplaceText', pon, rects, endRect: textEndRect, preset }),
+    previewMarkup: (subtype, rectsByPage, preset) =>
+      apply({ t: 'setMarkupPreview', subtype, rectsByPage, preset }),
     clearMarkupPreview: () => apply({ t: 'clearMarkupPreview' }),
     setDefaults: (subtype, patch) => apply({ t: 'setDefaults', subtype, patch }),
     // Resolve through the tool's `preset` key so arrow reads arrow's defaults, not

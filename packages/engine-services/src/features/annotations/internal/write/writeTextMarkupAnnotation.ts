@@ -14,8 +14,14 @@ import {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
-import { setAnnotColor, setAnnotOpacity, setAnnotRect } from './annotationWritePrimitives';
+import {
+  setAnnotColor,
+  setAnnotOpacity,
+  setAnnotRect,
+  setIntent,
+} from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
+import { strikeoutIntentToName } from '../textEditIntent';
 
 /**
  * Default opacity when a draft omits `opacity`. PDFium's /CA defaults to
@@ -67,6 +73,9 @@ export function applyTextMarkupDraft(
     draft.subtype === 'highlight' ? DEFAULT_HIGHLIGHT_COLOR : DEFAULT_TEXT_MARKUP_COLOR;
   setAnnotColor(fn, annotPtr, draft.color ?? fallback);
   setAnnotOpacity(fn, annotPtr, draft.opacity ?? DEFAULT_OPACITY);
+  if (draft.subtype === 'strikeout' && draft.intent !== undefined) {
+    setIntent(fn, annotPtr, strikeoutIntentToName(draft.intent));
+  }
 }
 
 /**
@@ -95,6 +104,9 @@ export function applyTextMarkupPatch(
   }
   if (patch.opacity !== undefined) {
     setAnnotOpacity(fn, annotPtr, patch.opacity);
+  }
+  if (patch.subtype === 'strikeout' && patch.intent !== undefined) {
+    setIntent(fn, annotPtr, strikeoutIntentToName(patch.intent));
   }
   if (patch.quadPoints !== undefined) {
     if (patch.quadPoints.length === 0) {

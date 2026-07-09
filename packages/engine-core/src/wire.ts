@@ -190,6 +190,8 @@ export {
   StandardFontSchema,
   TextAlignmentSchema,
   FreeTextIntentSchema,
+  CaretIntentSchema,
+  StrikeoutIntentSchema,
   AnnotationBaseShape,
   AnnotationDraftBaseShape,
   AnnotationPatchBaseShape,

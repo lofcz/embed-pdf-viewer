@@ -1,5 +1,5 @@
 import type { AnnotationBase } from '../../base';
-import type { PdfRectDifferences } from '../../primitives';
+import type { CaretIntent, PdfRectDifferences } from '../../primitives';
 import type { ColorStyleFields } from '../style.shared';
 
 /**
@@ -10,6 +10,8 @@ import type { ColorStyleFields } from '../style.shared';
 export type CaretAnnotationDTO = AnnotationBase &
   ColorStyleFields & {
     subtype: 'caret';
+    /** Normalized `/IT`; null for an ordinary caret without a text-edit intent. */
+    intent: CaretIntent | null;
     /** `/RD` inset of the drawn caret from `/Rect`. */
     rectDifferences?: PdfRectDifferences;
   };

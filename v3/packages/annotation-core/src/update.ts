@@ -240,10 +240,12 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return finishPolyCreate(m);
     case 'createCaret':
       return createCaret(m, msg.pon, msg.rect);
+    case 'createReplaceText':
+      return createReplaceText(m, msg.pon, msg.rects, msg.endRect, msg.preset);
     case 'createMarkup':
-      return createMarkup(m, msg.subtype, msg.pon, msg.rects);
+      return createMarkup(m, msg.subtype, msg.pon, msg.rects, msg.preset);
     case 'setMarkupPreview':
-      return setMarkupPreview(m, msg.subtype, msg.rectsByPage);
+      return setMarkupPreview(m, msg.subtype, msg.rectsByPage, msg.preset);
     case 'clearMarkupPreview':
       return m.preview ? [{ ...m, preview: null }, []] : [m, []];
     case 'deselect':
@@ -816,6 +818,7 @@ function createMarkup(
   subtype: Subtype,
   pon: Annot['pon'],
   rects: Rect[],
+  preset: string = subtype,
 ): [Model, Effect[]] {
   const quads = rectsToQuads(rects);
   if (!quads.length) return [m, []];
@@ -826,7 +829,7 @@ function createMarkup(
     pon,
     subtype,
     geom: { t: 'quads', quads },
-    style: styleFromProps(defaultsFor(m, subtype)),
+    style: styleFromProps(defaultsFor(m, preset)),
     locked: false,
     source: 'vector',
   };
@@ -841,6 +844,62 @@ function createMarkup(
       preview: null,
     },
     [{ fx: 'create', id }],
+  ];
+}
+
+/**
+ * Create Adobe-compatible Replace Text as one optimistic logical annotation:
+ * a top-level Caret (`/IT /Replace`) plus a StrikeOut subordinate
+ * (`/IT /StrikeOutTextEdit`, `/IRT` caret, `/RT /Group`). Persistence performs
+ * the two ordered writes and rolls the primary back if the subordinate fails.
+ */
+function createReplaceText(
+  m: Model,
+  pon: Annot['pon'],
+  rects: Rect[],
+  textEndRect: Rect,
+  preset = 'replace-text',
+): [Model, Effect[]] {
+  const quads = rectsToQuads(rects);
+  if (!quads.length || textEndRect.width <= 0 || textEndRect.height <= 0) return [m, []];
+  const primaryId = `tmp:${m.seq + 1}`;
+  const strikeoutId = `tmp:${m.seq + 2}`;
+  const style = styleFromProps(defaultsFor(m, preset));
+  const caret: Annot = {
+    id: primaryId,
+    ref: null,
+    pon,
+    subtype: 'caret',
+    intent: 'replace',
+    geom: { t: 'caret', rect: caretRectFromTextEnd(textEndRect) },
+    style,
+    locked: false,
+    source: 'vector',
+  };
+  const strikeout: Annot = {
+    id: strikeoutId,
+    ref: null,
+    pon,
+    subtype: 'strikeout',
+    intent: 'strikeout-text-edit',
+    geom: { t: 'quads', quads },
+    style,
+    locked: false,
+    source: 'vector',
+    irt: primaryId,
+    group: primaryId,
+  };
+  return [
+    {
+      ...m,
+      seq: m.seq + 2,
+      byId: { ...m.byId, [primaryId]: caret, [strikeoutId]: strikeout },
+      order: [...m.order, primaryId, strikeoutId],
+      selected: [primaryId, strikeoutId],
+      draft: null,
+      preview: null,
+    },
+    [{ fx: 'createGroup', primary: primaryId, members: [strikeoutId] }],
   ];
 }
 
@@ -877,13 +936,14 @@ function setMarkupPreview(
   m: Model,
   subtype: Subtype,
   rectsByPage: Record<number, Rect[]>,
+  preset: string = subtype,
 ): [Model, Effect[]] {
   const byPage: Record<number, Quad[]> = {};
   for (const k in rectsByPage) {
     const quads = rectsToQuads(rectsByPage[k]);
     if (quads.length) byPage[Number(k)] = quads;
   }
-  return [{ ...m, preview: { subtype, byPage } }, []];
+  return [{ ...m, preview: { subtype, preset, byPage } }, []];
 }
 
 /**
@@ -1055,9 +1115,22 @@ function reconcile(m: Model, tempId: Id, id: Id, ref: AnnotationRef): Model {
   const a = m.byId[tempId];
   if (!a) return m;
   const { [tempId]: _drop, ...rest } = m.byId;
+  const byId: Record<Id, Annot> = { ...rest, [id]: { ...a, id, ref } };
+  // Composite creations can relate another optimistic annotation to this temp
+  // id. Keep the relationship coherent across the temp→durable id swap.
+  for (const key of Object.keys(byId)) {
+    const other = byId[key]!;
+    if (other.irt === tempId || other.group === tempId) {
+      byId[key] = {
+        ...other,
+        ...(other.irt === tempId ? { irt: id } : {}),
+        ...(other.group === tempId ? { group: id } : {}),
+      };
+    }
+  }
   return {
     ...m,
-    byId: { ...rest, [id]: { ...a, id, ref } },
+    byId,
     order: m.order.map((x) => (x === tempId ? id : x)),
     selected: m.selected.map((x) => (x === tempId ? id : x)),
     // keep the just-drawn box in edit mode across the temp→durable id swap

@@ -9,7 +9,13 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
-import { readAnnotColor, readAnnotOpacity, readQuadPoints } from './annotationReadPrimitives';
+import {
+  readAnnotColor,
+  readAnnotOpacity,
+  readIntent,
+  readQuadPoints,
+} from './annotationReadPrimitives';
+import { strikeoutIntentFromName } from '../textEditIntent';
 
 const DEFAULT_HIGHLIGHT_COLOR: Color = { r: 255, g: 255, b: 0 };
 const DEFAULT_TEXT_MARKUP_COLOR: Color = { r: 0, g: 0, b: 0 };
@@ -73,5 +79,6 @@ export function readStrikeout(
   base: AnnotationBase,
 ): StrikeoutAnnotationDTO {
   const extras = readTextMarkupExtras(fn, mem, annotPtr);
-  return { ...base, subtype: 'strikeout', ...extras };
+  const intent = strikeoutIntentFromName(readIntent(fn, mem, annotPtr));
+  return { ...base, subtype: 'strikeout', intent, ...extras };
 }

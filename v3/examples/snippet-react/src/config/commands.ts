@@ -355,6 +355,13 @@ export const commands: CommandDef[] = [
   tool('annotation:add-insert-text', 'insert-text', 'commands.annotate.insertText', 'insertText', {
     primary: 'color',
   }),
+  tool(
+    'annotation:add-replace-text',
+    'replace-text',
+    'commands.annotate.replaceText',
+    'replaceText',
+    { primary: 'color' },
+  ),
   tool('annotation:add-callout', 'free-text-callout', 'commands.annotate.callout', 'callout', {
     primary: 'color',
     secondary: 'interiorColor',
