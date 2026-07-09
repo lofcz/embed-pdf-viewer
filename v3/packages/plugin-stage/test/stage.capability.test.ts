@@ -1458,3 +1458,72 @@ describe('viewpoint: per-page view memory (construction worksheets)', () => {
     expect(stage.camera().y).toBeCloseTo(cameraBefore.y, 2);
   });
 });
+
+describe('viewRotation: the NON-persistent view rotation (Adobe "Rotate View")', () => {
+  it('rotates every page footprint and never touches the document', () => {
+    const { stage, meta } = harness(PORTRAIT);
+    stage.setViewRotation(90);
+    const box = stage.pageRect(1)!;
+    // 600×800 portrait DISPLAYS landscape…
+    expect(box.rotation).toBe(90);
+    expect(box.width).toBeCloseTo(800, 0);
+    expect(box.height).toBeCloseTo(600, 0);
+    expect(box.transform.rotation).toBe(90);
+    // …while the document stays exactly as it was: no /Rotate write, no revision
+    // bump — this is a display setting of the lens, not an edit.
+    expect(meta.pages[0].rotation).toBe(0);
+    expect(meta.revision).toBe(0);
+    expect(stage.viewRotation()).toBe(90);
+    expect(stage.settings().viewRotation).toBe(90); // in the settings snapshot (presets/persist)
+  });
+
+  it("composes with a page's own /Rotate (the TOTAL display rotation, mod 360)", () => {
+    const { stage } = harness([
+      { width: 600, height: 800, rotation: 90 },
+      { width: 600, height: 800 },
+    ]);
+    stage.setViewRotation(90);
+    // page 1: 90 (/Rotate) + 90 (view) = 180 → footprint back to portrait
+    const first = stage.pageRect(1)!;
+    expect(first.rotation).toBe(180);
+    expect(first.width).toBeCloseTo(600, 0);
+    // page 2: 0 + 90 → landscape
+    const second = stage.pageRect(2)!;
+    expect(second.rotation).toBe(90);
+    expect(second.width).toBeCloseTo(800, 0);
+  });
+
+  it('rotateView steps a quarter-turn relative and wraps in both directions', () => {
+    const { stage } = harness(PORTRAIT);
+    stage.rotateView(90);
+    expect(stage.viewRotation()).toBe(90);
+    stage.rotateView(90);
+    stage.rotateView(90);
+    stage.rotateView(90);
+    expect(stage.viewRotation()).toBe(0); // full circle
+    stage.rotateView(-90);
+    expect(stage.viewRotation()).toBe(270); // wraps below zero
+  });
+
+  it('is an anchor-preserving reframe: the page you were on survives the turn', () => {
+    const { stage } = harness(PORTRAIT);
+    stage.goToPage(3, { behavior: 'instant' });
+    stage.rotateView(90);
+    expect(stage.currentPage()).toBe(3);
+    // and fit-width now resolves against the SWAPPED footprint (800, not 600)
+    stage.fitWidth();
+    expect(stage.zoomLevel()).toBeCloseTo((1000 - 2 * PAD) / 800, 3);
+  });
+
+  it('hit-testing round-trips under rotation, and pageAt reports the display rotation', () => {
+    const { stage } = harness(PORTRAIT);
+    stage.setViewRotation(90);
+    const content = { x: 150, y: 400 }; // a content point on page 1 (un-rotated frame)
+    const world = stage.pageToWorld(1, content)!;
+    const hit = stage.pageAt(stage.toScreen(world))!;
+    expect(hit.pon).toBe(1);
+    expect(hit.rotation).toBe(90); // the total display rotation rides the sample
+    expect(hit.point.x).toBeCloseTo(content.x, 1);
+    expect(hit.point.y).toBeCloseTo(content.y, 1);
+  });
+});

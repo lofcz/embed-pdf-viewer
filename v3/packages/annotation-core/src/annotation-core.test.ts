@@ -43,6 +43,9 @@ import {
   rotatedHandleCursor,
   selectionQuad,
   selectionCenter,
+  transposedAboutCenter,
+  uprightAnchoredRect,
+  uprightRotation,
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
@@ -2802,5 +2805,143 @@ describe('marquee vs rotated shapes', () => {
     })[0];
     expect(annotsInBox(flat, PON, { x: 90, y: 90 }, { x: 110, y: 110 })).toEqual(['R1']); // corner overlap
     expect(annotsInBox(flat, PON, { x: 90, y: 130 }, { x: 110, y: 150 })).toEqual([]); // below it
+  });
+});
+
+describe('upright creation (counter-rotating the display rotation)', () => {
+  // The draw handler's DOWN sample under a rotated display: the tool's
+  // `upright` policy + the page's total display rotation ride the input bag.
+  const uprightPtr = (
+    subtype: 'square' | 'circle' | 'free-text',
+    phase: 'down' | 'move' | 'up',
+    x: number,
+    y: number,
+    extra: { displayRotation?: 0 | 90 | 180 | 270; upright?: boolean } = {},
+  ): Msg => ({
+    t: 'createPointer',
+    phase,
+    subtype,
+    in: { pon: PON, point: { x, y }, shift: false, ...extra },
+  });
+  const textGeom = (g: Geom) => (g.t === 'text' ? g : null);
+  // rotatedAabb goes through sin/cos, so a quarter-turn carries ~1e-14 fuzz —
+  // compare the round-trip footprints field-wise, not with toEqual.
+  const expectRectClose = (
+    got: { x: number; y: number; width: number; height: number },
+    want: { x: number; y: number; width: number; height: number },
+  ) => {
+    expect(got.x).toBeCloseTo(want.x, 6);
+    expect(got.y).toBeCloseTo(want.y, 6);
+    expect(got.width).toBeCloseTo(want.width, 6);
+    expect(got.height).toBeCloseTo(want.height, 6);
+  };
+
+  it('helpers: a quarter-turn about the centre lands exactly back on the source box', () => {
+    const dragged = { x: 50, y: 60, width: 120, height: 40 };
+    const t = transposedAboutCenter(dragged);
+    // same centre, w↔h swapped…
+    expect(t).toEqual({ x: 90, y: 20, width: 40, height: 120 });
+    // …so its rotated AABB IS the dragged box again (what the author drew stays)
+    expectRectClose(rotatedAabb(t, 270), dragged);
+    expectRectClose(rotatedAabb(t, 90), dragged);
+  });
+
+  it('helpers: uprightAnchoredRect anchors the display-frame top-left at the click', () => {
+    const anchor = { x: 100, y: 200 };
+    for (const r of [90, 180, 270] as const) {
+      const rect = uprightAnchoredRect(anchor, 180, 40, r);
+      expect(rect.width).toBe(180);
+      expect(rect.height).toBe(40);
+      const aabb = rotatedAabb(rect, uprightRotation(r));
+      // the AABB corner that DISPLAYS as top-left under rotation r sits at the click
+      const corner =
+        r === 90
+          ? { x: aabb.x, y: aabb.y + aabb.height } // (min x, max y)
+          : r === 180
+            ? { x: aabb.x + aabb.width, y: aabb.y + aabb.height } // (max x, max y)
+            : { x: aabb.x + aabb.width, y: aabb.y }; // 270: (max x, min y)
+      expect(corner.x).toBeCloseTo(anchor.x);
+      expect(corner.y).toBeCloseTo(anchor.y);
+    }
+    // rotation 0 degenerates to the plain top-left box
+    expect(uprightAnchoredRect(anchor, 180, 40, 0)).toEqual({
+      x: 100,
+      y: 200,
+      width: 180,
+      height: 40,
+    });
+  });
+
+  it('click free-text at displayRotation 90 → default box counter-rotated + display-anchored', () => {
+    const m = run(initialModel, [
+      uprightPtr('free-text', 'down', 100, 200, { displayRotation: 90, upright: true }),
+      uprightPtr('free-text', 'up', 100, 200),
+    ]);
+    const g = textGeom(m.byId[m.order[0]].geom)!;
+    expect(g.rot).toBe(270); // -90 → reads horizontally on the 90°-rotated page
+    expect(g.rect).toEqual({ x: 30, y: 90, width: 180, height: 40 }); // display-frame anchor
+    // its rotated footprint hangs off the click exactly like the 0° box does on screen
+    expectRectClose(rotatedAabb(g.rect, g.rot!), { x: 100, y: 20, width: 40, height: 180 });
+  });
+
+  it('dragged free-text under upright keeps the dragged on-screen footprint (transposed box)', () => {
+    const m = run(initialModel, [
+      uprightPtr('free-text', 'down', 50, 60, { displayRotation: 90, upright: true }),
+      uprightPtr('free-text', 'move', 170, 100),
+      uprightPtr('free-text', 'up', 170, 100),
+    ]);
+    const g = textGeom(m.byId[m.order[0]].geom)!;
+    expect(g.rot).toBe(270);
+    expect(g.rect).toEqual({ x: 90, y: 20, width: 40, height: 120 }); // transposed about centre
+    expectRectClose(rotatedAabb(g.rect, g.rot!), { x: 50, y: 60, width: 120, height: 40 }); // = dragged
+  });
+
+  it('180° needs no transpose: the dragged box is kept, only rot applies', () => {
+    const m = run(initialModel, [
+      uprightPtr('free-text', 'down', 50, 60, { displayRotation: 180, upright: true }),
+      uprightPtr('free-text', 'move', 170, 100),
+      uprightPtr('free-text', 'up', 170, 100),
+    ]);
+    const g = textGeom(m.byId[m.order[0]].geom)!;
+    expect(g.rot).toBe(180);
+    expect(g.rect).toEqual({ x: 50, y: 60, width: 120, height: 40 });
+  });
+
+  it('a box SHAPE tool opting in gets the same treatment (square under 270)', () => {
+    const m = run(initialModel, [
+      uprightPtr('square', 'down', 10, 10, { displayRotation: 270, upright: true }),
+      uprightPtr('square', 'move', 110, 50),
+      uprightPtr('square', 'up', 110, 50),
+    ]);
+    const g = m.byId[m.order[0]].geom;
+    expect(g.t).toBe('rect');
+    expect(geomRotation(g)).toBe(90); // -270 ≡ 90
+    expectRectClose(rotatedAabb(rectGeom(g)!, 90), { x: 10, y: 10, width: 100, height: 40 });
+  });
+
+  it('inert without the policy, without the rotation, and when only later phases carry it', () => {
+    // displayRotation alone (no upright policy) → plain commit
+    const noPolicy = run(initialModel, [
+      uprightPtr('free-text', 'down', 100, 200, { displayRotation: 90 }),
+      uprightPtr('free-text', 'up', 100, 200),
+    ]);
+    expect(textGeom(noPolicy.byId[noPolicy.order[0]].geom)!.rot).toBeUndefined();
+    // upright at rotation 0 → plain commit (no stored draft noise)
+    const flat = run(initialModel, [
+      uprightPtr('free-text', 'down', 100, 200, { displayRotation: 0, upright: true }),
+      uprightPtr('free-text', 'up', 100, 200),
+    ]);
+    expect(textGeom(flat.byId[flat.order[0]].geom)!.rect).toEqual({
+      x: 100,
+      y: 200,
+      width: 180,
+      height: 40,
+    });
+    // captured at DOWN only: an up that suddenly claims rotation is ignored
+    const lateUp = run(initialModel, [
+      uprightPtr('free-text', 'down', 100, 200),
+      uprightPtr('free-text', 'up', 100, 200, { displayRotation: 90, upright: true }),
+    ]);
+    expect(textGeom(lateUp.byId[lateUp.order[0]].geom)!.rot).toBeUndefined();
   });
 });

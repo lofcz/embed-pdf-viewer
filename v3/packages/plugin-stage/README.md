@@ -93,6 +93,36 @@ stays where it was and the extra height reveals more page.
 Set `{ x: 'center', y: 'center' }` for canvas-style reframes: the middle is
 pinned and resizes balloon symmetrically (the Figma feel).
 
+## `viewRotation` — rotate the view, not the document
+
+Adobe's "Rotate View": a quarter-turn applied to how **every page displays in
+this lens**, on top of each page's own `/Rotate`.
+
+```ts
+stage.rotateView(90); // toolbar verb: one quarter-turn clockwise from here
+stage.setViewRotation(180); // absolute
+stage.viewRotation(); // 0 | 90 | 180 | 270
+stagePlugin({ viewRotation: 90 }); // or start rotated
+```
+
+Three properties define it:
+
+- **Non-persistent.** Nothing is written to the PDF — no engine call, no
+  registry revision. Saving the document saves what was loaded. The permanent
+  per-page rotation is `plugin-page-edit`'s `rotateBy`/`setRotation`; keep the
+  two on different buttons.
+- **Per lens.** It is a `StageSettings` field like `zoom` or `layout`, so the
+  main viewer rotates while a thumbnail lens stays upright — or share one
+  setting across lenses if your product wants them to agree.
+- **A reframe.** Changing it holds the `anchorAlign` point like any other
+  scene change (the "rotate a page" row in the table above), and fit-modes
+  re-resolve against the swapped footprint.
+
+Annotation tools that place content with a reading orientation (stamp,
+free-text) counter-rotate against the **total** display rotation — `/Rotate` +
+`viewRotation` — via their `upright` option, so what the author places reads
+horizontally exactly as they see it.
+
 ## Recipes
 
 **Document reading** — the defaults. Configure nothing.
