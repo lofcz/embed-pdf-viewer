@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { annotsInBox, initialModel, rotateDraftDelta, update } from './update';
+import { annotsInBox, initialModel, initialStyle, rotateDraftDelta, update } from './update';
 import { computeMoveSnap } from './snap';
 import {
   chrome,

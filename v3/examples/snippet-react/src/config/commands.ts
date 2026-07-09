@@ -20,7 +20,6 @@ import type { SpreadMode } from '@embedpdf-x/react/stage';
 import { InteractionToken } from '@embedpdf-x/react/interaction';
 import { ShellToken } from '@embedpdf-x/react/shell';
 import { AnnotationToken } from '@embedpdf-x/react/annotation';
-import type { PropSpec } from '@embedpdf-x/react/annotation';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 type Ctx = Parameters<NonNullable<CommandDef['run']>>[0];
@@ -36,32 +35,40 @@ const hasAnnotationSelection = (c: Ctx) => (anno(c)?.selection().length ?? 0) > 
 const selectionSubtypes = (c: Ctx) => new Set((anno(c)?.getSelected() ?? []).map((a) => a.subtype));
 
 // ── tool icon accents: THIS viewer's design decision ─────────────────────────
-// A tool icon previews its drawing defaults: primary = the kind's FIRST color
-// prop, secondary = its SECOND — the same order the style panel renders them
-// (shapes: stroke + fill; markup: the mark; free text: the font color). The
-// plugins only state facts (propsForTool = schema, currentDefaults = values);
-// which colors tint a glyph is decided here, and another viewer may decide
-// differently.
-const COLOR_KEYS = ['color', 'interiorColor', 'fontColor'] as const;
-type ColorKey = (typeof COLOR_KEYS)[number];
-const isColorSpec = (s: PropSpec): s is PropSpec & { key: ColorKey } =>
-  (COLOR_KEYS as readonly string[]).includes(s.key);
+// A tool declares which drawing default each colored part of its glyph previews.
+// This is intentionally explicit at the command definition: property-panel order
+// does not determine icon meaning, and another viewer may make a different choice.
+type ColorKey = 'color' | 'interiorColor' | 'fontColor';
+interface ToolAccentDefinition {
+  primary: ColorKey;
+  secondary?: ColorKey;
+}
 
-const toolAccent = (c: Ctx, toolId: string): IconAccent | null => {
+const toolAccent = (
+  c: Ctx,
+  toolId: string,
+  accent: ToolAccentDefinition | undefined,
+): IconAccent | null => {
+  if (!accent) return null;
   const anno = c.tryGet(AnnotationToken);
   if (!anno) return null;
-  const colors = anno.propsForTool(toolId).filter(isColorSpec);
   const d = anno.currentDefaults(toolId);
   return {
-    primary: colors[0] ? (d[colors[0].key] ?? undefined) : undefined,
-    secondary: colors[1] ? (d[colors[1].key] ?? undefined) : undefined,
+    primary: d[accent.primary] ?? undefined,
+    secondary: accent.secondary ? (d[accent.secondary] ?? undefined) : undefined,
   };
 };
 
 /** A tool command: activates a real interaction tool; active = it's the tool.
  *  The icon previews the tool's current defaults — keyed by the SAME toolId
  *  as run/active, so the accent can't drift to another tool's colors. */
-const tool = (id: string, toolId: string, labelKey: string, icon: string): CommandDef => ({
+const tool = (
+  id: string,
+  toolId: string,
+  labelKey: string,
+  icon: string,
+  accent?: ToolAccentDefinition,
+): CommandDef => ({
   id,
   labelKey,
   icon,
@@ -69,7 +76,7 @@ const tool = (id: string, toolId: string, labelKey: string, icon: string): Comma
   run: (c) => interaction(c)?.activateTool(toolId),
   active: (c) => interaction(c)?.activeToolId() === toolId,
   enabled: (c) => interaction(c) != null,
-  iconAccent: (c) => toolAccent(c, toolId),
+  iconAccent: (c) => toolAccent(c, toolId, accent),
 });
 
 /** A fixed zoom level (fraction), e.g. 1 = 100%. */
@@ -327,24 +334,54 @@ export const commands: CommandDef[] = [
   modeCommand('mode:redact', 'commands.mode.redact'),
 
   // ── annotate tools (real interaction tools) ─────────────────────────────
-  tool('annotation:add-highlight', 'highlight', 'commands.annotate.highlight', 'highlight'),
-  tool('annotation:add-strikeout', 'strikeout', 'commands.annotate.strikeout', 'strikethrough'),
-  tool('annotation:add-underline', 'underline', 'commands.annotate.underline', 'underline'),
-  tool('annotation:add-squiggly', 'squiggly', 'commands.annotate.squiggly', 'squiggly'),
-  tool('annotation:add-ink', 'ink', 'commands.annotate.ink', 'pencilMarker'),
-  tool('annotation:add-text', 'free-text', 'commands.annotate.text', 'freeText'),
-  tool('annotation:add-insert-text', 'insert-text', 'commands.annotate.insertText', 'insertText'),
-  tool('annotation:add-callout', 'free-text-callout', 'commands.annotate.callout', 'callout'),
+  tool('annotation:add-highlight', 'highlight', 'commands.annotate.highlight', 'highlight', {
+    primary: 'color',
+  }),
+  tool('annotation:add-strikeout', 'strikeout', 'commands.annotate.strikeout', 'strikethrough', {
+    primary: 'color',
+  }),
+  tool('annotation:add-underline', 'underline', 'commands.annotate.underline', 'underline', {
+    primary: 'color',
+  }),
+  tool('annotation:add-squiggly', 'squiggly', 'commands.annotate.squiggly', 'squiggly', {
+    primary: 'color',
+  }),
+  tool('annotation:add-ink', 'ink', 'commands.annotate.ink', 'pencilMarker', {
+    primary: 'color',
+  }),
+  tool('annotation:add-text', 'free-text', 'commands.annotate.text', 'freeText', {
+    primary: 'fontColor',
+  }),
+  tool('annotation:add-insert-text', 'insert-text', 'commands.annotate.insertText', 'insertText', {
+    primary: 'color',
+  }),
+  tool('annotation:add-callout', 'free-text-callout', 'commands.annotate.callout', 'callout', {
+    primary: 'color',
+    secondary: 'interiorColor',
+  }),
 
   // ── shape tools (real interaction tools) ────────────────────────────────
-  tool('annotation:add-rectangle', 'square', 'commands.shapes.rectangle', 'square'),
-  tool('annotation:add-circle', 'circle', 'commands.shapes.circle', 'circle'),
-  tool('annotation:add-line', 'line', 'commands.shapes.line', 'line'),
+  tool('annotation:add-rectangle', 'square', 'commands.shapes.rectangle', 'square', {
+    primary: 'color',
+    secondary: 'interiorColor',
+  }),
+  tool('annotation:add-circle', 'circle', 'commands.shapes.circle', 'circle', {
+    primary: 'color',
+    secondary: 'interiorColor',
+  }),
+  tool('annotation:add-line', 'line', 'commands.shapes.line', 'line', { primary: 'color' }),
   // The arrow tool is a `line` preset (a line with an arrowhead) — registered by
   // the annotationPlugin `tools` config in App.tsx, activated like any other tool.
-  tool('annotation:add-arrow', 'arrow', 'commands.shapes.arrow', 'lineArrow'),
-  tool('annotation:add-polygon', 'polygon', 'commands.shapes.polygon', 'polygon'),
-  tool('annotation:add-polyline', 'polyline', 'commands.shapes.polyline', 'zigzag'),
+  tool('annotation:add-arrow', 'arrow', 'commands.shapes.arrow', 'lineArrow', {
+    primary: 'color',
+  }),
+  tool('annotation:add-polygon', 'polygon', 'commands.shapes.polygon', 'polygon', {
+    primary: 'color',
+    secondary: 'interiorColor',
+  }),
+  tool('annotation:add-polyline', 'polyline', 'commands.shapes.polyline', 'zigzag', {
+    primary: 'color',
+  }),
 
   // ── insert tools (stamp real; signature/image inert) ────────────────────
   tool('insert:add-stamp', 'stamp', 'commands.insert.stamp', 'rubberStamp'),
