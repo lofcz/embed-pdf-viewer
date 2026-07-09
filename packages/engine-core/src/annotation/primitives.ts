@@ -113,6 +113,32 @@ export type CaretIntent = 'replace';
 /** Strikeout `/IT` intent used by the subordinate part of a replace-text edit. */
 export type StrikeoutIntent = 'strikeout-text-edit';
 
+/** Ink `/IT` intent used by an Acrobat-compatible freehand highlighter. */
+export type InkIntent = 'ink-highlight';
+
+/**
+ * Effective blend mode of an annotation's normal appearance stream (`/AP /N`).
+ * Values use CSS-compatible kebab-case so the wire vocabulary is portable; the
+ * engine maps them onto PDFium's `FPDF_BLENDMODE` integer codes.
+ */
+export type BlendMode =
+  | 'normal'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'darken'
+  | 'lighten'
+  | 'color-dodge'
+  | 'color-burn'
+  | 'hard-light'
+  | 'soft-light'
+  | 'difference'
+  | 'exclusion'
+  | 'hue'
+  | 'saturation'
+  | 'color'
+  | 'luminosity';
+
 /**
  * Border/line style for shape annotations — the `/BS /S` (border style)
  * subset PDFium can author. Maps onto the ISO 32000 §8.4.3.3 border style

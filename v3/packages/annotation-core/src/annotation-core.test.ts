@@ -346,6 +346,7 @@ describe('annotation-core', () => {
         interiorColor: null,
         strokeWidth: 6,
         opacity: 1,
+        blendMode: 'normal',
         border: { kind: 'solid' },
       },
       locked: false,
@@ -495,6 +496,7 @@ describe('annotation-core', () => {
         interiorColor: '#ff0000',
         strokeWidth: 3,
         opacity: 1,
+        blendMode: 'normal',
         border: { kind: 'solid' },
       },
       locked: false,
@@ -528,6 +530,7 @@ describe('annotation-core', () => {
         interiorColor: null,
         strokeWidth: 8,
         opacity: 1,
+        blendMode: 'normal',
         border: { kind: 'solid' },
       },
       locked: false,
@@ -645,6 +648,7 @@ describe('annotation-core', () => {
       interiorColor: null,
       strokeWidth: 2,
       opacity: 1,
+      blendMode: 'normal',
       border: { kind: 'solid' },
     };
     expect(shapeRectFor(dragged, false, solid)).toEqual(dragged);
@@ -726,6 +730,7 @@ describe('annotation-core', () => {
         interiorColor: '#ffd400',
         strokeWidth: 0,
         opacity: 1,
+        blendMode: subtype === 'highlight' ? 'multiply' : 'normal',
         border: { kind: 'solid' },
       },
       source: 'vector',
@@ -737,6 +742,11 @@ describe('annotation-core', () => {
     expect(sq[0].kind).toBe('path');
     expect(sq[0].paint.stroke).toBe('#ffd400');
     expect(sq[0].paint.fill).toBeUndefined(); // stroke-only, no fill
+    const screened = scene({
+      ...mk('squiggly'),
+      style: { ...mk('squiggly').style, blendMode: 'screen' },
+    });
+    expect(screened[0].paint.blend).toBe('screen');
   });
 
   it('scene() paints a shape uniformly: a closed node carries fill + stroke + width', () => {
@@ -751,6 +761,7 @@ describe('annotation-core', () => {
         interiorColor: '#eeeeee',
         strokeWidth: 3,
         opacity: 1,
+        blendMode: 'normal',
         border: { kind: 'solid' },
       },
       source: 'vector',
@@ -772,6 +783,7 @@ describe('annotation-core', () => {
       interiorColor: null,
       strokeWidth: 4,
       opacity: 1,
+      blendMode: 'normal' as const,
       border: { kind: 'cloudy' as const, intensity: 2 },
     };
     const polygon: RenderItem = {
@@ -840,6 +852,49 @@ describe('annotation-core', () => {
     expect(node.paint.cap).toBe('round');
   });
 
+  it('groups deferred ink strokes, straightens each stroke, and commits one intent-bearing annotation', () => {
+    const options = { deviationThreshold: 0.15, axisSnapDegrees: 15 };
+    let m = update(initialModel, {
+      t: 'setDefaults',
+      subtype: 'ink-highlight',
+      patch: { color: '#ffcd45', strokeWidth: 14, blendMode: 'multiply' },
+    })[0];
+    const ink = (phase: 'down' | 'move' | 'up', x: number, y: number): Msg => ({
+      t: 'createPointer',
+      phase,
+      subtype: 'ink',
+      preset: 'ink-highlight',
+      intent: 'ink-highlight',
+      deferInkCommit: true,
+      straightenInk: options,
+      in: { pon: PON, point: { x, y }, shift: false },
+    });
+    m = run(m, [
+      ink('down', 10, 10),
+      ink('move', 30, 11),
+      ink('move', 50, 10),
+      ink('up', 50, 10),
+      ink('down', 10, 30),
+      ink('move', 30, 31),
+      ink('move', 50, 30),
+      ink('up', 50, 30),
+    ]);
+    expect(m.order).toHaveLength(0);
+    expect(m.draft?.g === 'create-ink' && m.draft.strokes).toHaveLength(2);
+
+    m = update(m, { t: 'finishInkDraft' })[0];
+    expect(m.order).toHaveLength(1);
+    const annotation = m.byId[m.order[0]];
+    expect(annotation.intent).toBe('ink-highlight');
+    expect(annotation.style.blendMode).toBe('multiply');
+    expect(annotation.geom.t).toBe('ink');
+    if (annotation.geom.t === 'ink') {
+      expect(annotation.geom.strokes).toHaveLength(2);
+      expect(annotation.geom.strokes[0]).toHaveLength(2);
+      expect(annotation.geom.strokes[0][0].y).toBeCloseTo(annotation.geom.strokes[0][1].y);
+    }
+  });
+
   it('a selected ink wraps its stroke: the outline expands by the stroke, not tight to the centerline', () => {
     const ink: Annot = {
       id: 'I1',
@@ -860,6 +915,7 @@ describe('annotation-core', () => {
         interiorColor: null,
         strokeWidth: 10,
         opacity: 1,
+        blendMode: 'normal',
         border: { kind: 'solid' },
       },
       locked: false,
@@ -982,6 +1038,7 @@ describe('annotation-core', () => {
         interiorColor: '#ffcc00',
         strokeWidth: 0,
         opacity: 1,
+        blendMode: 'multiply',
         border: { kind: 'solid' },
       },
       locked: false,
@@ -1014,6 +1071,7 @@ describe('annotation-core', () => {
       interiorColor: '#eeeeee', // filled → hittable anywhere inside
       strokeWidth: 2,
       opacity: 1,
+      blendMode: 'normal',
       border: { kind: 'solid' },
     },
     locked: false,
@@ -1136,6 +1194,7 @@ describe('annotation-core', () => {
         interiorColor: '#eeeeee', // filled → hittable anywhere inside
         strokeWidth: 2,
         opacity: 1,
+        blendMode: 'normal',
         border: { kind: 'solid' },
       },
       locked: false,
@@ -1162,6 +1221,7 @@ describe('annotation-core', () => {
         interiorColor: '#ffcc00',
         strokeWidth: 0,
         opacity: 1,
+        blendMode: 'multiply',
         border: { kind: 'solid' },
       },
       locked: false,
@@ -1887,6 +1947,7 @@ describe('annotation-core — join-aware stroke bounds', () => {
         interiorColor: null,
         strokeWidth: 4,
         opacity: 1,
+        blendMode: 'normal',
         border: { kind: 'solid' },
       },
       source: 'vector',
@@ -1950,6 +2011,7 @@ describe('annotation-core opaqueBody (stamp) gestures', () => {
       interiorColor: null,
       strokeWidth: 1,
       opacity: 1,
+      blendMode: 'normal',
       border: { kind: 'solid' },
     },
     locked: false,
@@ -2412,6 +2474,7 @@ describe('page-bound rotate knob', () => {
       interiorColor: null,
       strokeWidth: 1,
       opacity: 1,
+      blendMode: 'normal',
       border: { kind: 'solid' },
     },
     locked: false,
@@ -2594,6 +2657,7 @@ describe('rotate guides (live rotate chrome mode)', () => {
       interiorColor: null,
       strokeWidth: 1,
       opacity: 1,
+      blendMode: 'normal',
       border: { kind: 'solid' },
     },
     locked: false,
@@ -2702,6 +2766,7 @@ describe('group chrome rides live gestures', () => {
       interiorColor: null,
       strokeWidth: 1,
       opacity: 1,
+      blendMode: 'normal',
       border: { kind: 'solid' },
     },
     locked: false,
@@ -2810,6 +2875,7 @@ describe('marquee vs rotated shapes', () => {
       interiorColor: null,
       strokeWidth: 2,
       opacity: 1,
+      blendMode: 'normal',
       border: { kind: 'solid' },
     },
     locked: false,

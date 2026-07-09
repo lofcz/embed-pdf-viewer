@@ -4,9 +4,11 @@ import type { AnnotationBase } from './base';
 import type {
   AnnotationBorderStyle,
   AnnotationFlags,
+  BlendMode,
   CaretIntent,
   Color,
   FreeTextIntent,
+  InkIntent,
   LineEnding,
   LineEndings,
   PdfRectDifferences,
@@ -89,6 +91,27 @@ export const FreeTextIntentSchema: z.ZodType<FreeTextIntent> = z.enum([
 export const CaretIntentSchema: z.ZodType<CaretIntent> = z.literal('replace');
 
 export const StrikeoutIntentSchema: z.ZodType<StrikeoutIntent> = z.literal('strikeout-text-edit');
+
+export const InkIntentSchema: z.ZodType<InkIntent> = z.literal('ink-highlight');
+
+export const BlendModeSchema: z.ZodType<BlendMode> = z.enum([
+  'normal',
+  'multiply',
+  'screen',
+  'overlay',
+  'darken',
+  'lighten',
+  'color-dodge',
+  'color-burn',
+  'hard-light',
+  'soft-light',
+  'difference',
+  'exclusion',
+  'hue',
+  'saturation',
+  'color',
+  'luminosity',
+]);
 
 export const AnnotationFlagsSchema: z.ZodType<AnnotationFlags> = z.object({
   invisible: z.boolean(),
@@ -175,6 +198,7 @@ export const AnnotationBaseShape = {
   author: z.string().nullable(),
   created: z.string().datetime().nullable(),
   modified: z.string().datetime().nullable(),
+  blendMode: BlendModeSchema,
   // /IRT resolved to the parent's ref + /RT. null exactly when top-level.
   inReplyTo: AnnotationRefSchema.nullable(),
   replyType: z.enum(['reply', 'group']).nullable(),
@@ -197,6 +221,7 @@ export const AnnotationBaseShape = {
  */
 export const AnnotationDraftBaseShape = {
   contents: z.string().nullable().optional(),
+  blendMode: BlendModeSchema.optional(),
   nm: z.string().optional(),
   flags: AnnotationFlagsPartialSchema.optional(),
   inReplyTo: AnnotationRefSchema.optional(),
@@ -215,6 +240,7 @@ export const AnnotationDraftBaseShape = {
  */
 export const AnnotationPatchBaseShape = {
   contents: z.string().nullable().optional(),
+  blendMode: BlendModeSchema.optional(),
   groupId: z.string().min(1).optional(),
   flags: AnnotationFlagsPartialSchema.optional(),
   // Three-state: undefined=leave, null=clear /IRT (+/RT), ref=set/relink.

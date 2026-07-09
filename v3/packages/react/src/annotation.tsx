@@ -190,7 +190,7 @@ function BakedImage({
   box: Rect;
   url: string;
   page: PageContextValue;
-  blend?: 'multiply';
+  blend?: Paint['blend'];
   /** The rotation (deg, CW) the engine STRIPPED from this raster
    *  (`RenderItem.apRot`) — re-applied here as a view transform, so a live
    *  rotate gesture spins the bitmap with zero engine re-renders. Unset for
@@ -217,7 +217,7 @@ function BakedImage({
         maxWidth: 'none',
         maxHeight: 'none',
         pointerEvents: 'none',
-        mixBlendMode: blend, // highlights multiply with the page beneath
+        mixBlendMode: blend,
         // Same CW convention as the free-text element: rotate about the centre.
         ...(rot ? { transform: `rotate(${rot}deg)`, transformOrigin: 'center' } : {}),
       }}

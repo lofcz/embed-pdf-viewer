@@ -349,6 +349,13 @@ export const commands: CommandDef[] = [
   tool('annotation:add-ink', 'ink', 'commands.annotate.ink', 'pencilMarker', {
     primary: 'color',
   }),
+  tool(
+    'annotation:add-ink-highlight',
+    'ink-highlight',
+    'commands.annotate.inkHighlight',
+    'inkHighlighter',
+    { primary: 'color' },
+  ),
   tool('annotation:add-text', 'free-text', 'commands.annotate.text', 'freeText', {
     primary: 'fontColor',
   }),

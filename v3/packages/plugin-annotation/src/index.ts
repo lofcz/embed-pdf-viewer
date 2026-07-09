@@ -13,7 +13,15 @@ export { annotationPlugin } from './annotation.plugin';
 export { fromDTO, toCreateDraft, toPatch, refKey, styleFromDTO } from './repository';
 export { DEFAULT_CHROME } from './reducer';
 export { DEFAULT_TOOLS } from './tools';
-export type { AnnotationToolDef, SelectionAuthoring, StampSourceSpec } from './tools';
+export type {
+  AnnotationToolDef,
+  AnnotationToolInput,
+  InkAuthoringOptions,
+  SelectionAuthoring,
+  StampSourceSpec,
+  ToolAuthoringKind,
+  ToolDefaultsFor,
+} from './tools';
 export type {
   AnnotationCapability,
   AnnotationConfig,
@@ -34,6 +42,7 @@ export { propsFor } from '@embedpdf-x/annotation-core';
 export type {
   AnnotationProps,
   AnnotationPropsPatch,
+  BlendMode,
   Border,
   LineEnding,
   LineEndings,

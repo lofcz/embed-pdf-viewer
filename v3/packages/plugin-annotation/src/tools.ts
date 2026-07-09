@@ -11,8 +11,13 @@
  * over the built-in (configure it); a new id ADDS a tool; `extends` inherits an
  * existing tool's subtype/cursor/tags so a preset is one line.
  */
-import type { AnnotationPropsPatch, Subtype } from '@embedpdf-x/annotation-core';
-import type { BinarySource } from '@embedpdf/engine-core/runtime';
+import type {
+  AnnotationPropsPatch,
+  InkStraightenOptions,
+  PropKey,
+  Subtype,
+} from '@embedpdf-x/annotation-core';
+import type { BinarySource, InkIntent } from '@embedpdf/engine-core/runtime';
 
 /**
  * How a stamp-family tool resolves the image bytes it places — pure DATA, so a
@@ -31,16 +36,74 @@ export type SelectionAuthoring =
   | { kind: 'markup' }
   | { kind: 'text-edit'; operation: 'insert' | 'replace' };
 
+/** Time/geometry policy for freehand ink authoring. */
+export interface InkAuthoringOptions {
+  /** Group strokes made within this interval into one `/InkList`; 0 commits immediately. */
+  groupStrokesMs?: number;
+  /** Optional pure straight-line recognition applied to each completed stroke. */
+  straighten?: InkStraightenOptions;
+}
+
+/**
+ * The creation properties each known authoring kind actually consumes. This is
+ * deliberately separate from the flat internal patch vocabulary: it gives tool
+ * configuration precise compile-time and runtime validation while mixed-selection
+ * edits can keep using `AnnotationPropsPatch`.
+ */
+export const TOOL_DEFAULT_KEYS = {
+  square: ['color', 'interiorColor', 'opacity', 'strokeWidth', 'border'],
+  circle: ['color', 'interiorColor', 'opacity', 'strokeWidth', 'border'],
+  line: ['color', 'interiorColor', 'opacity', 'strokeWidth', 'border', 'lineEndings'],
+  polygon: ['color', 'interiorColor', 'opacity', 'strokeWidth', 'border'],
+  polyline: ['color', 'interiorColor', 'opacity', 'strokeWidth', 'border', 'lineEndings'],
+  ink: ['color', 'opacity', 'strokeWidth', 'blendMode'],
+  'free-text': [
+    'fontFamily',
+    'fontSize',
+    'fontColor',
+    'textAlign',
+    'opacity',
+    'interiorColor',
+    'color',
+    'strokeWidth',
+    'border',
+  ],
+  'free-text-callout': [
+    'fontFamily',
+    'fontSize',
+    'fontColor',
+    'textAlign',
+    'opacity',
+    'interiorColor',
+    'color',
+    'strokeWidth',
+    'border',
+    'lineEndings',
+  ],
+  highlight: ['color', 'opacity', 'blendMode'],
+  underline: ['color', 'opacity', 'blendMode'],
+  strikeout: ['color', 'opacity', 'blendMode'],
+  squiggly: ['color', 'opacity', 'blendMode'],
+  caret: ['color', 'opacity'],
+  stamp: [],
+} as const satisfies Record<string, readonly PropKey[]>;
+
+export type ToolAuthoringKind = keyof typeof TOOL_DEFAULT_KEYS;
+type ToolDefaultKey<K extends ToolAuthoringKind> = (typeof TOOL_DEFAULT_KEYS)[K][number];
+export type ToolDefaultsFor<K extends ToolAuthoringKind> = [ToolDefaultKey<K>] extends [never]
+  ? never
+  : Pick<AnnotationPropsPatch, ToolDefaultKey<K>>;
+
 /**
  * A tool definition — the public config vocabulary. Every field except `id` is
  * optional: the common cases are "configure a built-in" (`{ id, defaults }`) and
  * "add a preset" (`{ id, extends, defaults }`).
  */
-export interface AnnotationToolDef {
+export interface AnnotationToolDef<K extends ToolAuthoringKind = ToolAuthoringKind> {
   /** Stable tool id — the value passed to `activateTool` and the `defaults` key. */
   id: string;
   /** Inherit `subtype` / `propsKind` / `cursor` / `enables` / `source` /
-   *  `selection` / `meta`
+   *  `selection` / `intent` / `ink` / `meta`
    *  from an existing tool id (a built-in or another entry). Own fields win. */
   extends?: string;
   /** The PDF subtype this tool authors (the geometry the core draws). Defaults to
@@ -55,7 +118,7 @@ export interface AnnotationToolDef {
   preset?: string;
   /** Seed defaults for newly drawn annotations — the flat AnnotationProps patch,
    *  merged over any inherited defaults (line endings merge per side). */
-  defaults?: AnnotationPropsPatch;
+  defaults?: ToolDefaultsFor<K>;
   /** The pointer cursor while this tool is active. Defaults inherited / `crosshair`. */
   cursor?: string;
   /** Interaction capability tags this tool enables (which handlers wake up). */
@@ -64,6 +127,10 @@ export interface AnnotationToolDef {
   source?: StampSourceSpec;
   /** What a committed text selection authors. Omit for pointer/click tools. */
   selection?: SelectionAuthoring;
+  /** PDF `/IT` authored by an intent-bearing ink preset. */
+  intent?: K extends 'ink' ? InkIntent : never;
+  /** Ink-only stroke grouping and straightening policy. */
+  ink?: K extends 'ink' ? InkAuthoringOptions : never;
   /**
    * Place annotations UPRIGHT: counter-rotate what this tool creates against the
    * page's TOTAL display rotation (document /Rotate + any stage view rotation),
@@ -81,6 +148,51 @@ export interface AnnotationToolDef {
   meta?: Record<string, unknown>;
 }
 
+export interface BuiltinToolKindMap {
+  square: 'square';
+  circle: 'circle';
+  line: 'line';
+  polygon: 'polygon';
+  polyline: 'polyline';
+  ink: 'ink';
+  'ink-highlight': 'ink';
+  'free-text': 'free-text';
+  'free-text-callout': 'free-text-callout';
+  highlight: 'highlight';
+  underline: 'underline';
+  strikeout: 'strikeout';
+  squiggly: 'squiggly';
+  'insert-text': 'caret';
+  'replace-text': 'strikeout';
+  stamp: 'stamp';
+}
+
+type DirectToolDef = {
+  [K in ToolAuthoringKind]: Omit<AnnotationToolDef<K>, 'subtype'> & { subtype: K };
+}[ToolAuthoringKind];
+type BuiltinToolOverride = {
+  [I in keyof BuiltinToolKindMap]: Omit<
+    AnnotationToolDef<BuiltinToolKindMap[I]>,
+    'id' | 'extends' | 'subtype'
+  > & {
+    id: I;
+    extends?: never;
+    subtype?: never;
+  };
+}[keyof BuiltinToolKindMap];
+type ExtendedBuiltinToolDef = {
+  [I in keyof BuiltinToolKindMap]: Omit<
+    AnnotationToolDef<BuiltinToolKindMap[I]>,
+    'extends' | 'subtype'
+  > & {
+    extends: I;
+    subtype?: never;
+  };
+}[keyof BuiltinToolKindMap];
+
+/** Public tool input: known overrides, known-base presets, or an explicit subtype. */
+export type AnnotationToolInput = DirectToolDef | BuiltinToolOverride | ExtendedBuiltinToolDef;
+
 /** A fully-resolved tool — what the plugin, handlers, and registration loop read. */
 export interface ResolvedTool {
   id: string;
@@ -95,6 +207,8 @@ export interface ResolvedTool {
   defaults?: AnnotationPropsPatch;
   source?: StampSourceSpec;
   selection?: SelectionAuthoring;
+  intent?: InkIntent;
+  ink?: InkAuthoringOptions;
   /** Counter-rotate creations against the page's display rotation (see
    *  {@link AnnotationToolDef.upright}). */
   upright: boolean;
@@ -110,7 +224,7 @@ const MARKUP_TAGS = ['text-select', 'annotation-edit'];
  * + free text in the draw channel, text markup + caret behind text selection, and
  * the click-to-place stamp). Order is display-neutral; the toolbar owns layout.
  */
-export const DEFAULT_TOOLS: AnnotationToolDef[] = [
+export const DEFAULT_TOOLS: AnnotationToolInput[] = [
   // shapes / lines / ink / free text — the `annotation-draw` gesture
   { id: 'square', subtype: 'square', cursor: 'crosshair', enables: DRAW_TAGS },
   { id: 'circle', subtype: 'circle', cursor: 'crosshair', enables: DRAW_TAGS },
@@ -122,7 +236,17 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     subtype: 'ink',
     cursor: 'crosshair',
     enables: DRAW_TAGS,
-    defaults: { color: '#ef4444', strokeWidth: 3 },
+    defaults: { color: '#ef4444', strokeWidth: 10, blendMode: 'normal' },
+    ink: { groupStrokesMs: 800 },
+  },
+  {
+    id: 'ink-highlight',
+    extends: 'ink',
+    intent: 'ink-highlight',
+    defaults: { color: '#ffcd45', strokeWidth: 14, blendMode: 'multiply' },
+    ink: {
+      straighten: { deviationThreshold: 0.15, axisSnapDegrees: 15 },
+    },
   },
   {
     id: 'free-text',
@@ -151,7 +275,7 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     subtype: 'highlight',
     cursor: 'text',
     enables: MARKUP_TAGS,
-    defaults: { color: '#ffe16a' },
+    defaults: { color: '#ffe16a', blendMode: 'multiply' },
     selection: { kind: 'markup' },
   },
   {
@@ -187,7 +311,7 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     preset: 'caret',
     cursor: 'text',
     enables: MARKUP_TAGS,
-    defaults: { color: '#ef4444', strokeWidth: 1 },
+    defaults: { color: '#ef4444' },
     selection: { kind: 'text-edit', operation: 'insert' },
   },
   {
@@ -231,7 +355,23 @@ function mergeDef(base: AnnotationToolDef, over: AnnotationToolDef): AnnotationT
     enables: over.enables ?? base.enables,
     meta: base.meta || over.meta ? { ...base.meta, ...over.meta } : undefined,
     defaults: mergeDefaults(base.defaults, over.defaults),
+    ink: base.ink || over.ink ? { ...base.ink, ...over.ink } : undefined,
   };
+}
+
+function validateDefaults(tool: ResolvedTool): void {
+  if (!tool.defaults) return;
+  const allowed = TOOL_DEFAULT_KEYS[tool.subtype as ToolAuthoringKind];
+  // Unknown/custom routing kinds remain extensible; known built-ins are strict.
+  if (!allowed) return;
+  const keys = new Set<string>(allowed);
+  for (const key of Object.keys(tool.defaults)) {
+    if (!keys.has(key)) {
+      throw new Error(
+        `[annotation] tool '${tool.id}' does not support default '${key}' for '${tool.subtype}'`,
+      );
+    }
+  }
 }
 
 /**
@@ -239,7 +379,9 @@ function mergeDef(base: AnnotationToolDef, over: AnnotationToolDef): AnnotationT
  * A same-id override merges over the built-in; a new id adds a tool; `extends`
  * inherits from an already-defined tool. Keyed by id, so lookups are O(1).
  */
-export function buildToolRegistry(overrides: AnnotationToolDef[] = []): Map<string, ResolvedTool> {
+export function buildToolRegistry(
+  overrides: AnnotationToolInput[] = [],
+): Map<string, ResolvedTool> {
   const defs = new Map<string, AnnotationToolDef>();
   for (const d of DEFAULT_TOOLS) defs.set(d.id, d);
   for (const o of overrides) {
@@ -272,9 +414,12 @@ export function buildToolRegistry(overrides: AnnotationToolDef[] = []): Map<stri
       defaults: mergeDefaults(base?.defaults, def.defaults),
       source: def.source ?? base?.source,
       selection: def.selection ?? base?.selection,
+      intent: def.intent ?? base?.intent,
+      ink: base?.ink || def.ink ? { ...base?.ink, ...def.ink } : undefined,
       upright: def.upright ?? base?.upright ?? false,
       meta: base?.meta || def.meta ? { ...base?.meta, ...def.meta } : undefined,
     };
+    validateDefaults(resolved);
     out.set(id, resolved);
     return resolved;
   };

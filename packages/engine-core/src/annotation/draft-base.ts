@@ -1,4 +1,4 @@
-import type { AnnotationFlags, AnnotationReplyType } from './primitives';
+import type { AnnotationFlags, AnnotationReplyType, BlendMode } from './primitives';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 
 /**
@@ -19,6 +19,8 @@ import type { AnnotationRef } from '../identity/AnnotationRef';
  */
 export interface AnnotationDraftBase {
   contents?: string | null;
+  /** Blend mode to bake into the normal appearance. Omit for the subtype default. */
+  blendMode?: BlendMode;
   /** Optional /NM the caller wants to assign on creation. */
   nm?: string;
   /**

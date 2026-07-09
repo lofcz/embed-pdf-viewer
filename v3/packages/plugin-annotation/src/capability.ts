@@ -43,7 +43,7 @@ import {
 import { boxGeomFields, fromDTO, refKey, toCreateDraft, toPatch } from './repository';
 import { buildTextItems } from './text-item';
 import { buildToolRegistry } from './tools';
-import type { AnnotationToolDef, ResolvedTool } from './tools';
+import type { AnnotationToolInput, ResolvedTool } from './tools';
 import type {
   AnnotationAction,
   AnnotationConfig,
@@ -576,7 +576,7 @@ export function createAnnotationCapability(
     tools: () => [...registry.values()],
     tool: (id) => registry.get(id) ?? null,
     toolSubtype: (id) => registry.get(id)?.subtype ?? (id as Subtype),
-    registerTool: (def: AnnotationToolDef) => {
+    registerTool: (def: AnnotationToolInput) => {
       // Re-resolve against the same base pool so `extends` can reach built-ins /
       // config tools, then register just this one with the hub + seed its defaults.
       const resolved = buildToolRegistry([...configTools, def]).get(def.id);
@@ -707,6 +707,9 @@ export function createAnnotationCapability(
         phase,
         subtype: t?.subtype ?? (tool as Subtype),
         preset: t?.preset ?? tool,
+        intent: t?.intent,
+        deferInkCommit: (t?.ink?.groupStrokesMs ?? 0) > 0,
+        straightenInk: t?.ink?.straighten,
         in: {
           pon,
           point,
@@ -719,6 +722,7 @@ export function createAnnotationCapability(
       });
     },
     finishCreationDraft: () => apply({ t: 'finishCreationDraft' }),
+    finishInkDraft: () => apply({ t: 'finishInkDraft' }),
     cancelCreationDraft: () => apply({ t: 'cancel' }),
     createMarkup: (subtype, pon, rects, preset) =>
       apply({ t: 'createMarkup', subtype, pon, rects, preset }),

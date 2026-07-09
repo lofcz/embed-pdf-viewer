@@ -91,6 +91,8 @@ export {
 } from './geometry';
 export { cloudyPath, cloudyBorderExtent } from './cloudy';
 export { scene } from './scene';
+export { straightenInkStroke } from './ink';
+export type { BlendMode } from '@embedpdf/engine-core/runtime';
 export type {
   Annot,
   AnnotationProps,
@@ -107,6 +109,7 @@ export type {
   Guide,
   Handle,
   Id,
+  InkStraightenOptions,
   Model,
   Msg,
   PointerInput,

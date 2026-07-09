@@ -5,7 +5,7 @@
  * handler `createPointer`). Geometry lives in the `Geom` union; all the per-kind
  * math is in geometry.ts. Effects (create/patch/delete) are the only impurities.
  */
-import type { AnnotationRef } from '@embedpdf/engine-core/runtime';
+import type { AnnotationRef, InkIntent } from '@embedpdf/engine-core/runtime';
 import { expandGroups, groupMembers } from './group';
 import { canMove, groupUnionBounds, hitTest, isSelectable } from './hit';
 import { capsFor } from './kinds';
@@ -35,6 +35,7 @@ import {
 } from './geometry';
 import { applyProps, initialTextStyle, styleFromProps, textStyleFromProps } from './props';
 import { computeMoveSnap } from './snap';
+import { straightenInkStroke } from './ink';
 import type {
   Annot,
   AnnotationProps,
@@ -43,6 +44,7 @@ import type {
   Effect,
   Geom,
   Id,
+  InkStraightenOptions,
   LineEndings,
   Model,
   Msg,
@@ -63,6 +65,7 @@ export const initialStyle: Style = {
   interiorColor: null,
   strokeWidth: 2,
   opacity: 1,
+  blendMode: 'normal',
   border: { kind: 'solid' },
 };
 
@@ -235,7 +238,18 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
     case 'marqueePointer':
       return marqueePointer(m, msg.phase, msg.in);
     case 'createPointer':
-      return createPointer(m, msg.phase, msg.subtype, msg.in, msg.preset);
+      return createPointer(
+        m,
+        msg.phase,
+        msg.subtype,
+        msg.in,
+        msg.preset,
+        msg.intent,
+        msg.deferInkCommit,
+        msg.straightenInk,
+      );
+    case 'finishInkDraft':
+      return finishInkCreate(m);
     case 'finishCreationDraft':
       return finishPolyCreate(m);
     case 'createCaret':
@@ -503,6 +517,9 @@ function createPointer(
   subtype: Subtype,
   input: PointerInput,
   preset: string = subtype,
+  intent?: InkIntent,
+  deferInkCommit = false,
+  straightenInk?: InkStraightenOptions,
 ): [Model, Effect[]] {
   // An in-progress creation is anchored to its page: a move/up sample from
   // another page is a foreign frame — ignore it. (A DOWN on another page is a
@@ -548,7 +565,12 @@ function createPointer(
       subtype === 'line'
         ? { g: 'create-line', subtype, preset, pon: input.pon, from: input.point, to: input.point }
         : subtype === 'ink'
-          ? { g: 'create-ink', subtype, preset, pon: input.pon, strokes: [[input.point]] }
+          ? m.draft?.g === 'create-ink' &&
+            m.draft.subtype === subtype &&
+            m.draft.preset === preset &&
+            m.draft.pon === input.pon
+            ? { ...m.draft, strokes: [...m.draft.strokes, [input.point]] }
+            : { g: 'create-ink', subtype, preset, pon: input.pon, strokes: [[input.point]], intent }
           : subtype === 'square' || subtype === 'circle' || subtype === 'free-text'
             ? {
                 g: 'create-rect',
@@ -585,6 +607,17 @@ function createPointer(
   // up
   const d = m.draft;
   if (d?.g !== 'create-rect' && d?.g !== 'create-line' && d?.g !== 'create-ink') return [m, []];
+
+  if (d.g === 'create-ink') {
+    let next = m;
+    if (straightenInk && d.strokes.length) {
+      const strokes = d.strokes.slice();
+      const last = strokes.length - 1;
+      strokes[last] = straightenInkStroke(strokes[last], straightenInk);
+      next = { ...m, draft: { ...d, strokes } };
+    }
+    return deferInkCommit ? [next, []] : finishInkCreate(next);
+  }
 
   const def = defaultsFor(m, d.preset ?? d.subtype);
   const style = styleFromProps(def);
@@ -625,11 +658,6 @@ function createPointer(
   } else if (d.g === 'create-line') {
     if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG)
       geom = { t: 'line', a: d.from, b: d.to, ends: def.lineEndings };
-  } else {
-    // create-ink: keep it only if the pen actually travelled (not a stray click)
-    const b = unionRect(d.strokes.flat());
-    if (d.strokes.some((s) => s.length >= 2) && Math.max(b.width, b.height) >= MIN_DRAG)
-      geom = { t: 'ink', strokes: d.strokes };
   }
   if (!geom) return [{ ...m, draft: null }, []];
 
@@ -657,6 +685,41 @@ function createPointer(
       draft: null,
       // A freshly drawn free-text box opens straight into edit (type immediately).
       editing: geom.t === 'text' ? id : m.editing,
+    },
+    [{ fx: 'create', id }],
+  ];
+}
+
+/** Commit all strokes accumulated by a grouped ink gesture. */
+function finishInkCreate(m: Model): [Model, Effect[]] {
+  const d = m.draft;
+  if (d?.g !== 'create-ink') return [m, []];
+  const points = d.strokes.flat();
+  if (!d.strokes.some((stroke) => stroke.length >= 2) || points.length === 0)
+    return [{ ...m, draft: null }, []];
+  const bounds = unionRect(points);
+  if (Math.max(bounds.width, bounds.height) < MIN_DRAG) return [{ ...m, draft: null }, []];
+
+  const id = `tmp:${m.seq + 1}`;
+  const annot: Annot = {
+    id,
+    ref: null,
+    pon: d.pon,
+    subtype: d.subtype,
+    geom: { t: 'ink', strokes: d.strokes },
+    style: styleFromProps(defaultsFor(m, d.preset ?? d.subtype)),
+    ...(d.intent ? { intent: d.intent } : {}),
+    locked: false,
+    source: 'vector',
+  };
+  return [
+    {
+      ...m,
+      seq: m.seq + 1,
+      byId: { ...m.byId, [id]: annot },
+      order: [...m.order, id],
+      selected: [id],
+      draft: null,
     },
     [{ fx: 'create', id }],
   ];

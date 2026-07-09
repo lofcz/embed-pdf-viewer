@@ -57,6 +57,7 @@ export const en: Locale = {
         underline: 'Underline',
         squiggly: 'Squiggly',
         ink: 'Draw',
+        inkHighlight: 'Ink Highlighter',
         text: 'Text',
         insertText: 'Insert Text',
         replaceText: 'Replace Text',

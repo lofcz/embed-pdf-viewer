@@ -9,6 +9,7 @@ import { readAnnotFlags, readAnnotRect, readAnnotString } from './annotationRead
 import { readAnnotationIdentity } from './readAnnotationIdentity';
 import { readAnnotationRelationship } from './readAnnotationRelationship';
 import { readEmbedMetadata } from './readEmbedMetadata';
+import { blendModeFromCode } from '../blendMode';
 import { pdfDateToIso } from '../../../../shared/pdf-date';
 
 /**
@@ -32,6 +33,7 @@ export function readAnnotationBase(
   const author = readAnnotString(fn, mem, annotPtr, 'T');
   const createdRaw = readAnnotString(fn, mem, annotPtr, 'CreationDate');
   const modifiedRaw = readAnnotString(fn, mem, annotPtr, 'M');
+  const blendMode = blendModeFromCode(fn.EPDFAnnot_GetBlendMode(annotPtr));
   // EmbedPDF /EMBD_Metadata is optional; absent for legacy or anonymous
   // annotations. We spread the present fields into the DTO so the wire
   // never carries explicit `undefined` keys.
@@ -50,6 +52,7 @@ export function readAnnotationBase(
     author,
     created: createdRaw ? pdfDateToIso(createdRaw) : null,
     modified: modifiedRaw ? pdfDateToIso(modifiedRaw) : null,
+    blendMode,
     inReplyTo: relationship.inReplyTo,
     replyType: relationship.replyType,
     ...(embd?.userId !== undefined ? { userId: embd.userId } : {}),

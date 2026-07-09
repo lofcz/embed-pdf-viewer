@@ -158,7 +158,8 @@ export function fromDTO(
     // unit). `/RT /R` (comment replies) keep `irt` but are NOT a visual group.
     ...(dto.inReplyTo ? { irt: refKey(dto.inReplyTo) } : {}),
     ...(dto.replyType === 'group' && dto.inReplyTo ? { group: refKey(dto.inReplyTo) } : {}),
-    ...((dto.subtype === 'caret' || dto.subtype === 'strikeout') && dto.intent
+    ...((dto.subtype === 'caret' || dto.subtype === 'strikeout' || dto.subtype === 'ink') &&
+    dto.intent
       ? { intent: dto.intent }
       : {}),
   };
@@ -323,6 +324,7 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
       interiorColor: dto.interiorColor ? colorToCss(dto.interiorColor) : null,
       strokeWidth: dto.strokeWidth,
       opacity: 1,
+      blendMode: dto.blendMode,
       border: dto.borderStyle === 'dashed' ? { kind: 'dashed', dash: [3, 3] } : { kind: 'solid' },
     };
   }
@@ -333,6 +335,7 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
       interiorColor: d.interiorColor ? colorToCss(d.interiorColor) : null,
       strokeWidth: d.strokeWidth,
       opacity: d.opacity,
+      blendMode: dto.blendMode,
       border: borderFromDTO(d),
     };
   }
@@ -343,6 +346,7 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
       interiorColor: null,
       strokeWidth: 0,
       opacity: d.opacity,
+      blendMode: dto.blendMode,
       border: { kind: 'solid' },
     };
   }
@@ -353,6 +357,7 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
       interiorColor: null,
       strokeWidth: 1,
       opacity: d.opacity,
+      blendMode: dto.blendMode,
       border: { kind: 'solid' },
     };
   }
@@ -366,6 +371,7 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
       interiorColor: d.interiorColor ? colorToCss(d.interiorColor) : null,
       strokeWidth: d.strokeWidth,
       opacity: d.opacity,
+      blendMode: dto.blendMode,
       border: borderFromDTO(d),
     };
   }
@@ -374,6 +380,7 @@ export function styleFromDTO(dto: AnnotationDTO): Style {
     interiorColor: null,
     strokeWidth: 1,
     opacity: 1,
+    blendMode: dto.blendMode,
     border: { kind: 'solid' },
   };
 }
@@ -386,6 +393,7 @@ const geometryStyle = (style: Style) => ({
   color: cssToColor(style.color),
   strokeWidth: style.strokeWidth,
   opacity: style.opacity,
+  blendMode: style.blendMode,
   // /BS /S + /BS /D — a cloudy border keeps a solid underlying stroke (the
   // scallops are the /BE effect, applied via shapeExtras).
   borderStyle: style.border.kind === 'dashed' ? ('dashed' as const) : ('solid' as const),
@@ -420,11 +428,13 @@ const freeTextStyle = (a: Annot) => {
 const markupColor = (style: Style) => ({
   color: cssToColor(style.color),
   opacity: style.opacity,
+  blendMode: style.blendMode,
 });
 
 const caretStyle = (style: Style) => ({
   color: cssToColor(style.color),
   opacity: style.opacity,
+  blendMode: style.blendMode,
   rectDifferences: { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 },
 });
 
@@ -607,6 +617,7 @@ export function toCreateDraft(a: Annot, crop: PdfRect): AnnotationDraft | null {
   if (a.subtype === 'ink' && f && 'inkList' in f)
     return {
       subtype: 'ink',
+      ...(a.intent === 'ink-highlight' ? { intent: a.intent } : {}),
       inkList: f.inkList,
       rect: f.rect,
       ...geometryStyle(a.style),
@@ -711,6 +722,7 @@ export function toPatch(a: Annot, crop: PdfRect): AnnotationPatch | null {
   if (a.subtype === 'ink' && f && 'inkList' in f)
     return {
       subtype: 'ink',
+      ...(a.intent === 'ink-highlight' ? { intent: a.intent } : {}),
       inkList: f.inkList,
       rect: f.rect,
       ...geometryStyle(a.style),

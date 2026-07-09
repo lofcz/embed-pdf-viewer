@@ -34,6 +34,7 @@ export const styleFromProps = (p: AnnotationProps): Style => ({
   interiorColor: p.interiorColor,
   strokeWidth: p.strokeWidth,
   opacity: p.opacity,
+  blendMode: p.blendMode,
   border: p.border,
 });
 
@@ -65,6 +66,8 @@ export function readProp<K extends PropKey>(a: Annot, key: K): AnnotationProps[K
         return a.style.strokeWidth;
       case 'opacity':
         return a.style.opacity;
+      case 'blendMode':
+        return a.style.blendMode;
       case 'border':
         return a.style.border;
       case 'lineEndings':
@@ -109,6 +112,10 @@ export function applyProps(a: Annot, patch: AnnotationPropsPatch): Annot | null 
   }
   if (patch.opacity !== undefined && takes.has('opacity')) {
     style.opacity = patch.opacity;
+    styleChanged = true;
+  }
+  if (patch.blendMode !== undefined && takes.has('blendMode')) {
+    style.blendMode = patch.blendMode;
     styleChanged = true;
   }
   if (patch.border !== undefined && takes.has('border')) {

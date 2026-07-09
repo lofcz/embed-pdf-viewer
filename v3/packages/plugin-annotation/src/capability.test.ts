@@ -43,6 +43,7 @@ const base = (annotObjectNumber: number) => ({
   author: null,
   created: null,
   modified: null,
+  blendMode: 'normal' as const,
 });
 
 const caretDTO = (): AnnotationDTO =>

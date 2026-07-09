@@ -6,10 +6,10 @@
  * (a release over the page gap used to strand the move draft, so the
  * annotation snapped back on the next interaction).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { InteractionCapability, PointerSample } from '@embedpdf-x/plugin-interaction';
 import type { Vec } from '@embedpdf-x/annotation-core';
-import { createEditHandler } from './handler';
+import { createDrawHandler, createEditHandler } from './handler';
 import type { AnnotationHostCapability } from './types';
 
 const PAGE_1 = 1;
@@ -84,5 +84,44 @@ describe('annotation edit handler — page anchoring', () => {
     h.onMove?.(sample({ page: { pon: PAGE_1, point: { x: 10, y: 10 } } }));
     h.onUp?.(sample({ phase: 'up', page: { pon: PAGE_1, point: { x: 10, y: 10 } } }));
     expect(calls.length).toBe(0);
+  });
+});
+
+describe('annotation draw handler — grouped ink', () => {
+  it('restarts the grouping window and flushes the accumulated ink once', () => {
+    vi.useFakeTimers();
+    try {
+      const calls: string[] = [];
+      const anno = {
+        toolSubtype: () => 'ink',
+        tool: () => ({ ink: { groupStrokesMs: 800 } }),
+        createPointer: (_tool: string, phase: string) => calls.push(phase),
+        finishInkDraft: () => calls.push('finish'),
+      } as unknown as AnnotationHostCapability;
+      const inkInteraction = {
+        activeToolId: () => 'ink',
+        onToolChange: () => () => {},
+        setCursor: () => {},
+      } as unknown as InteractionCapability;
+      const handler = createDrawHandler(anno, inkInteraction);
+      const at = (phase: PointerSample['phase'], x: number) =>
+        sample({ phase, page: { pon: PAGE_1, point: { x, y: 20 } } });
+
+      handler.onDown(at('down', 10));
+      handler.onMove?.(at('move', 30));
+      handler.onUp?.(at('up', 30));
+      vi.advanceTimersByTime(400);
+      handler.onDown(at('down', 40));
+      handler.onMove?.(at('move', 60));
+      handler.onUp?.(at('up', 60));
+
+      vi.advanceTimersByTime(799);
+      expect(calls.filter((call) => call === 'finish')).toHaveLength(0);
+      vi.advanceTimersByTime(1);
+      expect(calls.filter((call) => call === 'finish')).toHaveLength(1);
+      expect(calls.filter((call) => call === 'up')).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

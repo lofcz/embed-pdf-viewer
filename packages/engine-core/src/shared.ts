@@ -126,6 +126,8 @@ export type {
   FreeTextIntent,
   CaretIntent,
   StrikeoutIntent,
+  InkIntent,
+  BlendMode,
 } from './annotation/primitives';
 export { NO_ANNOTATION_FLAGS } from './annotation/primitives';
 

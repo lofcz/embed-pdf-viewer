@@ -1,4 +1,4 @@
-import type { AnnotationFlags, AnnotationReplyType } from './primitives';
+import type { AnnotationFlags, AnnotationReplyType, BlendMode } from './primitives';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 
 /**
@@ -27,6 +27,8 @@ import type { AnnotationRef } from '../identity/AnnotationRef';
  */
 export interface AnnotationPatchBase {
   contents?: string | null;
+  /** New appearance blend mode. Omit to preserve the current effective mode. */
+  blendMode?: BlendMode;
 
   /**
    * Reassign the annotation's `/EMBD_Metadata/GroupID`.

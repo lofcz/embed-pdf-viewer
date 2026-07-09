@@ -60,6 +60,7 @@ export const es: Locale = {
         underline: 'Subrayar',
         squiggly: 'Ondulado',
         ink: 'Dibujar',
+        inkHighlight: 'Resaltador a mano alzada',
         text: 'Texto',
         insertText: 'Insertar texto',
         replaceText: 'Reemplazar texto',

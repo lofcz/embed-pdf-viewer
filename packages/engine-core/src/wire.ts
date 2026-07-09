@@ -192,6 +192,8 @@ export {
   FreeTextIntentSchema,
   CaretIntentSchema,
   StrikeoutIntentSchema,
+  InkIntentSchema,
+  BlendModeSchema,
   AnnotationBaseShape,
   AnnotationDraftBaseShape,
   AnnotationPatchBaseShape,

@@ -9,7 +9,7 @@ import type {
   BinarySource,
   PdfRect,
 } from '@embedpdf/engine-core/runtime';
-import type { AnnotationToolDef, ResolvedTool } from './tools';
+import type { AnnotationToolInput, ResolvedTool } from './tools';
 import type {
   AnnotationProps,
   AnnotationPropsPatch,
@@ -129,7 +129,7 @@ export interface AnnotationConfig {
    * See {@link AnnotationToolDef}. The runtime equivalent is
    * {@link AnnotationCapability.registerTool}.
    */
-  tools?: AnnotationToolDef[];
+  tools?: AnnotationToolInput[];
 }
 export type AnnotationAction =
   | { type: 'SET_MODEL'; model: Model }
@@ -321,7 +321,7 @@ export interface AnnotationCapability {
    * mirror of the `tools` config. Same {@link AnnotationToolDef} vocabulary
    * (`extends`, per-tool `defaults`, …). Returns an unregister fn.
    */
-  registerTool(def: AnnotationToolDef): () => void;
+  registerTool(def: AnnotationToolInput): () => void;
 
   // ── lifecycle ──
   deleteSelection(): void;
@@ -455,6 +455,8 @@ export interface AnnotationHostCapability extends AnnotationCapability {
     displayRotation?: PageRotation,
   ): void;
   finishCreationDraft(): void;
+  /** Commit the strokes currently buffered by an ink tool's grouping window. */
+  finishInkDraft(): void;
   cancelCreationDraft(): void;
   /** Create one text-markup annotation on a page from the selected text's per-line
    *  rects (content space) — the `text-selection` create gesture. */

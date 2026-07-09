@@ -76,7 +76,7 @@ const annotateBar: BarSchema = {
         'annotation:add-underline',
         'annotation:add-squiggly',
       ]),
-      group('draw', { importance: 3 }, ['annotation:add-ink']),
+      group('draw', { importance: 3 }, ['annotation:add-ink', 'annotation:add-ink-highlight']),
       group('text', { importance: 2 }, [
         'annotation:add-text',
         'annotation:add-insert-text',

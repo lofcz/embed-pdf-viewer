@@ -198,7 +198,19 @@ export function createDrawHandler(
   // The active drag's home page (down→up): moves/ups resolve against it, so a
   // shape keeps sizing along the page edge when the cursor overshoots.
   let origin: { pon: number; point: Vec } | null = null;
+  let pendingInk: {
+    tool: string;
+    pon: number;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
+  const flushPendingInk = () => {
+    if (!pendingInk) return;
+    clearTimeout(pendingInk.timer);
+    pendingInk = null;
+    anno.finishInkDraft();
+  };
   interaction.onToolChange(() => {
+    flushPendingInk();
     drawingPoly = false;
     drawingCallout = false;
     origin = null;
@@ -211,6 +223,14 @@ export function createDrawHandler(
       if (!s.page) return false;
       const tool = toolId();
       const st = subtypeOf(tool);
+      if (st === 'ink' && pendingInk) {
+        if (pendingInk.tool === tool && pendingInk.pon === s.page.pon) {
+          clearTimeout(pendingInk.timer);
+          pendingInk = null;
+        } else {
+          flushPendingInk();
+        }
+      }
       // A down is a fresh intent — it may legitimately start on another page
       // (the core restarts the draft there), so it re-anchors the gesture.
       origin = { pon: s.page.pon, point: s.page.point };
@@ -248,6 +268,17 @@ export function createDrawHandler(
       if (origin && !isPolyTool(st)) {
         // ALWAYS commit the drag, even released off-page (point pins in core).
         anno.createPointer(tool, 'up', origin.pon, pointOn(s, origin.pon) ?? origin.point);
+        if (st === 'ink') {
+          const groupStrokesMs = anno.tool(tool)?.ink?.groupStrokesMs ?? 0;
+          if (groupStrokesMs > 0) {
+            const pon = origin.pon;
+            const timer = setTimeout(() => {
+              pendingInk = null;
+              anno.finishInkDraft();
+            }, groupStrokesMs);
+            pendingInk = { tool, pon, timer };
+          }
+        }
       }
       origin = null;
     },

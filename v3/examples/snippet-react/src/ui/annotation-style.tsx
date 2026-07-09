@@ -25,6 +25,7 @@ import {
   type PropSpec,
   type AnnotationPropsPatch,
   type Border,
+  type BlendMode,
   type LineEnding,
   type LineEndings,
   type TextAlign,
@@ -85,6 +86,25 @@ const LINE_ENDINGS: { v: LineEnding; label: string }[] = [
   { v: 'diamond', label: 'Diamond' },
   { v: 'butt', label: 'Butt' },
   { v: 'slash', label: 'Slash' },
+];
+
+const BLEND_MODES: { v: BlendMode; label: string }[] = [
+  { v: 'normal', label: 'Normal' },
+  { v: 'multiply', label: 'Multiply' },
+  { v: 'screen', label: 'Screen' },
+  { v: 'overlay', label: 'Overlay' },
+  { v: 'darken', label: 'Darken' },
+  { v: 'lighten', label: 'Lighten' },
+  { v: 'color-dodge', label: 'Color Dodge' },
+  { v: 'color-burn', label: 'Color Burn' },
+  { v: 'hard-light', label: 'Hard Light' },
+  { v: 'soft-light', label: 'Soft Light' },
+  { v: 'difference', label: 'Difference' },
+  { v: 'exclusion', label: 'Exclusion' },
+  { v: 'hue', label: 'Hue' },
+  { v: 'saturation', label: 'Saturation' },
+  { v: 'color', label: 'Color' },
+  { v: 'luminosity', label: 'Luminosity' },
 ];
 
 // ── layout primitives ────────────────────────────────────────────────────────
@@ -469,6 +489,28 @@ function FontSizeCombo({ value, onChange }: { value: number; onChange: (n: numbe
   );
 }
 
+function BlendModeSelect({
+  value,
+  onChange,
+}: {
+  value: BlendMode;
+  onChange: (mode: BlendMode) => void;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value as BlendMode)}
+      className="border-border bg-surface text-fg w-full rounded border px-3 py-1.5 text-sm"
+    >
+      {BLEND_MODES.map((mode) => (
+        <option key={mode.v} value={mode.v}>
+          {mode.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 // ── align toggle ─────────────────────────────────────────────────────────────
 function Toggle({
   active,
@@ -636,6 +678,15 @@ function PropControl({
         </Field>
       );
     }
+    case 'blendMode':
+      return (
+        <Field label={spec.label} mixed={mixed}>
+          <BlendModeSelect
+            value={(value as BlendMode) ?? 'normal'}
+            onChange={(blendMode) => onChange({ blendMode })}
+          />
+        </Field>
+      );
     default:
       return null;
   }

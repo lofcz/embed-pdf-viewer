@@ -17,12 +17,9 @@ const num = (n: number): number => Number(n.toFixed(3));
 /** Uniform paint for a shape/line/poly node. Fill only lands on closed nodes; the
  *  dash comes solely from the border style — so a live draft (ghost) previews
  *  exactly how the committed annotation will look, not as a dashed hint. */
-/** The CSS mix-blend-mode an annotation composites with against the page. Only
- *  highlights multiply (so the underlying text reads through); every other kind
- *  composites normally. The ONE source of truth, used by the vector painter (per
- *  scene node) AND for the baked /AP image. */
-export function blendFor(subtype: Subtype): 'multiply' | undefined {
-  return subtype === 'highlight' ? 'multiply' : undefined;
+/** CSS mix-blend-mode for live vector paint. `normal` needs no style override. */
+export function blendFor(style: Style): Paint['blend'] {
+  return style.blendMode === 'normal' ? undefined : style.blendMode;
 }
 
 function shapePaint(style: Style, closed: boolean): Paint {
@@ -70,7 +67,7 @@ function markupScene(subtype: Subtype, quads: Quad[], style: Style): SceneNode[]
         kind: 'line',
         a: { x, y: yy },
         b: { x: x + w, y: yy },
-        paint: { stroke: color, width: lw, opacity },
+        paint: { stroke: color, width: lw, opacity, blend: blendFor(style) },
       });
     } else if (subtype === 'strikeout') {
       const yy = y + h / 2;
@@ -78,21 +75,21 @@ function markupScene(subtype: Subtype, quads: Quad[], style: Style): SceneNode[]
         kind: 'line',
         a: { x, y: yy },
         b: { x: x + w, y: yy },
-        paint: { stroke: color, width: lw, opacity },
+        paint: { stroke: color, width: lw, opacity, blend: blendFor(style) },
       });
     } else if (subtype === 'squiggly') {
       const amp = Math.min(2, Math.max(1, h * 0.08));
       nodes.push({
         kind: 'path',
         d: squigglePath(x, y + h - amp, w, amp),
-        paint: { stroke: color, width: lw, opacity },
+        paint: { stroke: color, width: lw, opacity, blend: blendFor(style) },
       });
     } else {
       // highlight: translucent fill with `multiply` so the text reads through it
       nodes.push({
         kind: 'rect',
         rect: { x, y, width: w, height: h },
-        paint: { fill: color, opacity, blend: blendFor(subtype) },
+        paint: { fill: color, opacity, blend: blendFor(style) },
       });
     }
   }
@@ -120,7 +117,7 @@ export function scene(item: RenderItem): SceneNode[] {
       n.kind === 'ellipse' ||
       n.kind === 'path' ||
       (n.kind === 'poly' && n.closed);
-    const paint = shapePaint(item.style, closed);
+    const paint = { ...shapePaint(item.style, closed), blend: blendFor(item.style) };
     // Ink is freehand: round the pen-stroke ends AND joins. Every other kind keeps
     // the default butt caps + sharp (miter) joins — square corners and poly knees
     // stay crisp.

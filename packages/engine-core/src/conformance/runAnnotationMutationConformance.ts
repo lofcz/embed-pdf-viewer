@@ -408,6 +408,8 @@ export function runAnnotationMutationConformance(
           expect(ink.created.inkList.length).toBe(inkStrokes.length);
           expect(ink.created.inkList[0]!.length).toBe(inkStrokes[0]!.length);
           expect(ink.created.color).toMatchObject({ r: 29, g: 78, b: 216 });
+          expect(ink.created.intent).toBe(null);
+          expect(ink.created.blendMode).toBe('normal');
           // Ink has a stroke but no /IC.
           expect('interiorColor' in ink.created).toBe(false);
         }
@@ -635,6 +637,44 @@ export function runAnnotationMutationConformance(
           before.pageState.revision.generation,
         );
         expect(result.meta.weakRefsInvalidated).toBe(false);
+      } finally {
+        await doc.close();
+      }
+    });
+
+    test('ink highlight intent + blend round-trip and unrelated patches preserve blend', async () => {
+      const doc = await openFixture(engine, opts);
+      try {
+        const page = doc.page(fix.pageObjectNumber);
+        const created = await page.annotations.create({
+          subtype: 'ink',
+          intent: 'ink-highlight',
+          blendMode: 'multiply',
+          rect: shapeRect,
+          inkList: inkStrokes,
+          color: { r: 255, g: 205, b: 69 },
+          strokeWidth: 14,
+          borderStyle: 'solid',
+          opacity: 1,
+        } satisfies InkDraft);
+        expect(created.created.subtype).toBe('ink');
+        if (created.created.subtype !== 'ink') return;
+        expect(created.created.intent).toBe('ink-highlight');
+        expect(created.created.blendMode).toBe('multiply');
+
+        const recolored = await page.annotations.update(created.created.ref, {
+          subtype: 'ink',
+          color: { r: 250, g: 190, b: 40 },
+        });
+        expect(recolored.updated.subtype).toBe('ink');
+        expect(recolored.updated.blendMode).toBe('multiply');
+
+        const screened = await page.annotations.update(created.created.ref, {
+          subtype: 'ink',
+          blendMode: 'screen',
+        });
+        expect(screened.updated.subtype).toBe('ink');
+        expect(screened.updated.blendMode).toBe('screen');
       } finally {
         await doc.close();
       }

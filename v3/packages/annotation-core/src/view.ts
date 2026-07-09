@@ -135,7 +135,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       selected: m.selected.includes(id),
       rot: geomRotation(geom),
       ...(apRot ? { apRot } : {}),
-      blend: blendFor(a.subtype),
+      blend: blendFor(a.style),
     });
   }
   const d = m.draft;

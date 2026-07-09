@@ -3,6 +3,7 @@ import {
   EngineErrorCode,
   PDF_SUBTYPE_TO_CODE,
   type AnnotationActor,
+  type BlendMode,
   type AnnotationCreateResult,
   type AnnotationDeleteResult,
   type AnnotationDTO,
@@ -38,6 +39,7 @@ import {
   writeAnnotationModified,
 } from './internal/write/writeAnnotationBase';
 import { writeAnnotationRelationship } from './internal/write/writeAnnotationRelationship';
+import { blendModeFromCode, blendModeToCode } from './internal/blendMode';
 import {
   applyEmbedMetadataOnCreate,
   applyEmbedMetadataOnUpdate,
@@ -162,7 +164,7 @@ export class AnnotationMutator {
         // Bake the /AP appearance stream now that every visual field is
         // written, so the new annotation ships with a standard-compliant
         // appearance (matches the v2 engine).
-        this.regenerateAppearance(annotPtr, pagePtr);
+        this.regenerateAppearance(annotPtr, pagePtr, draft.blendMode);
         throwIfAborted(signal);
 
         newObjNum = fn.EPDFAnnot_GetObjectNumber(annotPtr);
@@ -238,6 +240,11 @@ export class AnnotationMutator {
       // two paths cannot drift in their identity bookkeeping.
       const stableId = this.captureOrStampStableId(annotPtr);
 
+      // Blend mode lives inside the existing /AP graphics state rather than in
+      // the annotation dictionary. Capture it before re-baking so an unrelated
+      // patch (colour, geometry, contents...) cannot silently reset it.
+      const previousBlendMode = blendModeFromCode(fn.EPDFAnnot_GetBlendMode(annotPtr));
+
       // Apply caller-supplied subtype-specific writes.
       applyPatch(fn, mem, annotPtr, patch, this.writeContext(pagePtr, resources));
       // Apply /IRT + /RT changes (set/relink/clear, or RT-only). Setting a
@@ -262,8 +269,16 @@ export class AnnotationMutator {
       applyEmbedMetadataOnUpdate(fn, mem, annotPtr, actor);
       // Re-bake the /AP appearance stream from the patched properties so
       // the rendered appearance stays in sync with the dictionary.
-      this.regenerateAppearance(annotPtr, pagePtr);
+      this.regenerateAppearance(annotPtr, pagePtr, patch.blendMode ?? previousBlendMode);
       throwIfAborted(signal);
+
+      // PDFium caches the parsed appearance form on an annotation context. A
+      // regenerated /AP is persisted immediately, but reading blend mode through
+      // the same handle can still observe that old form. Reopen the non-structural
+      // target before read-back so the returned DTO reflects the new stream.
+      fn.FPDFPage_CloseAnnot(annotPtr);
+      annotPtr = null;
+      annotPtr = resolveAnnotPtr(this.runtime, this.session, pagePtr, ref);
 
       // Read back. Update is non-structural, so the index does NOT move
       // and the revision does NOT bump.
@@ -632,9 +647,10 @@ export class AnnotationMutator {
    * one — so a false return is not a hard error. This step is
    * non-structural: it never shifts annotation indices or bumps revisions.
    */
-  private regenerateAppearance(annotPtr: Ptr, pagePtr: Ptr): void {
+  private regenerateAppearance(annotPtr: Ptr, pagePtr: Ptr, blendMode?: BlendMode): void {
     const { fn } = this.runtime;
-    fn.EPDFAnnot_GenerateAppearance(annotPtr);
+    if (blendMode === undefined) fn.EPDFAnnot_GenerateAppearance(annotPtr);
+    else fn.EPDFAnnot_GenerateAppearanceWithBlend(annotPtr, blendModeToCode(blendMode));
     fn.FPDFPage_GenerateContent(pagePtr);
   }
 

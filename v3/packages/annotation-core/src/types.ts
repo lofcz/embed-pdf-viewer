@@ -1,7 +1,9 @@
 import type {
   AnnotationDTO,
   AnnotationRef,
+  BlendMode,
   CaretIntent,
+  InkIntent,
   LineEnding,
   LineEndings,
   StrikeoutIntent,
@@ -104,6 +106,8 @@ export interface Style {
   interiorColor: string | null;
   strokeWidth: number;
   opacity: number;
+  /** Effective blend mode of the annotation's normal appearance. */
+  blendMode: BlendMode;
   /** Outline style — defaults to `{ kind: 'solid' }`. */
   border: Border;
 }
@@ -192,8 +196,8 @@ export interface Annot {
    * draft that hasn't been committed to the engine yet (no DTO exists).
    */
   data?: AnnotationDTO;
-  /** Normalized PDF `/IT` for text-edit annotations authored before a DTO exists. */
-  intent?: CaretIntent | StrikeoutIntent;
+  /** Normalized PDF `/IT` for intent-bearing annotations authored before a DTO exists. */
+  intent?: CaretIntent | StrikeoutIntent | InkIntent;
   /**
    * Relationship to another annotation. `irt` ("in reply to") links a child to a
    * parent — a reply in a comment thread, or a caret bound to its strikeout in a
@@ -276,7 +280,14 @@ export type Draft =
       cur: Vec;
       closed: boolean;
     }
-  | { g: 'create-ink'; subtype: Subtype; preset?: string; pon: PageObjectNumber; strokes: Vec[][] }
+  | {
+      g: 'create-ink';
+      subtype: Subtype;
+      preset?: string;
+      pon: PageObjectNumber;
+      strokes: Vec[][];
+      intent?: InkIntent;
+    }
   | {
       // Free-text callout, built in clicks: click 1 sets `tip`, click 2 sets
       // `knee` (advancing to `box`), then a drag/click lays the text box. `cur`
@@ -423,8 +434,15 @@ export type Msg =
       subtype: Subtype;
       /** The authoring tool's `defaults` key (see {@link Draft}). Defaults to `subtype`. */
       preset?: string;
+      /** PDF intent carried by an ink authoring preset. */
+      intent?: InkIntent;
+      /** Keep a completed ink stroke in the draft until `finishInkDraft`. */
+      deferInkCommit?: boolean;
+      /** Optional pure straight-line recognition applied to each completed stroke. */
+      straightenInk?: InkStraightenOptions;
       in: PointerInput;
     }
+  | { t: 'finishInkDraft' }
   | { t: 'finishCreationDraft' }
   | { t: 'createCaret'; pon: PageObjectNumber; rect: Rect }
   | {
@@ -543,7 +561,7 @@ export interface RenderItem {
    * multiply). The vector painter reads blend per scene node; the baked /AP image
    * has no scene, so it reads this. Undefined = normal compositing.
    */
-  blend?: 'multiply';
+  blend?: Exclude<BlendMode, 'normal'>;
 }
 
 /** The dumb draw vocabulary the framework renderer maps to SVG (content space).
@@ -570,7 +588,7 @@ export interface Paint {
   width?: number; // stroke width (content units)
   opacity?: number;
   dash?: number[]; // stroke dash (content units)
-  blend?: 'multiply'; // mix-blend-mode (text-highlight)
+  blend?: Exclude<BlendMode, 'normal'>;
   cap?: 'round'; // stroke-linecap; omitted = the default butt. Round for freehand ink.
   join?: 'round'; // stroke-linejoin; omitted = the default miter. Round for freehand ink.
 }
@@ -587,6 +605,14 @@ export type SceneNode =
   | { kind: 'line'; a: Vec; b: Vec; paint: Paint }
   | { kind: 'poly'; points: Vec[]; closed: boolean; paint: Paint }
   | { kind: 'path'; d: string; paint: Paint };
+
+/** Pure geometry settings for recognising and axis-snapping a freehand stroke. */
+export interface InkStraightenOptions {
+  /** Maximum `max perpendicular deviation / endpoint distance`. */
+  deviationThreshold: number;
+  /** Degrees from horizontal/vertical within which the line snaps to that axis. */
+  axisSnapDegrees: number;
+}
 
 export type ChromeNode =
   | { kind: 'outline'; rect: Rect }

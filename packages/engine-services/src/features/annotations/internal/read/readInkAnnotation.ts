@@ -1,9 +1,10 @@
 import type { AnnotationBase, InkAnnotationDTO } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
-import { readInkList } from './annotationReadPrimitives';
+import { readInkList, readIntent } from './annotationReadPrimitives';
 import { readGeometryStyleExtras } from './readStyle';
 import { readAnnotationRotation } from './readAnnotationTransformMetadata';
+import { inkIntentFromName } from '../inkIntent';
 
 export function readInk(
   fn: PdfFunctions,
@@ -12,10 +13,12 @@ export function readInk(
   base: AnnotationBase,
 ): InkAnnotationDTO {
   const rotation = readAnnotationRotation(fn, mem, annotPtr);
+  const intent = inkIntentFromName(readIntent(fn, mem, annotPtr));
   return {
     ...base,
     subtype: 'ink',
     ...readGeometryStyleExtras(fn, mem, annotPtr),
+    intent,
     inkList: readInkList(fn, mem, annotPtr),
     ...(rotation != null ? { rotation } : {}),
   };

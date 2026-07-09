@@ -44,6 +44,7 @@ function squareDTO(
     author: null,
     created: null,
     modified: null,
+    blendMode: 'normal',
     inReplyTo: rel?.inReplyTo ?? null,
     replyType: rel?.replyType ?? null,
     subtype: 'square',
@@ -85,12 +86,60 @@ describe('repository.fromDTO — group/relationship mapping', () => {
   });
 });
 
+describe('repository — Ink Highlight intent and blend', () => {
+  const dto = (): AnnotationDTO => ({
+    ref: { kind: 'objectNumber', pageObjectNumber: 1, annotObjectNumber: 20 },
+    pageObjectNumber: 1,
+    index: 0,
+    identityQuality: 'durable',
+    nm: null,
+    flags: NO_FLAGS,
+    rect: { left: 10, bottom: 740, right: 120, top: 760 },
+    contents: null,
+    author: null,
+    created: null,
+    modified: null,
+    blendMode: 'multiply',
+    inReplyTo: null,
+    replyType: null,
+    subtype: 'ink',
+    intent: 'ink-highlight',
+    color: { r: 255, g: 205, b: 69 },
+    opacity: 1,
+    strokeWidth: 14,
+    borderStyle: 'solid',
+    inkList: [
+      [
+        { x: 10, y: 750 },
+        { x: 120, y: 750 },
+      ],
+    ],
+  });
+
+  it('round-trips intent and blend through the content model, draft, and patch', () => {
+    const annotation = fromDTO(dto(), CROP, 'vector');
+    expect(annotation.intent).toBe('ink-highlight');
+    expect(annotation.style.blendMode).toBe('multiply');
+    expect(toCreateDraft(annotation, CROP)).toMatchObject({
+      subtype: 'ink',
+      intent: 'ink-highlight',
+      blendMode: 'multiply',
+    });
+    expect(toPatch(annotation, CROP)).toMatchObject({
+      subtype: 'ink',
+      intent: 'ink-highlight',
+      blendMode: 'multiply',
+    });
+  });
+});
+
 describe('repository — Replace Text authoring', () => {
   const style = {
     color: '#e44234',
     interiorColor: null,
     strokeWidth: 1,
     opacity: 1,
+    blendMode: 'normal' as const,
     border: { kind: 'solid' as const },
   };
 
@@ -173,6 +222,7 @@ function calloutDTO(annotObjectNumber = 20): AnnotationDTO {
     author: null,
     created: null,
     modified: null,
+    blendMode: 'normal',
     inReplyTo: null,
     replyType: null,
     subtype: 'free-text',
@@ -239,6 +289,7 @@ function rotatedPolylineDTO(rotationPdf: number, annotObjectNumber = 31): Annota
     author: null,
     created: null,
     modified: null,
+    blendMode: 'normal',
     inReplyTo: null,
     replyType: null,
     subtype: 'polyline',
@@ -456,6 +507,7 @@ function polygonDTO(cloudyIntensity: number | undefined, annotObjectNumber = 40)
     author: null,
     created: null,
     modified: null,
+    blendMode: 'normal',
     inReplyTo: null,
     replyType: null,
     subtype: 'polygon',

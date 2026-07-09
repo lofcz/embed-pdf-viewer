@@ -1,10 +1,11 @@
 import type { InkDraft, InkPatch } from '@embedpdf/engine-core/runtime';
 import type { PdfFunctions, PdfRuntimeMemory, Ptr } from '@embedpdf/pdf-runtime';
 
-import { setAnnotRect, setInkList } from './annotationWritePrimitives';
+import { setAnnotRect, setInkList, setIntent } from './annotationWritePrimitives';
 import { applyAnnotationBaseDraft, applyAnnotationBasePatch } from './writeAnnotationBase';
 import { applyGeometryStyleDraft, applyGeometryStylePatch } from './writeStyle';
 import { writeVertexTransformMetadata } from './writeAnnotationTransformMetadata';
+import { inkIntentToName } from '../inkIntent';
 
 /**
  * Apply an ink draft to a freshly-created annotation. Ink has a stroke but
@@ -22,6 +23,7 @@ export function applyInkDraft(
   draft: InkDraft,
 ): void {
   applyAnnotationBaseDraft(fn, mem, annotPtr, draft);
+  if (draft.intent !== undefined) setIntent(fn, annotPtr, inkIntentToName(draft.intent));
   setAnnotRect(fn, mem, annotPtr, draft.rect);
   applyGeometryStyleDraft(fn, mem, annotPtr, draft);
   setInkList(fn, mem, annotPtr, draft.inkList);
@@ -36,6 +38,7 @@ export function applyInkPatch(
   patch: InkPatch,
 ): void {
   applyAnnotationBasePatch(fn, mem, annotPtr, patch);
+  if (patch.intent !== undefined) setIntent(fn, annotPtr, inkIntentToName(patch.intent));
   if (patch.rect !== undefined) {
     setAnnotRect(fn, mem, annotPtr, patch.rect);
   }

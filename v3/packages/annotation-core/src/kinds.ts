@@ -39,7 +39,8 @@ export type PropSpec =
   | { key: 'border'; label: string; cloudy: boolean }
   | { key: 'lineEndings'; label: string }
   | { key: 'fontFamily'; label: string }
-  | { key: 'textAlign'; label: string };
+  | { key: 'textAlign'; label: string }
+  | { key: 'blendMode'; label: string };
 
 /** Orthogonal capability flags. Static data — `locked` is the one runtime override
  *  (a locked annotation is never editable regardless of these). */
@@ -106,6 +107,7 @@ const STROKE_WIDTH: PropSpec = {
 const BORDER_CLOUDY: PropSpec = { key: 'border', label: 'Border', cloudy: true };
 const BORDER_PLAIN: PropSpec = { key: 'border', label: 'Border', cloudy: false };
 const LINE_ENDINGS: PropSpec = { key: 'lineEndings', label: 'Line endings' };
+const BLEND_MODE: PropSpec = { key: 'blendMode', label: 'Blend mode' };
 
 /** Shapes with a fill + a (possibly cloudy) border: square / circle / polygon. */
 const SHAPE_PROPS: PropSpec[] = [STROKE, FILL, OPACITY, STROKE_WIDTH, BORDER_CLOUDY];
@@ -132,8 +134,11 @@ const WIDGET_TEXT_PROPS: PropSpec[] = [
 /** Stroked vertex kinds with `/LE` endings: line / polyline. The fill colours a
  *  CLOSED ending (closed arrow / circle / square / diamond). */
 const LINE_PROPS: PropSpec[] = [STROKE, FILL, OPACITY, STROKE_WIDTH, BORDER_PLAIN, LINE_ENDINGS];
-/** Text markup + caret: one colour + opacity, anchored to text. */
-const MARK_PROPS: PropSpec[] = [{ key: 'color', label: 'Color' }, OPACITY];
+/** Text markup: colour/opacity plus its appearance-stream blend mode. */
+const MARK_PROPS: PropSpec[] = [{ key: 'color', label: 'Color' }, OPACITY, BLEND_MODE];
+/** Carets are anchored text-edit markers, without a blend-mode control. */
+const CARET_PROPS: PropSpec[] = [{ key: 'color', label: 'Color' }, OPACITY];
+const INK_PROPS: PropSpec[] = [{ key: 'color', label: 'Color' }, OPACITY, STROKE_WIDTH, BLEND_MODE];
 /** Free text: font first (the primary surface), then box background + border. */
 const TEXT_PROPS: PropSpec[] = [
   { key: 'fontFamily', label: 'Font' },
@@ -353,7 +358,7 @@ export const KINDS: Record<string, AnnotationKind> = {
       groupRotatable: true,
       commentable: true,
     }),
-    props: [{ key: 'color', label: 'Color' }, OPACITY, STROKE_WIDTH],
+    props: INK_PROPS,
   },
   // Text markup: selectable + anchored (bound to text — recolor/delete, never
   // move/resize). Created from a text selection, not a drag (see the markup tool).
@@ -385,7 +390,7 @@ export const KINDS: Record<string, AnnotationKind> = {
     subtype: 'caret',
     variant: 'caret',
     caps: caps({ selectable: true, anchored: true, commentable: true }),
-    props: MARK_PROPS,
+    props: CARET_PROPS,
   },
   // Stamp: a rect-variant kind whose visual is ALWAYS the engine-baked /AP
   // (image or vector appearance authored at create time) — never a vector

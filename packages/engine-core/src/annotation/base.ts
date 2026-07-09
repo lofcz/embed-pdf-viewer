@@ -1,4 +1,4 @@
-import type { AnnotationFlags, AnnotationReplyType } from './primitives';
+import type { AnnotationFlags, AnnotationReplyType, BlendMode } from './primitives';
 import type { PdfRect } from '../geometry/primitives';
 import type { AnnotationIdentityQuality } from '../identity/AnnotationIdentityQuality';
 import type { AnnotationRef } from '../identity/AnnotationRef';
@@ -29,6 +29,9 @@ export interface AnnotationBase {
   created: string | null;
   /** ISO 8601 from /M. */
   modified: string | null;
+
+  /** Effective blend mode used by the normal appearance stream (`/AP /N`). */
+  blendMode: BlendMode;
 
   /**
    * `/IRT` ("in reply to"), resolved to the parent annotation's
