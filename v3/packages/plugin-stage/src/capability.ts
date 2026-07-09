@@ -1,5 +1,6 @@
 import * as S from '@embedpdf-x/stage-core';
 import {
+  addRotations,
   applyRect,
   applyPoint,
   displaySize,
@@ -152,7 +153,18 @@ export function createStageCapability(
     // Engine PageLayout (PDF document geometry) structurally satisfies stage-core's
     // viewer-local PageGeom (`size` + `rotation`): intrinsic page size needs no
     // transform, so it flows straight into the layout with no conversion.
-    const pages = ctx.document()?.pages ?? [];
+    //
+    // THE view-rotation injection point: each page's display rotation is its
+    // /Rotate + this lens's viewRotation, composed HERE — the one spot where
+    // the "TOTAL = document /Rotate + view rotation" of geometry's PageRotation
+    // doc is resolved. Everything downstream (displaySize w↔h swap, the page
+    // transform + CSS rotate, hit-testing, fit zoom, content overlays) reads the
+    // composed `PageBox.rotation` and needs no other change. `size` stays the
+    // page's own un-rotated points, so content space is view-rotation-invariant.
+    const raw = ctx.document()?.pages ?? [];
+    const vr = st.viewRotation;
+    const pages =
+      vr === 0 ? raw : raw.map((p) => ({ ...p, rotation: addRotations(p.rotation, vr) }));
     const pageFrame = worldPageFrame();
     const gap = worldGap();
     const vupp = st.viewUnitsPerPoint;
@@ -712,6 +724,7 @@ export function createStageCapability(
             pon: p.pon,
             point: p.transform.viewToPage({ x: lx, y: ly }),
             scale: p.transform.viewScale,
+            rotation: p.rotation,
           };
         }
       }
@@ -764,6 +777,7 @@ export function createStageCapability(
     anchorAlign: () => ctx.getState().anchorAlign,
     direction: () => ctx.getState().direction,
     scrollBehavior: () => ctx.getState().scrollBehavior,
+    viewRotation: () => ctx.getState().viewRotation,
     zoomLevel: () => cam().zoom,
     zoomMode: () => {
       const z = ctx.getState().zoom;
@@ -1019,6 +1033,9 @@ export function createStageCapability(
     setZoomAlign: (zoomAlign) => api.update({ zoomAlign }),
     setAnchorAlign: (anchorAlign) => api.update({ anchorAlign }),
     setDirection: (direction) => api.update({ direction }),
+    setViewRotation: (viewRotation) => api.update({ viewRotation }),
+    rotateView: (delta) =>
+      api.setViewRotation(addRotations(ctx.getState().viewRotation, delta === 90 ? 90 : 270)),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
     applyViewState: (view) => {
       cancelAnim();

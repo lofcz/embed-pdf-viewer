@@ -18,7 +18,6 @@ import { DocumentsToken } from '@embedpdf-x/react/runtime';
 import { StageToken, ZoomMode } from '@embedpdf-x/react/stage';
 import type { SpreadMode } from '@embedpdf-x/react/stage';
 import { InteractionToken } from '@embedpdf-x/react/interaction';
-import { PageEditToken } from '@embedpdf-x/react/page-edit';
 import { ShellToken } from '@embedpdf-x/react/shell';
 import { AnnotationToken } from '@embedpdf-x/react/annotation';
 import type { PropSpec } from '@embedpdf-x/react/annotation';
@@ -284,35 +283,25 @@ export const commands: CommandDef[] = [
     active: (c) => stage(c)?.layout() === 'horizontal',
     enabled: (c) => stage(c) != null,
   },
+  // VIEW rotation (Adobe's "Rotate View"): rotates how every page displays in
+  // the main stage lens — non-persistent, nothing written to the PDF. The
+  // PERMANENT per-page rotation (PageEditToken.rotateBy) belongs in a
+  // page-organize surface, not behind the view-settings buttons.
   {
     id: 'rotate:clockwise',
     labelKey: 'commands.rotate.clockwise',
     icon: 'rotateClockwise',
     categories: ['page', 'rotate'],
-    run: (c) => {
-      const s = stage(c);
-      const edit = c.tryGet(PageEditToken);
-      if (!s || !edit) return;
-      const pages = s.pages();
-      const current = pages[Math.max(0, s.currentPage() - 1)] ?? pages[0];
-      if (current) edit.rotateBy(current.pon, 90);
-    },
-    enabled: (c) => c.tryGet(PageEditToken) != null,
+    run: (c) => stage(c)?.rotateView(90),
+    enabled: (c) => stage(c) != null,
   },
   {
     id: 'rotate:counter-clockwise',
     labelKey: 'commands.rotate.counterclockwise',
     icon: 'rotateCounterClockwise',
     categories: ['page', 'rotate'],
-    run: (c) => {
-      const s = stage(c);
-      const edit = c.tryGet(PageEditToken);
-      if (!s || !edit) return;
-      const pages = s.pages();
-      const current = pages[Math.max(0, s.currentPage() - 1)] ?? pages[0];
-      if (current) edit.rotateBy(current.pon, -90);
-    },
-    enabled: (c) => c.tryGet(PageEditToken) != null,
+    run: (c) => stage(c)?.rotateView(-90),
+    enabled: (c) => stage(c) != null,
   },
 
   // ── modes (shell exclusive surfaces, tag 'mode') ────────────────────────

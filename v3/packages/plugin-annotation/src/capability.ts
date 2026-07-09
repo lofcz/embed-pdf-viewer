@@ -11,7 +11,6 @@ import {
 import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import {
   chrome as coreChrome,
-  contentToPdfPoint,
   creationDraftAnchor as coreCreationDraftAnchor,
   cursorAt,
   defaultsFor,
@@ -25,6 +24,7 @@ import {
   selectionAnchor as coreSelectionAnchor,
   sharedProps,
   update,
+  uprightRotation,
   type Annot,
   type AnnotationProps,
   type ChromeGeom,
@@ -39,7 +39,7 @@ import {
   type Subtype,
   type Vec,
 } from '@embedpdf-x/annotation-core';
-import { fromDTO, refKey, toCreateDraft, toPatch } from './repository';
+import { boxGeomFields, fromDTO, refKey, toCreateDraft, toPatch } from './repository';
 import { buildTextItems } from './text-item';
 import { buildToolRegistry } from './tools';
 import type { AnnotationToolDef, ResolvedTool } from './tools';
@@ -233,27 +233,30 @@ export function createAnnotationCapability(
 
   /** Create a stamp of `width`×`height` PDF points centred on a content point —
    *  the one engine-write both the armed and the click-to-place paths funnel
-   *  through. Returns false when the page/document isn't ready. */
+   *  through. `rotCW` (CW content degrees — the tool's upright counter-rotation)
+   *  emits the repository's box rotation fields, so the engine bakes the tilted
+   *  /AP exactly as an interactively rotated stamp would round-trip. Returns
+   *  false when the page/document isn't ready. */
   const createStampAt = (
     pon: number,
     point: Vec,
     source: BinarySource,
     width: number,
     height: number,
+    rotCW = 0,
   ): boolean => {
     const doc = ctx.doc;
     const crop = cropOf(pon);
     if (!doc || !crop) return false;
-    const c = contentToPdfPoint(point, crop);
-    const rect = {
-      left: c.x - width / 2,
-      bottom: c.y - height / 2,
-      right: c.x + width / 2,
-      top: c.y + height / 2,
-    };
+    const box: Rect = { x: point.x - width / 2, y: point.y - height / 2, width, height };
     doc
       .page(pon)
-      .annotations.create({ subtype: 'stamp', rect, source, fit: 'contain' })
+      .annotations.create({
+        subtype: 'stamp',
+        ...boxGeomFields(box, rotCW, crop),
+        source,
+        fit: 'contain',
+      })
       .then(
         // A stamp has no vector render — the engine-baked /AP IS the visual.
         (res) => syncDTO(res.created, 'baked'),
@@ -262,10 +265,26 @@ export function createAnnotationCapability(
     return true;
   };
 
-  const placeArmedStamp = (pon: number, point: Vec): boolean => {
+  /** The active tool's upright counter-rotation for a click at `displayRotation`
+   *  (0 when the tool doesn't ask for upright, or the display isn't rotated). */
+  const uprightRotFor = (displayRotation?: number): number => {
+    if (!displayRotation) return 0;
+    const ix = ctx.tryGet(InteractionToken);
+    const tool = ix ? registry.get(ix.activeToolId()) : undefined;
+    return tool?.upright ? uprightRotation(displayRotation) : 0;
+  };
+
+  const placeArmedStamp = (pon: number, point: Vec, displayRotation?: number): boolean => {
     const armed = armedStamp;
     if (!armed) return false;
-    return createStampAt(pon, point, armed.source, armed.width, armed.height);
+    return createStampAt(
+      pon,
+      point,
+      armed.source,
+      armed.width,
+      armed.height,
+      uprightRotFor(displayRotation),
+    );
   };
 
   /** Sniff a stamp source (rejecting non-image bytes) and place it, sized from its
@@ -274,6 +293,7 @@ export function createAnnotationCapability(
     pon: number,
     point: Vec,
     source: BinarySource,
+    rotCW: number,
     targetWidth = 150,
   ): Promise<void> => {
     const resolved = await resolveBinarySource(source);
@@ -283,7 +303,7 @@ export function createAnnotationCapability(
       return;
     }
     const aspect = 'width' in meta && meta.width > 0 ? meta.height / meta.width : 1;
-    createStampAt(pon, point, source, targetWidth, targetWidth * aspect);
+    createStampAt(pon, point, source, targetWidth, targetWidth * aspect, rotCW);
   };
 
   /**
@@ -292,13 +312,17 @@ export function createAnnotationCapability(
    * resolve — dropping the placement if it was cancelled, or if the tool or
    * document changed while the picker was open (the intent expired).
    */
-  const requestStampAt = (pon: number, point: Vec): boolean => {
+  const requestStampAt = (pon: number, point: Vec, displayRotation?: number): boolean => {
     const ix = ctx.tryGet(InteractionToken);
     const tool = ix ? registry.get(ix.activeToolId()) : undefined;
     const spec = tool?.source;
     if (!spec) return false;
+    // Resolved AT the click (like the placement point): the upright intent
+    // belongs to the moment the author picked the spot, even when a 'prompt'
+    // source resolves the bytes later.
+    const rotCW = tool.upright && displayRotation ? uprightRotation(displayRotation) : 0;
     if (spec.kind === 'bytes') {
-      void placeStampSource(pon, point, spec.source);
+      void placeStampSource(pon, point, spec.source, rotCW);
       return true;
     }
     // kind === 'prompt' — needs the environment. No provider installed → decline
@@ -312,7 +336,7 @@ export function createAnnotationCapability(
         if (!bytes) return; // cancelled
         if (ctx.doc !== docAtClick) return; // document changed underneath
         if (ctx.tryGet(InteractionToken)?.activeToolId() !== tool.id) return; // tool changed
-        void placeStampSource(pon, point, bytes);
+        void placeStampSource(pon, point, bytes, rotCW);
       },
       (err) => console.error('[annotation] stamp provider failed:', err),
     );
@@ -571,17 +595,27 @@ export function createAnnotationCapability(
       }),
     marqueePointer: (phase, pon, point, shift) =>
       apply({ t: 'marqueePointer', phase, in: { pon, point, shift, pageBox: pageBoxOf(pon) } }),
-    createPointer: (tool, phase, pon, point, finish = false) => {
+    createPointer: (tool, phase, pon, point, finish = false, displayRotation) => {
       // Resolve the authoring TOOL to its routing subtype + defaults key. Two
       // tools can share a subtype (line / arrow); `preset` keeps their defaults
       // apart. Unknown id → treat it as a bare subtype (headless/programmatic).
+      // The tool's `upright` policy + the sample's display rotation ride the
+      // input bag; the core captures them on the draft at DOWN.
       const t = registry.get(tool);
       apply({
         t: 'createPointer',
         phase,
         subtype: t?.subtype ?? (tool as Subtype),
         preset: t?.preset ?? tool,
-        in: { pon, point, shift: false, finish, pageBox: pageBoxOf(pon) },
+        in: {
+          pon,
+          point,
+          shift: false,
+          finish,
+          pageBox: pageBoxOf(pon),
+          displayRotation,
+          upright: t?.upright,
+        },
       });
     },
     finishCreationDraft: () => apply({ t: 'finishCreationDraft' }),

@@ -76,6 +76,10 @@ export {
   DEFAULT_CHROME_GEOM,
   normalizeDeg,
   isRotatableGeom,
+  // upright placement
+  uprightRotation,
+  transposedAboutCenter,
+  uprightAnchoredRect,
   ROTATE_KNOB_OFFSET,
   MITER_LIMIT,
   // group scaling

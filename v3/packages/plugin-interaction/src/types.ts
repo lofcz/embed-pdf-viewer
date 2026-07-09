@@ -1,5 +1,5 @@
 import { createCapabilityToken, type PageObjectNumber } from '@embedpdf-x/kernel';
-import type { Point } from '@embedpdf-x/geometry';
+import type { PageRotation, Point } from '@embedpdf-x/geometry';
 
 export type ToolId = string;
 export type Cursor = string;
@@ -38,8 +38,11 @@ export interface PointerSample {
   viewport: Point;
   /** `scale` is the hit page's VIEW px per content unit — handlers use it to
    *  convert screen-px chrome settings into content-space tolerances, so grab
-   *  zones stay screen-constant across zoom. Absent when the source can't say. */
-  page?: { pon: PageObjectNumber; point: Point; scale?: number };
+   *  zones stay screen-constant across zoom. `rotation` is the hit page's TOTAL
+   *  display rotation (document /Rotate + view rotation) — per-event
+   *  environmental context like `scale`, for placement rules that depend on how
+   *  the page is DISPLAYED (an upright stamp). Absent when the source can't say. */
+  page?: { pon: PageObjectNumber; point: Point; scale?: number; rotation?: PageRotation };
   modifiers: Modifiers;
   /**
    * Click count for a `down` (1 = single, 2 = double, 3 = triple), from the

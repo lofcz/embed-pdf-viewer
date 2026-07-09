@@ -38,8 +38,10 @@ export function createStampHandler(anno: AnnotationHostCapability): InteractionH
     enabledFor: (t) => t.enables.has('annotation-stamp'),
     onDown: (s) => {
       if (!s.page) return false;
-      if (anno.placeArmedStamp(s.page.pon, s.page.point)) return true;
-      return anno.requestStampAt(s.page.pon, s.page.point);
+      // The click sample's display rotation drives the tool's `upright` policy —
+      // the stamp lands reading horizontally on a rotated page/view.
+      if (anno.placeArmedStamp(s.page.pon, s.page.point, s.page.rotation)) return true;
+      return anno.requestStampAt(s.page.pon, s.page.point, s.page.rotation);
     },
   };
 }
@@ -223,7 +225,9 @@ export function createDrawHandler(
       // final box click/drag commits and clears the draft (so `drawingCallout`
       // resets on the next tool change or simply idles harmlessly).
       if (isCalloutTool(st)) drawingCallout = true;
-      anno.createPointer(tool, 'down', s.page.pon, s.page.point);
+      // The DOWN sample's display rotation rides along for the tool's `upright`
+      // policy; the core captures it on the draft (later phases don't carry it).
+      anno.createPointer(tool, 'down', s.page.pon, s.page.point, false, s.page.rotation);
       return true;
     },
     onMove: (s) => {

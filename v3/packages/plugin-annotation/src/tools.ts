@@ -56,6 +56,18 @@ export interface AnnotationToolDef {
   enables?: string[];
   /** Stamp-family only: how the click-to-place source resolves ({@link StampSourceSpec}). */
   source?: StampSourceSpec;
+  /**
+   * Place annotations UPRIGHT: counter-rotate what this tool creates against the
+   * page's TOTAL display rotation (document /Rotate + any stage view rotation),
+   * so it reads horizontally exactly as the author saw it — Adobe's behaviour
+   * for stamps and text on rotated pages. WYSIWYG at authoring time: the
+   * rotation is baked into the annotation, so a save keeps what the author saw
+   * (other viewers apply only /Rotate — document that when view rotation is in
+   * play). Box kinds only (stamp / free-text, where reading orientation is
+   * meaningful); ignored by vertex kinds and callouts. Default: on for the
+   * built-in `stamp` and `free-text` tools, off elsewhere.
+   */
+  upright?: boolean;
   /** Opaque presentation hints (label/icon…) for a toolbar or badge that builds
    *  itself from the tool table. Never read by the plugin or the interaction hub. */
   meta?: Record<string, unknown>;
@@ -74,6 +86,9 @@ export interface ResolvedTool {
   enables: ReadonlySet<string>;
   defaults?: AnnotationPropsPatch;
   source?: StampSourceSpec;
+  /** Counter-rotate creations against the page's display rotation (see
+   *  {@link AnnotationToolDef.upright}). */
+  upright: boolean;
   meta?: Record<string, unknown>;
 }
 
@@ -106,10 +121,14 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     cursor: 'crosshair',
     enables: DRAW_TAGS,
     defaults: { fontColor: '#ef4444' },
+    upright: true,
   },
   {
     // Routes on the `free-text-callout` subtype token but authors a `free-text`
     // annotation (leader + box). Its leader defaults to an open arrowhead.
+    // Deliberately NOT `upright`: callout geometry (leader + box) doesn't rotate
+    // in the core (v2 configured it but never applied it — resolved here, not
+    // inherited).
     id: 'free-text-callout',
     subtype: 'free-text-callout',
     propsKind: 'free-text',
@@ -165,6 +184,7 @@ export const DEFAULT_TOOLS: AnnotationToolDef[] = [
     cursor: 'copy',
     enables: ['annotation-stamp', 'annotation-edit'],
     source: { kind: 'prompt' },
+    upright: true,
   },
 ];
 
@@ -228,6 +248,7 @@ export function buildToolRegistry(overrides: AnnotationToolDef[] = []): Map<stri
       enables: new Set(def.enables ?? (base ? [...base.enables] : [])),
       defaults: mergeDefaults(base?.defaults, def.defaults),
       source: def.source ?? base?.source,
+      upright: def.upright ?? base?.upright ?? false,
       meta: base?.meta || def.meta ? { ...base?.meta, ...def.meta } : undefined,
     };
     out.set(id, resolved);

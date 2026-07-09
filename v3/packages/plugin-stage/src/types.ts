@@ -1,6 +1,6 @@
 import { createCapabilityToken } from '@embedpdf-x/kernel';
 import type { PageObjectNumber } from '@embedpdf-x/kernel';
-import type { PageTransform, Rect } from '@embedpdf-x/geometry';
+import type { PageRotation, PageTransform, Rect } from '@embedpdf-x/geometry';
 import type {
   Alignment,
   AlignmentValue,
@@ -147,6 +147,16 @@ export interface StageSettings {
   zoomAlign: AlignmentValue;
   /** See {@link StageSettings.fitAlign} — the viewport point reframes hold. */
   anchorAlign: AlignmentValue;
+  /**
+   * NON-PERSISTENT view rotation: a quarter-turn (clockwise) applied to how
+   * EVERY page is DISPLAYED in this lens, on top of each page's own /Rotate —
+   * Adobe's "Rotate View". A display setting like `zoom` or `layout`: per lens
+   * (the main viewer can rotate while a thumbnail lens stays upright), never
+   * written to the document, gone when the lens resets. The PERMANENT
+   * counterpart — writing /Rotate into the PDF — is plugin-page-edit's
+   * `rotateBy`/`setRotation`.
+   */
+  viewRotation: PageRotation;
   /** Zoom intent: a fit-mode (automatic/fit-page/fit-width/fit-all) or a fixed level. */
   zoom: ZoomSpec;
   /** Default behaviour for goToPage/next/prev. */
@@ -350,7 +360,13 @@ export interface StageCapability {
    * needs so a single pointer source can drive page-aware features (text
    * selection, annotations) AND cross-page drags.
    */
-  pageAt(screen: Point): { pon: PageObjectNumber; point: Point; scale: number } | null;
+  pageAt(screen: Point): {
+    pon: PageObjectNumber;
+    point: Point;
+    scale: number;
+    /** The hit page's TOTAL display rotation (document /Rotate + view rotation). */
+    rotation: PageRotation;
+  } | null;
   /**
    * Screen point → `pon`'s content space, UNCLAMPED — valid even when the point
    * is outside the page's bounds (coordinates then fall outside `[0, size]`).
@@ -389,6 +405,8 @@ export interface StageCapability {
   anchorAlign(): AlignmentValue;
   direction(): Direction;
   scrollBehavior(): ScrollBehaviorKind;
+  /** The lens's view rotation — see {@link StageSettings.viewRotation}. */
+  viewRotation(): PageRotation;
   zoomLevel(): number;
   /** The active zoom intent: a fit-mode, or 'custom' for a fixed level. */
   zoomMode(): ZoomModeValue | 'custom';
@@ -465,6 +483,13 @@ export interface StageCapability {
   setZoomAlign(zoomAlign: AlignmentValue): void;
   setAnchorAlign(anchorAlign: AlignmentValue): void;
   setDirection(direction: Direction): void;
+  /** Set the lens's view rotation to an absolute quarter-turn — see
+   *  {@link StageSettings.viewRotation}. An anchor-preserving reframe, like a
+   *  page rotation: the spot you were looking at stays put (`anchorAlign`). */
+  setViewRotation(viewRotation: PageRotation): void;
+  /** Rotate the view a quarter-turn from where it is (the toolbar verb) —
+   *  relative sugar over {@link setViewRotation}, mirroring page-edit's `rotateBy`. */
+  rotateView(delta: 90 | -90): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;
   applyViewState(view: StageViewState): void;
   /** Offer a candidate initial view; the highest-priority non-null wins at placement. */

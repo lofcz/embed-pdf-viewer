@@ -27,7 +27,10 @@ import {
   selectionCenter,
   selectionQuad,
   shapeRectFor,
+  transposedAboutCenter,
   unionRect,
+  uprightAnchoredRect,
+  uprightRotation,
 } from './geometry';
 import { applyProps, initialTextStyle, styleFromProps, textStyleFromProps } from './props';
 import { computeMoveSnap } from './snap';
@@ -534,6 +537,11 @@ function createPointer(
                 from: input.point,
                 to: input.point,
                 ellipse: subtype === 'circle',
+                // Captured at DOWN (the gesture's home page); a rotation of 0
+                // makes upright a no-op, so the draft stays clean then.
+                ...(input.upright && input.displayRotation
+                  ? { displayRotation: input.displayRotation, upright: true }
+                  : {}),
               }
             : null;
     return draft ? [{ ...m, selected: [], draft }, []] : [m, []];
@@ -560,20 +568,39 @@ function createPointer(
   const def = defaultsFor(m, d.preset ?? d.subtype);
   const style = styleFromProps(def);
   let geom: Geom | null = null;
+  // The upright counter-rotation for a BOX commit (0 when the tool/page don't
+  // ask for one). A DRAGGED box keeps the on-screen footprint the author drew:
+  // for a quarter-turn the unrotated box is the drag rect TRANSPOSED about its
+  // centre, so spinning it by `rot` lands exactly back on the dragged region.
+  const upRot =
+    d.g === 'create-rect' && d.upright && d.displayRotation
+      ? uprightRotation(d.displayRotation)
+      : 0;
+  const uprightBox = (dragged: Rect): Rect =>
+    upRot === 90 || upRot === 270 ? transposedAboutCenter(dragged) : dragged;
   if (d.g === 'create-rect' && d.subtype === 'free-text') {
     // Free-text: a dragged box, or — on a mere click — a sensible default box you
-    // can immediately type into. Always created; never a no-op.
+    // can immediately type into. Always created; never a no-op. Under upright the
+    // click default anchors in the DISPLAY frame (top-left at the cursor as the
+    // author sees it — the rotation-0 feel at every quarter-turn).
     const dragged = rectFromPoints(d.from, d.to);
     const rect =
       dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG
-        ? dragged
-        : { x: d.from.x, y: d.from.y, width: 180, height: 40 };
-    geom = { t: 'text', rect };
+        ? uprightBox(dragged)
+        : upRot
+          ? uprightAnchoredRect(d.from, 180, 40, d.displayRotation!)
+          : { x: d.from.x, y: d.from.y, width: 180, height: 40 };
+    geom = { t: 'text', rect, ...(upRot ? { rot: upRot } : {}) };
   } else if (d.g === 'create-rect') {
     const dragged = rectFromPoints(d.from, d.to);
     if (dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG)
       // cloudy stores the OUTER box (dragged + extent) so the dragged box is its inner edge
-      geom = { t: 'rect', rect: shapeRectFor(dragged, d.ellipse, style), ellipse: d.ellipse };
+      geom = {
+        t: 'rect',
+        rect: shapeRectFor(uprightBox(dragged), d.ellipse, style),
+        ellipse: d.ellipse,
+        ...(upRot ? { rot: upRot } : {}),
+      };
   } else if (d.g === 'create-line') {
     if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG)
       geom = { t: 'line', a: d.from, b: d.to, ends: def.lineEndings };

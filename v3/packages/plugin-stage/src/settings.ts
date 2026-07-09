@@ -27,6 +27,7 @@ export const DEFAULT_SETTINGS: StageSettings = {
   arrivalAlign: { x: 'start', y: 'start' },
   zoomAlign: { x: 'center', y: 'center' },
   anchorAlign: { x: 'start', y: 'start' },
+  viewRotation: 0,
   zoom: { mode: ZoomMode.Automatic },
   scrollBehavior: 'smooth',
   // Web: 1 PDF point = 96/72 CSS px, so 100% is physically accurate. A native
@@ -71,6 +72,7 @@ export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
   arrivalAlign: 'none',
   zoomAlign: 'none',
   anchorAlign: 'none',
+  viewRotation: 'scene', // a layout input: every page's footprint swaps w↔h
   zoom: 'refit',
   scrollBehavior: 'none',
   viewUnitsPerPoint: 'scene', // a layout input: changing it resizes every page

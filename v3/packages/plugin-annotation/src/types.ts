@@ -1,4 +1,5 @@
 import { createCapabilityToken, type PageObjectNumber } from '@embedpdf-x/kernel';
+import type { PageRotation } from '@embedpdf-x/geometry';
 import type {
   AnnotationAppearanceImage,
   AnnotationDraft,
@@ -442,13 +443,16 @@ export interface AnnotationHostCapability extends AnnotationCapability {
     shift: boolean,
   ): void;
   /** Run the draw gesture for an authoring TOOL (by id). The plugin resolves it
-   *  to a routing subtype + defaults preset; a bare subtype also works (headless). */
+   *  to a routing subtype + defaults preset; a bare subtype also works (headless).
+   *  `displayRotation` (the DOWN sample's page rotation: /Rotate + view rotation)
+   *  feeds the tool's `upright` policy — omit it and upright is a no-op. */
   createPointer(
     tool: string,
     phase: 'down' | 'move' | 'up',
     pon: PageObjectNumber,
     point: Vec,
     finish?: boolean,
+    displayRotation?: PageRotation,
   ): void;
   finishCreationDraft(): void;
   cancelCreationDraft(): void;
@@ -463,17 +467,18 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   clearMarkupPreview(): void;
   // ── stamp placement (consumed by the interaction stamp handler) ──
   /** Place the armed stamp centred on a content point. Returns false (no
-   *  capture) when nothing is armed. */
-  placeArmedStamp(pon: PageObjectNumber, point: Vec): boolean;
+   *  capture) when nothing is armed. `displayRotation` (the click sample's page
+   *  rotation) feeds the active tool's `upright` policy. */
+  placeArmedStamp(pon: PageObjectNumber, point: Vec, displayRotation?: PageRotation): boolean;
   /**
    * Resolve the ACTIVE tool's {@link StampSourceSpec} for a click and place a
    * stamp centred on `point`: fixed `bytes` land immediately; a `'prompt'` source
    * asks the installed {@link StampProvider} (placement is dropped if it cancels,
    * or if the tool/document changed while it was open). Returns false (no capture)
    * when the active tool has no source. The click-then-pick counterpart of
-   * {@link placeArmedStamp}.
+   * {@link placeArmedStamp}. `displayRotation` as on {@link placeArmedStamp}.
    */
-  requestStampAt(pon: PageObjectNumber, point: Vec): boolean;
+  requestStampAt(pon: PageObjectNumber, point: Vec, displayRotation?: PageRotation): boolean;
   // ── tool registry (consumed by the plugin init + interaction handlers) ──
   /** Every resolved tool (built-ins + config `tools`), for the registration loop. */
   tools(): ResolvedTool[];

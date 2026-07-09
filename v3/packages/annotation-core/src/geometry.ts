@@ -280,6 +280,59 @@ export function rotatedAabb(rect: Rect, deg: number): Rect {
   return unionRect(rectCornerPoints(rect).map((p) => rotatePoint(p, c, deg)));
 }
 
+/* ── upright placement (counter-rotating against the DISPLAY rotation) ────────
+ * An `upright` tool commits `rot = -displayRotation` so the annotation reads
+ * horizontally on the rotated page. These two helpers are the ONLY placement
+ * math that rule needs; both are exact for quarter-turns and pure content-space
+ * (they never know about the view).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * The counter-rotation (CW content degrees) that makes an annotation read
+ * upright at `displayRotation`: on screen the two compose to 0.
+ */
+export const uprightRotation = (displayRotation: number): number => normalizeDeg(-displayRotation);
+
+/** `rect` with width↔height swapped about its own centre — the unrotated box
+ *  whose quarter-turn AABB is exactly `rect` again. */
+export function transposedAboutCenter(rect: Rect): Rect {
+  const c = rectCenter(rect);
+  return {
+    x: c.x - rect.height / 2,
+    y: c.y - rect.width / 2,
+    width: rect.height,
+    height: rect.width,
+  };
+}
+
+/**
+ * The unrotated content rect for a DEFAULT-SIZE upright box "placed at" a
+ * point: positioned so that, after the upright counter-rotation, the box shows
+ * `width`×`height` with its TOP-LEFT at `anchor` in the ROTATED view — the
+ * same on-screen feel as the rotation-0 `{ x: anchor.x, y: anchor.y }` box at
+ * every quarter-turn (a click-created free-text box always opens down-right of
+ * the cursor as the author sees it). Derived by placing the box in the display
+ * frame and pulling its AABB back through the quarter-turn; the page dims
+ * cancel, so no page box is needed.
+ */
+export function uprightAnchoredRect(
+  anchor: Vec,
+  width: number,
+  height: number,
+  displayRotation: number,
+): Rect {
+  const r = normalizeDeg(displayRotation);
+  const c: Vec =
+    r === 90
+      ? { x: anchor.x + height / 2, y: anchor.y - width / 2 }
+      : r === 180
+        ? { x: anchor.x - width / 2, y: anchor.y - height / 2 }
+        : r === 270
+          ? { x: anchor.x - height / 2, y: anchor.y + width / 2 }
+          : { x: anchor.x + width / 2, y: anchor.y + height / 2 };
+  return { x: c.x - width / 2, y: c.y - height / 2, width, height };
+}
+
 /** Reset a geom to its as-authored orientation (`rot → 0`). Box: drop `rot`.
  *  Vertex: spin the points by `-rot` about their centroid so they return to the
  *  orientation they were drawn at, in place. */

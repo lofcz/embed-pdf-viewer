@@ -5,7 +5,7 @@ import type {
   LineEndings,
 } from '@embedpdf/engine-core/runtime';
 import type { PageObjectNumber } from '@embedpdf-x/kernel';
-import type { Point, Rect as GeometryRect } from '@embedpdf-x/geometry';
+import type { PageRotation, Point, Rect as GeometryRect } from '@embedpdf-x/geometry';
 
 export type { LineEnding, LineEndings };
 
@@ -238,6 +238,11 @@ export type Draft =
       from: Vec;
       to: Vec;
       ellipse: boolean;
+      /** Display rotation + upright policy captured at DOWN (the gesture's home
+       *  page), so the commit counter-rotates against what the author SAW even
+       *  if the up sample resolves elsewhere. See {@link PointerInput}. */
+      displayRotation?: PageRotation;
+      upright?: boolean;
     }
   | {
       g: 'create-line';
@@ -374,6 +379,22 @@ export interface PointerInput {
    * page's view scale at dispatch). Absent → `DEFAULT_CHROME_GEOM`.
    */
   chrome?: ChromeGeom;
+  /**
+   * The page's TOTAL display rotation (document /Rotate + view rotation) at the
+   * gesture — per-event environmental context like `pageBox`. Read on the DOWN
+   * of a creation gesture (captured on the draft; later phases ignore it) so an
+   * `upright` commit can counter-rotate against how the page was DISPLAYED when
+   * the author placed the annotation. Content space itself never rotates.
+   */
+  displayRotation?: PageRotation;
+  /**
+   * Counter-rotate the created annotation so it reads upright at
+   * `displayRotation` — the authoring TOOL's `upright` policy, resolved by the
+   * caller (the core knows subtypes, not tools). Box kinds only (free-text /
+   * stamp are the ones with a natural reading orientation); vertex kinds and
+   * callouts ignore it.
+   */
+  upright?: boolean;
 }
 
 export type Msg =

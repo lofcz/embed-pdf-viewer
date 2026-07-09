@@ -2971,6 +2971,9 @@ importers:
       '@embedpdf-x/annotation-core':
         specifier: workspace:*
         version: link:../annotation-core
+      '@embedpdf-x/geometry':
+        specifier: workspace:*
+        version: link:../geometry
       '@embedpdf-x/kernel':
         specifier: workspace:*
         version: link:../kernel

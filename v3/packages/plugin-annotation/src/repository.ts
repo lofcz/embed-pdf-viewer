@@ -91,7 +91,7 @@ const fromPdfRotation = (rotPdf: number): number => normalizeDeg(-rotPdf);
  *    it), `unrotatedRect` is the logical box, and `rotation` the PDF angle. The
  *    engine bakes a portable `/AP /Matrix` from those two.
  */
-function boxGeomFields(
+export function boxGeomFields(
   rect: Rect,
   rot: number,
   crop: PdfRect,

@@ -76,6 +76,15 @@ export function isQuarterTurn(rotation: PageRotation): boolean {
 }
 
 /**
+ * Compose two quarter-turn rotations (mod 360). THE way the shell resolves a
+ * page's TOTAL display rotation — `addRotations(page /Rotate, view rotation)`
+ * — so the wrap arithmetic is never hand-written (and drift) per call site.
+ */
+export function addRotations(a: PageRotation, b: PageRotation): PageRotation {
+  return ((a + b) % 360) as PageRotation;
+}
+
+/**
  * Snap a view-px value to the device pixel grid: round to a whole device pixel,
  * back to view px. Used for a page's screen POSITION so a CSS-rotated page lands
  * on the grid (no sub-pixel anti-aliased fringe). The shell never hand-rounds.
@@ -127,6 +136,13 @@ export function deviceHeightForWidth(pageSize: Size, deviceWidth: number): numbe
  * `scale` and reuse all of it.
  */
 export interface PageTransform {
+  /**
+   * The page's TOTAL display rotation (document /Rotate + any view rotation) —
+   * the same value the transform's matrices were built from, exposed so
+   * consumers that need the quarter-turn itself (an upright-placement rule, a
+   * pointer sample) read it HERE instead of re-deriving it from the matrix.
+   */
+  readonly rotation: PageRotation;
   /** Display footprint in VIEW px (device-snapped) — the page container's size.
    *  Width↔height already swapped for quarter-turns. */
   readonly viewWidth: number;
@@ -210,6 +226,7 @@ export function pageTransform(input: {
   const cssMatrix = matrixToCss(viewMat);
 
   return {
+    rotation,
     viewWidth: footprint.width,
     viewHeight: footprint.height,
     contentWidth: content.width,
