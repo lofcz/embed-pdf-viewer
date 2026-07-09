@@ -276,6 +276,40 @@ export function geomRotateAbout(g: Geom, pivot: Vec, deltaDeg: number): Geom {
   return g;
 }
 
+/**
+ * The size of the frame an engine-baked `/AP` is authored into: the UNROTATED
+ * box for box kinds (rotation is stripped to `apRot` and re-applied at the
+ * blit), the point bounds for vertex kinds (their points ARE the visual).
+ * Position is deliberately absent — a translation never invalidates a raster.
+ */
+function apFrameSize(g: Geom): Size {
+  if (g.t === 'rect' || g.t === 'text' || g.t === 'caret')
+    return { width: g.rect.width, height: g.rect.height };
+  const pts =
+    g.t === 'line'
+      ? [g.a, g.b]
+      : g.t === 'poly'
+        ? g.points
+        : g.t === 'ink'
+          ? g.strokes.flat()
+          : g.quads.flat();
+  const b = unionRect(pts);
+  return { width: b.width, height: b.height };
+}
+
+/**
+ * Did an edit change the SIZE of the geometry's `/AP` authoring frame — i.e.
+ * will the engine's re-bake produce NEW raster content? One rule for every
+ * gesture, so the commit sites never enumerate kinds: a move/rotate preserves
+ * the frame (false), a resize/scale changes it (true). The 0.01pt tolerance
+ * absorbs float noise from the gesture math.
+ */
+export function apSizeChanged(before: Geom, after: Geom): boolean {
+  const a = apFrameSize(before);
+  const b = apFrameSize(after);
+  return Math.abs(a.width - b.width) > 0.01 || Math.abs(a.height - b.height) > 0.01;
+}
+
 /** The AABB of `rect` rotated `deg` about its own centre. */
 export function rotatedAabb(rect: Rect, deg: number): Rect {
   if (!deg) return rect;

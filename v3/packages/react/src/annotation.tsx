@@ -535,10 +535,11 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
     anno.ensurePage(page.pon);
   }, [anno, page.pon]);
 
-  // Baked annotations render from engine rasters — refetch when the COMMITTED
-  // baked set or geometry changes (a freshly placed stamp, a stamp resize whose
-  // AP the engine re-fit), not only on zoom. The epoch ignores live gesture
-  // previews, so a drag never spams renders mid-gesture.
+  // Baked annotations render from engine rasters — refetch when the page's
+  // baked set or an /AP content version changes (a freshly placed stamp, a
+  // resize whose re-bake RESOLVED), plus on zoom via renderScale. A move or a
+  // rotate leaves the epoch untouched (the blit repositions the same pixels),
+  // and live gesture previews don't touch it either — so no mid-drag spam.
   const bakedKey = useSelector(AnnotationHostToken, (c) => c.appearanceEpoch(page.pon));
 
   useEffect(() => {

@@ -375,10 +375,17 @@ export function createAnnotationCapability(
    * with the render `source` the caller decides: `'vector'` when WE authored or
    * changed the appearance (create / restyle / resize), `'baked'` when the AP is
    * still authoritative (a move, which preserves it, or a remote edit).
+   * `bumpAp` marks the upsert as confirming an engine /AP re-bake with new
+   * content, so the annotation's `apVersion` — and with it the page's
+   * appearance epoch — advances and the shell fetches the fresh raster.
    */
-  const syncDTO = (dto: Parameters<typeof fromDTO>[0], source: 'baked' | 'vector'): void => {
+  const syncDTO = (
+    dto: Parameters<typeof fromDTO>[0],
+    source: 'baked' | 'vector',
+    bumpAp = false,
+  ): void => {
     const crop = cropOf(dto.pageObjectNumber);
-    if (crop) apply({ t: 'upsert', annots: [fromDTO(dto, crop, source)] });
+    if (crop) apply({ t: 'upsert', annots: [fromDTO(dto, crop, source)], bumpAp });
   };
 
   /** The one engine-update path, shared by `update` and `updateSelection`. A
@@ -460,12 +467,16 @@ export function createAnnotationCapability(
       // Re-sync from the authoritative DTO, PRESERVING the source the gesture
       // chose: a move kept it baked (raster rides along), a resize flipped it to
       // vector. So the round-trip can't silently re-bake an edited annotation.
-      const source = a.source;
+      // `apChanged` is the core's verdict that this patch invalidated a baked
+      // raster (still baked + frame resized — a stamp resize): the resolved
+      // re-bake holds NEW content, so the re-sync bumps `apVersion` — one fresh
+      // fetch, exactly when the engine is done. Never one-behind, never on a
+      // move, never for kinds that just flipped to vector.
       doc
         .page(a.pon)
         .annotations.update(a.ref, patch)
         .then(
-          (res) => syncDTO(res.updated, source),
+          (res) => syncDTO(res.updated, a.source, fx.apChanged === true),
           () => {},
         );
     } else {
@@ -574,19 +585,20 @@ export function createAnnotationCapability(
     behaviorFor: (a) => behaviors.find((b) => b.matches(a) && b.engaged()) ?? null,
 
     appearanceEpoch: (pon) => {
+      // What a baked raster DEPENDS on, and nothing else: which annotations are
+      // baked on this page, and each one's /AP content version (`apVersion` —
+      // bumped when a size-changing patch RESOLVES, or a remote edit folds in).
+      // Position and rotation are deliberately absent: the blit translates
+      // (`apBox`) and rotates (`apRot`) the same pixels, so a move or a spin
+      // costs zero re-renders — and because the version bumps when the engine
+      // CONFIRMS the re-bake, the fetch can never read a stale /AP ("one
+      // behind"). Render scale is the shell effect's own dependency.
       const m = model();
       const parts: string[] = [];
       for (const id of m.order) {
         const a = m.byId[id];
         if (!a || a.pon !== pon || a.source !== 'baked' || !a.ref) continue;
-        const b = a.apBox;
-        // 1dp rounding: the gesture-committed box and the DTO-synced box may
-        // differ by float noise — that must not read as a second epoch.
-        parts.push(
-          b
-            ? `${id}@${b.x.toFixed(1)},${b.y.toFixed(1)},${b.width.toFixed(1)},${b.height.toFixed(1)}`
-            : id,
-        );
+        parts.push(`${id}@${a.apVersion ?? 0}`);
       }
       return parts.sort().join('|');
     },

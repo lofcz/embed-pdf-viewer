@@ -38,7 +38,10 @@ export function registerAnnotationEffects(
       // Another session authored this — trust the engine's baked AP.
       if (crop) annots.push(fromDTO(dto, crop, 'baked'));
     }
-    if (annots.length) apply({ t: 'upsert', annots });
+    // A remote edit may have re-baked the /AP (only the resulting DTO is
+    // visible here, not what changed) — advance `apVersion` so the raster
+    // refreshes rather than trusting a stale local render.
+    if (annots.length) apply({ t: 'upsert', annots, bumpAp: true });
   };
 
   const unsubscribe = doc.events.subscribe((event: DocumentEvent) => {

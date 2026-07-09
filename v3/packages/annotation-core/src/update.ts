@@ -10,6 +10,7 @@ import { expandGroups, groupMembers } from './group';
 import { canMove, groupUnionBounds, hitTest, isSelectable } from './hit';
 import { capsFor } from './kinds';
 import {
+  apSizeChanged,
   caretRectFromTextEnd,
   DEFAULT_CHROME_GEOM,
   geomDragHandle,
@@ -117,6 +118,24 @@ const ownGeometry = (a: Annot): Annot => {
   if (!capsFor(a.subtype).opaqueBody) return toVector(a);
   return 'rect' in a.geom ? { ...a, apBox: a.geom.rect } : a;
 };
+/**
+ * Does this committed edit invalidate an engine-baked raster? Only when the
+ * annotation STAYS baked (an opaque-body kind — everything else just flipped to
+ * vector via {@link ownGeometry} and renders live from its geometry) AND the
+ * edit changed the /AP frame's SIZE, does the engine's re-bake produce new
+ * raster content. In practice: a stamp resize. Moves and rotations keep the
+ * frame (the blit translates/rotates the same pixels), so they emit false and
+ * a committed drag costs zero appearance re-renders. Call with the NEXT
+ * (post-{@link ownGeometry}) annot and the geometry it had BEFORE the edit.
+ */
+const apInvalidated = (next: Annot, before: Geom): boolean =>
+  next.source === 'baked' && apSizeChanged(before, next.geom);
+/** The patch effect for a committed geometry edit. `apChanged` is attached ONLY
+ *  when the edit invalidated a baked raster (a stamp resize) — so every other
+ *  edit keeps the bare `{ fx, id }` shape and never triggers an appearance
+ *  re-fetch. `next` is the post-{@link ownGeometry} annot, `before` its old geom. */
+const patchFx = (id: Id, next: Annot, before: Geom): Effect =>
+  apInvalidated(next, before) ? { fx: 'patch', id, apChanged: true } : { fx: 'patch', id };
 const sub = (a: Vec, b: Vec): Vec => ({ x: a.x - b.x, y: a.y - b.y });
 const translateRect = (r: Rect, d: Vec): Rect => ({ ...r, x: r.x + d.x, y: r.y + d.y });
 
@@ -250,7 +269,7 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
     case 'createFailed':
       return [removeAnnots(m, [msg.tempId]), []];
     case 'upsert':
-      return [upsertAnnots(m, msg.annots), []];
+      return [upsertAnnots(m, msg.annots, msg.bumpAp), []];
     case 'remove':
       return [removeAnnots(m, msg.ids), []];
     case 'beginTextEdit':
@@ -396,7 +415,7 @@ function editUp(m: Model): [Model, Effect[]] {
     // A resize changes the appearance: we own it now → live (vector) render
     // (opaque-body kinds stay baked; the engine re-fits their AP natively).
     const a = ownGeometry({ ...m.byId[d.id], geom: d.cur });
-    return [{ ...m, byId: { ...m.byId, [d.id]: a }, draft: null }, [{ fx: 'patch', id: d.id }]];
+    return [{ ...m, byId: { ...m.byId, [d.id]: a }, draft: null }, [patchFx(d.id, a, d.base)]];
   }
   if (d.g === 'rotate') {
     const { delta } = rotateDraftDelta(m, d);
@@ -408,7 +427,7 @@ function editUp(m: Model): [Model, Effect[]] {
       if (!a) continue;
       // rotation re-bakes the appearance → live (vector) render + patch.
       byId[id] = ownGeometry({ ...a, geom: geomRotateAbout(a.geom, d.pivot, delta) });
-      fx.push({ fx: 'patch', id });
+      fx.push(patchFx(id, byId[id], a.geom));
     }
     return [{ ...m, byId, draft: null }, fx];
   }
@@ -421,7 +440,7 @@ function editUp(m: Model): [Model, Effect[]] {
       const a = byId[id];
       if (!a) continue;
       byId[id] = ownGeometry({ ...a, geom: geomScaleAbout(a.geom, d.anchor, sx, sy) });
-      fx.push({ fx: 'patch', id });
+      fx.push(patchFx(id, byId[id], a.geom));
     }
     return [{ ...m, byId, draft: null }, fx];
   }
@@ -438,7 +457,7 @@ function editUp(m: Model): [Model, Effect[]] {
         geom: geomTranslate(a.geom, d.delta),
         apBox: a.apBox ? translateRect(a.apBox, d.delta) : undefined,
       };
-      fx.push({ fx: 'patch', id });
+      fx.push({ fx: 'patch', id }); // a move never invalidates the raster
     }
     return [{ ...m, byId, draft: null }, fx];
   }
@@ -885,7 +904,7 @@ function setProps(m: Model, patch: AnnotationPropsPatch): [Model, Effect[]] {
     const next = applyProps(a, patch);
     if (!next) continue; // locked, or no declared key in the patch
     byId[id] = toVector(next);
-    fx.push({ fx: 'patch', id });
+    fx.push({ fx: 'patch', id }); // a restyle flips to vector — no raster
   }
   return fx.length ? [{ ...m, byId }, fx] : [m, []];
 }
@@ -925,8 +944,9 @@ function rotateSelection(m: Model, deltaDeg: number): [Model, Effect[]] {
   const byId = { ...m.byId };
   const fx: Effect[] = [];
   for (const id of ids) {
-    byId[id] = ownGeometry({ ...byId[id], geom: geomRotateAbout(byId[id].geom, pivot, deltaDeg) });
-    fx.push({ fx: 'patch', id });
+    const before = byId[id].geom;
+    byId[id] = ownGeometry({ ...byId[id], geom: geomRotateAbout(before, pivot, deltaDeg) });
+    fx.push(patchFx(id, byId[id], before));
   }
   return [{ ...m, byId }, fx];
 }
@@ -939,7 +959,7 @@ function resetRotation(m: Model): [Model, Effect[]] {
     const a = byId[id];
     if (!a || a.locked || geomRotation(a.geom) === 0) continue;
     byId[id] = ownGeometry({ ...a, geom: geomResetRotation(a.geom) });
-    fx.push({ fx: 'patch', id });
+    fx.push(patchFx(id, byId[id], a.geom));
   }
   return fx.length ? [{ ...m, byId }, fx] : [m, []];
 }
@@ -994,14 +1014,16 @@ function mergeLoaded(m: Model, annots: Annot[]): Model {
  * currently being dragged (its id is in a `move`/`handle` draft) is left as-is
  * so a remote echo can't yank geometry out from under the local gesture.
  */
-function upsertAnnots(m: Model, annots: Annot[]): Model {
+function upsertAnnots(m: Model, annots: Annot[], bumpAp = false): Model {
   const dragging = draftIds(m.draft);
   const byId = { ...m.byId };
   const order = [...m.order];
   for (const a of annots) {
     if (dragging.has(a.id)) continue;
     if (!byId[a.id]) order.push(a.id);
-    byId[a.id] = a;
+    // `apVersion` is model-owned, not DTO-derived: carry it across the replace,
+    // +1 when this upsert confirms an engine re-bake with new raster content.
+    byId[a.id] = { ...a, apVersion: (byId[a.id]?.apVersion ?? 0) + (bumpAp ? 1 : 0) };
   }
   return { ...m, byId, order };
 }

@@ -47,6 +47,7 @@ import {
   uprightAnchoredRect,
   uprightRotation,
   fitStampBox,
+  apSizeChanged,
 } from './geometry';
 import { cloudyBorderExtent } from './cloudy';
 import { scene } from './scene';
@@ -3003,5 +3004,89 @@ describe('fitStampBox (v2 rubber-stamp sizing: intrinsic, clamped to page)', () 
     const footprintH = box.width; // 300
     expect(cy).toBeCloseTo(footprintH / 2, 3); // pushed down so the tall footprint fits
     expect(cy - footprintH / 2).toBeGreaterThanOrEqual(-1e-6);
+  });
+});
+
+describe('apVersion: baked /AP content versioning (what re-fetches a raster)', () => {
+  // A committed, selected annot of the given kind. Stamps are opaque-body
+  // (visual IS the engine raster, stays baked through edits); squares flip to
+  // vector on any geometry edit and render live.
+  const committed = (subtype: 'stamp' | 'square'): Model => {
+    const a: Annot = {
+      id: 'A1',
+      ref: { kind: 'objectNumber', annotObjectNumber: 7, pageObjectNumber: PON },
+      pon: PON,
+      subtype,
+      geom: { t: 'rect', rect: { x: 100, y: 100, width: 100, height: 60 }, ellipse: false },
+      style: initialStyle,
+      locked: false,
+      source: 'baked',
+      apBox: { x: 100, y: 100, width: 100, height: 60 },
+    };
+    return { ...initialModel, byId: { A1: a }, order: ['A1'], selected: ['A1'] };
+  };
+
+  it('a stamp MOVE commits a bare patch — the raster is still pixel-exact', () => {
+    let m = committed('stamp');
+    [m] = update(m, editPtr('down', 150, 130)); // grab the body
+    [m] = update(m, editPtr('move', 190, 160));
+    const [next, fx] = update(m, editPtr('up', 190, 160));
+    expect(fx).toEqual([{ fx: 'patch', id: 'A1' }]); // no apChanged flag
+    const g = next.byId['A1'].geom;
+    expect(g.t === 'rect' && g.rect.x).toBe(140); // moved…
+    expect(next.byId['A1'].source).toBe('baked'); // …and still baked
+  });
+
+  it('a stamp RESIZE commits apChanged true — the only edit that invalidates a raster', () => {
+    let m = committed('stamp');
+    [m] = update(m, editPtr('down', 200, 160)); // grab the SE handle
+    [m] = update(m, editPtr('move', 240, 190));
+    const [next, fx] = update(m, editPtr('up', 240, 190));
+    expect(fx).toEqual([{ fx: 'patch', id: 'A1', apChanged: true }]);
+    expect(next.byId['A1'].source).toBe('baked'); // opaque-body: no vector render
+  });
+
+  it('a stamp rotate90 commits a bare patch — rotation is stripped at the blit', () => {
+    const [next, fx] = update(committed('stamp'), { t: 'rotate90' });
+    expect(fx).toEqual([{ fx: 'patch', id: 'A1' }]);
+    expect(next.byId['A1'].source).toBe('baked');
+  });
+
+  it('a SQUARE resize/rotate commits a bare patch — it flips to vector and renders live', () => {
+    let m = committed('square');
+    [m] = update(m, editPtr('down', 200, 160)); // SE handle
+    [m] = update(m, editPtr('move', 260, 200));
+    const [afterResize, fx1] = update(m, editPtr('up', 260, 200));
+    expect(fx1).toEqual([{ fx: 'patch', id: 'A1' }]);
+    expect(afterResize.byId['A1'].source).toBe('vector');
+    const [afterRotate, fx2] = update(committed('square'), { t: 'rotate90' });
+    expect(fx2).toEqual([{ fx: 'patch', id: 'A1' }]);
+    expect(afterRotate.byId['A1'].source).toBe('vector');
+  });
+
+  it('upsert bumps apVersion only when it confirms a re-bake, and preserves it otherwise', () => {
+    let m = committed('stamp');
+    const dto = m.byId['A1']; // stand-in for the DTO-derived annot (same shape)
+    // a plain re-sync (a move's round-trip): version untouched
+    [m] = update(m, { t: 'upsert', annots: [{ ...dto }] });
+    expect(m.byId['A1'].apVersion ?? 0).toBe(0);
+    // the resolve of a raster-invalidating patch: version advances…
+    [m] = update(m, { t: 'upsert', annots: [{ ...dto }], bumpAp: true });
+    expect(m.byId['A1'].apVersion).toBe(1);
+    // …and SURVIVES the next plain re-sync (fromDTO knows nothing of it)
+    [m] = update(m, { t: 'upsert', annots: [{ ...dto }] });
+    expect(m.byId['A1'].apVersion).toBe(1);
+  });
+
+  it('apSizeChanged: translation and rotation preserve the frame; scaling changes it', () => {
+    const box: Geom = { t: 'rect', rect: { x: 10, y: 10, width: 80, height: 40 }, ellipse: false };
+    expect(apSizeChanged(box, geomTranslate(box, { x: 25, y: -5 }))).toBe(false);
+    expect(apSizeChanged(box, geomRotateAbout(box, { x: 50, y: 30 }, 90))).toBe(false);
+    const wider: Geom = {
+      t: 'rect',
+      rect: { x: 10, y: 10, width: 120, height: 40 },
+      ellipse: false,
+    };
+    expect(apSizeChanged(box, wider)).toBe(true);
   });
 });

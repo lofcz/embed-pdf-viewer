@@ -172,6 +172,17 @@ export interface Annot {
    */
   apRot?: number;
   /**
+   * Revision of the engine-baked `/AP` CONTENT (absent ≡ 0). The raster a baked
+   * annotation shows depends on exactly this and the render scale — never on
+   * position (`apBox` translates the blit) or rotation (`apRot` transforms it) —
+   * so the shell re-fetches appearances precisely when it changes. Bumped by the
+   * `upsert` that confirms an engine re-bake with new content: a geometry patch
+   * that changed the authoring frame's SIZE resolving (`Effect.apChanged`), or a
+   * remote edit folding in. A move or rotate leaves it untouched: the old raster
+   * is still pixel-exact, so those cost zero re-renders.
+   */
+  apVersion?: number;
+  /**
    * The canonical engine DTO this annotation was derived from (PDF-space, sRGB)
    * — the single source of truth for its data. `geom` and `style` are
    * content-space RENDER PROJECTIONS of it, recomputed (never edited directly)
@@ -440,7 +451,11 @@ export type Msg =
   // annotation by id (own create/update re-synced from the engine DTO, or a
   // remote edit arriving over the event stream), and remove by id (own delete
   // by ref, or a remote delete). Pure store ops — they emit no effects.
-  | { t: 'upsert'; annots: Annot[] }
+  // add-or-replace by id. `bumpAp` marks these upserts as confirming an engine
+  // /AP re-bake with NEW content (a size-changing patch resolving, a remote
+  // edit): each replaced annotation's `apVersion` increments, telling the shell
+  // to re-fetch its raster. Plain re-syncs (a move's round-trip) leave it alone.
+  | { t: 'upsert'; annots: Annot[]; bumpAp?: boolean }
   | { t: 'remove'; ids: Id[] }
   // free-text editing: enter/leave the focused `contentEditable`, and apply the
   // browser's plain-text result optimistically (the plugin debounces the engine
@@ -451,7 +466,15 @@ export type Msg =
 
 export type Effect =
   | { fx: 'create'; id: Id }
-  | { fx: 'patch'; id: Id }
+  /** `apChanged` is set (to `true`) ONLY when this patch INVALIDATED a baked
+   *  raster — the annotation stayed `baked` (an opaque-body kind) and the edit
+   *  resized its `/AP` frame, so the engine's re-bake produces new content (in
+   *  practice: a stamp resize). The shell's resolve handler then turns it into
+   *  an `upsert` with `bumpAp`. Absent for everything else — moves/rotations
+   *  (the blit repositions the same pixels) and any kind that flipped to
+   *  `vector` (it renders live; the raster stops mattering) — so those keep the
+   *  bare `{ fx, id }` shape and trigger no appearance re-fetch. */
+  | { fx: 'patch'; id: Id; apChanged?: true }
   | { fx: 'delete'; ref: AnnotationRef };
 
 /** Per-annotation render data — its content geometry + style + live state. */
