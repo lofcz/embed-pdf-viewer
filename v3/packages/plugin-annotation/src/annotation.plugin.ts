@@ -33,60 +33,40 @@ export const annotationPlugin = (config: AnnotationConfig = {}) =>
     optional: [SelectionToken],
     initialState: () => initialAnnotationState(config),
     reduce: annotationReducer,
-    capability: createAnnotationCapability,
+    // The capability owns the resolved tool registry (built-ins + config `tools`),
+    // so it needs the config too — not just the reducer state.
+    capability: (ctx) => createAnnotationCapability(ctx, config),
     // Fold in remote collaborators' edits (own edits flow through the capability).
     effects: registerAnnotationEffects,
     init: (ctx) => {
       const interaction = ctx.get(InteractionToken);
       const annotation = ctx.get(AnnotationToken);
-      // Pointer-drawn kinds: square/circle/line (drag), polygon/polyline
-      // (click vertices, double-click to finish), ink (freehand), and free-text
-      // (drag a box, or click for a default one → opens straight into edit).
-      // All share the draw handler → createPointer(activeTool.id, …).
-      for (const id of [
-        'square',
-        'circle',
-        'line',
-        'polygon',
-        'polyline',
-        'ink',
-        'free-text',
-        'free-text-callout',
-      ]) {
-        interaction.registerTool({
-          id,
-          cursor: 'crosshair',
-          enables: new Set(['annotation-draw', 'annotation-edit']),
-        });
+      const selection = ctx.tryGet(SelectionToken);
+
+      // Register every resolved tool (shapes, lines, ink, free-text, markup, stamp,
+      // plus anything the embedder added via config `tools`) and seed its defaults.
+      // A tool is a named preset over a subtype — see `tools.ts`. Markup / caret
+      // tools ride the selection plugin's `text-select` gesture, so they stay
+      // inert (skipped) when no selection plugin is installed.
+      for (const tool of annotation.tools()) {
+        if (tool.enables.has('text-select') && !selection) continue;
+        interaction.registerTool({ id: tool.id, cursor: tool.cursor, enables: tool.enables });
+        if (tool.defaults) annotation.setDefaults(tool.preset, tool.defaults);
       }
-      annotation.setDefaults('ink', { color: '#1d4ed8', strokeWidth: 3 });
-      // A callout's leader + box border need a visible stroke; its arrow defaults
-      // to an open arrowhead at the called-out tip.
-      annotation.setDefaults('free-text-callout', {
-        strokeWidth: 1,
-        lineEndings: { end: 'open-arrow' },
-      });
-      // Stamp: click-to-place (no drag) — armed via `annotation.armStamp(...)`,
-      // which also activates this tool. Editing stays live so placed stamps
-      // can be selected/moved without switching tools.
-      interaction.registerTool({
-        id: 'stamp',
-        cursor: 'copy',
-        enables: new Set(['annotation-stamp', 'annotation-edit']),
-      });
+
       interaction.registerHandler(createStampHandler(annotation));
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createMarqueeHandler(annotation));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
       interaction.onToolChange(() => {
         annotation.cancel();
-        // Leaving the stamp tool drops its armed payload — bytes are tool
-        // state, not document state.
-        if (interaction.activeToolId() !== 'stamp') annotation.disarmStamp();
+        // Leaving the stamp family drops any armed payload — bytes are tool state,
+        // not document state (any stamp tool keeps it; a non-stamp tool clears it).
+        if (!interaction.activeTool().enables.has('annotation-stamp')) annotation.disarmStamp();
       });
 
-      // Markup is opt-in: only when a selection plugin is installed.
-      const selection = ctx.tryGet(SelectionToken);
+      // Markup is opt-in: wire the selection→annotation BRIDGE only when a
+      // selection plugin is present (the markup TOOLS were registered above).
       if (selection) wireMarkup(annotation, selection, interaction);
     },
   });

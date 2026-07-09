@@ -47,7 +47,18 @@ const plugins = [
   pageEditPlugin(),
   interactionPlugin({ defaultTool: 'pointer' }),
   selectionPlugin(),
-  annotationPlugin(),
+  // The arrow tool is a `line` preset — same subtype, an arrowhead default. This is
+  // the whole integration for a new tool: one `tools` entry + a command/toolbar
+  // slot (see config/commands.ts + config/chrome.ts).
+  annotationPlugin({
+    tools: [
+      {
+        id: 'arrow',
+        extends: 'line',
+        defaults: { lineEndings: { start: 'none', end: 'open-arrow' } },
+      },
+    ],
+  }),
   searchPlugin(),
   demoToolsPlugin(),
   i18nPlugin({

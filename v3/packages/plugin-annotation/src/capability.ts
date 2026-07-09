@@ -36,17 +36,23 @@ import {
   type PropKey,
   type Rect,
   type RenderItem,
+  type Subtype,
   type Vec,
 } from '@embedpdf-x/annotation-core';
 import { fromDTO, refKey, toCreateDraft, toPatch } from './repository';
 import { buildTextItems } from './text-item';
+import { buildToolRegistry } from './tools';
+import type { AnnotationToolDef, ResolvedTool } from './tools';
 import type {
   AnnotationAction,
+  AnnotationConfig,
   AnnotationHostCapability,
   AnnotationState,
   Behavior,
   ChromeSettings,
   SelectionProps,
+  StampProvider,
+  StampPromptRequest,
   TextItem,
 } from './types';
 
@@ -57,13 +63,6 @@ const ANNOTATE_MODIFY: DocCapability = 'doc.annotate.modify';
 
 const TEXT_COMMIT_DEBOUNCE_MS = 250;
 
-/** Tools whose target KIND has a different id (the props/defaults lens for a
- *  tool resolves through this: a callout edits free-text properties). */
-const TOOL_KIND: Record<string, string> = {
-  'free-text-callout': 'free-text',
-  'insert-text': 'caret',
-};
-
 /**
  * The annotation shell. The pure `update` runs HERE (so it can emit effects);
  * the resulting model is dispatched to the store, and each effect is performed
@@ -72,11 +71,22 @@ const TOOL_KIND: Record<string, string> = {
  */
 export function createAnnotationCapability(
   ctx: PluginContext<AnnotationState, AnnotationAction>,
+  config: AnnotationConfig = {},
 ): AnnotationHostCapability {
   const loaded = new Set<number>();
   const behaviors: Behavior[] = [];
   /** Per-annotation debounce timer for the engine `contents` write while typing. */
   const textTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  // The resolved tool table (built-ins + config overrides). A tool is a named
+  // authoring preset: it maps its id → a routing subtype, a `defaults` key
+  // (`preset`), a `propsFor` kind, and — for stamps — a source spec. `configTools`
+  // is kept so `registerTool` can re-resolve `extends` against the same base pool.
+  const configTools = config.tools ?? [];
+  const registry = buildToolRegistry(configTools);
+  /** The installed stamp `'prompt'` implementation (a DOM file dialog, wired by
+   *  the framework adapter), or null. See {@link StampProvider}. */
+  let stampProvider: StampProvider | null = null;
 
   const model = (): Model => ctx.getState().model;
   const chromeSettings = (): ChromeSettings => ctx.getState().chrome;
@@ -221,26 +231,91 @@ export function createAnnotationCapability(
     armedStamp = null;
   };
 
-  const placeArmedStamp = (pon: number, point: Vec): boolean => {
-    const armed = armedStamp;
+  /** Create a stamp of `width`×`height` PDF points centred on a content point —
+   *  the one engine-write both the armed and the click-to-place paths funnel
+   *  through. Returns false when the page/document isn't ready. */
+  const createStampAt = (
+    pon: number,
+    point: Vec,
+    source: BinarySource,
+    width: number,
+    height: number,
+  ): boolean => {
     const doc = ctx.doc;
     const crop = cropOf(pon);
-    if (!armed || !doc || !crop) return false;
+    if (!doc || !crop) return false;
     const c = contentToPdfPoint(point, crop);
     const rect = {
-      left: c.x - armed.width / 2,
-      bottom: c.y - armed.height / 2,
-      right: c.x + armed.width / 2,
-      top: c.y + armed.height / 2,
+      left: c.x - width / 2,
+      bottom: c.y - height / 2,
+      right: c.x + width / 2,
+      top: c.y + height / 2,
     };
     doc
       .page(pon)
-      .annotations.create({ subtype: 'stamp', rect, source: armed.source, fit: 'contain' })
+      .annotations.create({ subtype: 'stamp', rect, source, fit: 'contain' })
       .then(
         // A stamp has no vector render — the engine-baked /AP IS the visual.
         (res) => syncDTO(res.created, 'baked'),
         (err) => console.error('[annotation] stamp placement failed:', err),
       );
+    return true;
+  };
+
+  const placeArmedStamp = (pon: number, point: Vec): boolean => {
+    const armed = armedStamp;
+    if (!armed) return false;
+    return createStampAt(pon, point, armed.source, armed.width, armed.height);
+  };
+
+  /** Sniff a stamp source (rejecting non-image bytes) and place it, sized from its
+   *  intrinsic aspect around `targetWidth` (PDF points, default 150). */
+  const placeStampSource = async (
+    pon: number,
+    point: Vec,
+    source: BinarySource,
+    targetWidth = 150,
+  ): Promise<void> => {
+    const resolved = await resolveBinarySource(source);
+    const meta = sniffBinaryMetadata(resolved.bytes);
+    if (!meta) {
+      console.error('[annotation] stamp source must be PNG, JPEG, or single-page PDF bytes');
+      return;
+    }
+    const aspect = 'width' in meta && meta.width > 0 ? meta.height / meta.width : 1;
+    createStampAt(pon, point, source, targetWidth, targetWidth * aspect);
+  };
+
+  /**
+   * Click-to-place: resolve the ACTIVE tool's source spec. Fixed `bytes` place
+   * immediately; a `'prompt'` source asks the installed provider, then places on
+   * resolve — dropping the placement if it was cancelled, or if the tool or
+   * document changed while the picker was open (the intent expired).
+   */
+  const requestStampAt = (pon: number, point: Vec): boolean => {
+    const ix = ctx.tryGet(InteractionToken);
+    const tool = ix ? registry.get(ix.activeToolId()) : undefined;
+    const spec = tool?.source;
+    if (!spec) return false;
+    if (spec.kind === 'bytes') {
+      void placeStampSource(pon, point, spec.source);
+      return true;
+    }
+    // kind === 'prompt' — needs the environment. No provider installed → decline
+    // (let a lower-priority handler act) rather than swallow the click.
+    const provider = stampProvider;
+    if (!provider) return false;
+    const req: StampPromptRequest = { toolId: tool.id, pon, point };
+    const docAtClick = ctx.doc;
+    provider(req).then(
+      (bytes) => {
+        if (!bytes) return; // cancelled
+        if (ctx.doc !== docAtClick) return; // document changed underneath
+        if (ctx.tryGet(InteractionToken)?.activeToolId() !== tool.id) return; // tool changed
+        void placeStampSource(pon, point, bytes);
+      },
+      (err) => console.error('[annotation] stamp provider failed:', err),
+    );
     return true;
   };
 
@@ -371,6 +446,29 @@ export function createAnnotationCapability(
     armStamp,
     disarmStamp,
     placeArmedStamp,
+    requestStampAt,
+    setStampProvider: (provider) => {
+      stampProvider = provider;
+    },
+    // ── tool registry ──
+    tools: () => [...registry.values()],
+    toolSubtype: (id) => registry.get(id)?.subtype ?? (id as Subtype),
+    registerTool: (def: AnnotationToolDef) => {
+      // Re-resolve against the same base pool so `extends` can reach built-ins /
+      // config tools, then register just this one with the hub + seed its defaults.
+      const resolved = buildToolRegistry([...configTools, def]).get(def.id);
+      if (!resolved) throw new Error(`[annotation] could not resolve tool '${def.id}'`);
+      registry.set(resolved.id, resolved);
+      const un = ctx
+        .tryGet(InteractionToken)
+        ?.registerTool({ id: resolved.id, cursor: resolved.cursor, enables: resolved.enables });
+      if (resolved.defaults)
+        apply({ t: 'setDefaults', subtype: resolved.preset, patch: resolved.defaults });
+      return () => {
+        registry.delete(resolved.id);
+        un?.();
+      };
+    },
     update: (ref: AnnotationRef, patch: AnnotationPatch) => updateOne(ref, patch),
     // Restyle the selection: ONE flat props patch through the pure core (the
     // same `update → patch effect → toPatch` path every gesture takes). Each
@@ -413,7 +511,9 @@ export function createAnnotationCapability(
 
     // ── property introspection (the schema a sidebar renders from) ──
     getSelectionProps: () => memoSelectionProps(),
-    propsForTool: (toolId) => propsFor(TOOL_KIND[toolId] ?? toolId),
+    // A tool's editable-prop schema comes from its kind: a callout edits free-text
+    // props, an arrow edits line props. The registry holds that mapping.
+    propsForTool: (toolId) => propsFor(registry.get(toolId)?.propsKind ?? toolId),
 
     // selectors
     pageItems: (pon) => memoItems(pon),
@@ -471,13 +571,19 @@ export function createAnnotationCapability(
       }),
     marqueePointer: (phase, pon, point, shift) =>
       apply({ t: 'marqueePointer', phase, in: { pon, point, shift, pageBox: pageBoxOf(pon) } }),
-    createPointer: (subtype, phase, pon, point, finish = false) =>
+    createPointer: (tool, phase, pon, point, finish = false) => {
+      // Resolve the authoring TOOL to its routing subtype + defaults key. Two
+      // tools can share a subtype (line / arrow); `preset` keeps their defaults
+      // apart. Unknown id → treat it as a bare subtype (headless/programmatic).
+      const t = registry.get(tool);
       apply({
         t: 'createPointer',
         phase,
-        subtype,
+        subtype: t?.subtype ?? (tool as Subtype),
+        preset: t?.preset ?? tool,
         in: { pon, point, shift: false, finish, pageBox: pageBoxOf(pon) },
-      }),
+      });
+    },
     finishCreationDraft: () => apply({ t: 'finishCreationDraft' }),
     cancelCreationDraft: () => apply({ t: 'cancel' }),
     createMarkup: (subtype, pon, rects) => apply({ t: 'createMarkup', subtype, pon, rects }),
@@ -485,7 +591,10 @@ export function createAnnotationCapability(
     previewMarkup: (subtype, rectsByPage) => apply({ t: 'setMarkupPreview', subtype, rectsByPage }),
     clearMarkupPreview: () => apply({ t: 'clearMarkupPreview' }),
     setDefaults: (subtype, patch) => apply({ t: 'setDefaults', subtype, patch }),
-    currentDefaults: (subtype) => defaultsFor(model(), subtype),
+    // Resolve through the tool's `preset` key so arrow reads arrow's defaults, not
+    // line's (and the insert-caret tool reads the shared `caret` bag). Falls back
+    // to the given id for a bare subtype.
+    currentDefaults: (toolId) => defaultsFor(model(), registry.get(toolId)?.preset ?? toolId),
     // Live-adjustable snapping (a UI toggle); seeded by the registration config.
     setSnap: (patch) => apply({ t: 'setSnap', patch }),
     snapSettings: () => model().snap,

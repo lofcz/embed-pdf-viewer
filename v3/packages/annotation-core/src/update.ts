@@ -213,7 +213,7 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
     case 'marqueePointer':
       return marqueePointer(m, msg.phase, msg.in);
     case 'createPointer':
-      return createPointer(m, msg.phase, msg.subtype, msg.in);
+      return createPointer(m, msg.phase, msg.subtype, msg.in, msg.preset);
     case 'finishCreationDraft':
       return finishPolyCreate(m);
     case 'createCaret':
@@ -478,6 +478,7 @@ function createPointer(
   phase: 'down' | 'move' | 'up',
   subtype: Subtype,
   input: PointerInput,
+  preset: string = subtype,
 ): [Model, Effect[]] {
   // An in-progress creation is anchored to its page: a move/up sample from
   // another page is a foreign frame — ignore it. (A DOWN on another page is a
@@ -485,7 +486,7 @@ function createPointer(
   if (phase !== 'down' && m.draft && 'pon' in m.draft && m.draft.pon !== input.pon) return [m, []];
   // Shapes can't be drawn past the page edge — the pointer pins to it.
   if (input.pageBox) input = { ...input, point: clampPointToBox(input.point, input.pageBox) };
-  if (subtype === 'free-text-callout') return calloutPointer(m, phase, input);
+  if (subtype === 'free-text-callout') return calloutPointer(m, phase, input, preset);
   if (phase === 'down') {
     if (isPolySubtype(subtype)) {
       if (input.finish) return finishPolyCreate(m);
@@ -509,6 +510,7 @@ function createPointer(
           draft: {
             g: 'create-poly',
             subtype,
+            preset,
             pon: input.pon,
             points: [input.point],
             cur: input.point,
@@ -520,13 +522,14 @@ function createPointer(
     }
     const draft: Draft | null =
       subtype === 'line'
-        ? { g: 'create-line', subtype, pon: input.pon, from: input.point, to: input.point }
+        ? { g: 'create-line', subtype, preset, pon: input.pon, from: input.point, to: input.point }
         : subtype === 'ink'
-          ? { g: 'create-ink', subtype, pon: input.pon, strokes: [[input.point]] }
+          ? { g: 'create-ink', subtype, preset, pon: input.pon, strokes: [[input.point]] }
           : subtype === 'square' || subtype === 'circle' || subtype === 'free-text'
             ? {
                 g: 'create-rect',
                 subtype,
+                preset,
                 pon: input.pon,
                 from: input.point,
                 to: input.point,
@@ -554,7 +557,7 @@ function createPointer(
   const d = m.draft;
   if (d?.g !== 'create-rect' && d?.g !== 'create-line' && d?.g !== 'create-ink') return [m, []];
 
-  const def = defaultsFor(m, d.subtype);
+  const def = defaultsFor(m, d.preset ?? d.subtype);
   const style = styleFromProps(def);
   let geom: Geom | null = null;
   if (d.g === 'create-rect' && d.subtype === 'free-text') {
@@ -644,6 +647,7 @@ function calloutPointer(
   m: Model,
   phase: 'down' | 'move' | 'up',
   input: PointerInput,
+  preset: string = 'free-text-callout',
 ): [Model, Effect[]] {
   const d = m.draft;
   if (phase === 'down') {
@@ -655,6 +659,7 @@ function calloutPointer(
           draft: {
             g: 'create-callout',
             subtype: 'free-text-callout',
+            preset,
             pon: input.pon,
             step: 'knee',
             tip: input.point,
@@ -678,7 +683,7 @@ function calloutPointer(
   // up: only the box step (with a started box) commits; the tip/knee clicks no-op.
   if (d?.g !== 'create-callout' || d.step !== 'box' || !d.boxFrom) return [m, []];
   const rect = calloutBox(d); // the SAME box the preview showed
-  const def = defaultsFor(m, 'free-text-callout');
+  const def = defaultsFor(m, d.preset ?? 'free-text-callout');
   const ending = def.lineEndings.end !== 'none' ? def.lineEndings.end : 'open-arrow';
   const id = `tmp:${m.seq + 1}`;
   const annot: Annot = {
@@ -712,7 +717,7 @@ function finishPolyCreate(m: Model): [Model, Effect[]] {
   const minPoints = d.closed ? 3 : 2;
   if (d.points.length < minPoints) return [{ ...m, draft: null }, []];
 
-  const def = defaultsFor(m, d.subtype);
+  const def = defaultsFor(m, d.preset ?? d.subtype);
   const geom: Geom = {
     t: 'poly',
     points: d.points,

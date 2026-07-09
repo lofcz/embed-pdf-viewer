@@ -232,7 +232,13 @@ export const ICON_PATHS: Record<string, readonly PathSpec[]> = {
   ],
   italic: ['M11 5l6 0', 'M7 19l6 0', 'M14 5l-4 14'],
   line: [{ d: 'M20 4l-16 16', stroke: 'primary' }],
-  lineArrow: ['M20 4l-16 16', 'M16 3h5v5'],
+  // Both strokes tag the `primary` accent slot so the arrow glyph previews the
+  // tool's stroke colour (like the plain `line` icon); with no accent they render
+  // as currentColor — identical to the untagged glyph.
+  lineArrow: [
+    { d: 'M20 4l-16 16', stroke: 'primary' },
+    { d: 'M16 3h5v5', stroke: 'primary' },
+  ],
   link: [
     'M9 15l6 -6',
     'M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464',

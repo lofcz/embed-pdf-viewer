@@ -150,7 +150,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
     // ghost is a faithful WYSIWYG of what will commit — not the bare base style. A
     // cloudy rect stores the OUTER box (see `shapeRectFor`), so the cloud grows out
     // from the cursor; a 0-drag draws nothing (skipped, like a solid 0×0).
-    const def = defaultsFor(m, d.subtype);
+    const def = defaultsFor(m, d.preset ?? d.subtype);
     const style = styleFromProps(def);
     const dragged = d.g === 'create-rect' ? rectFromPoints(d.from, d.to) : null;
     const geom: Geom | null =
@@ -183,7 +183,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
   // Callout creation ghost: the in-progress leader (tip → cur, then tip → knee →
   // box) and the text-box preview, painted through the SAME vector scene.
   if (d?.g === 'create-callout' && d.pon === pon) {
-    const def = defaultsFor(m, d.subtype);
+    const def = defaultsFor(m, d.preset ?? d.subtype);
     const style = styleFromProps(def);
     const ending = def.lineEndings.end !== 'none' ? def.lineEndings.end : 'open-arrow';
     const geom: Geom =

@@ -34,6 +34,13 @@ export interface StagePluginOptions extends StageConfig {
    * secondary lenses (thumbnails) stay click-to-navigate.
    */
   interaction?: boolean;
+  /**
+   * When {@link interaction} is on, let drags over page GAPS pan regardless of the
+   * active tool (and show a grab cursor there) — the gutter always pans, matching
+   * v2 and the intuition that there's nothing to draw/select outside a page.
+   * On-page behaviour is untouched. Default true; ignored without `interaction`.
+   */
+  panFallback?: boolean;
 }
 
 /**
@@ -42,7 +49,13 @@ export interface StagePluginOptions extends StageConfig {
  * sibling files.
  */
 export const stagePlugin = (options: StagePluginOptions = {}) => {
-  const { id = 'stage', token = StageToken, interaction = false, ...config } = options;
+  const {
+    id = 'stage',
+    token = StageToken,
+    interaction = false,
+    panFallback = true,
+    ...config
+  } = options;
   return definePlugin<StageState, StageAction, StageCapability>({
     id,
     token,
@@ -56,7 +69,7 @@ export const stagePlugin = (options: StagePluginOptions = {}) => {
     init: interaction
       ? (ctx) => {
           const ix = ctx.tryGet(InteractionToken);
-          if (ix) ix.registerHandler(createScrollHandler(ctx.get(token)));
+          if (ix) ix.registerHandler(createScrollHandler(ctx.get(token), ix, { panFallback }));
         }
       : undefined,
     // INITIAL placement is deliberately NOT an effect: it's LEVEL-triggered

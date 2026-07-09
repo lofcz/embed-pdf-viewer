@@ -351,6 +351,9 @@ export const commands: CommandDef[] = [
   tool('annotation:add-rectangle', 'square', 'commands.shapes.rectangle', 'square'),
   tool('annotation:add-circle', 'circle', 'commands.shapes.circle', 'circle'),
   tool('annotation:add-line', 'line', 'commands.shapes.line', 'line'),
+  // The arrow tool is a `line` preset (a line with an arrowhead) — registered by
+  // the annotationPlugin `tools` config in App.tsx, activated like any other tool.
+  tool('annotation:add-arrow', 'arrow', 'commands.shapes.arrow', 'lineArrow'),
   tool('annotation:add-polygon', 'polygon', 'commands.shapes.polygon', 'polygon'),
   tool('annotation:add-polyline', 'polyline', 'commands.shapes.polyline', 'zigzag'),
 

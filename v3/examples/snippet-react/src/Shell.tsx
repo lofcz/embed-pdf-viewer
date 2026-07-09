@@ -23,7 +23,7 @@ import { Stage } from '@embedpdf-x/react/stage';
 import { Scrollbar } from '@embedpdf-x/react/scrollbar';
 import { RenderLayer } from '@embedpdf-x/react/render';
 import { SelectionLayer } from '@embedpdf-x/react/selection';
-import { AnnotationLayer } from '@embedpdf-x/react/annotation';
+import { AnnotationLayer, useStampProvider } from '@embedpdf-x/react/annotation';
 import { SearchLayer } from '@embedpdf-x/react/search';
 import { useCommandShortcuts } from '@embedpdf-x/react/commands';
 import { ShellToken } from '@embedpdf-x/react/shell';
@@ -67,6 +67,10 @@ function OpeningDocuments() {
 
 export function Shell() {
   useCommandShortcuts();
+  // Stamp tool → click a page → file dialog opens → image lands where you clicked.
+  // One line: the default provider is the built-in file picker (swap it for a
+  // custom picker, or pass null to disable). The plugin stays DOM-free.
+  useStampProvider();
   return (
     <div className="bg-app text-fg flex h-full flex-col">
       <Header />

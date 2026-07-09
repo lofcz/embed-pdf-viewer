@@ -188,7 +188,8 @@
     "@embedpdf-x/plugin-i18n": "workspace:*",
     "@embedpdf-x/plugin-commands": "workspace:*",
     "@embedpdf-x/plugin-shell": "workspace:*",
-    "@embedpdf-x/ui-core": "workspace:*"
+    "@embedpdf-x/ui-core": "workspace:*",
+    "@embedpdf-x/web": "workspace:*"
   },
   "peerDependencies": {
     "react": ">=18",

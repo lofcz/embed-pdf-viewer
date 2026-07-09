@@ -18,8 +18,10 @@ import {
   AnnotationToken,
   refKey,
   type SelectionProps,
+  type StampProvider,
   type TextItem,
 } from '@embedpdf-x/plugin-annotation';
+import { pickImageFile } from '@embedpdf-x/web';
 // The render layer is framework code, so it resolves the FULL host lens
 // (pageItems/chrome/appearances/…). Same runtime token as the public one — only
 // the type differs. App code never imports this.
@@ -51,7 +53,13 @@ export type {
   TextStyle,
 } from '@embedpdf-x/annotation-core';
 export type { SelectionProps } from '@embedpdf-x/plugin-annotation';
-import { shallowArray, useCapability, usePage, useSelector } from './runtime';
+import {
+  shallowArray,
+  useCapability,
+  useOptionalCapability,
+  usePage,
+  useSelector,
+} from './runtime';
 import type { PageContextValue } from './runtime';
 import {
   positionMenuAroundRect,
@@ -594,6 +602,31 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
       <Chrome page={page} />
     </div>
   );
+}
+
+/**
+ * The default stamp `'prompt'` provider: opens the built-in file dialog (from
+ * `@embedpdf-x/web`) and returns the picked image. This is the ADAPTER fulfilling
+ * the plugin's DOM-free port — the file dialog lives here, in the framework layer,
+ * never in the plugin. Swap it out for a custom picker.
+ */
+export const fileStampProvider: StampProvider = () => pickImageFile();
+
+/**
+ * Install a stamp `'prompt'` provider for the active document — how a click-to-
+ * place stamp with no fixed bytes fetches them. Call ONCE at a document-scoped
+ * spot (not inside `<AnnotationLayer>`, which is per page). Defaults to
+ * {@link fileStampProvider}, so a bare `useStampProvider()` is the one line that
+ * makes click-then-pick stamps work out of the box; pass a custom provider (asset
+ * library, camera…) or `null` to make `'prompt'` tools inert. Cleared on unmount.
+ */
+export function useStampProvider(provider: StampProvider | null = fileStampProvider): void {
+  const anno = useOptionalCapability(AnnotationToken);
+  useEffect(() => {
+    if (!anno) return;
+    anno.setStampProvider(provider);
+    return () => anno.setStampProvider(null);
+  }, [anno, provider]);
 }
 
 export function useAnnotation() {

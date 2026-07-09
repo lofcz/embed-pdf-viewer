@@ -12,6 +12,8 @@ import type { AnnotationCapability } from './types';
 export { annotationPlugin } from './annotation.plugin';
 export { fromDTO, toCreateDraft, toPatch, refKey, styleFromDTO } from './repository';
 export { DEFAULT_CHROME } from './reducer';
+export { DEFAULT_TOOLS } from './tools';
+export type { AnnotationToolDef, StampSourceSpec } from './tools';
 export type {
   AnnotationCapability,
   AnnotationConfig,
@@ -21,6 +23,8 @@ export type {
   ChromeSettings,
   ChromeSettingsPatch,
   SelectionProps,
+  StampProvider,
+  StampPromptRequest,
   StampToolInput,
   TextItem,
 } from './types';

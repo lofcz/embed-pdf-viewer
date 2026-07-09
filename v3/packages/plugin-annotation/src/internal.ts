@@ -13,3 +13,5 @@
 export { AnnotationToken } from './types';
 export type { AnnotationHostCapability } from './types';
 export { createAnnotationCapability } from './capability';
+export { buildToolRegistry } from './tools';
+export type { ResolvedTool } from './tools';

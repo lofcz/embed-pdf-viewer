@@ -22,21 +22,24 @@ const pointOn = (s: PointerSample, pon: number): Vec | null =>
   s.project?.(pon) ?? (s.page?.pon === pon ? s.page.point : null);
 
 /**
- * Click-to-place for the stamp tool. The payload is armed via
- * `capability.armStamp(...)`; each click places one stamp centred on the
- * point (the tool stays active for repeat placement — v2 rubber-stamp
- * behaviour). No drag gesture: a stamp's size comes from its content's
- * intrinsic aspect, not the pointer. Priority above the edit handler so a
- * click over an existing annotation still places rather than selects.
+ * Click-to-place for the stamp tool. Each click places one stamp centred on the
+ * point (the tool stays active for repeat placement — v2 rubber-stamp behaviour).
+ * Two sources, checked in order: an ARMED payload (`capability.armStamp(...)` —
+ * bytes in hand, e.g. a drop) places immediately; otherwise the active tool's
+ * configured source resolves — fixed bytes, or a `'prompt'` that asks the
+ * environment (pick the spot first, the file second). No drag gesture: a stamp's
+ * size comes from its content's intrinsic aspect, not the pointer. Priority above
+ * the edit handler so a click over an existing annotation still places.
  */
 export function createStampHandler(anno: AnnotationHostCapability): InteractionHandler {
   return {
     id: 'annotation-stamp',
-    priority: 110,
+    priority: 95,
     enabledFor: (t) => t.enables.has('annotation-stamp'),
     onDown: (s) => {
       if (!s.page) return false;
-      return anno.placeArmedStamp(s.page.pon, s.page.point);
+      if (anno.placeArmedStamp(s.page.pon, s.page.point)) return true;
+      return anno.requestStampAt(s.page.pon, s.page.point);
     },
   };
 }
@@ -181,7 +184,11 @@ export function createDrawHandler(
   anno: AnnotationHostCapability,
   interaction: InteractionCapability,
 ): InteractionHandler {
-  const subtype = () => interaction.activeTool().id as Subtype;
+  // The active tool id + its ROUTING subtype. The id is what `createPointer` takes
+  // (it resolves the defaults preset — arrow vs line); the subtype is what the
+  // poly/callout gesture checks read (arrow → `line`, a polygon preset → `polygon`).
+  const toolId = () => interaction.activeToolId();
+  const subtypeOf = (id: string): Subtype => anno.toolSubtype(id);
   let drawingPoly = false;
   // A callout is mid-creation between its tip/knee/box clicks; while it is, hover
   // (no button) must still drive the leader/box preview, like a poly's vertices.
@@ -200,13 +207,14 @@ export function createDrawHandler(
     enabledFor: (t) => t.enables.has('annotation-draw'),
     onDown: (s) => {
       if (!s.page) return false;
-      const st = subtype();
+      const tool = toolId();
+      const st = subtypeOf(tool);
       // A down is a fresh intent — it may legitimately start on another page
       // (the core restarts the draft there), so it re-anchors the gesture.
       origin = { pon: s.page.pon, point: s.page.point };
       if (isPolyTool(st)) {
         const finish = (s.clickCount ?? 1) >= 2;
-        anno.createPointer(st, 'down', s.page.pon, s.page.point, finish);
+        anno.createPointer(tool, 'down', s.page.pon, s.page.point, finish);
         drawingPoly = !finish;
         return true;
       }
@@ -215,11 +223,12 @@ export function createDrawHandler(
       // final box click/drag commits and clears the draft (so `drawingCallout`
       // resets on the next tool change or simply idles harmlessly).
       if (isCalloutTool(st)) drawingCallout = true;
-      anno.createPointer(st, 'down', s.page.pon, s.page.point);
+      anno.createPointer(tool, 'down', s.page.pon, s.page.point);
       return true;
     },
     onMove: (s) => {
-      const st = subtype();
+      const tool = toolId();
+      const st = subtypeOf(tool);
       // Drag-moves (button down): rect/line/ink/free-text size their box, and a
       // callout (a non-poly tool) sizes its text box during the box step. Poly
       // tools take vertices by click, so they ignore drag-moves.
@@ -227,22 +236,24 @@ export function createDrawHandler(
       const point = pointOn(s, origin.pon);
       if (!point) return;
       origin.point = point;
-      anno.createPointer(st, 'move', origin.pon, point);
+      anno.createPointer(tool, 'move', origin.pon, point);
     },
     onUp: (s) => {
-      const st = subtype();
+      const tool = toolId();
+      const st = subtypeOf(tool);
       if (origin && !isPolyTool(st)) {
         // ALWAYS commit the drag, even released off-page (point pins in core).
-        anno.createPointer(st, 'up', origin.pon, pointOn(s, origin.pon) ?? origin.point);
+        anno.createPointer(tool, 'up', origin.pon, pointOn(s, origin.pon) ?? origin.point);
       }
       origin = null;
     },
     onHover: (s) => {
-      const st = subtype();
+      const tool = toolId();
+      const st = subtypeOf(tool);
       // Hover preview for the multi-click tools: poly (while placing vertices) and
       // callout (while placing the tip/knee/box) follow the cursor between clicks.
       if (s.page && ((drawingPoly && isPolyTool(st)) || (drawingCallout && isCalloutTool(st)))) {
-        anno.createPointer(st, 'move', s.page.pon, s.page.point);
+        anno.createPointer(tool, 'move', s.page.pon, s.page.point);
       }
     },
   };

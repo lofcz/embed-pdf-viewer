@@ -10,41 +10,22 @@ import type { InteractionCapability } from '@embedpdf-x/plugin-interaction';
 import type { SelectionCapability } from '@embedpdf-x/plugin-selection';
 import type { AnnotationHostCapability } from './types';
 
-/** Text-markup tools and their default colours (seeded as tool defaults). */
-const MARKUP_DEFAULTS: Record<string, string> = {
-  highlight: '#ffe16a',
-  underline: '#3b82f6',
-  strikeout: '#ef4444',
-  squiggly: '#22c55e',
-};
-const MARKUP_SUBTYPES = new Set(Object.keys(MARKUP_DEFAULTS));
+/** The markup tool ids (their annotation subtypes), used only to route a commit. */
+const MARKUP_SUBTYPES = new Set(['highlight', 'underline', 'strikeout', 'squiggly']);
 const INSERT_TEXT_TOOL = 'insert-text';
 
 /**
- * Register the markup tools and wire selection → annotation. Call from the plugin's
- * `init` only when a selection plugin is present.
+ * Wire the selection → annotation BRIDGE. The markup / caret TOOLS and their
+ * defaults are registered by the plugin `init` from the tool registry; this
+ * function only consumes the selection plugin's typed signals — so call it from
+ * `init` only when a selection plugin is present. Selection is the producer,
+ * annotation the consumer; selection never knows annotation exists.
  */
 export function wireMarkup(
   annotation: AnnotationHostCapability,
   selection: SelectionCapability,
   interaction: InteractionCapability,
 ): void {
-  for (const id of MARKUP_SUBTYPES) {
-    // text-select → selection runs the drag; annotation-edit → click existing markup to select it
-    interaction.registerTool({
-      id,
-      cursor: 'text',
-      enables: new Set(['text-select', 'annotation-edit']),
-    });
-    annotation.setDefaults(id, { color: MARKUP_DEFAULTS[id] });
-  }
-  interaction.registerTool({
-    id: INSERT_TEXT_TOOL,
-    cursor: 'text',
-    enables: new Set(['text-select', 'annotation-edit']),
-  });
-  annotation.setDefaults('caret', { color: '#ef4444', strokeWidth: 1 });
-
   // Keep the live preview + the selection's own visual in sync with (active tool,
   // selection). While a markup tool is active the blue highlight is suppressed and
   // the in-progress selection renders as a markup ghost instead.

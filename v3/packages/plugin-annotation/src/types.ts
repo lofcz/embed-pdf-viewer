@@ -8,6 +8,7 @@ import type {
   BinarySource,
   PdfRect,
 } from '@embedpdf/engine-core/runtime';
+import type { AnnotationToolDef, ResolvedTool } from './tools';
 import type {
   AnnotationProps,
   AnnotationPropsPatch,
@@ -119,6 +120,15 @@ export interface AnnotationConfig {
   };
   /** Selection-chrome styling + grab geometry (all lengths CSS px). */
   chrome?: ChromeSettingsPatch;
+  /**
+   * Add or configure authoring tools at load. Entries MERGE over the built-ins by
+   * id (configure one — `{ id: 'ink', defaults: { strokeWidth: 6 } }`), ADD a new
+   * tool (a fresh id), or make a preset with `extends`
+   * (`{ id: 'arrow', extends: 'line', defaults: { lineEndings: { end: 'open-arrow' } } }`).
+   * See {@link AnnotationToolDef}. The runtime equivalent is
+   * {@link AnnotationCapability.registerTool}.
+   */
+  tools?: AnnotationToolDef[];
 }
 export type AnnotationAction =
   | { type: 'SET_MODEL'; model: Model }
@@ -295,6 +305,22 @@ export interface AnnotationCapability {
   armStamp(input: StampToolInput): Promise<void>;
   /** Drop the armed stamp payload (a tool change away from 'stamp' does this too). */
   disarmStamp(): void;
+  /**
+   * Install the implementation of the stamp `'prompt'` source (see
+   * {@link StampProvider}) — how a click-to-place stamp with no fixed bytes fetches
+   * them. The React adapter (`<AnnotationLayer>`) installs a file-dialog provider
+   * by default; pass your own for a custom picker (asset library, camera…), or
+   * `null` to make `'prompt'` tools inert. One slot; last write wins.
+   */
+  setStampProvider(provider: StampProvider | null): void;
+
+  // ── tools (add/configure at runtime; the config equivalent is `tools`) ──
+  /**
+   * Register (or replace, by id) an authoring tool at runtime — the imperative
+   * mirror of the `tools` config. Same {@link AnnotationToolDef} vocabulary
+   * (`extends`, per-tool `defaults`, …). Returns an unregister fn.
+   */
+  registerTool(def: AnnotationToolDef): () => void;
 
   // ── lifecycle ──
   deleteSelection(): void;
@@ -309,6 +335,28 @@ export interface StampToolInput {
   /** Placed width in PDF points (height follows the intrinsic aspect). Default 150. */
   targetWidth?: number;
 }
+
+/**
+ * What a {@link StampProvider} is asked for: the tool + the page-space point the
+ * user clicked, so a fancy provider can position a picker near the click. Pure
+ * data — the request crosses the plugin↔adapter boundary as a message.
+ */
+export interface StampPromptRequest {
+  toolId: string;
+  pon: PageObjectNumber;
+  /** The content-space point the stamp will be centred on. */
+  point: Vec;
+}
+
+/**
+ * The stamp `'prompt'` PORT: given a click, produce the image bytes to place
+ * (`null` cancels). The plugin declares this contract but never implements it —
+ * "get bytes from the environment" is a DOM concern (a file dialog), so the
+ * framework adapter installs the implementation via
+ * {@link AnnotationCapability.setStampProvider}. This keeps the plugin DOM-free
+ * (Rust-portable) while the zero-config file dialog still works out of the box.
+ */
+export type StampProvider = (req: StampPromptRequest) => Promise<BinarySource | null>;
 
 /**
  * The HOST (framework) surface: everything the render layer, the interaction hub,
@@ -393,8 +441,10 @@ export interface AnnotationHostCapability extends AnnotationCapability {
     point: Vec,
     shift: boolean,
   ): void;
+  /** Run the draw gesture for an authoring TOOL (by id). The plugin resolves it
+   *  to a routing subtype + defaults preset; a bare subtype also works (headless). */
   createPointer(
-    subtype: Subtype,
+    tool: string,
     phase: 'down' | 'move' | 'up',
     pon: PageObjectNumber,
     point: Vec,
@@ -415,6 +465,21 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   /** Place the armed stamp centred on a content point. Returns false (no
    *  capture) when nothing is armed. */
   placeArmedStamp(pon: PageObjectNumber, point: Vec): boolean;
+  /**
+   * Resolve the ACTIVE tool's {@link StampSourceSpec} for a click and place a
+   * stamp centred on `point`: fixed `bytes` land immediately; a `'prompt'` source
+   * asks the installed {@link StampProvider} (placement is dropped if it cancels,
+   * or if the tool/document changed while it was open). Returns false (no capture)
+   * when the active tool has no source. The click-then-pick counterpart of
+   * {@link placeArmedStamp}.
+   */
+  requestStampAt(pon: PageObjectNumber, point: Vec): boolean;
+  // ── tool registry (consumed by the plugin init + interaction handlers) ──
+  /** Every resolved tool (built-ins + config `tools`), for the registration loop. */
+  tools(): ResolvedTool[];
+  /** A tool's routing subtype (arrow → `line`) — how the draw handler picks the
+   *  gesture and the created annotation's PDF kind. Falls back to the id. */
+  toolSubtype(id: string): Subtype;
   // ── extension point for sibling plugins (forms, links) ──
   registerBehavior(b: Behavior): () => void;
 }

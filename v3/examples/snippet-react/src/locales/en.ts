@@ -69,6 +69,7 @@ export const en: Locale = {
         rectangle: 'Rectangle',
         circle: 'Circle',
         line: 'Line',
+        arrow: 'Arrow',
         polygon: 'Polygon',
         polyline: 'Polyline',
       },

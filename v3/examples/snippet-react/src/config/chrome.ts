@@ -96,6 +96,7 @@ const shapesBar: BarSchema = {
         'annotation:add-rectangle',
         'annotation:add-circle',
         'annotation:add-line',
+        'annotation:add-arrow',
       ]),
       group('polygons', { importance: 2 }, ['annotation:add-polygon', 'annotation:add-polyline']),
       style,

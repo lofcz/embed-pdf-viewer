@@ -72,6 +72,7 @@ export const es: Locale = {
         rectangle: 'Rectángulo',
         circle: 'Círculo',
         line: 'Línea',
+        arrow: 'Flecha',
         polygon: 'Polígono',
         polyline: 'Polilínea',
       },

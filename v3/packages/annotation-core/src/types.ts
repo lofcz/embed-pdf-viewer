@@ -221,25 +221,42 @@ export interface SnapSettings {
   rotationThreshold: number;
 }
 
+/**
+ * The `defaults` key a creation draft resolves its props from — the authoring
+ * TOOL that started it, which may differ from the PDF `subtype`. Two tools can
+ * share a subtype but carry distinct defaults (an "arrow" is a `line` with an
+ * arrowhead default); the preset keeps them apart. Absent → fall back to
+ * `subtype` (a headless / programmatic caller that isn't tool-driven), so the
+ * built-in tools where preset === subtype behave exactly as before.
+ */
 export type Draft =
   | {
       g: 'create-rect';
       subtype: Subtype;
+      preset?: string;
       pon: PageObjectNumber;
       from: Vec;
       to: Vec;
       ellipse: boolean;
     }
-  | { g: 'create-line'; subtype: Subtype; pon: PageObjectNumber; from: Vec; to: Vec }
+  | {
+      g: 'create-line';
+      subtype: Subtype;
+      preset?: string;
+      pon: PageObjectNumber;
+      from: Vec;
+      to: Vec;
+    }
   | {
       g: 'create-poly';
       subtype: Subtype;
+      preset?: string;
       pon: PageObjectNumber;
       points: Vec[];
       cur: Vec;
       closed: boolean;
     }
-  | { g: 'create-ink'; subtype: Subtype; pon: PageObjectNumber; strokes: Vec[][] }
+  | { g: 'create-ink'; subtype: Subtype; preset?: string; pon: PageObjectNumber; strokes: Vec[][] }
   | {
       // Free-text callout, built in clicks: click 1 sets `tip`, click 2 sets
       // `knee` (advancing to `box`), then a drag/click lays the text box. `cur`
@@ -247,6 +264,7 @@ export type Draft =
       // dragged box once the box step starts.
       g: 'create-callout';
       subtype: Subtype;
+      preset?: string;
       pon: PageObjectNumber;
       step: 'knee' | 'box';
       tip: Vec;
@@ -361,7 +379,14 @@ export interface PointerInput {
 export type Msg =
   | { t: 'editPointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
   | { t: 'marqueePointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
-  | { t: 'createPointer'; phase: 'down' | 'move' | 'up'; subtype: Subtype; in: PointerInput }
+  | {
+      t: 'createPointer';
+      phase: 'down' | 'move' | 'up';
+      subtype: Subtype;
+      /** The authoring tool's `defaults` key (see {@link Draft}). Defaults to `subtype`. */
+      preset?: string;
+      in: PointerInput;
+    }
   | { t: 'finishCreationDraft' }
   | { t: 'createCaret'; pon: PageObjectNumber; rect: Rect }
   // text markup: build one annotation from the selected text's per-line rects (the
