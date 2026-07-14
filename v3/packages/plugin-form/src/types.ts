@@ -12,6 +12,7 @@ import type {
   FormRepairResult,
   FormSetValueResult,
   FormSnapshot,
+  WidgetAppearance,
 } from '@embedpdf/engine-core/runtime';
 
 import type { FillItem } from './core/fill-items';
@@ -19,6 +20,26 @@ import type { Box, FieldKey, Model } from './core/model';
 
 export interface FormState {
   model: Model;
+}
+
+/** Input for {@link FormCapability.placeField}. */
+export interface PlaceFieldInput {
+  family: Exclude<FormFieldFamily, 'pushbutton' | 'signature' | 'unknown'>;
+  pageObjectNumber: number;
+  /** Content-space LOGICAL field box (no visual padding semantics). */
+  box: Box;
+  /** Widget styling in the engine vocabulary (`WidgetAppearance`). Convert a
+   *  tool's flat CSS defaults with `widgetAppearanceFromProps` from
+   *  `@embedpdf-x/plugin-annotation`. Omitted → the engine's bare defaults. */
+  appearance?: WidgetAppearance;
+}
+
+/** What {@link FormCapability.placeField} created. */
+export interface PlacedField {
+  field: FormFieldDTO;
+  /** The widget placed on the requested page (join key to the annotation
+   *  plane for auto-selection), or null when the engine reported none. */
+  widget: FormFieldDTO['widgets'][number] | null;
 }
 
 export type FormAction = { type: 'SET_MODEL'; model: Model };
@@ -66,16 +87,17 @@ export interface FormCapability {
 
   // ── design mode (doc.forms.modify) ─────────────────────────────────────
   /**
-   * Create a field of `family` with one widget at a content-space box on
-   * the page — the palette tools' commit. The field gets an auto-generated
-   * name (rename in the field panel) and a per-family default size when
-   * the box is degenerate (a click, not a drag).
+   * Create a field of `family` with one styled widget at a content-space box
+   * — the palette tools' commit, and the programmatic authoring entry (works
+   * with NO annotation plugin: a pure `doc.forms` call). The box is clamped
+   * to the page; sizing policy (click default vs drag rect) is the caller's.
+   * The field gets a deterministic auto-name (`text_1`, …; rename in the
+   * field panel). Resolves AFTER the annotation plane (when present) has
+   * re-read the page, so the returned widget is immediately selectable.
    */
-  placeField(
-    family: Exclude<FormFieldFamily, 'pushbutton' | 'signature' | 'unknown'>,
-    pageObjectNumber: number,
-    box: Box,
-  ): Promise<void>;
+  placeField(input: PlaceFieldInput): Promise<PlacedField>;
+  /** The page's content box (`{0,0,w,h}`) — page-bound placement math. */
+  pageBox(pageObjectNumber: number): Box | null;
   /** Field-plane properties: name, required, options, default value. */
   updateField(key: FieldKey, patch: FormFieldPatch): Promise<void>;
   /** Delete the field and every widget of it (cascades on the page). */

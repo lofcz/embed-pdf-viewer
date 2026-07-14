@@ -2,7 +2,6 @@ import type { PluginContext } from '@embedpdf-x/kernel';
 import type {
   FormDataFormat,
   FormFieldDraft,
-  FormFieldFamily,
   FormFieldPatch,
   FormFieldRef,
   FormFieldValue,
@@ -24,7 +23,7 @@ import {
   type Model,
   type Msg,
 } from './core/model';
-import type { FormAction, FormCapability, FormState } from './types';
+import type { FormAction, FormCapability, FormState, PlacedField, PlaceFieldInput } from './types';
 
 /** PDF user-space rect (y-up) → content-space box (y-down, crop-relative). */
 const toBox = (rect: PdfRect, crop: PdfRect): Box => ({
@@ -138,7 +137,7 @@ export function createFormCapability(ctx: PluginContext<FormState, FormAction>):
   const annotationHost = ctx.tryGet(AnnotationHostToken);
   const nudgeAnnotations = (pons: Iterable<number>): void => {
     if (!annotationHost) return;
-    for (const pon of new Set(pons)) annotationHost.reloadPage(pon);
+    for (const pon of new Set(pons)) void annotationHost.reloadPage(pon);
   };
 
   /** Content-space box → PDF rect (inverse of `toBox`). */
@@ -152,30 +151,50 @@ export function createFormCapability(ctx: PluginContext<FormState, FormAction>):
     bottom: crop.top - box.y - box.height,
   });
 
-  const PLACE_DEFAULT_SIZE: Record<string, { width: number; height: number }> = {
-    text: { width: 160, height: 24 },
-    checkbox: { width: 18, height: 18 },
-    radio: { width: 18, height: 18 },
-    combobox: { width: 140, height: 24 },
-    listbox: { width: 140, height: 72 },
+  /** The page's content box (`{0,0,w,h}`), for page-bound placement math. */
+  const pageBox = (pon: number): Box | null => {
+    const crop = ctx.document()?.pages.find((p) => p.pageObjectNumber === pon)?.boxes.crop;
+    return crop
+      ? { x: 0, y: 0, width: crop.right - crop.left, height: crop.top - crop.bottom }
+      : null;
   };
 
-  const placeField = async (
-    family: Exclude<FormFieldFamily, 'pushbutton' | 'signature' | 'unknown'>,
-    pon: number,
-    box: { x: number; y: number; width: number; height: number },
-  ): Promise<void> => {
+  /** Deterministic, collision-free auto-name: `text_1`, `text_2`, … counted
+   *  against the CURRENT snapshot (rename in the field panel). */
+  const autoName = (family: string): string => {
+    const names = new Set((model().snapshot?.fields ?? []).map((f) => f.name));
+    let n = 1;
+    while (names.has(`${family}_${n}`)) n++;
+    return `${family}_${n}`;
+  };
+
+  const placeField = async (input: PlaceFieldInput): Promise<PlacedField> => {
     const doc = ctx.doc;
+    const pon = input.pageObjectNumber;
     const crop = ctx.document()?.pages.find((p) => p.pageObjectNumber === pon)?.boxes.crop;
-    if (!doc || !crop) return;
-    // A click (degenerate box) places the family's default size, centred.
-    const size = PLACE_DEFAULT_SIZE[family]!;
-    const placed =
-      box.width < 4 || box.height < 4
-        ? { x: box.x - size.width / 2, y: box.y - size.height / 2, ...size }
-        : box;
-    const name = `${family}_${Math.random().toString(36).slice(2, 6)}`;
-    const placement = { pageObjectNumber: pon, rect: toPdfRect(placed, crop) };
+    if (!doc || !crop) throw new Error('[form] placeField: document/page not ready');
+    // Placement is page-bound: intersect a (possibly overshooting) drag box
+    // with the page. Sizing policy is the CALLER's job (the place handler's
+    // click policy / drag rect) — a degenerate result is a caller bug.
+    const page = pageBox(pon)!;
+    const x = Math.max(page.x, Math.min(input.box.x, page.width));
+    const y = Math.max(page.y, Math.min(input.box.y, page.height));
+    const box: Box = {
+      x,
+      y,
+      width: Math.max(0, Math.min(input.box.x + input.box.width, page.width) - x),
+      height: Math.max(0, Math.min(input.box.y + input.box.height, page.height) - y),
+    };
+    if (box.width < 1 || box.height < 1) {
+      throw new Error('[form] placeField: degenerate box (size the box before placing)');
+    }
+    const { family, appearance } = input;
+    const name = autoName(family);
+    const placement = {
+      pageObjectNumber: pon,
+      rect: toPdfRect(box, crop),
+      ...(appearance ? { appearance } : {}),
+    };
     const draft: FormFieldDraft =
       family === 'radio'
         ? { family, name, widgets: [{ ...placement, onState: 'option1' }] }
@@ -190,10 +209,14 @@ export function createFormCapability(ctx: PluginContext<FormState, FormAction>):
               ],
             }
           : { family, name, widget: placement };
-    await doc.forms.createField(draft);
+    const result = await doc.forms.createField(draft);
     await refresh();
     apply({ t: 'clearGeom', pageObjectNumber: pon });
-    nudgeAnnotations([pon]);
+    // AWAIT the annotation-plane reload so the returned widget ref is already
+    // selectable — the caller's auto-select needs the model to know it.
+    if (annotationHost) await annotationHost.reloadPage(pon);
+    const widget = result.field.widgets.find((w) => w.pageObjectNumber === pon) ?? null;
+    return { field: result.field, widget };
   };
 
   const updateField = async (key: FieldKey, patch: FormFieldPatch): Promise<void> => {
@@ -282,6 +305,7 @@ export function createFormCapability(ctx: PluginContext<FormState, FormAction>):
       return result;
     },
     placeField,
+    pageBox,
     updateField,
     deleteField,
     detachWidget,

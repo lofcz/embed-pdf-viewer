@@ -112,6 +112,30 @@ export const TOOL_DEFAULT_KEYS = {
   squiggly: ['color', 'opacity', 'blendMode'],
   caret: ['color', 'opacity'],
   stamp: [],
+  // Widget CLIENT kinds (the form plugin's palette tools): the same key sets
+  // the kind table declares — box styling for every family, /DA text styling
+  // for the text-bearing ones. The engine maps them onto /MK //BS //DA //Q.
+  'widget-text': [
+    'color',
+    'interiorColor',
+    'strokeWidth',
+    'border',
+    'fontFamily',
+    'fontSize',
+    'fontColor',
+    'textAlign',
+  ],
+  'widget-choice': [
+    'color',
+    'interiorColor',
+    'strokeWidth',
+    'border',
+    'fontFamily',
+    'fontSize',
+    'fontColor',
+    'textAlign',
+  ],
+  'widget-toggle': ['color', 'interiorColor', 'strokeWidth', 'border'],
 } as const satisfies Record<string, readonly PropKey[]>;
 
 export type ToolAuthoringKind = keyof typeof TOOL_DEFAULT_KEYS;
@@ -132,8 +156,13 @@ export interface AnnotationToolDef<K extends ToolAuthoringKind = ToolAuthoringKi
    *  `selection` / `intent` / `ink` / `meta`
    *  from an existing tool id (a built-in or another entry). Own fields win. */
   extends?: string;
-  /** The PDF subtype this tool authors (the geometry the core draws). Defaults to
-   *  the inherited subtype, or the id when neither is given. */
+  /** The ROUTING KIND this tool authors — the core's client kind (the geometry
+   *  it draws + the props/badge key). Usually the PDF subtype, but not always:
+   *  `free-text-callout` routes the callout gesture onto a free-text
+   *  annotation, and `widget-text`/`widget-choice`/`widget-toggle` are client
+   *  views of the ONE PDF `widget` subtype (a form tool's commit goes through
+   *  `doc.forms`, never this plugin — see the form plugin's tool table).
+   *  Defaults to the inherited kind, or the id when neither is given. */
   subtype?: Subtype;
   /** The kind whose editable-property specs a style panel shows for this tool.
    *  Defaults to `subtype` (a callout authors `free-text` props, for example). */
@@ -333,7 +362,9 @@ export const DEFAULT_TOOLS: AnnotationToolInput[] = [
     enables: DRAW_TAGS,
     defaults: { fontColor: '#ef4444' },
     upright: true,
-    clickCreate: { width: 180, height: 40 },
+    // Top-left anchored: the box hangs where you'll type (the kind's reading
+    // feel); shapes default to `center`. Anchoring is explicit policy data.
+    clickCreate: { width: 180, height: 40, anchor: 'top-left' },
   },
   {
     // Routes on the `free-text-callout` subtype token but authors a `free-text`

@@ -10,7 +10,18 @@ import { AnnotationToken as AnnotationHostToken } from './types';
 import type { AnnotationCapability } from './types';
 
 export { annotationPlugin } from './annotation.plugin';
-export { fromDTO, toCreateDraft, toPatch, refKey, styleFromDTO } from './repository';
+export {
+  fromDTO,
+  toCreateDraft,
+  toPatch,
+  refKey,
+  styleFromDTO,
+  widgetAppearanceFromProps,
+} from './repository';
+// The shared placement layer + the one click↔drag threshold, re-exported so a
+// sibling COMMIT PLANE (the form plugin's place handler) resolves clicks with
+// the exact call the annotation core and the footprint ghost use.
+export { MIN_DRAG, resolveClickPlacement, type ClickPlacement } from '@embedpdf-x/annotation-core';
 export { DEFAULT_CHROME } from './reducer';
 export { DEFAULT_TOOLS } from './tools';
 export type {

@@ -30,9 +30,9 @@ import {
   shapeRectFor,
   transposedAboutCenter,
   unionRect,
-  uprightAnchoredRect,
   uprightRotation,
 } from './geometry';
+import { clickCreateGeom, resolveClickPlacement } from './placement';
 import { applyProps, initialTextStyle, styleFromProps, textStyleFromProps } from './props';
 import { computeMoveSnap } from './snap';
 import { straightenInkStroke } from './ink';
@@ -57,7 +57,10 @@ import type {
   Vec,
 } from './types';
 
-const MIN_DRAG = 3;
+/** The click ↔ drag threshold (content units): a press-release whose width AND
+ *  height both stay under it is a CLICK. Exported so every gesture owner (the
+ *  draw handler, the form plugin's place handler) shares ONE definition. */
+export const MIN_DRAG = 3;
 const isPolySubtype = (subtype: Subtype): subtype is 'polygon' | 'polyline' =>
   subtype === 'polygon' || subtype === 'polyline';
 
@@ -154,16 +157,6 @@ const translateRect = (r: Rect, d: Vec): Rect => ({ ...r, x: r.x + d.x, y: r.y +
  *     than the page pins to the page's top/left (lo wins when lo > hi).
  */
 const clampAxis = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
-/** Slide a rect (as a unit) to sit inside `box`; pins at the origin edge when
- *  it doesn't fit. Used by click-create — annotations are page-bound. */
-const clampRectToBox = (r: Rect, box: Rect | undefined): Rect => {
-  if (!box) return r;
-  return {
-    ...r,
-    x: Math.min(Math.max(r.x, box.x), Math.max(box.x, box.x + box.width - r.width)),
-    y: Math.min(Math.max(r.y, box.y), Math.max(box.y, box.y + box.height - r.height)),
-  };
-};
 
 const clampPointToBox = (p: Vec, box: Rect | undefined): Vec =>
   box
@@ -275,6 +268,15 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return setMarkupPreview(m, msg.subtype, msg.rectsByPage, msg.preset);
     case 'clearMarkupPreview':
       return m.preview ? [{ ...m, preview: null }, []] : [m, []];
+    case 'select': {
+      const ids = expandGroups(
+        m,
+        msg.ids.filter((id) => isSelectable(m, id)),
+      );
+      if (!ids.length) return [m, []];
+      const selected = msg.add ? [...new Set([...m.selected, ...ids])] : ids;
+      return [{ ...m, selected }, []];
+    }
     case 'deselect': {
       if (!m.selected.length) return [m, []];
       // With `ids`: drop only those (an engaged Behavior retroactively un-selects
@@ -665,26 +667,36 @@ function createPointer(
       : 0;
   const uprightBox = (dragged: Rect): Rect =>
     upRot === 90 || upRot === 270 ? transposedAboutCenter(dragged) : dragged;
+  // Click commits resolve through the SHARED placement layer (placement.ts) —
+  // the same `resolveClickPlacement` the footprint ghost and the form plugin
+  // consume, so preview ≡ commit by construction. The core only supplies the
+  // kind-level fallback for free text (a click must always yield a typable
+  // box) and converts the placement to a Geom via `clickCreateGeom`.
+  const clickGeom = (policy: ClickCreate): Geom | null =>
+    clickCreateGeom(
+      d.subtype,
+      resolveClickPlacement(d.from, policy, {
+        pageBox: input.pageBox,
+        upright: d.g === 'create-rect' ? d.upright : undefined,
+        displayRotation: d.g === 'create-rect' ? d.displayRotation : undefined,
+      }),
+      def,
+    );
   if (d.g === 'create-rect' && d.subtype === 'free-text') {
     // Free-text: a dragged box, or — on a mere click — a default box you can
     // immediately type into (created unless the tool says `clickCreate: false`;
     // an empty text box is unreachable by drag alone, hence the kind-level
-    // fallback size). Under upright the click default anchors in the DISPLAY
-    // frame (top-left at the cursor as the author sees it).
+    // fallback: 180×40, top-left anchored so the box hangs where you'll type).
     const dragged = rectFromPoints(d.from, d.to);
     const isClick = dragged.width < MIN_DRAG && dragged.height < MIN_DRAG;
-    const size =
-      d.clickCreate && 'width' in d.clickCreate ? d.clickCreate : { width: 180, height: 40 };
-    if (!isClick || d.clickCreate !== false) {
-      const rect = !isClick
-        ? uprightBox(dragged)
-        : clampRectToBox(
-            upRot
-              ? uprightAnchoredRect(d.from, size.width, size.height, d.displayRotation!)
-              : { x: d.from.x, y: d.from.y, ...size },
-            input.pageBox,
-          );
-      geom = { t: 'text', rect, ...(upRot ? { rot: upRot } : {}) };
+    if (!isClick) {
+      geom = { t: 'text', rect: uprightBox(dragged), ...(upRot ? { rot: upRot } : {}) };
+    } else if (d.clickCreate !== false) {
+      geom = clickGeom(
+        d.clickCreate && 'width' in d.clickCreate
+          ? d.clickCreate
+          : { width: 180, height: 40, anchor: 'top-left' },
+      );
     }
   } else if (d.g === 'create-rect') {
     const dragged = rectFromPoints(d.from, d.to);
@@ -697,44 +709,13 @@ function createPointer(
         ...(upRot ? { rot: upRot } : {}),
       };
     } else if (d.clickCreate && 'width' in d.clickCreate) {
-      // Click-create: the tool's default size CENTRED on the point, page-bound.
-      // Under a quarter-turn the unrotated box transposes so the DISPLAYED box
-      // keeps the configured width×height (same rule as a dragged box).
-      const { width, height } = d.clickCreate;
-      const centred = uprightBox({
-        x: d.from.x - width / 2,
-        y: d.from.y - height / 2,
-        width,
-        height,
-      });
-      geom = {
-        t: 'rect',
-        rect: shapeRectFor(clampRectToBox(centred, input.pageBox), d.ellipse, style),
-        ellipse: d.ellipse,
-        ...(upRot ? { rot: upRot } : {}),
-      };
+      geom = clickGeom(d.clickCreate);
     }
   } else if (d.g === 'create-line') {
     if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG) {
       geom = { t: 'line', a: d.from, b: d.to, ends: def.lineEndings };
     } else if (d.clickCreate && 'length' in d.clickCreate) {
-      // Click-create: a default-length segment from the point (0° = rightward,
-      // CW-positive in y-down space), shifted as a unit to stay on the page.
-      const ang = ((d.clickCreate.angleDeg ?? 0) * Math.PI) / 180;
-      const a = d.from;
-      const b = {
-        x: a.x + Math.cos(ang) * d.clickCreate.length,
-        y: a.y + Math.sin(ang) * d.clickCreate.length,
-      };
-      const bounds = rectFromPoints(a, b);
-      const placed = clampRectToBox(bounds, input.pageBox);
-      const shift = { x: placed.x - bounds.x, y: placed.y - bounds.y };
-      geom = {
-        t: 'line',
-        a: { x: a.x + shift.x, y: a.y + shift.y },
-        b: { x: b.x + shift.x, y: b.y + shift.y },
-        ends: def.lineEndings,
-      };
+      geom = clickGeom(d.clickCreate);
     }
   }
   if (!geom) return [{ ...m, draft: null }, []];

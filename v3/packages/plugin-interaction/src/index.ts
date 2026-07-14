@@ -8,7 +8,7 @@
 export { interactionPlugin, builtinTools } from './interaction.plugin';
 export { createInteractionCapability } from './capability';
 export { initialInteractionState, interactionReducer } from './reducer';
-export { InteractionToken } from './types';
+export { InteractionToken, samplePointOn } from './types';
 export type {
   Cursor,
   InteractionAction,

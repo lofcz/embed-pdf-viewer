@@ -1,4 +1,5 @@
 import type { DocCapability, PluginContext } from '@embedpdf-x/kernel';
+import type { PageRotation } from '@embedpdf-x/geometry';
 import {
   resolveBinarySource,
   sniffBinaryMetadata,
@@ -11,6 +12,7 @@ import {
 import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import {
   chrome as coreChrome,
+  clickCreateGeom,
   creationDraftAnchor as coreCreationDraftAnchor,
   cursorAt,
   defaultsFor,
@@ -23,8 +25,8 @@ import {
   pdfToContentRect,
   propsFor,
   readProp,
+  resolveClickPlacement,
   selectionAnchor as coreSelectionAnchor,
-  shapeRectFor,
   sharedProps,
   styleFromProps,
   update,
@@ -355,15 +357,32 @@ export function createAnnotationCapability(
       ctx.dispatch({ type: 'SET_TOOL_GHOST', ghost: { pon, box, rot, kind: 'image' } });
       return;
     }
-    // A click-create tool: the default geometry a click would commit, painted
-    // as a vector ghost through pageItems (no bytes involved).
-    const geom = clickCreateGeom(tool, point, page);
+    // A click-create tool: the SHARED placement layer resolves where the click
+    // would land (same call the core's commit makes — preview ≡ commit by
+    // construction), and the annotation-only conversion paints it as a vector
+    // ghost through pageItems. No kind knowledge lives in this shell.
+    if (!tool.clickCreate) {
+      clearGhost();
+      return;
+    }
+    const placement = resolveClickPlacement(point, tool.clickCreate, {
+      pageBox: { x: 0, y: 0, width: page.width, height: page.height },
+      upright: tool.upright,
+      displayRotation: displayRotation as PageRotation | undefined,
+    });
+    const geom = clickCreateGeom(tool.subtype, placement, defaultsFor(model(), tool.preset));
     if (!geom) {
       clearGhost();
       return;
     }
-    const def = defaultsFor(model(), tool.preset);
-    const style = styleFromProps(def);
+    dispatchVectorGhost(pon, toolId, geom);
+  };
+
+  /** Paint a vector ghost item for a tool's would-be geometry — shared by the
+   *  hover footprint and the externally-driven placement preview. */
+  const dispatchVectorGhost = (pon: number, toolId: string, geom: Geom): void => {
+    const tool = registry.get(toolId);
+    const style = styleFromProps(defaultsFor(model(), tool?.preset ?? toolId));
     ctx.dispatch({
       type: 'SET_TOOL_GHOST',
       ghost: {
@@ -377,59 +396,25 @@ export function createAnnotationCapability(
     });
   };
 
-  /** The geometry a bare click would commit for a click-create tool at a point
-   *  — mirrors the core's up-phase click branch (centre + clamp / line from
-   *  point), so footprint ghosts are WYSIWYG. Null when the tool has none. */
-  const clickCreateGeom = (
-    tool: ResolvedTool,
-    point: Vec,
-    page: { width: number; height: number },
-  ): Geom | null => {
-    const cc = tool.clickCreate;
-    if (!cc) return null;
-    const clamp = (r: Rect): Rect => ({
-      ...r,
-      x: Math.min(Math.max(r.x, 0), Math.max(0, page.width - r.width)),
-      y: Math.min(Math.max(r.y, 0), Math.max(0, page.height - r.height)),
-    });
-    if ('length' in cc) {
-      if (tool.subtype !== 'line') return null;
-      const ang = ((cc.angleDeg ?? 0) * Math.PI) / 180;
-      const b = { x: point.x + Math.cos(ang) * cc.length, y: point.y + Math.sin(ang) * cc.length };
-      const bounds = clamp({
-        x: Math.min(point.x, b.x),
-        y: Math.min(point.y, b.y),
-        width: Math.abs(b.x - point.x),
-        height: Math.abs(b.y - point.y),
-      });
-      const dx = bounds.x - Math.min(point.x, b.x);
-      const dy = bounds.y - Math.min(point.y, b.y);
-      const def = defaultsFor(model(), tool.preset);
-      return {
-        t: 'line',
-        a: { x: point.x + dx, y: point.y + dy },
-        b: { x: b.x + dx, y: b.y + dy },
-        ends: def.lineEndings,
-      };
-    }
-    if (tool.subtype === 'free-text') {
-      return { t: 'text', rect: clamp({ x: point.x, y: point.y, ...cc }) };
-    }
-    if (tool.subtype === 'square' || tool.subtype === 'circle') {
-      const rect = clamp({
-        x: point.x - cc.width / 2,
-        y: point.y - cc.height / 2,
-        width: cc.width,
-        height: cc.height,
-      });
-      const def = defaultsFor(model(), tool.preset);
-      return {
-        t: 'rect',
-        rect: shapeRectFor(rect, tool.subtype === 'circle', styleFromProps(def)),
-        ellipse: tool.subtype === 'circle',
-      };
-    }
-    return null;
+  /**
+   * Drive the placement preview during an EXTERNALLY-owned creation gesture
+   * (the form plugin's drag-to-place): paint the box the commit would use,
+   * styled from the TOOL's defaults, through the same ghost pipeline as every
+   * footprint. The box is clamped to the page (a drag may overshoot).
+   */
+  const setPlacementPreview = (toolId: string, pon: number, box: Rect): void => {
+    const crop = cropOf(pon);
+    if (!crop) return;
+    const page = { width: crop.right - crop.left, height: crop.top - crop.bottom };
+    const x = Math.max(0, Math.min(box.x, page.width));
+    const y = Math.max(0, Math.min(box.y, page.height));
+    const rect: Rect = {
+      x,
+      y,
+      width: Math.max(0, Math.min(box.x + box.width, page.width) - x),
+      height: Math.max(0, Math.min(box.y + box.height, page.height) - y),
+    };
+    dispatchVectorGhost(pon, toolId, { t: 'rect', rect, ellipse: false });
   };
 
   const clearGhost = (): void => {
@@ -762,6 +747,8 @@ export function createAnnotationCapability(
     hasArmedStamp: () => armedStamp != null,
     ghostHoverAt,
     clearGhost,
+    setPlacementPreview,
+    clearPlacementPreview: clearGhost,
     toolGhost: (pon) => {
       const g = ctx.getState().toolGhost;
       return g && g.pon === pon ? g : null;
@@ -972,6 +959,9 @@ export function createAnnotationCapability(
     chromeSettings: () => chromeSettings(),
     deleteSelection: () => apply({ t: 'delete' }),
     deselect: () => apply({ t: 'deselect' }),
+    select: (ref, options) => {
+      apply({ t: 'select', ids: [refKey(ref)], add: options?.add });
+    },
     pruneEngagedSelection: () => {
       // Engaged ⇒ hit-test-inert ⇒ must not STAY selected either (a widget
       // selected in design mode keeps no chrome once the fill tool engages).
@@ -1051,27 +1041,22 @@ export function createAnnotationCapability(
         );
     },
 
-    reloadPage: (pon) => {
+    reloadPage: async (pon) => {
       const doc = ctx.doc;
       const crop = cropOf(pon);
       if (!doc || !crop) return;
       loaded.add(pon);
-      doc
-        .page(pon)
-        .annotations.list()
-        .then(
-          (snap) => {
-            // Replace, not merge: drop this page's current annots first so
-            // cross-plane deletions (deleteField) actually disappear.
-            const m = model();
-            const stale = m.order.filter((id) => m.byId[id]?.pon === pon);
-            if (stale.length) apply({ t: 'remove', ids: stale });
-            apply({ t: 'loaded', annots: snap.annotations.map((d) => fromDTO(d, crop)) });
-          },
-          () => {
-            loaded.delete(pon);
-          },
-        );
+      try {
+        const snap = await doc.page(pon).annotations.list();
+        // Replace, not merge: drop this page's current annots first so
+        // cross-plane deletions (deleteField) actually disappear.
+        const m = model();
+        const stale = m.order.filter((id) => m.byId[id]?.pon === pon);
+        if (stale.length) apply({ t: 'remove', ids: stale });
+        apply({ t: 'loaded', annots: snap.annotations.map((d) => fromDTO(d, crop)) });
+      } catch {
+        loaded.delete(pon);
+      }
     },
 
     // ── free-text (the editable-element layer) ──

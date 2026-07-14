@@ -18,6 +18,7 @@ import type {
   PdfRect,
   PdfRectDifferences,
   StandardFont,
+  WidgetAppearance,
 } from '@embedpdf/engine-core/runtime';
 import {
   calloutLinePoints,
@@ -32,6 +33,7 @@ import {
   pdfToContentRect,
   rotatedAabb,
   type Annot,
+  type AnnotationPropsPatch,
   type Border,
   type Geom,
   type Quad,
@@ -66,6 +68,30 @@ function cssToColor(css: string): Color {
     return { r: parseInt(a + a, 16), g: parseInt(b + b, 16), b: parseInt(c + c, 16) };
   }
   return { r: 0, g: 0, b: 0 };
+}
+
+/**
+ * The flat props vocabulary (CSS colours, house keys) → the engine's widget
+ * appearance for `doc.forms` authoring — the SAME mapping `toPatch`'s widget
+ * branch uses, exported as a boundary utility so the form plugin can style
+ * `placeField` from a tool's `currentDefaults` without growing a second CSS
+ * parser. Absent keys stay absent (the engine writes nothing for them).
+ */
+export function widgetAppearanceFromProps(props: AnnotationPropsPatch): WidgetAppearance {
+  return {
+    ...(props.color !== undefined ? { color: cssToColor(props.color) } : {}),
+    ...(props.interiorColor !== undefined
+      ? { interiorColor: props.interiorColor ? cssToColor(props.interiorColor) : null }
+      : {}),
+    ...(props.strokeWidth !== undefined ? { strokeWidth: props.strokeWidth } : {}),
+    ...(props.border !== undefined
+      ? { borderStyle: props.border.kind === 'dashed' ? ('dashed' as const) : ('solid' as const) }
+      : {}),
+    ...(props.fontFamily !== undefined ? { fontFamily: props.fontFamily as StandardFont } : {}),
+    ...(props.fontSize !== undefined ? { fontSize: props.fontSize } : {}),
+    ...(props.fontColor !== undefined ? { fontColor: cssToColor(props.fontColor) } : {}),
+    ...(props.textAlign !== undefined ? { textAlign: props.textAlign } : {}),
+  };
 }
 
 const TEXT_MARKUP = new Set(['highlight', 'underline', 'squiggly', 'strikeout']);

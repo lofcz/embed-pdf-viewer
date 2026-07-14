@@ -119,6 +119,17 @@ export interface InteractionCapability {
 
 export const InteractionToken = createCapabilityToken<InteractionCapability>('interaction');
 
+/**
+ * Resolve a sample against a gesture's HOME page. Page-anchored gestures track
+ * the page they started on even when the cursor wanders off it — `s.page`
+ * re-resolves per event (a foreign page is a DIFFERENT coordinate frame), so
+ * prefer the source's unclamped projection and fall back to the page hit only
+ * when it is the same page. Null → this sample can't speak for the home page.
+ * Shared by every gesture owner (annotation edit/draw, form placement).
+ */
+export const samplePointOn = (s: PointerSample, pon: PageObjectNumber): Point | null =>
+  s.project?.(pon) ?? (s.page?.pon === pon ? s.page.point : null);
+
 export interface InteractionConfig {
   /** Tool active when a document opens. Default `'pointer'`. */
   defaultTool?: ToolId;

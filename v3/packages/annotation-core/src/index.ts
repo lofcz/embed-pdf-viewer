@@ -6,7 +6,20 @@
  * hit-testing, cursors, the select + create tools. No DOM, no engine, no
  * framework — the part that ports to Rust/Crux.
  */
-export { update, initialModel, initialStyle, defaultsFor, rotateDraftDelta } from './update';
+export {
+  update,
+  initialModel,
+  initialStyle,
+  defaultsFor,
+  rotateDraftDelta,
+  MIN_DRAG,
+} from './update';
+export {
+  clampRectToBox,
+  clickCreateGeom,
+  resolveClickPlacement,
+  type ClickPlacement,
+} from './placement';
 export { computeMoveSnap, type SnapResult } from './snap';
 export {
   pageItems,

@@ -438,14 +438,20 @@ export interface PointerInput {
 
 /**
  * What a bare CLICK (a press-release under the drag threshold) creates for a
- * tool: a default-size box (shapes centre on the point; free text hangs
- * top-left, display-frame-aware under `upright`), or a default-length line
- * from the point (`angleDeg` 0 = rightward, CW-positive in y-down space).
- * Resolved from the TOOL by the caller and passed on the message — the core
- * knows subtypes, not tools (the `upright` pattern). `false` suppresses a
- * kind's own click fallback (free text always click-creates by default).
+ * tool: a default-size box with an EXPLICIT anchor (`center` unless stated —
+ * free text declares `top-left` so the box hangs where you'll type,
+ * display-frame-aware under `upright`), or a default-length line from the
+ * point (`angleDeg` 0 = rightward, CW-positive in y-down space). Resolved
+ * from the TOOL by the caller and passed on the message — the core knows
+ * subtypes, not tools (the `upright` pattern). `false` suppresses a kind's
+ * own click fallback (free text always click-creates by default).
+ * Anchoring is policy DATA, never inferred from the kind — the same policy
+ * drives annotation commits, footprint ghosts, and form-field placement
+ * (see `resolveClickPlacement`).
  */
-export type ClickCreate = { width: number; height: number } | { length: number; angleDeg?: number };
+export type ClickCreate =
+  | { width: number; height: number; anchor?: 'center' | 'top-left' }
+  | { length: number; angleDeg?: number };
 
 export type Msg =
   | { t: 'editPointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
@@ -497,6 +503,10 @@ export type Msg =
   // (the shell prunes annotations whose Behavior just ENGAGED — inert things
   // cannot stay selected).
   | { t: 'deselect'; ids?: Id[] }
+  // Programmatic selection (the data-API `select(ref)` — e.g. auto-selecting
+  // a freshly placed form widget). Unknown/unselectable ids are dropped;
+  // selecting a group member takes the whole group, like a click would.
+  | { t: 'select'; ids: Id[]; add?: boolean }
   // Apply a flat property patch to the current selection. Each member takes the
   // keys its KIND declares (`propsFor`) and ignores the rest, so one message
   // restyles a mixed selection. Members flip to `vector`; one patch effect each.

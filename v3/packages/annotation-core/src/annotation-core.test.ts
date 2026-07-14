@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { annotsInBox, initialModel, initialStyle, rotateDraftDelta, update } from './update';
+import {
+  annotsInBox,
+  defaultsFor,
+  initialModel,
+  initialStyle,
+  rotateDraftDelta,
+  update,
+} from './update';
+import { clickCreateGeom, resolveClickPlacement } from './placement';
 import { computeMoveSnap } from './snap';
 import {
   chrome,
@@ -79,6 +87,102 @@ const createPtr = (
 });
 const run = (m: Model, msgs: Msg[]): Model => msgs.reduce((acc, msg) => update(acc, msg)[0], m);
 const rectGeom = (g: Geom) => (g.t === 'rect' ? g.rect : null);
+
+describe('resolveClickPlacement — the shared placement layer', () => {
+  const PAGE = { x: 0, y: 0, width: 300, height: 400 };
+
+  it('boxes anchor CENTER by default, TOP-LEFT when the policy says so', () => {
+    const centred = resolveClickPlacement({ x: 100, y: 100 }, { width: 80, height: 60 });
+    expect(centred).toMatchObject({ kind: 'box', rect: { x: 60, y: 70, width: 80, height: 60 } });
+    const anchored = resolveClickPlacement(
+      { x: 100, y: 100 },
+      { width: 80, height: 60, anchor: 'top-left' },
+    );
+    expect(anchored).toMatchObject({ kind: 'box', rect: { x: 100, y: 100 } });
+  });
+
+  it('boxes slide INSIDE the page at edges and corners', () => {
+    for (const point of [
+      { x: 0, y: 0 },
+      { x: 300, y: 0 },
+      { x: 0, y: 400 },
+      { x: 300, y: 400 },
+    ]) {
+      const p = resolveClickPlacement(point, { width: 80, height: 60 }, { pageBox: PAGE });
+      if (p.kind !== 'box') throw new Error('expected box');
+      expect(p.rect.x).toBeGreaterThanOrEqual(0);
+      expect(p.rect.y).toBeGreaterThanOrEqual(0);
+      expect(p.rect.x + p.rect.width).toBeLessThanOrEqual(300);
+      expect(p.rect.y + p.rect.height).toBeLessThanOrEqual(400);
+      expect(p.rect).toMatchObject({ width: 80, height: 60 }); // slid, never squashed
+    }
+  });
+
+  it('segments keep their length and slide onto the page as a unit', () => {
+    const p = resolveClickPlacement({ x: 290, y: 10 }, { length: 80 }, { pageBox: PAGE });
+    if (p.kind !== 'segment') throw new Error('expected segment');
+    expect(Math.hypot(p.b.x - p.a.x, p.b.y - p.a.y)).toBeCloseTo(80);
+    expect(Math.max(p.a.x, p.b.x)).toBeLessThanOrEqual(300);
+  });
+
+  it('upright: a centred box transposes under a quarter-turn; top-left anchors in the display frame', () => {
+    const centred = resolveClickPlacement(
+      { x: 100, y: 100 },
+      { width: 80, height: 60 },
+      { upright: true, displayRotation: 90 },
+    );
+    if (centred.kind !== 'box') throw new Error('expected box');
+    // Transposed about the centre: the DISPLAYED box keeps 80×60.
+    expect(centred.rect).toMatchObject({ width: 60, height: 80 });
+    expect(centred.rot).not.toBe(0);
+    const anchored = resolveClickPlacement(
+      { x: 100, y: 100 },
+      { width: 80, height: 60, anchor: 'top-left' },
+      { upright: true, displayRotation: 90 },
+    );
+    if (anchored.kind !== 'box') throw new Error('expected box');
+    expect(anchored.rect).toEqual(uprightAnchoredRect({ x: 100, y: 100 }, 80, 60, 90));
+  });
+
+  it('GHOST ≡ COMMIT: the footprint call and the up-phase produce the same geometry', () => {
+    const pageBox = PAGE;
+    const cases: Array<{
+      subtype: 'square' | 'free-text' | 'line';
+      policy: import('./types').ClickCreate;
+    }> = [
+      { subtype: 'square', policy: { width: 80, height: 60 } },
+      { subtype: 'free-text', policy: { width: 180, height: 40, anchor: 'top-left' } },
+      { subtype: 'line', policy: { length: 80 } },
+    ];
+    for (const { subtype, policy } of cases) {
+      const point = { x: 295, y: 5 }; // a corner, so the clamp is exercised too
+      const m = run(initialModel, [
+        {
+          t: 'createPointer',
+          phase: 'down',
+          subtype,
+          clickCreate: policy,
+          in: { pon: PON, point, shift: false, pageBox },
+        },
+        {
+          t: 'createPointer',
+          phase: 'up',
+          subtype,
+          clickCreate: policy,
+          in: { pon: PON, point, shift: false, pageBox },
+        },
+      ]);
+      const committed = m.byId[m.order[0]]!.geom;
+      // Exactly the call the hover ghost makes (capability ghostHoverAt):
+      const ghost = clickCreateGeom(
+        subtype,
+        resolveClickPlacement(point, policy, { pageBox }),
+        defaultsFor(initialModel, subtype),
+      );
+      expect(ghost).toEqual(committed);
+    }
+  });
+});
 
 describe('click-create (a bare click places the tool default)', () => {
   const clickMsg = (
@@ -3290,6 +3394,21 @@ describe('apVersion: baked /AP content versioning (what re-fetches a raster)', (
     // …and SURVIVES the next plain re-sync (fromDTO knows nothing of it)
     [m] = update(m, { t: 'upsert', annots: [{ ...dto }] });
     expect(m.byId['A1'].apVersion).toBe(1);
+  });
+
+  it('select: programmatic selection sets/adds, drops unknown ids (the auto-select path)', () => {
+    let m = committed('stamp'); // A1 selected
+    m = update(m, { t: 'deselect' })[0];
+    m = update(m, { t: 'select', ids: ['A1'] })[0];
+    expect(m.selected).toEqual(['A1']);
+    // Unknown ids no-op instead of corrupting the selection.
+    m = update(m, { t: 'select', ids: ['nope'] })[0];
+    expect(m.selected).toEqual(['A1']);
+    // `add` extends rather than replaces.
+    const b: Annot = { ...m.byId['A1'], id: 'B1', ref: null };
+    m = { ...m, byId: { ...m.byId, B1: b }, order: [...m.order, 'B1'] };
+    m = update(m, { t: 'select', ids: ['B1'], add: true })[0];
+    expect([...m.selected].sort()).toEqual(['A1', 'B1']);
   });
 
   it('setProps keeps opaque-body kinds BAKED (a widget restyle re-fetches, never flips)', () => {

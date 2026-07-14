@@ -6,9 +6,10 @@ import { AnnotationToken } from '@embedpdf-x/plugin-annotation';
 import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annotation/internal';
 
 import { createFormCapability } from './capability';
-import { createPlaceHandler, FAMILY_BY_TOOL } from './handler';
+import { createPlaceHandler } from './handler';
 import { registerFormEffects } from './effects';
 import { formReducer, initialFormState } from './reducer';
+import { FORM_TOOLS, PLACE_TAGS } from './tools';
 import { FormToken } from './types';
 import type { FormAction, FormCapability, FormState } from './types';
 
@@ -53,18 +54,38 @@ export const formPlugin = () =>
         cursor: 'default',
         enables: new Set(['annotation-edit', 'annotation-marquee']),
       });
-      // Field palette: draw-to-place. `annotation-edit` stays enabled so the
-      // freshly placed widgets are immediately selectable/movable.
-      for (const id of Object.keys(FAMILY_BY_TOOL)) {
-        interaction.registerTool({
-          id,
-          cursor: 'crosshair',
-          enables: new Set(['form-place', 'annotation-edit']),
-        });
-      }
-      interaction.registerHandler(createPlaceHandler(form, interaction));
-
+      // Field palette: ONE tool table, two registration paths. With the
+      // annotation plugin, palette tools join ITS registry — they gain live
+      // defaults, the schema style panel (`propsForTool`), click-create and
+      // cursor badges, all the shared authoring infrastructure. Without it,
+      // the same table registers plain hub tools: drag/click placement and
+      // programmatic authoring still work (`placeField` is a pure `doc.forms`
+      // call); only INTERACTIVE styling/moving needs the annotation plane.
+      // Either way the commit goes through the form place handler — these
+      // tools enable 'form-place', never 'annotation-draw', so the two commit
+      // planes can't cross structurally.
       const annotation = ctx.tryGet(AnnotationHostToken);
+      for (const t of FORM_TOOLS) {
+        if (annotation) {
+          annotation.registerTool({
+            id: t.id,
+            subtype: t.visualKind,
+            cursor: t.cursor,
+            enables: [...PLACE_TAGS],
+            clickCreate: t.clickCreate,
+            ghost: { mode: 'badge' },
+            defaults: t.defaults,
+          });
+        } else {
+          interaction.registerTool({
+            id: t.id,
+            cursor: t.cursor,
+            enables: new Set(PLACE_TAGS),
+          });
+        }
+      }
+      interaction.registerHandler(createPlaceHandler(form, interaction, annotation));
+
       if (annotation) {
         annotation.registerBehavior({
           id: 'form-widgets',

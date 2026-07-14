@@ -280,6 +280,13 @@ export interface AnnotationCapability {
   selection(): Id[];
   /** The current selection as durable annotation refs (skips not-yet-committed drafts). */
   getSelection(): AnnotationRef[];
+  /**
+   * Select an annotation by ref programmatically — e.g. auto-selecting a
+   * freshly placed form widget. Selecting a group member takes the whole
+   * group, exactly like a click. Unknown/unselectable refs no-op. `add`
+   * extends the current selection instead of replacing it.
+   */
+  select(ref: AnnotationRef, options?: { add?: boolean }): void;
 
   // ── grouping (engine `/IRT` + `/RT /Group`; selecting one member selects all) ──
   /** Group the current selection into one unit (the bottom-most member is the
@@ -447,9 +454,11 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   /**
    * Drop and RE-READ one page's annotations from the engine — the hook for
    * cross-plane mutations (e.g. `doc.forms.createField`/`deleteField`
-   * changing the page's widget population underneath this plugin).
+   * changing the page's widget population underneath this plugin). Resolves
+   * when the fresh page is in the model, so a caller can select what it just
+   * created.
    */
-  reloadPage(pon: PageObjectNumber): void;
+  reloadPage(pon: PageObjectNumber): Promise<void>;
   // ── free-text (the editable-element layer) ──
   /** The free-text boxes on a page, ready to render as editable elements. */
   textItems(pon: PageObjectNumber): TextItem[];
@@ -544,6 +553,16 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   ): void;
   /** Drop the hover ghost (pointer left the pages / a gesture started). */
   clearGhost(): void;
+  /**
+   * Drive the transient placement preview during an EXTERNALLY-owned creation
+   * gesture (the form plugin's drag-to-place): the box the commit would use,
+   * page-clamped, styled from the TOOL's defaults, painted through the same
+   * ghost pipeline as every footprint. Sibling plugins call THIS — never the
+   * annotation store directly.
+   */
+  setPlacementPreview(toolId: string, pon: PageObjectNumber, box: Rect): void;
+  /** Drop the placement preview (gesture ended — commit, cancel, or error). */
+  clearPlacementPreview(): void;
   // ── ghost projection (consumed by the framework render layer) ──
   /** The armed tool's footprint ghost on a page (content space), or null.
    *  Vector ghosts also ride {@link pageItems}; only `kind: 'image'` ghosts
