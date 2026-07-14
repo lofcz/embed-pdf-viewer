@@ -11,7 +11,7 @@ export * from '@embedpdf-x/plugin-render';
 import * as React from 'react';
 import { useEffect, useRef } from 'react';
 import { RenderToken } from '@embedpdf-x/plugin-render';
-import { useCapability, usePage } from './runtime';
+import { useCapability, usePage, useSelector } from './runtime';
 
 export interface RenderLayerProps {
   /**
@@ -25,6 +25,10 @@ export function RenderLayer({ annotations = true }: RenderLayerProps = {}) {
   const page = usePage();
   const render = useCapability(RenderToken);
   const ref = useRef<HTMLImageElement>(null);
+  // Refetch when a CONFIRMED mutation (own or a collaborator's) changes what
+  // this render would paint — an annotation moved, a checkbox ticked. Bumps at
+  // commit, never mid-gesture; annotation-free renders subscribe to nothing.
+  const epoch = useSelector(RenderToken, (c) => c.renderEpoch(page.pon, annotations));
   useEffect(() => {
     const controller = new AbortController();
     let revoke: (() => void) | undefined;
@@ -53,7 +57,7 @@ export function RenderLayer({ annotations = true }: RenderLayerProps = {}) {
       controller.abort();
       revoke?.();
     };
-  }, [render, page.pon, page.transform.renderScale, annotations]);
+  }, [render, page.pon, page.transform.renderScale, annotations, epoch]);
   return (
     <img
       ref={ref}

@@ -10,7 +10,11 @@ import type {
 } from '@embedpdf/engine-core/runtime';
 import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annotation/internal';
 
-import { fillItems as coreFillItems, type FillItem } from './core/fill-items';
+import {
+  fillItemForWidget as coreFillItemForWidget,
+  fillItems as coreFillItems,
+  type FillItem,
+} from './core/fill-items';
 import {
   fieldByKey,
   fieldForWidget as coreFieldForWidget,
@@ -96,6 +100,18 @@ export function createFormCapability(ctx: PluginContext<FormState, FormAction>):
     const items = coreFillItems(m, pon);
     fillCache.set(pon, { seq: m.seq, items });
     return items;
+  };
+
+  // Single-widget projection — reference-stable per model.seq so framework
+  // selectors can use plain identity equality.
+  const fillItemCache = new Map<number, { seq: number; item: FillItem | null }>();
+  const fillItem = (annotObjectNumber: number): FillItem | null => {
+    const m = model();
+    const hit = fillItemCache.get(annotObjectNumber);
+    if (hit && hit.seq === m.seq) return hit.item;
+    const item = coreFillItemForWidget(m, annotObjectNumber);
+    fillItemCache.set(annotObjectNumber, { seq: m.seq, item });
+    return item;
   };
 
   // ── typed writes: writeStart → engine → writeDone/writeFailed ──────────
@@ -220,6 +236,7 @@ export function createFormCapability(ctx: PluginContext<FormState, FormAction>):
     snapshot: () => model().snapshot,
     refresh,
     fillItems,
+    fillItem,
     ensureGeom,
     field: (key) => fieldByKey(model(), key),
     fieldForWidget: (annotObjectNumber) => coreFieldForWidget(model(), annotObjectNumber),

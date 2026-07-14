@@ -1,0 +1,46 @@
+{
+  "name": "@embedpdf-x/plugin-stamp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Stamp asset libraries: import a PDF as a library of vector stamps (one page per stamp), keep per-asset bytes + cached previews, and place them through the annotation plugin's armed-stamp flow. The substrate the signature plugin builds on.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "module": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rimraf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@embedpdf-x/kernel": "workspace:*",
+    "@embedpdf-x/plugin-annotation": "workspace:*",
+    "@embedpdf/engine-core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9"
+  },
+  "license": "MIT"
+}

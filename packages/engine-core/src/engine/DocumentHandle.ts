@@ -5,6 +5,7 @@ import type { DocumentSearchService } from './DocumentSearchService';
 import type { DocumentSecurityService } from './DocumentSecurityService';
 import type { MetadataService } from './MetadataService';
 import type { PageHandle } from './PageHandle';
+import type { PieceInfoService } from './PieceInfoService';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
 import type { DocumentEventStream } from '../events/DocumentEventStream';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
@@ -23,6 +24,14 @@ export interface DocumentHandle {
   readonly annotations: DocumentAnnotationsService;
   /** The document's interactive form (AcroForm): fields, values, interchange. */
   readonly forms: DocumentFormsService;
+  /**
+   * CATALOG-level `/PieceInfo` private application data (ISO 32000 §14.5)
+   * — e.g. a stamp library's display name. Optional: the local engine
+   * implements it; the cloud engine omits it until a cloud consumer ships
+   * (the `downloadLayer?` pattern). Per-page piece data lives on
+   * `page(pon).pieceInfo`.
+   */
+  readonly pieceInfo?: PieceInfoService;
   /** Document text search: budgeted, cursor-resumable slices. */
   readonly search: DocumentSearchService;
   /**

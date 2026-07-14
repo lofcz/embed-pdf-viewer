@@ -10,7 +10,8 @@
  *   modes                                  → shell exclusive surfaces ('mode')
  *   panels / menus / modals                → declarative shell targets
  *   annotate + shape tools                 → real interaction tools
- *   form/insert/redact tools               → inert interaction tools (demo-tools)
+ *   form tools                             → real form plugin palette (draw-to-place)
+ *   insert/redact tools                    → inert interaction tools (demo-tools)
  *   history undo/redo                      → disabled (no history plugin in v3 yet)
  */
 import type { CommandDef, IconAccent } from '@embedpdf-x/react/commands';
@@ -20,6 +21,7 @@ import type { SpreadMode } from '@embedpdf-x/react/stage';
 import { InteractionToken } from '@embedpdf-x/react/interaction';
 import { ShellToken } from '@embedpdf-x/react/shell';
 import { AnnotationToken } from '@embedpdf-x/react/annotation';
+import { fieldKeyOf, FormToken } from '@embedpdf-x/react/form';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 type Ctx = Parameters<NonNullable<CommandDef['run']>>[0];
@@ -39,10 +41,18 @@ const selectionSubtypes = (c: Ctx) => new Set((anno(c)?.getSelected() ?? []).map
 // This is intentionally explicit at the command definition: property-panel order
 // does not determine icon meaning, and another viewer may make a different choice.
 type ColorKey = 'color' | 'interiorColor' | 'fontColor';
-interface ToolAccentDefinition {
+export interface ToolAccentDefinition {
   primary: ColorKey;
   secondary?: ColorKey;
 }
+
+/**
+ * toolId → the SAME icon + accent definition its toolbar button uses, recorded
+ * as a side effect of the `tool()` command definitions below — ONE source of
+ * truth, so the cursor badge (ui/tool-badge.tsx) and the button can never
+ * drift apart.
+ */
+export const TOOL_ICONS: Record<string, { icon: string; accent?: ToolAccentDefinition }> = {};
 
 const toolAccent = (
   c: Ctx,
@@ -68,16 +78,19 @@ const tool = (
   labelKey: string,
   icon: string,
   accent?: ToolAccentDefinition,
-): CommandDef => ({
-  id,
-  labelKey,
-  icon,
-  categories: ['tool'],
-  run: (c) => interaction(c)?.activateTool(toolId),
-  active: (c) => interaction(c)?.activeToolId() === toolId,
-  enabled: (c) => interaction(c) != null,
-  iconAccent: (c) => toolAccent(c, toolId, accent),
-});
+): CommandDef => {
+  TOOL_ICONS[toolId] = { icon, ...(accent ? { accent } : {}) };
+  return {
+    id,
+    labelKey,
+    icon,
+    categories: ['tool'],
+    run: (c) => interaction(c)?.activateTool(toolId),
+    active: (c) => interaction(c)?.activeToolId() === toolId,
+    enabled: (c) => interaction(c) != null,
+    iconAccent: (c) => toolAccent(c, toolId, accent),
+  };
+};
 
 /** A fixed zoom level (fraction), e.g. 1 = 100%. */
 const zoomLevel = (id: string, level: number, label: string): CommandDef => ({
@@ -330,7 +343,7 @@ export const commands: CommandDef[] = [
   modeCommand('mode:annotate', 'commands.mode.annotate'),
   modeCommand('mode:shapes', 'commands.mode.shapes'),
   modeCommand('mode:insert', 'commands.mode.insert'),
-  modeCommand('mode:form', 'commands.mode.form'),
+  modeCommand('mode:form', 'commands.mode.form', 'form-edit'),
   modeCommand('mode:redact', 'commands.mode.redact'),
 
   // ── annotate tools (real interaction tools) ─────────────────────────────
@@ -402,11 +415,11 @@ export const commands: CommandDef[] = [
   tool('insert:add-signature', 'signature', 'commands.insert.signature', 'signature'),
   tool('insert:add-image', 'image', 'commands.insert.image', 'photo'),
 
-  // ── form tools (inert) ──────────────────────────────────────────────────
-  tool('form:add-textfield', 'form-textfield', 'commands.form.textfield', 'formTextfield'),
+  // ── form tools (the form plugin's draw-to-place palette) ────────────────
+  tool('form:add-textfield', 'form-text', 'commands.form.textfield', 'formTextfield'),
   tool('form:add-checkbox', 'form-checkbox', 'commands.form.checkbox', 'formCheckbox'),
   tool('form:add-radio', 'form-radio', 'commands.form.radio', 'formRadio'),
-  tool('form:add-select', 'form-select', 'commands.form.select', 'formSelect'),
+  tool('form:add-select', 'form-combobox', 'commands.form.select', 'formSelect'),
   tool('form:add-listbox', 'form-listbox', 'commands.form.listbox', 'formListbox'),
 
   // ── redact tools (inert) ────────────────────────────────────────────────
@@ -418,7 +431,29 @@ export const commands: CommandDef[] = [
     labelKey: 'commands.annotate.delete',
     icon: 'trash',
     categories: ['annotation'],
-    run: (c) => anno(c)?.deleteSelection(),
+    run: (c) => {
+      const a = anno(c);
+      if (!a) return;
+      const form = c.tryGet(FormToken);
+      const dtos = a.getSelected();
+      const widgets = form ? dtos.filter((d) => d.subtype === 'widget') : [];
+      if (widgets.length === 0) {
+        a.deleteSelection();
+        return;
+      }
+      // Widgets are FIELD-plane citizens: deleting one goes through doc.forms
+      // (the field and every widget of it cascade), never the raw annotation —
+      // otherwise the /AcroForm entry would be orphaned.
+      const keys = new Set<string>();
+      for (const w of widgets) {
+        const objnum = w.ref.kind === 'objectNumber' ? w.ref.annotObjectNumber : 0;
+        const field = objnum > 0 ? form!.fieldForWidget(objnum) : null;
+        if (field) keys.add(fieldKeyOf(field));
+      }
+      for (const key of keys) void form!.deleteField(key);
+      for (const d of dtos) if (d.subtype !== 'widget') void a.delete(d.ref);
+      a.deselect();
+    },
     visible: hasAnnotationSelection,
     // Mirrors the engine's own authorization: locked/unauthorized annotations
     // keep the button visible but disabled (the engine still enforces).
@@ -494,11 +529,24 @@ export const MODE_SURFACES = [
   'mode:redact',
 ] as const;
 
-function modeCommand(id: (typeof MODE_SURFACES)[number], labelKey: string): CommandDef {
+function modeCommand(
+  id: (typeof MODE_SURFACES)[number],
+  labelKey: string,
+  toolId: string = 'pointer',
+): CommandDef {
   return {
     id,
     labelKey,
     categories: ['mode'],
-    panel: { id, exclusive: 'mode' },
+    // A mode tab is a shell surface AND a tool policy: the Form tab flips the
+    // pointer into form design ('form-edit' — widgets select/move/resize like
+    // annotations); every other tab (and closing one) drops back to the
+    // default pointer, where widgets are fill controls again.
+    run: (c) => {
+      const shell = c.tryGet(ShellToken);
+      shell?.toggle(id, { exclusive: 'mode' });
+      interaction(c)?.activateTool(shell?.isOpen(id) ? toolId : 'pointer');
+    },
+    active: (c) => c.tryGet(ShellToken)?.isOpen(id) ?? false,
   };
 }

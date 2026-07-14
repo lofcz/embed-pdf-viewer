@@ -13,6 +13,7 @@
  */
 import type {
   AnnotationPropsPatch,
+  ClickCreate,
   InkStraightenOptions,
   PropKey,
   Subtype,
@@ -35,6 +36,31 @@ export type StampSourceSpec = { kind: 'bytes'; source: BinarySource } | { kind: 
 export type SelectionAuthoring =
   | { kind: 'markup' }
   | { kind: 'text-edit'; operation: 'insert' | 'replace' };
+
+/**
+ * The armed tool's cursor-side preview:
+ *   - `badge` — a small screen-constant miniature riding the pointer (top-right
+ *     by default), so the user always sees WHICH tool is armed. Viewport
+ *     chrome: it renders in the stage overlay, never scales with zoom, and
+ *     stays alive over page gaps. `size`/`offset` are CSS px.
+ *   - `footprint` — the EXACT box a click would place, in the page (content
+ *     space, page-clamped, WYSIWYG). Meaningful only when the box is
+ *     determinable: an armed stamp payload, or a `clickCreate` size.
+ *   - `false` — no preview (markup tools: the text cursor already signals).
+ */
+export type GhostPolicy =
+  | false
+  | { mode: 'footprint' }
+  | { mode: 'badge'; size?: number; offset?: { x: number; y: number } };
+
+/** A fully-resolved badge policy (defaults filled). */
+export interface ResolvedGhost {
+  mode: 'footprint' | 'badge';
+  size: number;
+  offset: { x: number; y: number };
+}
+
+export const BADGE_DEFAULTS = { size: 18, offset: { x: 14, y: -32 } } as const;
 
 /** Time/geometry policy for freehand ink authoring. */
 export interface InkAuthoringOptions {
@@ -143,6 +169,18 @@ export interface AnnotationToolDef<K extends ToolAuthoringKind = ToolAuthoringKi
    * built-in `stamp` and `free-text` tools, off elsewhere.
    */
   upright?: boolean;
+  /**
+   * What a bare CLICK creates (v2's `clickBehavior`): a default-size shape
+   * centred on the point / a default-length line from it / free-text's
+   * type-here box — page-clamped, in PDF pt. `false` = drag-only. Defaults:
+   * on for the built-in square/circle/line/free-text, off elsewhere.
+   */
+  clickCreate?: ClickCreate | false;
+  /**
+   * The armed-tool cursor preview ({@link GhostPolicy}). Defaults: `badge`
+   * for draw-channel tools, `footprint` for the stamp, off for markup tools.
+   */
+  ghost?: GhostPolicy;
   /** Opaque presentation hints (label/icon…) for a toolbar or badge that builds
    *  itself from the tool table. Never read by the plugin or the interaction hub. */
   meta?: Record<string, unknown>;
@@ -212,6 +250,10 @@ export interface ResolvedTool {
   /** Counter-rotate creations against the page's display rotation (see
    *  {@link AnnotationToolDef.upright}). */
   upright: boolean;
+  /** What a bare click creates, or `false` for drag-only. */
+  clickCreate: ClickCreate | false;
+  /** The armed-tool cursor preview, defaults resolved ({@link ResolvedGhost}). */
+  ghost: ResolvedGhost | false;
   meta?: Record<string, unknown>;
 }
 
@@ -225,18 +267,54 @@ const MARKUP_TAGS = ['text-select', 'annotation-edit'];
  * the click-to-place stamp). Order is display-neutral; the toolbar owns layout.
  */
 export const DEFAULT_TOOLS: AnnotationToolInput[] = [
-  // shapes / lines / ink / free text — the `annotation-draw` gesture
-  { id: 'square', subtype: 'square', cursor: 'crosshair', enables: DRAW_TAGS },
-  { id: 'circle', subtype: 'circle', cursor: 'crosshair', enables: DRAW_TAGS },
-  { id: 'line', subtype: 'line', cursor: 'crosshair', enables: DRAW_TAGS },
-  { id: 'polygon', subtype: 'polygon', cursor: 'crosshair', enables: DRAW_TAGS },
-  { id: 'polyline', subtype: 'polyline', cursor: 'crosshair', enables: DRAW_TAGS },
+  // shapes / lines / ink / free text — the `annotation-draw` gesture.
+  // Draw tools carry v2's click-create defaults (a bare click places a
+  // default-size annotation); every draw tool badges by default (resolution
+  // fills `ghost` from the draw tag — see `defaultGhostFor`).
+  {
+    id: 'square',
+    subtype: 'square',
+    cursor: 'crosshair',
+    enables: DRAW_TAGS,
+    defaults: { strokeWidth: 6 },
+    clickCreate: { width: 80, height: 60 },
+  },
+  {
+    id: 'circle',
+    subtype: 'circle',
+    cursor: 'crosshair',
+    enables: DRAW_TAGS,
+    defaults: { strokeWidth: 6 },
+    clickCreate: { width: 80, height: 60 },
+  },
+  {
+    id: 'line',
+    subtype: 'line',
+    cursor: 'crosshair',
+    enables: DRAW_TAGS,
+    defaults: { strokeWidth: 6 },
+    clickCreate: { length: 80 },
+  },
+  {
+    id: 'polygon',
+    subtype: 'polygon',
+    cursor: 'crosshair',
+    enables: DRAW_TAGS,
+    defaults: { strokeWidth: 6 },
+  },
+  {
+    id: 'polyline',
+    subtype: 'polyline',
+    cursor: 'crosshair',
+    enables: DRAW_TAGS,
+    defaults: { strokeWidth: 6 },
+  },
   {
     id: 'ink',
     subtype: 'ink',
     cursor: 'crosshair',
     enables: DRAW_TAGS,
-    defaults: { color: '#ef4444', strokeWidth: 10, blendMode: 'normal' },
+    defaults: { color: '#ef4444', strokeWidth: 6, blendMode: 'normal' },
     ink: { groupStrokesMs: 800 },
   },
   {
@@ -255,6 +333,7 @@ export const DEFAULT_TOOLS: AnnotationToolInput[] = [
     enables: DRAW_TAGS,
     defaults: { fontColor: '#ef4444' },
     upright: true,
+    clickCreate: { width: 180, height: 40 },
   },
   {
     // Routes on the `free-text-callout` subtype token but authors a `free-text`
@@ -267,7 +346,7 @@ export const DEFAULT_TOOLS: AnnotationToolInput[] = [
     propsKind: 'free-text',
     cursor: 'crosshair',
     enables: DRAW_TAGS,
-    defaults: { strokeWidth: 1, lineEndings: { end: 'open-arrow' } },
+    defaults: { strokeWidth: 6, lineEndings: { end: 'open-arrow' } },
   },
   // text markup — the `text-select` gesture (inert without a selection plugin)
   {
@@ -332,8 +411,25 @@ export const DEFAULT_TOOLS: AnnotationToolInput[] = [
     enables: ['annotation-stamp', 'annotation-edit'],
     source: { kind: 'prompt' },
     upright: true,
+    ghost: { mode: 'footprint' },
   },
 ];
+
+/** The default ghost policy when a tool doesn't declare one: draw-channel
+ *  tools badge (armed-tool visibility), everything else shows nothing. */
+const defaultGhostFor = (enables: ReadonlySet<string>): GhostPolicy =>
+  enables.has('annotation-draw') ? { mode: 'badge' } : false;
+
+const resolveGhost = (policy: GhostPolicy): ResolvedGhost | false =>
+  policy === false
+    ? false
+    : policy.mode === 'footprint'
+      ? { mode: 'footprint', size: BADGE_DEFAULTS.size, offset: BADGE_DEFAULTS.offset }
+      : {
+          mode: 'badge',
+          size: policy.size ?? BADGE_DEFAULTS.size,
+          offset: policy.offset ?? BADGE_DEFAULTS.offset,
+        };
 
 /** Merge two default patches, `b` over `a`, with line endings merged per side. */
 function mergeDefaults(
@@ -417,6 +513,10 @@ export function buildToolRegistry(
       intent: def.intent ?? base?.intent,
       ink: base?.ink || def.ink ? { ...base?.ink, ...def.ink } : undefined,
       upright: def.upright ?? base?.upright ?? false,
+      clickCreate: def.clickCreate ?? base?.clickCreate ?? false,
+      ghost: resolveGhost(
+        def.ghost ?? (base ? base.ghost || false : defaultGhostFor(new Set(def.enables ?? []))),
+      ),
       meta: base?.meta || def.meta ? { ...base?.meta, ...def.meta } : undefined,
     };
     validateDefaults(resolved);

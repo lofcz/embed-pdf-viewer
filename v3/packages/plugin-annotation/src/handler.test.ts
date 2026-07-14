@@ -9,7 +9,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { InteractionCapability, PointerSample } from '@embedpdf-x/plugin-interaction';
 import type { Vec } from '@embedpdf-x/annotation-core';
-import { createDrawHandler, createEditHandler } from './handler';
+import { createDrawHandler, createEditHandler, createGhostHandler } from './handler';
 import type { AnnotationHostCapability } from './types';
 
 const PAGE_1 = 1;
@@ -84,6 +84,48 @@ describe('annotation edit handler — page anchoring', () => {
     h.onMove?.(sample({ page: { pon: PAGE_1, point: { x: 10, y: 10 } } }));
     h.onUp?.(sample({ phase: 'up', page: { pon: PAGE_1, point: { x: 10, y: 10 } } }));
     expect(calls.length).toBe(0);
+  });
+});
+
+describe('annotation ghost handler — hover footprint', () => {
+  function makeGhostAnno() {
+    const hovers: Array<{ toolId: string; pon: number; point: Vec; rotation?: number }> = [];
+    let clears = 0;
+    const anno = {
+      ghostHoverAt: (toolId: string, pon: number, point: Vec, rotation?: number) =>
+        hovers.push({ toolId, pon, point, rotation }),
+      clearGhost: () => {
+        clears++;
+      },
+    } as unknown as AnnotationHostCapability;
+    return { anno, hovers, clears: () => clears };
+  }
+  const ghostInteraction = {
+    activeToolId: () => 'stamp',
+  } as unknown as InteractionCapability;
+
+  it('hover over a page routes the ACTIVE tool + rotation to the capability', () => {
+    const { anno, hovers } = makeGhostAnno();
+    const h = createGhostHandler(anno, ghostInteraction);
+    h.onHover?.(sample({ page: { pon: PAGE_1, point: { x: 100, y: 200 }, rotation: 90 } }));
+    expect(hovers).toEqual([
+      { toolId: 'stamp', pon: PAGE_1, point: { x: 100, y: 200 }, rotation: 90 },
+    ]);
+  });
+
+  it('hover over the page gap clears the ghost', () => {
+    const { anno, hovers, clears } = makeGhostAnno();
+    const h = createGhostHandler(anno, ghostInteraction);
+    h.onHover?.(sample({}));
+    expect(hovers).toHaveLength(0);
+    expect(clears()).toBe(1);
+  });
+
+  it('a press hides the ghost and NEVER captures (real handlers still route)', () => {
+    const { anno, clears } = makeGhostAnno();
+    const h = createGhostHandler(anno, ghostInteraction);
+    expect(h.onDown(down())).toBe(false);
+    expect(clears()).toBe(1);
   });
 });
 

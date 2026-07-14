@@ -16,6 +16,7 @@ import {
   defaultsFor,
   expandGroups,
   fitStampBox,
+  geomVisualBounds,
   groupKeyOf,
   hitTest,
   pageItems as corePageItems,
@@ -23,7 +24,9 @@ import {
   propsFor,
   readProp,
   selectionAnchor as coreSelectionAnchor,
+  shapeRectFor,
   sharedProps,
+  styleFromProps,
   update,
   uprightRotation,
   type Annot,
@@ -32,6 +35,8 @@ import {
   type ChromeNode,
   type CreationDraftAnchor,
   type Effect,
+  type Geom,
+  type Id,
   type Model,
   type Msg,
   type PropKey,
@@ -49,11 +54,13 @@ import type {
   AnnotationConfig,
   AnnotationHostCapability,
   AnnotationState,
+  ArmedStampPreview,
   Behavior,
   ChromeSettings,
   SelectionProps,
   StampProvider,
   StampPromptRequest,
+  StampToolInput,
   TextItem,
 } from './types';
 
@@ -92,6 +99,25 @@ export function createAnnotationCapability(
   const model = (): Model => ctx.getState().model;
   const chromeSettings = (): ChromeSettings => ctx.getState().chrome;
 
+  /**
+   * Ids on a page whose Behavior is currently ENGAGED (form widgets under a
+   * fill tool): they render their own DOM, so hit-test/marquee must not see
+   * them. Resolved per event — engagement follows the active tool live.
+   */
+  const inertIdsAt = (pon: number): ReadonlySet<Id> | undefined => {
+    if (!behaviors.length) return undefined;
+    const m = model();
+    let out: Set<Id> | undefined;
+    for (const id of m.order) {
+      const a = m.byId[id];
+      if (!a || a.pon !== pon) continue;
+      if (behaviors.some((b) => b.matches({ subtype: a.subtype, ref: a.ref }) && b.engaged())) {
+        (out ??= new Set()).add(id);
+      }
+    }
+    return out;
+  };
+
   /** The CSS-px chrome settings converted to CONTENT units by the page's view
    *  scale (px per content unit) — screen-constant grab zones + stalk at every
    *  zoom. No scale → the values are read as content units (headless callers). */
@@ -109,17 +135,37 @@ export function createAnnotationCapability(
   // a STABLE reference between dispatches (useSyncExternalStore needs this — the
   // model object only changes when `update` produces a new one; chrome also keys
   // on the settings object + the page scale it was projected with).
-  const itemsCache = new Map<number, { model: Model; v: RenderItem[] }>();
+  const itemsCache = new Map<
+    number,
+    { model: Model; ghost: AnnotationState['toolGhost']; v: RenderItem[] }
+  >();
   const chromeCache = new Map<
     number,
     { model: Model; cs: ChromeSettings; scale: number | undefined; v: ChromeNode[] }
   >();
   const memoItems = (pon: number): RenderItem[] => {
     const m = model();
+    const g = ctx.getState().toolGhost;
     const c = itemsCache.get(pon);
-    if (c && c.model === m) return c.v;
+    if (c && c.model === m && c.ghost === g) return c.v;
     const v = corePageItems(m, pon);
-    itemsCache.set(pon, { model: m, v });
+    // The armed tool's VECTOR footprint ghost rides the same items pipeline as
+    // every draft preview (image ghosts blit through the framework instead).
+    if (g && g.pon === pon && g.kind === 'vector') {
+      const tool = registry.get(g.toolId);
+      const style = styleFromProps(defaultsFor(m, tool?.preset ?? g.toolId));
+      v.push({
+        id: 'tool-ghost',
+        ref: null,
+        subtype: tool?.subtype ?? 'square',
+        geom: g.geom,
+        box: g.box,
+        style,
+        source: 'ghost',
+        selected: false,
+      });
+    }
+    itemsCache.set(pon, { model: m, ghost: g, v });
     return v;
   };
   const memoChrome = (pon: number, scale?: number): ChromeNode[] => {
@@ -214,28 +260,40 @@ export function createAnnotationCapability(
   // The DESIRED placement size (PDF points, pre page-clamp): the image's own
   // intrinsic size unless the caller overrides it. Clamping to the page happens
   // at placement, since it depends on which page (and rotation) receives it.
-  let armedStamp: { source: BinarySource; width: number; height: number } | null = null;
+  // `preview` is the browser-paintable render for the hover ghost — transient
+  // tool state like the bytes themselves, so it lives here, not in the store.
+  let armedStamp: {
+    source: BinarySource;
+    width: number;
+    height: number;
+    preview: ArmedStampPreview | null;
+  } | null = null;
 
   /**
    * The desired stamp size (PDF points) from sniffed bytes: the image's
    * INTRINSIC pixel dimensions taken 1:1 as points (the v2 rule — keep the
    * artwork's own size, then clamp to the page at placement). A `targetWidth`
    * override scales to that width, aspect preserved. Vector (PDF) stamps carry
-   * no sniffed dimensions, so they fall back to a square target.
+   * no sniffable dimensions — a caller-supplied `intrinsic` override (a stamp
+   * library knows its page size) keeps the true aspect; without one they fall
+   * back to a square target.
    */
   const desiredStampSize = (
     meta: NonNullable<ReturnType<typeof sniffBinaryMetadata>>,
     targetWidth?: number,
+    intrinsicOverride?: { width: number; height: number },
   ): { width: number; height: number } => {
     const intrinsic =
-      'width' in meta && meta.width > 0
-        ? { width: meta.width, height: meta.height }
-        : { width: targetWidth ?? 150, height: targetWidth ?? 150 };
+      intrinsicOverride && intrinsicOverride.width > 0 && intrinsicOverride.height > 0
+        ? intrinsicOverride
+        : 'width' in meta && meta.width > 0
+          ? { width: meta.width, height: meta.height }
+          : { width: targetWidth ?? 150, height: targetWidth ?? 150 };
     if (targetWidth === undefined) return intrinsic;
     return { width: targetWidth, height: targetWidth * (intrinsic.height / intrinsic.width) };
   };
 
-  const armStamp = async (input: { source: BinarySource; targetWidth?: number }): Promise<void> => {
+  const armStamp = async (input: StampToolInput): Promise<void> => {
     // Resolve + sniff up front: a bad payload fails HERE (at the button),
     // not at the click. The original `source` is kept for the create call —
     // normalization inside the engine handles it again from scratch.
@@ -244,12 +302,138 @@ export function createAnnotationCapability(
     if (!meta) {
       throw new Error('[annotation] stamp source must be PNG, JPEG, or single-page PDF bytes');
     }
-    armedStamp = { source: input.source, ...desiredStampSize(meta, input.targetWidth) };
+    // Ghost preview: an explicit `preview` wins (the only way for PDF sources —
+    // browsers can't paint those); raster sources default to their own bytes.
+    let preview: ArmedStampPreview | null = null;
+    if (input.preview) {
+      const p = await resolveBinarySource(input.preview);
+      preview = { bytes: new Uint8Array(p.bytes), mimeType: p.mimeType };
+    } else if (meta.mimeType !== 'application/pdf') {
+      preview = { bytes: new Uint8Array(resolved.bytes), mimeType: meta.mimeType };
+    }
+    armedStamp = {
+      source: input.source,
+      ...desiredStampSize(meta, input.targetWidth, input.intrinsicSize),
+      preview,
+    };
+    ctx.dispatch({ type: 'STAMP_ARM_CHANGED' });
     ctx.tryGet(InteractionToken)?.activateTool('stamp');
   };
 
   const disarmStamp = (): void => {
+    if (!armedStamp) return;
     armedStamp = null;
+    ctx.dispatch({ type: 'STAMP_ARM_CHANGED' });
+  };
+
+  /** Move the hover FOOTPRINT ghost to a content point. The box/geometry is
+   *  computed by the SAME rules the click's placement uses ({@link createStampAt}
+   *  fit + clamp for an armed stamp; the click-create anchor + page clamp for a
+   *  draw tool), so the ghost is the placement, not an approximation of it. */
+  const ghostHoverAt = (
+    toolId: string,
+    pon: number,
+    point: Vec,
+    displayRotation?: number,
+  ): void => {
+    const tool = registry.get(toolId);
+    const crop = cropOf(pon);
+    if (!tool || tool.ghost === false || tool.ghost.mode !== 'footprint' || !crop) {
+      clearGhost();
+      return;
+    }
+    const page = { width: crop.right - crop.left, height: crop.top - crop.bottom };
+    // The armed stamp: the fitted image box (the framework blits the preview).
+    if (armedStamp) {
+      const rot = uprightRotFor(displayRotation);
+      const box = fitStampBox(
+        point,
+        { width: armedStamp.width, height: armedStamp.height },
+        page,
+        rot,
+      );
+      ctx.dispatch({ type: 'SET_TOOL_GHOST', ghost: { pon, box, rot, kind: 'image' } });
+      return;
+    }
+    // A click-create tool: the default geometry a click would commit, painted
+    // as a vector ghost through pageItems (no bytes involved).
+    const geom = clickCreateGeom(tool, point, page);
+    if (!geom) {
+      clearGhost();
+      return;
+    }
+    const def = defaultsFor(model(), tool.preset);
+    const style = styleFromProps(def);
+    ctx.dispatch({
+      type: 'SET_TOOL_GHOST',
+      ghost: {
+        pon,
+        box: geomVisualBounds(geom, style.strokeWidth, style.border),
+        rot: 0,
+        kind: 'vector',
+        toolId,
+        geom,
+      },
+    });
+  };
+
+  /** The geometry a bare click would commit for a click-create tool at a point
+   *  — mirrors the core's up-phase click branch (centre + clamp / line from
+   *  point), so footprint ghosts are WYSIWYG. Null when the tool has none. */
+  const clickCreateGeom = (
+    tool: ResolvedTool,
+    point: Vec,
+    page: { width: number; height: number },
+  ): Geom | null => {
+    const cc = tool.clickCreate;
+    if (!cc) return null;
+    const clamp = (r: Rect): Rect => ({
+      ...r,
+      x: Math.min(Math.max(r.x, 0), Math.max(0, page.width - r.width)),
+      y: Math.min(Math.max(r.y, 0), Math.max(0, page.height - r.height)),
+    });
+    if ('length' in cc) {
+      if (tool.subtype !== 'line') return null;
+      const ang = ((cc.angleDeg ?? 0) * Math.PI) / 180;
+      const b = { x: point.x + Math.cos(ang) * cc.length, y: point.y + Math.sin(ang) * cc.length };
+      const bounds = clamp({
+        x: Math.min(point.x, b.x),
+        y: Math.min(point.y, b.y),
+        width: Math.abs(b.x - point.x),
+        height: Math.abs(b.y - point.y),
+      });
+      const dx = bounds.x - Math.min(point.x, b.x);
+      const dy = bounds.y - Math.min(point.y, b.y);
+      const def = defaultsFor(model(), tool.preset);
+      return {
+        t: 'line',
+        a: { x: point.x + dx, y: point.y + dy },
+        b: { x: b.x + dx, y: b.y + dy },
+        ends: def.lineEndings,
+      };
+    }
+    if (tool.subtype === 'free-text') {
+      return { t: 'text', rect: clamp({ x: point.x, y: point.y, ...cc }) };
+    }
+    if (tool.subtype === 'square' || tool.subtype === 'circle') {
+      const rect = clamp({
+        x: point.x - cc.width / 2,
+        y: point.y - cc.height / 2,
+        width: cc.width,
+        height: cc.height,
+      });
+      const def = defaultsFor(model(), tool.preset);
+      return {
+        t: 'rect',
+        rect: shapeRectFor(rect, tool.subtype === 'circle', styleFromProps(def)),
+        ellipse: tool.subtype === 'circle',
+      };
+    }
+    return null;
+  };
+
+  const clearGhost = (): void => {
+    if (ctx.getState().toolGhost) ctx.dispatch({ type: 'SET_TOOL_GHOST', ghost: null });
   };
 
   /** Place a stamp of `desired` PDF-point size centred on a content point — the
@@ -537,11 +721,17 @@ export function createAnnotationCapability(
       // re-bake holds NEW content, so the re-sync bumps `apVersion` — one fresh
       // fetch, exactly when the engine is done. Never one-behind, never on a
       // move, never for kinds that just flipped to vector.
+      //
+      // WIDGET kinds are the exception to "size changes only": they have no
+      // vector render — the baked /AP is their ONLY visual, and the engine
+      // re-bakes it on every style write (/MK, /DA…), so any patch must bump
+      // or fill mode keeps blitting the stale raster.
+      const bakedOnly = a.subtype.startsWith('widget');
       doc
         .page(a.pon)
         .annotations.update(a.ref, patch)
         .then(
-          (res) => syncDTO(res.updated, a.source, fx.apChanged === true),
+          (res) => syncDTO(res.updated, a.source, fx.apChanged === true || bakedOnly),
           () => {},
         );
     } else {
@@ -569,6 +759,15 @@ export function createAnnotationCapability(
     disarmStamp,
     placeArmedStamp,
     requestStampAt,
+    hasArmedStamp: () => armedStamp != null,
+    ghostHoverAt,
+    clearGhost,
+    toolGhost: (pon) => {
+      const g = ctx.getState().toolGhost;
+      return g && g.pon === pon ? g : null;
+    },
+    armedStampPreview: () => armedStamp?.preview ?? null,
+    stampArmEpoch: () => ctx.getState().stampArmEpoch,
     setStampProvider: (provider) => {
       stampProvider = provider;
     },
@@ -645,9 +844,25 @@ export function createAnnotationCapability(
     creationDraftAnchor: () => memoDraftAnchor(),
     selection: () => model().selected,
     hitKind: (pon, point, scale) =>
-      hitTest(model(), pon, point, chromeGeomAt(scale), model().hitMargin, pageBoxOf(pon)).t,
+      hitTest(
+        model(),
+        pon,
+        point,
+        chromeGeomAt(scale),
+        model().hitMargin,
+        pageBoxOf(pon),
+        inertIdsAt(pon),
+      ).t,
     cursorAt: (pon, point, scale) =>
-      cursorAt(model(), pon, point, chromeGeomAt(scale), model().hitMargin, pageBoxOf(pon)),
+      cursorAt(
+        model(),
+        pon,
+        point,
+        chromeGeomAt(scale),
+        model().hitMargin,
+        pageBoxOf(pon),
+        inertIdsAt(pon),
+      ),
     behaviorFor: (a) => behaviors.find((b) => b.matches(a) && b.engaged()) ?? null,
 
     appearanceEpoch: (pon) => {
@@ -691,10 +906,21 @@ export function createAnnotationCapability(
       apply({
         t: 'editPointer',
         phase,
-        in: { pon, point, shift, pageBox: pageBoxOf(pon), chrome: chromeGeomAt(scale) },
+        in: {
+          pon,
+          point,
+          shift,
+          pageBox: pageBoxOf(pon),
+          chrome: chromeGeomAt(scale),
+          inert: inertIdsAt(pon),
+        },
       }),
     marqueePointer: (phase, pon, point, shift) =>
-      apply({ t: 'marqueePointer', phase, in: { pon, point, shift, pageBox: pageBoxOf(pon) } }),
+      apply({
+        t: 'marqueePointer',
+        phase,
+        in: { pon, point, shift, pageBox: pageBoxOf(pon), inert: inertIdsAt(pon) },
+      }),
     createPointer: (tool, phase, pon, point, finish = false, displayRotation) => {
       // Resolve the authoring TOOL to its routing subtype + defaults key. Two
       // tools can share a subtype (line / arrow); `preset` keeps their defaults
@@ -708,6 +934,7 @@ export function createAnnotationCapability(
         subtype: t?.subtype ?? (tool as Subtype),
         preset: t?.preset ?? tool,
         intent: t?.intent,
+        clickCreate: t?.clickCreate,
         deferInkCommit: (t?.ink?.groupStrokesMs ?? 0) > 0,
         straightenInk: t?.ink?.straighten,
         in: {
@@ -745,6 +972,18 @@ export function createAnnotationCapability(
     chromeSettings: () => chromeSettings(),
     deleteSelection: () => apply({ t: 'delete' }),
     deselect: () => apply({ t: 'deselect' }),
+    pruneEngagedSelection: () => {
+      // Engaged ⇒ hit-test-inert ⇒ must not STAY selected either (a widget
+      // selected in design mode keeps no chrome once the fill tool engages).
+      const m = model();
+      const drop = m.selected.filter((id) => {
+        const a = m.byId[id];
+        return (
+          a && behaviors.some((b) => b.matches({ subtype: a.subtype, ref: a.ref }) && b.engaged())
+        );
+      });
+      if (drop.length) apply({ t: 'deselect', ids: drop });
+    },
     cancel: () => apply({ t: 'cancel' }),
     // Rotate the selection a quarter-turn clockwise / reset it to as-authored.
     // Both commit one geometry patch per rotatable member (the same path the

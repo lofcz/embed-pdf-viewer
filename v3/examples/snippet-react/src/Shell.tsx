@@ -23,7 +23,9 @@ import { Stage } from '@embedpdf-x/react/stage';
 import { Scrollbar } from '@embedpdf-x/react/scrollbar';
 import { RenderLayer } from '@embedpdf-x/react/render';
 import { SelectionLayer } from '@embedpdf-x/react/selection';
-import { AnnotationLayer, useStampProvider } from '@embedpdf-x/react/annotation';
+import { AnnotationLayer, ToolBadge, useStampProvider } from '@embedpdf-x/react/annotation';
+import type { AnnotationRenderer } from '@embedpdf-x/react/annotation';
+import { formWidgetRenderer } from '@embedpdf-x/react/form';
 import { SearchLayer } from '@embedpdf-x/react/search';
 import { useCommandShortcuts } from '@embedpdf-x/react/commands';
 import { ShellToken } from '@embedpdf-x/react/shell';
@@ -33,7 +35,13 @@ import { MODE_SURFACES } from './config/commands';
 import { AppToolbar } from './ui/toolbar';
 import { AnnotationStrip } from './ui/annotation-strip';
 import { TabBar } from './ui/tab-bar';
+import { ToolBadgeIcon } from './ui/tool-badge';
 import { Header, LeftSidebar, RightSidebar, PageControls } from './ui/panels';
+
+// Annotation renderers — module scope, per the AnnotationRenderer identity
+// rule. One entry today: form widgets render as fill controls while the form
+// plugin's Behavior is engaged.
+const ANNOTATION_RENDERERS: AnnotationRenderer[] = [formWidgetRenderer];
 
 function ModeBand() {
   const activeMode = useOptionalSelector(
@@ -95,6 +103,9 @@ export function Shell() {
               overlay={
                 <>
                   <AnnotationStrip />
+                  {/* cursor chrome: the armed tool's badge rides the pointer,
+                      rendered with the SAME icon+accent as its toolbar button */}
+                  <ToolBadge renderer={ToolBadgeIcon} />
                   {/* headless scrollbars: geometry/behavior from the stage's
                       scroller contract; the look is index.css (data-attrs) */}
                   <Scrollbar axis="y" />
@@ -109,7 +120,11 @@ export function Shell() {
                   <RenderLayer annotations={false} />
                   <SelectionLayer />
                   <SearchLayer />
-                  <AnnotationLayer />
+                  {/* Form widgets plug into the annotation stack: engaged
+                      (fill mode) they render as fill controls over the baked
+                      appearance; under the Form tab they're plain editable
+                      annotations. */}
+                  <AnnotationLayer renderers={ANNOTATION_RENDERERS} />
                 </>
               )}
             </Stage>

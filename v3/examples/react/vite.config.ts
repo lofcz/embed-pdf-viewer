@@ -40,6 +40,7 @@ export default defineConfig({
       },
       { find: '@embedpdf-x/plugin-form', replacement: src('plugin-form') },
       { find: '@embedpdf-x/plugin-search', replacement: src('plugin-search') },
+      { find: '@embedpdf-x/plugin-stamp', replacement: src('plugin-stamp') },
       { find: '@embedpdf-x/plugin-annotation', replacement: src('plugin-annotation') },
       { find: '@embedpdf-x/plugin-persist', replacement: src('plugin-persist') },
       { find: '@embedpdf-x/plugin-render', replacement: src('plugin-render') },

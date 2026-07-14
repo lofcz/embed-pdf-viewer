@@ -40,6 +40,7 @@ import type {
   Annot,
   AnnotationProps,
   AnnotationPropsPatch,
+  ClickCreate,
   Draft,
   Effect,
   Geom,
@@ -153,6 +154,17 @@ const translateRect = (r: Rect, d: Vec): Rect => ({ ...r, x: r.x + d.x, y: r.y +
  *     than the page pins to the page's top/left (lo wins when lo > hi).
  */
 const clampAxis = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
+/** Slide a rect (as a unit) to sit inside `box`; pins at the origin edge when
+ *  it doesn't fit. Used by click-create — annotations are page-bound. */
+const clampRectToBox = (r: Rect, box: Rect | undefined): Rect => {
+  if (!box) return r;
+  return {
+    ...r,
+    x: Math.min(Math.max(r.x, box.x), Math.max(box.x, box.x + box.width - r.width)),
+    y: Math.min(Math.max(r.y, box.y), Math.max(box.y, box.y + box.height - r.height)),
+  };
+};
+
 const clampPointToBox = (p: Vec, box: Rect | undefined): Vec =>
   box
     ? {
@@ -247,6 +259,7 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
         msg.intent,
         msg.deferInkCommit,
         msg.straightenInk,
+        msg.clickCreate,
       );
     case 'finishInkDraft':
       return finishInkCreate(m);
@@ -262,8 +275,15 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return setMarkupPreview(m, msg.subtype, msg.rectsByPage, msg.preset);
     case 'clearMarkupPreview':
       return m.preview ? [{ ...m, preview: null }, []] : [m, []];
-    case 'deselect':
-      return m.selected.length ? [{ ...m, selected: [] }, []] : [m, []];
+    case 'deselect': {
+      if (!m.selected.length) return [m, []];
+      // With `ids`: drop only those (an engaged Behavior retroactively un-selects
+      // its annotations — engaged ⇒ not selectable ⇒ not selected). Without: all.
+      if (!msg.ids) return [{ ...m, selected: [] }, []];
+      const drop = new Set(msg.ids);
+      const selected = m.selected.filter((id) => !drop.has(id));
+      return selected.length === m.selected.length ? [m, []] : [{ ...m, selected }, []];
+    }
     case 'setProps':
       return setProps(m, msg.patch);
     case 'setDefaults':
@@ -286,6 +306,8 @@ export function update(m: Model, msg: Msg): [Model, Effect[]] {
       return [removeAnnots(m, [msg.tempId]), []];
     case 'upsert':
       return [upsertAnnots(m, msg.annots, msg.bumpAp), []];
+    case 'bumpAp':
+      return [bumpAp(m, msg.ids), []];
     case 'remove':
       return [removeAnnots(m, msg.ids), []];
     case 'beginTextEdit':
@@ -331,6 +353,7 @@ function editDown(m: Model, input: PointerInput): [Model, Effect[]] {
     input.chrome ?? DEFAULT_CHROME_GEOM,
     m.hitMargin,
     input.pageBox,
+    input.inert,
   );
   if (hit.t === 'handle') {
     const base = m.byId[hit.id].geom;
@@ -497,7 +520,7 @@ function marqueePointer(
   }
 
   // A marquee that touches one member takes the whole group with it.
-  const hits = expandGroups(m, annotsInBox(m, m.draft.pon, m.draft.from, point));
+  const hits = expandGroups(m, annotsInBox(m, m.draft.pon, m.draft.from, point, input.inert));
   const selected = input.shift ? toggleSelection(m.selected, hits) : hits;
   return [{ ...m, selected, draft: null }, []];
 }
@@ -520,6 +543,7 @@ function createPointer(
   intent?: InkIntent,
   deferInkCommit = false,
   straightenInk?: InkStraightenOptions,
+  clickCreate?: ClickCreate | false,
 ): [Model, Effect[]] {
   // An in-progress creation is anchored to its page: a move/up sample from
   // another page is a foreign frame — ignore it. (A DOWN on another page is a
@@ -563,7 +587,15 @@ function createPointer(
     }
     const draft: Draft | null =
       subtype === 'line'
-        ? { g: 'create-line', subtype, preset, pon: input.pon, from: input.point, to: input.point }
+        ? {
+            g: 'create-line',
+            subtype,
+            preset,
+            pon: input.pon,
+            from: input.point,
+            to: input.point,
+            ...(clickCreate !== undefined ? { clickCreate } : {}),
+          }
         : subtype === 'ink'
           ? m.draft?.g === 'create-ink' &&
             m.draft.subtype === subtype &&
@@ -585,6 +617,7 @@ function createPointer(
                 ...(input.upright && input.displayRotation
                   ? { displayRotation: input.displayRotation, upright: true }
                   : {}),
+                ...(clickCreate !== undefined ? { clickCreate } : {}),
               }
             : null;
     return draft ? [{ ...m, selected: [], draft }, []] : [m, []];
@@ -633,21 +666,29 @@ function createPointer(
   const uprightBox = (dragged: Rect): Rect =>
     upRot === 90 || upRot === 270 ? transposedAboutCenter(dragged) : dragged;
   if (d.g === 'create-rect' && d.subtype === 'free-text') {
-    // Free-text: a dragged box, or — on a mere click — a sensible default box you
-    // can immediately type into. Always created; never a no-op. Under upright the
-    // click default anchors in the DISPLAY frame (top-left at the cursor as the
-    // author sees it — the rotation-0 feel at every quarter-turn).
+    // Free-text: a dragged box, or — on a mere click — a default box you can
+    // immediately type into (created unless the tool says `clickCreate: false`;
+    // an empty text box is unreachable by drag alone, hence the kind-level
+    // fallback size). Under upright the click default anchors in the DISPLAY
+    // frame (top-left at the cursor as the author sees it).
     const dragged = rectFromPoints(d.from, d.to);
-    const rect =
-      dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG
+    const isClick = dragged.width < MIN_DRAG && dragged.height < MIN_DRAG;
+    const size =
+      d.clickCreate && 'width' in d.clickCreate ? d.clickCreate : { width: 180, height: 40 };
+    if (!isClick || d.clickCreate !== false) {
+      const rect = !isClick
         ? uprightBox(dragged)
-        : upRot
-          ? uprightAnchoredRect(d.from, 180, 40, d.displayRotation!)
-          : { x: d.from.x, y: d.from.y, width: 180, height: 40 };
-    geom = { t: 'text', rect, ...(upRot ? { rot: upRot } : {}) };
+        : clampRectToBox(
+            upRot
+              ? uprightAnchoredRect(d.from, size.width, size.height, d.displayRotation!)
+              : { x: d.from.x, y: d.from.y, ...size },
+            input.pageBox,
+          );
+      geom = { t: 'text', rect, ...(upRot ? { rot: upRot } : {}) };
+    }
   } else if (d.g === 'create-rect') {
     const dragged = rectFromPoints(d.from, d.to);
-    if (dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG)
+    if (dragged.width >= MIN_DRAG || dragged.height >= MIN_DRAG) {
       // cloudy stores the OUTER box (dragged + extent) so the dragged box is its inner edge
       geom = {
         t: 'rect',
@@ -655,9 +696,46 @@ function createPointer(
         ellipse: d.ellipse,
         ...(upRot ? { rot: upRot } : {}),
       };
+    } else if (d.clickCreate && 'width' in d.clickCreate) {
+      // Click-create: the tool's default size CENTRED on the point, page-bound.
+      // Under a quarter-turn the unrotated box transposes so the DISPLAYED box
+      // keeps the configured width×height (same rule as a dragged box).
+      const { width, height } = d.clickCreate;
+      const centred = uprightBox({
+        x: d.from.x - width / 2,
+        y: d.from.y - height / 2,
+        width,
+        height,
+      });
+      geom = {
+        t: 'rect',
+        rect: shapeRectFor(clampRectToBox(centred, input.pageBox), d.ellipse, style),
+        ellipse: d.ellipse,
+        ...(upRot ? { rot: upRot } : {}),
+      };
+    }
   } else if (d.g === 'create-line') {
-    if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG)
+    if (Math.hypot(d.to.x - d.from.x, d.to.y - d.from.y) >= MIN_DRAG) {
       geom = { t: 'line', a: d.from, b: d.to, ends: def.lineEndings };
+    } else if (d.clickCreate && 'length' in d.clickCreate) {
+      // Click-create: a default-length segment from the point (0° = rightward,
+      // CW-positive in y-down space), shifted as a unit to stay on the page.
+      const ang = ((d.clickCreate.angleDeg ?? 0) * Math.PI) / 180;
+      const a = d.from;
+      const b = {
+        x: a.x + Math.cos(ang) * d.clickCreate.length,
+        y: a.y + Math.sin(ang) * d.clickCreate.length,
+      };
+      const bounds = rectFromPoints(a, b);
+      const placed = clampRectToBox(bounds, input.pageBox);
+      const shift = { x: placed.x - bounds.x, y: placed.y - bounds.y };
+      geom = {
+        t: 'line',
+        a: { x: a.x + shift.x, y: a.y + shift.y },
+        b: { x: b.x + shift.x, y: b.y + shift.y },
+        ends: def.lineEndings,
+      };
+    }
   }
   if (!geom) return [{ ...m, draft: null }, []];
 
@@ -1026,8 +1104,13 @@ function setProps(m: Model, patch: AnnotationPropsPatch): [Model, Effect[]] {
     if (!a) continue;
     const next = applyProps(a, patch);
     if (!next) continue; // locked, or no declared key in the patch
-    byId[id] = toVector(next);
-    fx.push({ fx: 'patch', id }); // a restyle flips to vector — no raster
+    // A restyle flips to vector (we own the appearance now) — EXCEPT
+    // `opaqueBody` kinds (widgets), which have no vector render: they stay
+    // baked and the shell re-fetches the engine's re-baked raster on resolve.
+    // Flipping them would also drop them out of `appearanceEpoch`, freezing
+    // their raster forever.
+    byId[id] = capsFor(a.subtype).opaqueBody ? next : toVector(next);
+    fx.push({ fx: 'patch', id });
   }
   return fx.length ? [{ ...m, byId }, fx] : [m, []];
 }
@@ -1098,11 +1181,12 @@ function deleteSelection(m: Model): [Model, Effect[]] {
 }
 
 /* ── marquee helper; exported for tests ───────────────────────────────────── */
-export function annotsInBox(m: Model, pon: number, a: Vec, b: Vec): Id[] {
+export function annotsInBox(m: Model, pon: number, a: Vec, b: Vec, inert?: ReadonlySet<Id>): Id[] {
   const box = rectFromPoints(a, b);
   return m.order.filter(
     (id) =>
       m.byId[id]?.pon === pon &&
+      !inert?.has(id) &&
       isSelectable(m, id) &&
       // intersect against what is actually DRAWN: the oriented selection quad
       // (exact, via SAT) — the SAME quad the chrome outlines and the grab region
@@ -1149,6 +1233,19 @@ function upsertAnnots(m: Model, annots: Annot[], bumpAp = false): Model {
     byId[a.id] = { ...a, apVersion: (byId[a.id]?.apVersion ?? 0) + (bumpAp ? 1 : 0) };
   }
   return { ...m, byId, order };
+}
+
+/** Advance `apVersion` for known ids — an engine /AP re-bake that arrived
+ *  WITHOUT new model data (a form value write repainting its widgets). */
+function bumpAp(m: Model, ids: Id[]): Model {
+  let byId: Model['byId'] | null = null;
+  for (const id of ids) {
+    const a = m.byId[id];
+    if (!a) continue;
+    byId ??= { ...m.byId };
+    byId[id] = { ...a, apVersion: (a.apVersion ?? 0) + 1 };
+  }
+  return byId ? { ...m, byId } : m;
 }
 
 /** Ids locked by an in-progress local gesture (don't let an upsert clobber them). */

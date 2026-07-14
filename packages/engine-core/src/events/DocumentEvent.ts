@@ -17,6 +17,7 @@ import type {
 } from '../mutation/FormMutationResults';
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { PageDeleteResult } from '../mutation/PageDeleteResult';
+import type { PageInsertResult } from '../mutation/PageInsertResult';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { PageRotateResult } from '../mutation/PageRotateResult';
 
@@ -110,6 +111,12 @@ export type DocumentEvent =
       pageObjectNumbers: PageObjectNumber[];
       origin: EventOrigin;
     } & PageDeleteResult)
+  | ({
+      type: 'pages.inserted';
+      /** The originator's insertion point; absent on remote events. */
+      destIndex?: number;
+      origin: EventOrigin;
+    } & PageInsertResult)
   | ({ type: 'metadata.updated'; origin: EventOrigin } & MetadataUpdateResult)
   | ({ type: 'form.valueChanged'; origin: EventOrigin } & FormSetValueResult)
   | ({ type: 'form.imported'; origin: EventOrigin } & FormImportResult)

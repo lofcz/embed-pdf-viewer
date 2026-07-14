@@ -17,17 +17,22 @@ import { createPortal } from 'react-dom';
 import {
   AnnotationToken,
   refKey,
+  type Behavior,
+  type ResolvedTool,
   type SelectionProps,
   type StampProvider,
   type TextItem,
 } from '@embedpdf-x/plugin-annotation';
+import { InteractionToken } from '@embedpdf-x/plugin-interaction';
 import { pickImageFile } from '@embedpdf-x/web';
 // The render layer is framework code, so it resolves the FULL host lens
 // (pageItems/chrome/appearances/…). Same runtime token as the public one — only
 // the type differs. App code never imports this.
 import { AnnotationToken as AnnotationHostToken } from '@embedpdf-x/plugin-annotation/internal';
 import {
+  badgeGeom,
   scene,
+  styleFromProps,
   MITER_LIMIT,
   type AnnotationProps,
   type AnnotationPropsPatch,
@@ -78,11 +83,54 @@ const rgba = (hex: string, alpha: number): string => {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 };
 
+/**
+ * What an annotation renderer receives: the projected item (its `box` is LIVE —
+ * it follows drags), the page context, the engine's baked /AP raster (the
+ * "picture"), the default visual (`native` — wrap it or ignore it), and
+ * whether this entry currently OWNS the pointer (`interactive`). While not
+ * interactive the layer renders your component pointer-locked: the annotation
+ * stays a first-class citizen of the annotation plane (select/move/resize).
+ */
+export interface AnnotationRendererProps {
+  item: RenderItem;
+  page: PageContextValue;
+  appearance: { url: string; box: Rect } | null;
+  native: React.ReactNode;
+  interactive: boolean;
+}
+
+/**
+ * ONE rule: "for THESE annotations, render THIS component, and it owns the
+ * pointer WHEN …". The two shapes:
+ *
+ *   - `{ for, component, interactive? }` — your own rule. Without
+ *     `interactive` it is a pure SKIN: pixels only, mechanically
+ *     pointer-locked, the annotation plane keeps selection/move/resize. With
+ *     `interactive` (boolean or live predicate) the layer registers a plugin
+ *     Behavior for you: while it holds, the annotation plane stands down
+ *     (hit-test-inert) and your component owns the input.
+ *   - `{ behavior, component }` — the renderer for a PLUGIN-registered
+ *     behavior (the form plugin's fill controls via `formWidgetRenderer`);
+ *     the plugin decides engagement, never the app.
+ *
+ * Resolution: ownership beats skin — an ENGAGED behavior's component is
+ * authoritative; `for` rules apply only to plane-owned annotations, first
+ * match wins. Define entries OUTSIDE render (module scope or useMemo): entry
+ * identity keys the behavior registration.
+ */
+export type AnnotationRenderer =
+  | { behavior: string; component: React.ComponentType<AnnotationRendererProps> }
+  | {
+      /** Stable id for the auto-registered behavior (optional; generated). */
+      id?: string;
+      for: Behavior['matches'];
+      component: React.ComponentType<AnnotationRendererProps>;
+      interactive?: boolean | (() => boolean);
+    };
+
 export interface AnnotationLayerProps {
-  customRenderer?: (args: {
-    annotation: RenderItem;
-    nativeComponent: React.ReactNode;
-  }) => React.ReactNode | undefined;
+  /** Annotation renderers — skins and interactive takeovers ({@link AnnotationRenderer}). */
+  renderers?: AnnotationRenderer[];
 }
 
 /** Content rect → a view-px box (the page wrapper's own coordinate space). */
@@ -142,42 +190,48 @@ function Shape({ item, page }: { item: RenderItem; page: PageContextValue }) {
         ...(rot ? { transform: `rotate(${rot}deg)`, transformOrigin: 'center' } : {}),
       }}
     >
-      {scene(item).map((n, i) => {
-        const a = paintAttrs(n.paint);
-        if (n.kind === 'rect')
-          return (
-            <rect
-              key={i}
-              x={n.rect.x}
-              y={n.rect.y}
-              width={n.rect.width}
-              height={n.rect.height}
-              {...a}
-            />
-          );
-        if (n.kind === 'ellipse')
-          return (
-            <ellipse
-              key={i}
-              cx={n.rect.x + n.rect.width / 2}
-              cy={n.rect.y + n.rect.height / 2}
-              rx={n.rect.width / 2}
-              ry={n.rect.height / 2}
-              {...a}
-            />
-          );
-        if (n.kind === 'line')
-          return <line key={i} x1={n.a.x} y1={n.a.y} x2={n.b.x} y2={n.b.y} {...a} />;
-        if (n.kind === 'path') return <path key={i} d={n.d} {...a} />;
-        const pts = n.points.map((p) => `${p.x},${p.y}`).join(' ');
-        return n.closed ? (
-          <polygon key={i} points={pts} {...a} />
-        ) : (
-          <polyline key={i} points={pts} {...a} />
-        );
-      })}
+      {sceneNodes(item)}
     </svg>
   );
+}
+
+/** Map a core scene to SVG children — shared by {@link Shape} (page space) and
+ *  the tool badge's default glyph (viewport space). */
+function sceneNodes(item: RenderItem): React.ReactNode[] {
+  return scene(item).map((n, i) => {
+    const a = paintAttrs(n.paint);
+    if (n.kind === 'rect')
+      return (
+        <rect
+          key={i}
+          x={n.rect.x}
+          y={n.rect.y}
+          width={n.rect.width}
+          height={n.rect.height}
+          {...a}
+        />
+      );
+    if (n.kind === 'ellipse')
+      return (
+        <ellipse
+          key={i}
+          cx={n.rect.x + n.rect.width / 2}
+          cy={n.rect.y + n.rect.height / 2}
+          rx={n.rect.width / 2}
+          ry={n.rect.height / 2}
+          {...a}
+        />
+      );
+    if (n.kind === 'line')
+      return <line key={i} x1={n.a.x} y1={n.a.y} x2={n.b.x} y2={n.b.y} {...a} />;
+    if (n.kind === 'path') return <path key={i} d={n.d} {...a} />;
+    const pts = n.points.map((p) => `${p.x},${p.y}`).join(' ');
+    return n.closed ? (
+      <polygon key={i} points={pts} {...a} />
+    ) : (
+      <polyline key={i} points={pts} {...a} />
+    );
+  });
 }
 
 function BakedImage({
@@ -220,6 +274,65 @@ function BakedImage({
         mixBlendMode: blend,
         // Same CW convention as the free-text element: rotate about the centre.
         ...(rot ? { transform: `rotate(${rot}deg)`, transformOrigin: 'center' } : {}),
+      }}
+    />
+  );
+}
+
+/**
+ * The armed stamp's IMAGE footprint ghost: a translucent render of the payload
+ * drawn in the EXACT box a click would place it (the plugin computes it with
+ * the same fit + clamp as placement). Vector footprint ghosts never reach this
+ * component — they ride `pageItems` like every draft preview. The preview
+ * bytes live in the capability closure; this layer owns only the object-URL
+ * lifetime, keyed on the arm epoch — a new arm swaps the image, a disarm (or
+ * tool change) drops it.
+ */
+function ToolGhostImage({ page }: { page: PageContextValue }) {
+  const anno = useCapability(AnnotationHostToken);
+  const ghost = useSelector(AnnotationHostToken, (c) => c.toolGhost(page.pon));
+  const epoch = useSelector(AnnotationHostToken, (c) => c.stampArmEpoch());
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const preview = anno.armedStampPreview();
+    if (!preview) {
+      setUrl(null);
+      return;
+    }
+    // Copy into an EXACT ArrayBuffer (the engine idiom): a Uint8Array view may
+    // sit on a larger or shared buffer, which Blob won't accept.
+    const body = new ArrayBuffer(preview.bytes.byteLength);
+    new Uint8Array(body).set(preview.bytes);
+    const blob = new Blob([body], preview.mimeType ? { type: preview.mimeType } : {});
+    const obj = URL.createObjectURL(blob);
+    setUrl(obj);
+    return () => {
+      URL.revokeObjectURL(obj);
+      setUrl(null);
+    };
+  }, [anno, epoch]);
+
+  if (!ghost || ghost.kind !== 'image' || !url) return null;
+  const b = boxOf(ghost.box, page);
+  return (
+    <img
+      src={url}
+      alt=""
+      draggable={false}
+      style={{
+        position: 'absolute',
+        left: b.left,
+        top: b.top,
+        width: b.width,
+        height: b.height,
+        // Same explicit-size rule as BakedImage: never let a global img reset
+        // clamp the box and distort the aspect.
+        maxWidth: 'none',
+        maxHeight: 'none',
+        pointerEvents: 'none',
+        opacity: 0.5,
+        ...(ghost.rot ? { transform: `rotate(${ghost.rot}deg)`, transformOrigin: 'center' } : {}),
       }}
     />
   );
@@ -524,12 +637,68 @@ function FreeText({ item, page }: { item: TextItem; page: PageContextValue }) {
   );
 }
 
-export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
+/**
+ * Auto-registered behaviors for `interactive` renderer entries — refcounted
+ * per (capability, entry) because the layer mounts once PER PAGE: the first
+ * page registers, the last unregisters. Entry identity is the key, hence the
+ * "define entries outside render" rule on {@link AnnotationRenderer}.
+ */
+const autoBehaviors = new WeakMap<
+  object,
+  Map<object, { id: string; count: number; unregister: () => void }>
+>();
+let autoBehaviorSeq = 0;
+
+function useAutoBehaviors(
+  anno: { registerBehavior(b: Behavior): () => void },
+  renderers?: AnnotationRenderer[],
+): void {
+  useEffect(() => {
+    if (!renderers) return;
+    const released: Array<() => void> = [];
+    for (const r of renderers) {
+      if (!('for' in r) || !r.interactive) continue;
+      let perCap = autoBehaviors.get(anno);
+      if (!perCap) autoBehaviors.set(anno, (perCap = new Map()));
+      let rec = perCap.get(r);
+      if (!rec) {
+        const id = r.id ?? `renderer:${++autoBehaviorSeq}`;
+        const engaged = typeof r.interactive === 'function' ? r.interactive : () => true;
+        rec = { id, count: 0, unregister: anno.registerBehavior({ id, matches: r.for, engaged }) };
+        perCap.set(r, rec);
+      }
+      rec.count++;
+      const owned = rec;
+      released.push(() => {
+        owned.count--;
+        if (owned.count === 0) {
+          owned.unregister();
+          autoBehaviors.get(anno)?.delete(r);
+        }
+      });
+    }
+    return () => released.forEach((f) => f());
+  }, [anno, renderers]);
+}
+
+/** The behavior id a renderer entry answers for (plugin-owned or auto-registered). */
+function rendererBehaviorId(anno: object, r: AnnotationRenderer): string | null {
+  if ('behavior' in r) return r.behavior;
+  return autoBehaviors.get(anno)?.get(r)?.id ?? null;
+}
+
+/** React 18 spells the `inert` attribute as a string spread; it hard-disables
+ *  pointer AND focus for the whole subtree — the mechanical guarantee that a
+ *  non-interactive renderer entry (a skin) can never steal input. */
+const INERT = { inert: '' } as Record<string, string>;
+
+export function AnnotationLayer({ renderers }: AnnotationLayerProps = {}) {
   const page = usePage();
   const anno = useCapability(AnnotationHostToken);
   const items = useSelector(AnnotationHostToken, (c) => c.pageItems(page.pon), shallowArray);
   const texts = useSelector(AnnotationHostToken, (c) => c.textItems(page.pon), shallowArray);
   const [urls, setUrls] = useState<Record<string, { url: string; box: Rect }>>({});
+  useAutoBehaviors(anno, renderers);
 
   useEffect(() => {
     anno.ensurePage(page.pon);
@@ -580,35 +749,187 @@ export function AnnotationLayer({ customRenderer }: AnnotationLayerProps = {}) {
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
       {items.map((item) => {
+        // The default visual: the engine's baked raster (blitted into the LIVE
+        // AP box — `apBox` follows a move) or the vector scene.
+        const baked = urls[item.id];
+        const native: React.ReactNode =
+          item.source === 'baked' ? (
+            baked ? (
+              <BakedImage
+                box={item.apBox ?? baked.box}
+                url={baked.url}
+                page={page}
+                blend={item.blend}
+                rot={item.apRot}
+              />
+            ) : null
+          ) : (
+            <Shape item={item} page={page} /> // shapes, cloudy, markup — all painted via scene()
+          );
+
+        // Ownership beats skin: an ENGAGED behavior's renderer is authoritative
+        // (form fill controls own their DOM); `for` rules apply only to
+        // plane-owned annotations and render pointer-locked — a skin can change
+        // pixels, never steal input.
         const behavior = anno.behaviorFor({ subtype: item.subtype, ref: item.ref });
-        let native: React.ReactNode = null;
+        let out: React.ReactNode;
         if (behavior) {
-          native = null; // registered per-framework (forms); v1 has none
-        } else if (item.source === 'baked') {
-          // Blit the engine raster into the annotation's LIVE AP box (`apBox`
-          // follows a move), so a dragged baked annotation rides along; fall back
-          // to the fetched box for a never-moved one.
-          const baked = urls[item.id];
-          native = baked ? (
-            <BakedImage
-              box={item.apBox ?? baked.box}
-              url={baked.url}
-              page={page}
-              blend={item.blend}
-              rot={item.apRot}
-            />
-          ) : null;
+          const entry = renderers?.find((r) => rendererBehaviorId(anno, r) === behavior.id);
+          if (entry) {
+            const Owner = entry.component;
+            out = (
+              <Owner
+                item={item}
+                page={page}
+                appearance={baked ?? null}
+                native={native}
+                interactive
+              />
+            );
+          } else {
+            out = null; // engaged but no renderer wired — the owner shows nothing
+          }
         } else {
-          native = <Shape item={item} page={page} />; // shapes, cloudy, markup — all painted via scene()
+          const entry = renderers?.find(
+            (r) => 'for' in r && r.for({ subtype: item.subtype, ref: item.ref }),
+          );
+          if (entry) {
+            const Skin = entry.component;
+            out = (
+              <div {...INERT} style={{ pointerEvents: 'none' }}>
+                <Skin
+                  item={item}
+                  page={page}
+                  appearance={baked ?? null}
+                  native={native}
+                  interactive={false}
+                />
+              </div>
+            );
+          } else {
+            out = native;
+          }
         }
-        const out = customRenderer?.({ annotation: item, nativeComponent: native }) ?? native;
         return <React.Fragment key={item.id}>{out}</React.Fragment>;
       })}
       {texts.map((t) => (
         <FreeText key={t.id} item={t} page={page} />
       ))}
+      <ToolGhostImage page={page} />
       <Chrome page={page} />
     </div>
+  );
+}
+
+/* ── tool badge (viewport chrome — mount in the Stage OVERLAY, not a page) ── */
+
+/** What a custom badge renders: the armed tool + the policy's size (CSS px).
+ *  Apps typically render the SAME icon component their toolbar uses, so the
+ *  badge and the button are pixel-identical. */
+export interface ToolBadgeRendererProps {
+  toolId: string;
+  tool: ResolvedTool;
+  size: number;
+}
+
+/**
+ * The armed tool's cursor badge: a small screen-constant preview riding the
+ * pointer (top-right by default), so the user always sees WHICH tool is armed.
+ * Viewport chrome by the placement test — it never scales with zoom and stays
+ * alive over page gaps — so it mounts in the Stage overlay slot. Position
+ * updates write the transform directly from the hub's pointer tap (no store
+ * round-trip, no re-render per move); it hides during gestures (the draft
+ * preview owns feedback) and for tools whose ghost policy isn't `badge`.
+ */
+export function ToolBadge({
+  renderer,
+}: {
+  /** Custom badge content (your toolbar's icon); omit for the built-in glyph. */
+  renderer?: React.ComponentType<ToolBadgeRendererProps>;
+} = {}) {
+  const interaction = useCapability(InteractionToken);
+  const anno = useCapability(AnnotationHostToken);
+  const [toolId, setToolId] = useState(() => interaction.activeToolId());
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  useEffect(
+    () => interaction.onToolChange(() => setToolId(interaction.activeToolId())),
+    [interaction],
+  );
+
+  const tool = anno.tool(toolId);
+  const ghost = tool && tool.ghost !== false && tool.ghost.mode === 'badge' ? tool.ghost : null;
+
+  useEffect(() => {
+    if (!ghost) return;
+    return interaction.onPointer((s) => {
+      const el = ref.current;
+      if (!el) return;
+      if (s.phase === 'down') {
+        el.style.visibility = 'hidden'; // a gesture starts — the draft preview takes over
+        return;
+      }
+      if (s.phase === 'up') return; // reappear on the next hover move, position fresh
+      el.style.transform = `translate(${s.viewport.x + ghost.offset.x}px, ${s.viewport.y + ghost.offset.y}px)`;
+      el.style.visibility = 'visible';
+    });
+  }, [interaction, ghost]);
+
+  if (!tool || !ghost) return null;
+  const Badge = renderer;
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        visibility: 'hidden',
+        pointerEvents: 'none',
+        willChange: 'transform',
+        zIndex: 5,
+      }}
+    >
+      {Badge ? (
+        <Badge toolId={toolId} tool={tool} size={ghost.size} />
+      ) : (
+        <BadgeGlyph tool={tool} size={ghost.size} />
+      )}
+    </div>
+  );
+}
+
+/** The zero-config badge: a miniature of what the tool draws (pure core
+ *  `badgeGeom` + the SAME scene painter as every annotation), styled from the
+ *  tool's LIVE defaults — recolor the tool and the badge follows. */
+function BadgeGlyph({ tool, size }: { tool: ResolvedTool; size: number }) {
+  const props = useSelector(AnnotationToken, (c) => c.currentDefaults(tool.id), sameProps);
+  const box = { x: 0, y: 0, width: size, height: size };
+  // Full-scale stroke widths would blob at badge size — cap, keep the color.
+  const style = styleFromProps({
+    ...props,
+    strokeWidth: Math.min(props.strokeWidth ?? 2, 2.5),
+    opacity: 1,
+  });
+  const item: RenderItem = {
+    id: 'tool-badge',
+    ref: null,
+    subtype: tool.subtype,
+    geom: badgeGeom(tool.subtype, box, props),
+    box,
+    style,
+    source: 'ghost',
+    selected: false,
+  };
+  return (
+    <svg
+      viewBox={`0 0 ${size} ${size}`}
+      width={size}
+      height={size}
+      style={{ display: 'block', overflow: 'visible' }}
+    >
+      {sceneNodes(item)}
+    </svg>
   );
 }
 

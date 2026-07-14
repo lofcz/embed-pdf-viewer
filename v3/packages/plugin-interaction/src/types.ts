@@ -101,6 +101,13 @@ export interface InteractionCapability {
   /** Fires after the active tool changes — lets a feature react (e.g. a markup
    *  tool taking over the selection visual). Returns an unsubscribe fn. */
   onToolChange(cb: () => void): () => void;
+  /**
+   * Observe every normalized pointer sample the hub routes — the read-only tap
+   * for viewport-space cursor chrome (a tool badge riding the pointer). Called
+   * for all phases, before gesture routing; observers can never capture.
+   * Returns an unsubscribe fn.
+   */
+  onPointer(cb: (sample: PointerSample) => void): () => void;
   // ── registries (return an unregister fn) ──
   registerTool(tool: Tool): () => void;
   registerHandler(handler: InteractionHandler): () => void;

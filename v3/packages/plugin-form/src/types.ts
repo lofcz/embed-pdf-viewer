@@ -36,6 +36,13 @@ export interface FormCapability {
 
   /** Fill controls for one page — content-space, framework-agnostic. */
   fillItems(pageObjectNumber: number): FillItem[];
+  /**
+   * The fill control for ONE widget, by annotation object number — the join
+   * the annotation-plane render layer uses (its RenderItem carries the live
+   * box, so this item's `box` is advisory). Reference-stable per model change.
+   * Null until the snapshot lands, or for families with no fill control.
+   */
+  fillItem(annotObjectNumber: number): FillItem | null;
   /** Make sure a page's widget geometry is loaded (idempotent, lazy). */
   ensureGeom(pageObjectNumber: number): void;
 

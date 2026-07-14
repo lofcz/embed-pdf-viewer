@@ -356,6 +356,7 @@ export type { PageRotateInput } from './mutation/PageRotateInput';
 export type { PageRotateResult } from './mutation/PageRotateResult';
 export type { PageDeleteInput } from './mutation/PageDeleteInput';
 export type { PageDeleteResult } from './mutation/PageDeleteResult';
+export type { PageInsertResult } from './mutation/PageInsertResult';
 export type { MetadataUpdateResult, MetadataCache } from './mutation/MetadataUpdateResult';
 
 export type {

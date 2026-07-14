@@ -2,6 +2,7 @@ import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PdfRotation } from '../geometry/primitives';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 import type { PageDeleteResult } from '../mutation/PageDeleteResult';
+import type { PageInsertResult } from '../mutation/PageInsertResult';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { PageRotateResult } from '../mutation/PageRotateResult';
 import { AbortablePromise } from '../promise/AbortablePromise';
@@ -58,4 +59,33 @@ export interface DocumentPagesService {
    * recycled; surviving pages keep their identity and revisions.
    */
   delete(pageObjectNumbers: PageObjectNumber[]): AbortablePromise<PageDeleteResult>;
+
+  /**
+   * Export the given pages, in the supplied order, as a standalone PDF
+   * (bytes of a new document containing copies of those pages). A READ:
+   * the source document is untouched — no revisions bump, no event is
+   * published. This is how a page becomes a portable asset (a vector
+   * stamp, a signature) that re-enters a document as a stamp draft's
+   * `source` bytes.
+   *
+   * Optional while the cloud endpoint ships (the `downloadLayer?`
+   * pattern): the local engine implements it; the cloud engine omits it
+   * until the server exposes extraction. Feature-detect with
+   * `pages.extract !== undefined`.
+   */
+  extract?(pageObjectNumbers: PageObjectNumber[]): AbortablePromise<Uint8Array>;
+
+  /**
+   * Insert every page of a standalone PDF (`bytes`) at `destIndex`
+   * (omitted → append). The pages are COPIED in; the inserted copies get
+   * fresh object numbers, returned in insertion order. Bytes are a call
+   * ARGUMENT (the same law as annotation binaries): the local engine
+   * transfers them to its worker, the cloud engine will ship them as a
+   * multipart mutation.
+   *
+   * Slated REQUIRED-parity (a cloud viewer must be able to add pages);
+   * optional only until the server endpoint ships — feature-detect with
+   * `pages.insert !== undefined`.
+   */
+  insert?(bytes: Uint8Array | ArrayBuffer, destIndex?: number): AbortablePromise<PageInsertResult>;
 }

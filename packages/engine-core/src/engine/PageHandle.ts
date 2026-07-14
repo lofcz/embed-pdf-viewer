@@ -2,6 +2,7 @@ import type { PageAnnotationsService } from './PageAnnotationsService';
 import type { PageGeometryService } from './PageGeometryService';
 import type { PageRenderService } from './PageRenderService';
 import type { PageTextService } from './PageTextService';
+import type { PieceInfoService } from './PieceInfoService';
 import type { PageObjectNumber } from '../identity/PageObjectNumber';
 
 /**
@@ -21,4 +22,10 @@ export interface PageHandle {
   readonly text: PageTextService;
   readonly geometry: PageGeometryService;
   readonly render: PageRenderService;
+  /**
+   * PAGE-level `/PieceInfo` private application data (ISO 32000 §14.5) —
+   * e.g. a stamp page's name/subject. Optional: local implements it; cloud
+   * omits it until a cloud consumer ships (the `downloadLayer?` pattern).
+   */
+  readonly pieceInfo?: PieceInfoService;
 }

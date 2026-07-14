@@ -17,6 +17,7 @@ import type { PageListSnapshot } from '../dto/PageListSnapshot';
 import type { PageRaster, PageRenderOptions } from '../dto/PageRender';
 import type { PageTextSnapshot } from '../dto/PageTextSnapshot';
 import type { PdfSaveMode } from '../dto/PdfSaveMode';
+import type { PieceInfoPatch, PieceInfoSnapshot } from '../dto/PieceInfo';
 import type { SerializedEngineError } from '../errors/EngineError';
 import type { AnnotationRef } from '../identity/AnnotationRef';
 import type { FormFieldRef, FormWidgetRef } from '../identity/FormFieldRef';
@@ -43,6 +44,7 @@ import type {
 import type { MetadataUpdateResult } from '../mutation/MetadataUpdateResult';
 import type { SearchRequest, SearchSlice } from '../search/types';
 import type { PageDeleteResult } from '../mutation/PageDeleteResult';
+import type { PageInsertResult } from '../mutation/PageInsertResult';
 import type { PageMoveResult } from '../mutation/PageMoveResult';
 import type { PageRotateResult } from '../mutation/PageRotateResult';
 
@@ -421,6 +423,74 @@ export interface PagesDeleteWorkerRequest {
   artifactPath?: string;
 }
 
+/** Export the given pages as a standalone PDF (a read — the source
+ *  session is untouched, so no layer artifact rides the result). */
+export interface PagesExtractWorkerRequest {
+  kind: 'pages.extract';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumbers: PageObjectNumber[];
+}
+
+/** Insert every page of a standalone PDF (transferable `bytes`) at
+ *  `destIndex` (omitted → append). A structural MUTATION: layer sessions
+ *  persist an artifact like move/rotate/delete. */
+export interface PagesInsertWorkerRequest {
+  kind: 'pages.insert';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  bytes: ArrayBuffer;
+  destIndex?: number;
+  artifactPath?: string;
+}
+
+/**
+ * `/PieceInfo` private application data (ISO 32000 §14.5). One job family
+ * serves both levels: `pageObjectNumber` present → the page's `/PieceInfo`,
+ * absent → the document catalog's — mirroring the native API symmetry.
+ * `update`/`clear` are mutations (a layer session persists an artifact);
+ * `read`/`applications` are plain reads.
+ */
+export interface PieceInfoReadWorkerRequest {
+  kind: 'pieceInfo.read';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumber?: PageObjectNumber;
+  application: string;
+}
+
+export interface PieceInfoUpdateWorkerRequest {
+  kind: 'pieceInfo.update';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumber?: PageObjectNumber;
+  application: string;
+  patch: PieceInfoPatch;
+  artifactPath?: string;
+}
+
+export interface PieceInfoApplicationsWorkerRequest {
+  kind: 'pieceInfo.applications';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumber?: PageObjectNumber;
+}
+
+export interface PieceInfoClearWorkerRequest {
+  kind: 'pieceInfo.clear';
+  jobId: WorkerJobId;
+  docId: string;
+  layerName?: string;
+  pageObjectNumber?: PageObjectNumber;
+  application: string;
+  artifactPath?: string;
+}
+
 export interface DocumentSaveBufferWorkerRequest {
   kind: 'document.saveBuffer';
   jobId: WorkerJobId;
@@ -561,6 +631,12 @@ export type WorkerRequest =
   | PagesMoveWorkerRequest
   | PagesRotateWorkerRequest
   | PagesDeleteWorkerRequest
+  | PagesExtractWorkerRequest
+  | PagesInsertWorkerRequest
+  | PieceInfoReadWorkerRequest
+  | PieceInfoUpdateWorkerRequest
+  | PieceInfoApplicationsWorkerRequest
+  | PieceInfoClearWorkerRequest
   | PagesTextWorkerRequest
   | PagesGeometryWorkerRequest
   | PagesRenderWorkerRequest
@@ -687,6 +763,25 @@ export type WorkerResultPayload =
   | {
       tag: 'pages.delete';
       result: PageDeleteResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | { tag: 'pages.extract'; bytes: ArrayBuffer; size: number }
+  | {
+      tag: 'pages.insert';
+      result: PageInsertResult;
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | { tag: 'pieceInfo.read'; snapshot: PieceInfoSnapshot | null }
+  | {
+      tag: 'pieceInfo.update';
+      artifact?: LayerArtifactWorkerPayload;
+      artifactFile?: LayerArtifactFileWorkerPayload;
+    }
+  | { tag: 'pieceInfo.applications'; applications: string[] }
+  | {
+      tag: 'pieceInfo.clear';
       artifact?: LayerArtifactWorkerPayload;
       artifactFile?: LayerArtifactFileWorkerPayload;
     }

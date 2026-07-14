@@ -22,6 +22,8 @@ import { metadataPlugin } from '@embedpdf-x/plugin-metadata';
 import { formPlugin, fieldKeyOf } from '@embedpdf-x/plugin-form';
 import type { FormFieldPatch } from '@embedpdf-x/plugin-form';
 import { searchPlugin, validateSearchRegex, SearchToken } from '@embedpdf-x/plugin-search';
+import { stampPlugin } from '@embedpdf-x/plugin-stamp';
+import type { StampAsset } from '@embedpdf-x/plugin-stamp';
 import { i18nPlugin, negotiateLocale } from '@embedpdf-x/plugin-i18n';
 import { viewManagerPlugin } from '@embedpdf-x/plugin-view-manager';
 import type { ViewInfo } from '@embedpdf-x/plugin-view-manager';
@@ -55,6 +57,10 @@ import {
   SearchLayer,
   useSearch,
   useSearchState,
+  useStamp,
+  useStampAssets,
+  useStampAssetPreviewUrl,
+  useArmStampAsset,
   useT,
   useLocale,
 } from '@embedpdf-x/react';
@@ -127,6 +133,10 @@ const plugins = [
   interactionPlugin({ defaultTool: 'pointer' }), // the pointer/tool/cursor hub
   selectionPlugin(), // text selection (requires the interaction hub)
   annotationPlugin(), // shapes: create/edit/delete (ambient editing + draw tools)
+  // workspace plugin: stamp ASSET libraries (import a PDF → one vector stamp per
+  // page). No assetEngine configured — the kernel's local engine doubles as the
+  // asset engine; a cloud deployment would add one line here (see StampConfig).
+  stampPlugin(),
   formPlugin(), // interactive forms: fill mode over doc.forms (fields stay engine truth)
   // document text search: budgeted engine slices, viewport-first scanning. Hit
   // navigation lands the match at the viewport's top-middle (y: 0.35 — the
@@ -384,6 +394,111 @@ function StampButton({ active }: { active: boolean }) {
 }
 
 /**
+ * The stamp LIBRARY strip: import any PDF as a library (each page becomes one
+ * VECTOR stamp), thumbnails render from the plugin's cached previews, and a
+ * click arms the asset — hovering a page then ghosts the exact placement, and
+ * every click places one. Total integration: `stampPlugin()` + three hooks.
+ */
+function StampLibraryBar() {
+  const stamp = useStamp();
+  const assets = useStampAssets();
+  const { armAsset } = useArmStampAsset();
+  const { activeToolId } = useTool();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [armedId, setArmedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  // The hub owns tool state: leaving the stamp tool un-highlights the gallery.
+  useEffect(() => {
+    if (activeToolId !== 'stamp') setArmedId(null);
+  }, [activeToolId]);
+  const importPdf = (source: Blob, name: string) => {
+    setBusy(true);
+    stamp
+      .importLibraryPdf(source, { name })
+      .catch((err) => console.error('[demo] library import failed:', err))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <div style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+      <button
+        onClick={() => fileRef.current?.click()}
+        title="import a PDF as a stamp library — each page becomes one vector stamp"
+        style={toolBtn(false)}
+        disabled={busy}
+      >
+        {busy ? '⏳ importing…' : '📚 library'}
+      </button>
+      {assets.length === 0 && (
+        <button
+          onClick={() => {
+            void fetch('/mixed_page_sizes_test.pdf')
+              .then((r) => r.blob())
+              .then((blob) => importPdf(blob, 'Sample stamps'));
+          }}
+          title="import the bundled sample PDF as a stamp library"
+          style={toolBtn(false)}
+          disabled={busy}
+        >
+          ⭐ sample
+        </button>
+      )}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = '';
+          if (file) importPdf(file, file.name.replace(/\.pdf$/i, ''));
+        }}
+      />
+      {assets.map((a) => (
+        <StampAssetButton
+          key={a.id}
+          asset={a}
+          armed={armedId === a.id}
+          onArm={() => {
+            setArmedId(a.id);
+            void armAsset(a.id).catch((err) => console.error('[demo] arm failed:', err));
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** One gallery thumbnail: the plugin's cached preview via an object-URL hook. */
+function StampAssetButton({
+  asset,
+  armed,
+  onArm,
+}: {
+  asset: StampAsset;
+  armed: boolean;
+  onArm: () => void;
+}) {
+  const url = useStampAssetPreviewUrl(asset.id);
+  return (
+    <button
+      onClick={onArm}
+      title={`${asset.name} — click, then click a page to place it (hover previews)`}
+      style={{ ...toolBtn(armed), padding: '2px 4px' }}
+    >
+      {url ? (
+        <img
+          src={url}
+          alt={asset.name}
+          style={{ height: 20, display: 'block', border: '1px solid #ddd' }}
+        />
+      ) : (
+        asset.name
+      )}
+    </button>
+  );
+}
+
+/**
  * The tool band: the interaction hub's single active tool, switched in one place
  * (select / pan + the draw tools). The "styles" button opens the property sidebar —
  * it's opt-in, so the canvas stays full-width until you actually want to edit.
@@ -424,6 +539,10 @@ function AnnotationBar({
             `armStamp` validates the bytes and activates the stamp tool itself */}
         <StampButton active={activeToolId === 'stamp'} />
       </div>
+      <Divider />
+      {/* stamp library: import a PDF, click a thumbnail, hover a page — the ghost
+          previews the exact placement (v2 rubber-stamp feel, vector content) */}
+      <StampLibraryBar />
       <Divider />
       {/* text-selection tools: created by selecting text with the tool active */}
       <div style={{ display: 'flex', gap: 2 }}>

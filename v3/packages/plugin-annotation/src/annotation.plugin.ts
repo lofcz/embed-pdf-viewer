@@ -6,6 +6,7 @@ import { registerAnnotationEffects } from './effects';
 import {
   createDrawHandler,
   createEditHandler,
+  createGhostHandler,
   createMarqueeHandler,
   createStampHandler,
 } from './handler';
@@ -55,11 +56,17 @@ export const annotationPlugin = (config: AnnotationConfig = {}) =>
       }
 
       interaction.registerHandler(createStampHandler(annotation));
+      interaction.registerHandler(createGhostHandler(annotation, interaction));
       interaction.registerHandler(createEditHandler(annotation, interaction));
       interaction.registerHandler(createMarqueeHandler(annotation));
       interaction.registerHandler(createDrawHandler(annotation, interaction));
       interaction.onToolChange(() => {
         annotation.cancel();
+        annotation.clearGhost(); // a footprint belongs to the tool that computed it
+        // Engagement follows the tool: annotations whose Behavior just engaged
+        // (form widgets under a fill tool) drop out of the selection — no
+        // stranded chrome on a fill control.
+        annotation.pruneEngagedSelection();
         // Leaving the stamp family drops any armed payload — bytes are tool state,
         // not document state (any stamp tool keeps it; a non-stamp tool clears it).
         if (!interaction.activeTool().enables.has('annotation-stamp')) annotation.disarmStamp();

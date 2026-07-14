@@ -2,27 +2,22 @@ import { definePlugin } from '@embedpdf-x/react/runtime';
 import { InteractionToken } from '@embedpdf-x/react/interaction';
 
 /**
- * Example-only: register the form / insert / redact authoring tools as INERT
- * interaction tools. v3 doesn't yet ship form-authoring, signature, or
- * redaction plugins, but this is a CHROME demo — its job is selection state
- * and layout, not the tool's effect. Registering them as real (behaviourless)
- * tools lets every tool button in every mode band go through the SAME path
+ * Example-only: register the insert / redact authoring tools as INERT
+ * interaction tools. v3 doesn't yet ship signature or redaction plugins, but
+ * this is a CHROME demo — its job is selection state and layout, not the
+ * tool's effect. Registering them as real (behaviourless) tools lets every
+ * tool button in every mode band go through the SAME path
  * (`InteractionToken.activateTool`), so `active` is uniform and honest: the
  * button really is the active tool; it just has no handler behind it.
  *
  * The annotate + shapes tools are NOT here — those are real tools the
- * annotation plugin registers (highlight, ink, square, circle, …).
+ * annotation plugin registers (highlight, ink, square, circle, …) — and
+ * neither are the form palette tools (the form plugin's draw-to-place).
  */
 const INERT_TOOLS: ReadonlyArray<{ id: string; cursor: string }> = [
   // insert mode
   { id: 'signature', cursor: 'copy' },
   { id: 'image', cursor: 'copy' },
-  // form mode
-  { id: 'form-textfield', cursor: 'crosshair' },
-  { id: 'form-checkbox', cursor: 'crosshair' },
-  { id: 'form-radio', cursor: 'crosshair' },
-  { id: 'form-select', cursor: 'crosshair' },
-  { id: 'form-listbox', cursor: 'crosshair' },
   // redact mode
   { id: 'redact', cursor: 'crosshair' },
 ];

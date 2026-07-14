@@ -5,6 +5,7 @@ import { LocalPageAnnotationsService } from './LocalPageAnnotationsService';
 import { LocalPageGeometryService } from './LocalPageGeometryService';
 import { LocalPageRenderService } from './LocalPageRenderService';
 import { LocalPageTextService } from './LocalPageTextService';
+import { LocalPieceInfoService } from './LocalPieceInfoService';
 import type { LocalImageEncoder } from '../render/BrowserImageEncoder';
 import type { ScopeGuard } from '../scope';
 import type { WorkerQueue } from '../worker/WorkerQueue';
@@ -23,6 +24,7 @@ export class LocalPageHandle implements PageHandle {
   readonly text: LocalPageTextService;
   readonly geometry: LocalPageGeometryService;
   readonly render: LocalPageRenderService;
+  readonly pieceInfo: LocalPieceInfoService;
 
   constructor(
     readonly pageObjectNumber: PageObjectNumber,
@@ -53,5 +55,6 @@ export class LocalPageHandle implements PageHandle {
       imageEncoder,
       guard,
     );
+    this.pieceInfo = new LocalPieceInfoService(docId, queue, view, guard, pageObjectNumber);
   }
 }

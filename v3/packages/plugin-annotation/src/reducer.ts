@@ -44,6 +44,8 @@ export const mergeChrome = (base: ChromeSettings, patch: ChromeSettingsPatch): C
 export const initialAnnotationState = (config: AnnotationConfig = {}): AnnotationState => ({
   model: { ...initialModel, snap: { ...initialModel.snap, ...config.snap } },
   chrome: mergeChrome(DEFAULT_CHROME, config.chrome ?? {}),
+  toolGhost: null,
+  stampArmEpoch: 0,
 });
 
 export const annotationReducer = (
@@ -55,6 +57,11 @@ export const annotationReducer = (
       return { ...state, model: action.model };
     case 'SET_CHROME':
       return { ...state, chrome: mergeChrome(state.chrome, action.patch) };
+    case 'SET_TOOL_GHOST':
+      return { ...state, toolGhost: action.ghost };
+    case 'STAMP_ARM_CHANGED':
+      // A new (or dropped) payload invalidates any ghost drawn for the old one.
+      return { ...state, stampArmEpoch: state.stampArmEpoch + 1, toolGhost: null };
     default:
       return state;
   }

@@ -45,6 +45,19 @@ export function registerAnnotationEffects(
   };
 
   const unsubscribe = doc.events.subscribe((event: DocumentEvent) => {
+    // Widget appearances are re-baked by FORM value writes — a plane this
+    // plugin doesn't own, so no remote-only filter: our own fills flow
+    // through the form capability and never touch this model. The bump tells
+    // the render layer to re-fetch exactly the repainted widgets' rasters.
+    if (event.type === 'form.valueChanged') {
+      apply({
+        t: 'bumpAp',
+        ids: event.changedWidgets
+          .filter((w) => w.annotObjectNumber > 0)
+          .map((w) => encodeStableIdKey({ kind: 'objectNumber', value: w.annotObjectNumber })),
+      });
+      return;
+    }
     // Only fold in OTHER sessions' edits; our own flow through the capability.
     if (!('origin' in event) || event.origin.kind !== 'remote') return;
     switch (event.type) {

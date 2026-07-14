@@ -26,6 +26,7 @@ import { LocalDocumentSearchService } from './LocalDocumentSearchService';
 import { LocalDocumentSecurityService } from './LocalDocumentSecurityService';
 import { LocalMetadataService } from './LocalMetadataService';
 import { LocalPageHandle } from './LocalPageHandle';
+import { LocalPieceInfoService } from './LocalPieceInfoService';
 import { Priority } from '../worker/Priority';
 import type { JobId, WorkerResultPayload } from '../worker/protocol';
 import type { WorkerQueue } from '../worker/WorkerQueue';
@@ -36,6 +37,7 @@ export class LocalDocumentHandle implements DocumentHandle {
     pageEditSessions: 'unsupported',
   } as const;
   readonly metadata: MetadataService;
+  readonly pieceInfo: LocalPieceInfoService;
   readonly annotations: DocumentAnnotationsService;
   readonly forms: LocalDocumentFormsService;
   readonly search: LocalDocumentSearchService;
@@ -61,6 +63,8 @@ export class LocalDocumentHandle implements DocumentHandle {
     this.publisher = new SessionEventPublisher(hub, sessionId);
     this.security = new LocalDocumentSecurityService(initialSecurity, id, queue, view, guard);
     this.metadata = new LocalMetadataService(id, queue, view, guard, this.publisher);
+    // Catalog-level /PieceInfo (no pon); page-level lives on each page handle.
+    this.pieceInfo = new LocalPieceInfoService(id, queue, view, guard);
     this.annotations = new LocalDocumentAnnotationsService(id, queue, view, guard);
     this.forms = new LocalDocumentFormsService(id, queue, view, guard, this.publisher);
     this.search = new LocalDocumentSearchService(id, queue, view, guard);

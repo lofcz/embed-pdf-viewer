@@ -32,6 +32,9 @@ export type {
 } from './conformance/runPageReorderConformance';
 export { runPageRotateConformance } from './conformance/runPageRotateConformance';
 export { runPageDeleteConformance } from './conformance/runPageDeleteConformance';
+export { runPageExtractConformance } from './conformance/runPageExtractConformance';
+export { runPageInsertConformance } from './conformance/runPageInsertConformance';
+export { runPieceInfoConformance } from './conformance/runPieceInfoConformance';
 export { runDocumentEventsConformance } from './conformance/runDocumentEventsConformance';
 export { runPageTextConformance } from './conformance/runPageTextConformance';
 export type {

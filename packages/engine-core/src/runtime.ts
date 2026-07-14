@@ -56,6 +56,13 @@ export type { DocumentSearchService } from './engine/DocumentSearchService';
 export type { WeakAnnotationEditSession } from './engine/DocumentAnnotationsService';
 export type { DocumentPagesService } from './engine/DocumentPagesService';
 export type { PageAnnotationsService } from './engine/PageAnnotationsService';
+export type { PieceInfoService } from './engine/PieceInfoService';
+export type {
+  PieceInfoEntry,
+  PieceInfoPatch,
+  PieceInfoPatchValue,
+  PieceInfoSnapshot,
+} from './dto/PieceInfo';
 export type { PageTextService } from './engine/PageTextService';
 export type { PageGeometryService } from './engine/PageGeometryService';
 export type { PageRenderService } from './engine/PageRenderService';
@@ -94,6 +101,12 @@ export type {
   PagesMoveWorkerRequest,
   PagesRotateWorkerRequest,
   PagesDeleteWorkerRequest,
+  PagesExtractWorkerRequest,
+  PagesInsertWorkerRequest,
+  PieceInfoReadWorkerRequest,
+  PieceInfoUpdateWorkerRequest,
+  PieceInfoApplicationsWorkerRequest,
+  PieceInfoClearWorkerRequest,
   PagesTextWorkerRequest,
   PagesGeometryWorkerRequest,
   PagesRenderWorkerRequest,

@@ -14,28 +14,53 @@
  * Parse a PDF date string `D:YYYYMMDDHHmmSSOHH'mm'` to an ISO 8601
  * string. Returns null if the input is malformed.
  *
- * Notes:
- *   - timezone parsing is intentionally simplified: the converter
- *     interprets the local fields as UTC and discards the trailing
- *     offset. This matches the pre-existing reader behaviour; PDF
- *     timezones are inconsistently populated in the wild so the
- *     conservative choice is "assume UTC" rather than guess.
+ * When the timezone is omitted, PDF defines the relationship to UTC as
+ * unknown. Since the engine DTO wire format requires an absolute ISO 8601
+ * timestamp, this converter retains the pre-existing fallback of treating
+ * an omitted timezone as UTC.
  */
 export function pdfDateToIso(pdf: string): string | null {
-  if (!pdf || !pdf.startsWith('D:') || pdf.length < 16) return null;
+  const match =
+    /^D:(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:(Z)|([+-])(\d{2})'(\d{2})')?$/.exec(pdf);
+  if (!match) return null;
 
-  const y = parseInt(pdf.slice(2, 6), 10);
-  const mo = parseInt(pdf.slice(6, 8), 10) - 1;
-  const d = parseInt(pdf.slice(8, 10), 10);
-  const H = parseInt(pdf.slice(10, 12), 10);
-  const M = parseInt(pdf.slice(12, 14), 10);
-  const S = parseInt(pdf.slice(14, 16), 10);
+  const [, yText, moText, dText, HText, MText, SText, , sign, tzHText, tzMText] = match;
+  const y = Number(yText);
+  const mo = Number(moText) - 1;
+  const d = Number(dText);
+  const H = Number(HText);
+  const M = Number(MText);
+  const S = Number(SText);
 
-  if ([y, mo, d, H, M, S].some((n) => Number.isNaN(n))) return null;
+  // Construct the local wall-clock fields in UTC space. setUTCFullYear is
+  // intentional: Date.UTC maps years 0-99 to 1900-1999.
+  const wallClock = new Date(0);
+  wallClock.setUTCFullYear(y, mo, d);
+  wallClock.setUTCHours(H, M, S, 0);
 
-  const date = new Date(Date.UTC(y, mo, d, H, M, S));
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toISOString();
+  // JavaScript normalizes invalid fields (for example February 31), so
+  // compare them after construction rather than accepting the rollover.
+  if (
+    wallClock.getUTCFullYear() !== y ||
+    wallClock.getUTCMonth() !== mo ||
+    wallClock.getUTCDate() !== d ||
+    wallClock.getUTCHours() !== H ||
+    wallClock.getUTCMinutes() !== M ||
+    wallClock.getUTCSeconds() !== S
+  ) {
+    return null;
+  }
+
+  let offsetMinutes = 0;
+  if (sign) {
+    const tzH = Number(tzHText);
+    const tzM = Number(tzMText);
+    if (tzH > 23 || tzM > 59) return null;
+
+    offsetMinutes = (tzH * 60 + tzM) * (sign === '+' ? 1 : -1);
+  }
+
+  return new Date(wallClock.getTime() - offsetMinutes * 60_000).toISOString();
 }
 
 /**
@@ -51,13 +76,18 @@ export function pdfDateToIso(pdf: string): string | null {
  * server-side stamps callers typically pass `new Date()` (default).
  */
 export function formatPdfDate(d: Date = new Date()): string {
+  if (Number.isNaN(d.getTime())) throw new RangeError('Cannot format an invalid Date');
+
   const pad = (n: number, w = 2) => String(n).padStart(w, '0');
+  const year = d.getFullYear();
+  if (year < 0 || year > 9999) throw new RangeError('PDF dates require a four-digit year');
+
   const tzMinutes = -d.getTimezoneOffset();
   const sign = tzMinutes >= 0 ? '+' : '-';
   const tzH = pad(Math.floor(Math.abs(tzMinutes) / 60));
   const tzM = pad(Math.abs(tzMinutes) % 60);
   return (
-    `D:${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
+    `D:${pad(year, 4)}${pad(d.getMonth() + 1)}${pad(d.getDate())}` +
     `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}` +
     `${sign}${tzH}'${tzM}'`
   );

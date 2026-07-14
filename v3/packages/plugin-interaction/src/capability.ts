@@ -5,6 +5,7 @@ import type {
   InteractionCapability,
   InteractionHandler,
   InteractionState,
+  PointerSample,
   Tool,
   ToolId,
 } from './types';
@@ -31,6 +32,7 @@ export function createInteractionCapability(
   const handlers: InteractionHandler[] = [];
   const claims = new Map<string, Claim>();
   const toolCbs = new Set<() => void>();
+  const pointerCbs = new Set<(sample: PointerSample) => void>();
   let owner: InteractionHandler | null = null;
 
   const toolOf = (id: ToolId): Tool =>
@@ -72,6 +74,11 @@ export function createInteractionCapability(
       return () => toolCbs.delete(cb);
     },
 
+    onPointer: (cb) => {
+      pointerCbs.add(cb);
+      return () => pointerCbs.delete(cb);
+    },
+
     registerTool: (tool) => {
       tools.set(tool.id, tool);
       return () => {
@@ -95,6 +102,9 @@ export function createInteractionCapability(
     },
 
     dispatch: (sample) => {
+      // Passive observers first (cursor chrome like a tool badge) — they never
+      // capture, so they see every sample regardless of gesture routing.
+      pointerCbs.forEach((cb) => cb(sample));
       if (sample.phase === 'down') {
         owner = null;
         for (const h of eligible()) {

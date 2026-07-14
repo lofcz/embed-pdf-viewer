@@ -47,6 +47,35 @@ export function createStampHandler(anno: AnnotationHostCapability): InteractionH
 }
 
 /**
+ * The armed tool's FOOTPRINT ghost: every hover re-computes the would-be
+ * placement under the cursor (stamp image fit / click-create default geometry);
+ * off-page clears it. One handler for every tool — `ghostHoverAt` resolves the
+ * tool's ghost policy and clears when it isn't `footprint`. Never captures:
+ * the highest priority makes its onDown run FIRST on every press (hiding the
+ * ghost while a gesture runs), then declines so the real handlers route.
+ */
+export function createGhostHandler(
+  anno: AnnotationHostCapability,
+  interaction: InteractionCapability,
+): InteractionHandler {
+  const hover = (s: PointerSample): void => {
+    if (s.page)
+      anno.ghostHoverAt(interaction.activeToolId(), s.page.pon, s.page.point, s.page.rotation);
+    else anno.clearGhost();
+  };
+  return {
+    id: 'annotation-ghost',
+    priority: 1000,
+    enabledFor: () => true,
+    onDown: () => {
+      anno.clearGhost();
+      return false;
+    },
+    onHover: hover,
+  };
+}
+
+/**
  * Ambient editing: live under the `annotation-edit` tag, which BOTH the pointer
  * and pan tools enable — so you select/move/resize in any navigation mode (Adobe
  * behaviour). It captures only over an annotation/handle; over empty it

@@ -16,7 +16,10 @@ export { DEFAULT_TOOLS } from './tools';
 export type {
   AnnotationToolDef,
   AnnotationToolInput,
+  GhostPolicy,
   InkAuthoringOptions,
+  ResolvedGhost,
+  ResolvedTool,
   SelectionAuthoring,
   StampSourceSpec,
   ToolAuthoringKind,
@@ -35,6 +38,7 @@ export type {
   StampPromptRequest,
   StampToolInput,
   TextItem,
+  ToolGhost,
 } from './types';
 // The property vocabulary + schema (defined in the portable core; re-exported so
 // app code building property UIs needs only this package).
@@ -44,6 +48,7 @@ export type {
   AnnotationPropsPatch,
   BlendMode,
   Border,
+  ClickCreate,
   LineEnding,
   LineEndings,
   PropKey,

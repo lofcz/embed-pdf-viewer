@@ -80,6 +80,92 @@ const createPtr = (
 const run = (m: Model, msgs: Msg[]): Model => msgs.reduce((acc, msg) => update(acc, msg)[0], m);
 const rectGeom = (g: Geom) => (g.t === 'rect' ? g.rect : null);
 
+describe('click-create (a bare click places the tool default)', () => {
+  const clickMsg = (
+    subtype: 'square' | 'line' | 'free-text',
+    phase: 'down' | 'up',
+    x: number,
+    y: number,
+    clickCreate: import('./types').ClickCreate | false,
+    pageBox?: { x: number; y: number; width: number; height: number },
+  ): Msg => ({
+    t: 'createPointer',
+    phase,
+    subtype,
+    clickCreate,
+    in: { pon: PON, point: { x, y }, shift: false, pageBox },
+  });
+
+  it('square: click drops the default size CENTRED on the point', () => {
+    const m = run(initialModel, [
+      clickMsg('square', 'down', 100, 100, { width: 80, height: 60 }),
+      clickMsg('square', 'up', 100, 100, { width: 80, height: 60 }),
+    ]);
+    expect(rectGeom(m.byId[m.order[0]].geom)).toMatchObject({
+      x: 60,
+      y: 70,
+      width: 80,
+      height: 60,
+    });
+  });
+
+  it('square: the click box is page-bound (slides inside the page)', () => {
+    const page = { x: 0, y: 0, width: 300, height: 400 };
+    const m = run(initialModel, [
+      clickMsg('square', 'down', 295, 5, { width: 80, height: 60 }, page),
+      clickMsg('square', 'up', 295, 5, { width: 80, height: 60 }, page),
+    ]);
+    expect(rectGeom(m.byId[m.order[0]].geom)).toMatchObject({ x: 220, y: 0 });
+  });
+
+  it('square: a real drag still wins over the click policy', () => {
+    const m = run(initialModel, [
+      clickMsg('square', 'down', 10, 10, { width: 80, height: 60 }),
+      {
+        t: 'createPointer',
+        phase: 'move',
+        subtype: 'square',
+        in: { pon: PON, point: { x: 90, y: 50 }, shift: false },
+      },
+      {
+        t: 'createPointer',
+        phase: 'up',
+        subtype: 'square',
+        in: { pon: PON, point: { x: 90, y: 50 }, shift: false },
+      },
+    ]);
+    expect(rectGeom(m.byId[m.order[0]].geom)).toMatchObject({ width: 80, height: 40 });
+  });
+
+  it('line: click lays a default-length segment from the point', () => {
+    const m = run(initialModel, [
+      clickMsg('line', 'down', 20, 30, { length: 80 }),
+      clickMsg('line', 'up', 20, 30, { length: 80 }),
+    ]);
+    expect(m.byId[m.order[0]].geom).toMatchObject({
+      t: 'line',
+      a: { x: 20, y: 30 },
+      b: { x: 100, y: 30 },
+    });
+  });
+
+  it('no policy: a bare click stays a no-op for shapes', () => {
+    const m = run(initialModel, [
+      createPtr('square', 'down', 100, 100),
+      createPtr('square', 'up', 100, 100),
+    ]);
+    expect(m.order).toHaveLength(0);
+  });
+
+  it('free-text: clickCreate false suppresses the kind fallback', () => {
+    const m = run(initialModel, [
+      clickMsg('free-text', 'down', 10, 10, false),
+      clickMsg('free-text', 'up', 10, 10, false),
+    ]);
+    expect(m.order).toHaveLength(0);
+  });
+});
+
 describe('annotation-core', () => {
   it('creates square / circle / line with the right geom + a create effect', () => {
     const sq = run(initialModel, [
@@ -3204,6 +3290,42 @@ describe('apVersion: baked /AP content versioning (what re-fetches a raster)', (
     // …and SURVIVES the next plain re-sync (fromDTO knows nothing of it)
     [m] = update(m, { t: 'upsert', annots: [{ ...dto }] });
     expect(m.byId['A1'].apVersion).toBe(1);
+  });
+
+  it('setProps keeps opaque-body kinds BAKED (a widget restyle re-fetches, never flips)', () => {
+    const w: Annot = {
+      id: 'W1',
+      ref: { kind: 'objectNumber', annotObjectNumber: 9, pageObjectNumber: PON },
+      pon: PON,
+      subtype: 'widget-text',
+      geom: { t: 'rect', rect: { x: 10, y: 10, width: 120, height: 24 }, ellipse: false },
+      style: initialStyle,
+      locked: false,
+      source: 'baked',
+      apBox: { x: 10, y: 10, width: 120, height: 24 },
+    };
+    const m: Model = { ...initialModel, byId: { W1: w }, order: ['W1'], selected: ['W1'] };
+    const [next, fx] = update(m, { t: 'setProps', patch: { interiorColor: '#ffd500' } });
+    expect(fx).toEqual([{ fx: 'patch', id: 'W1' }]);
+    // Baked stays baked: the widget has no vector render, and leaving `baked`
+    // would drop it from appearanceEpoch — its raster would freeze forever.
+    expect(next.byId['W1'].source).toBe('baked');
+    // …while a SQUARE restyle still flips to vector (renders live).
+    const [sq] = update(committed('square'), { t: 'setProps', patch: { color: '#112233' } });
+    expect(sq.byId['A1'].source).toBe('vector');
+  });
+
+  it('bumpAp advances known ids and no-ops unknown ones (form widget re-bakes)', () => {
+    let m = committed('stamp');
+    // A sibling PLANE re-baked the /AP (a form value write): the version
+    // advances with no new model data at all.
+    [m] = update(m, { t: 'bumpAp', ids: ['A1'] });
+    expect(m.byId['A1'].apVersion).toBe(1);
+    [m] = update(m, { t: 'bumpAp', ids: ['A1'] });
+    expect(m.byId['A1'].apVersion).toBe(2);
+    // Unknown ids (a widget on a not-yet-loaded page) change nothing.
+    const [same] = update(m, { t: 'bumpAp', ids: ['nope'] });
+    expect(same).toBe(m);
   });
 
   it('apSizeChanged: translation and rotation preserve the frame; scaling changes it', () => {

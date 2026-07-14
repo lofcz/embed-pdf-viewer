@@ -131,6 +131,7 @@ export function pageItems(m: Model, pon: number): RenderItem[] {
       box: geomVisualBounds(geom, a.style.strokeWidth, a.style.border),
       apBox: effApBox(m, id),
       style: a.style,
+      ...(a.text ? { text: a.text } : {}),
       source: effSource(m, id),
       selected: m.selected.includes(id),
       rot: geomRotation(geom),

@@ -262,6 +262,8 @@ export type Draft =
        *  if the up sample resolves elsewhere. See {@link PointerInput}. */
       displayRotation?: PageRotation;
       upright?: boolean;
+      /** The tool's click-create policy, captured at DOWN like `upright`. */
+      clickCreate?: ClickCreate | false;
     }
   | {
       g: 'create-line';
@@ -270,6 +272,8 @@ export type Draft =
       pon: PageObjectNumber;
       from: Vec;
       to: Vec;
+      /** The tool's click-create policy, captured at DOWN like `upright`. */
+      clickCreate?: ClickCreate | false;
     }
   | {
       g: 'create-poly';
@@ -423,7 +427,25 @@ export interface PointerInput {
    * callouts ignore it.
    */
   upright?: boolean;
+  /**
+   * Ids invisible to hit-testing and marquee for THIS event — per-event
+   * environmental context like `pageBox`. The caller (plugin shell) resolves
+   * its engaged Behaviors (form widgets under a fill tool render their own
+   * DOM and must not select/move), so the core stays behavior-agnostic.
+   */
+  inert?: ReadonlySet<Id>;
 }
+
+/**
+ * What a bare CLICK (a press-release under the drag threshold) creates for a
+ * tool: a default-size box (shapes centre on the point; free text hangs
+ * top-left, display-frame-aware under `upright`), or a default-length line
+ * from the point (`angleDeg` 0 = rightward, CW-positive in y-down space).
+ * Resolved from the TOOL by the caller and passed on the message — the core
+ * knows subtypes, not tools (the `upright` pattern). `false` suppresses a
+ * kind's own click fallback (free text always click-creates by default).
+ */
+export type ClickCreate = { width: number; height: number } | { length: number; angleDeg?: number };
 
 export type Msg =
   | { t: 'editPointer'; phase: 'down' | 'move' | 'up'; in: PointerInput }
@@ -436,6 +458,8 @@ export type Msg =
       preset?: string;
       /** PDF intent carried by an ink authoring preset. */
       intent?: InkIntent;
+      /** The tool's click-create policy (see {@link ClickCreate}). */
+      clickCreate?: ClickCreate | false;
       /** Keep a completed ink stroke in the draft until `finishInkDraft`. */
       deferInkCommit?: boolean;
       /** Optional pure straight-line recognition applied to each completed stroke. */
@@ -469,7 +493,10 @@ export type Msg =
       preset?: string;
     }
   | { t: 'clearMarkupPreview' }
-  | { t: 'deselect' }
+  // Without `ids`: clear the selection. With `ids`: drop only those members
+  // (the shell prunes annotations whose Behavior just ENGAGED — inert things
+  // cannot stay selected).
+  | { t: 'deselect'; ids?: Id[] }
   // Apply a flat property patch to the current selection. Each member takes the
   // keys its KIND declares (`propsFor`) and ignores the rest, so one message
   // restyles a mixed selection. Members flip to `vector`; one patch effect each.
@@ -498,6 +525,10 @@ export type Msg =
   // edit): each replaced annotation's `apVersion` increments, telling the shell
   // to re-fetch its raster. Plain re-syncs (a move's round-trip) leave it alone.
   | { t: 'upsert'; annots: Annot[]; bumpAp?: boolean }
+  // A sibling PLANE re-baked these annotations' /AP without touching the
+  // annotation model (a form value write regenerating widget appearances):
+  // bump `apVersion` so the shell re-fetches the raster. Unknown ids no-op.
+  | { t: 'bumpAp'; ids: Id[] }
   | { t: 'remove'; ids: Id[] }
   // free-text editing: enter/leave the focused `contentEditable`, and apply the
   // browser's plain-text result optimistically (the plugin debounces the engine
@@ -547,6 +578,10 @@ export interface RenderItem {
    */
   apRot?: number;
   style: Style;
+  /** Text styling (/DA projection) — present for text-bearing kinds (free
+   *  text, text/choice widgets). Lets a behavior renderer's focused editor
+   *  match the baked appearance's font. */
+  text?: TextStyle;
   source: 'baked' | 'vector' | 'ghost';
   selected: boolean;
   /**

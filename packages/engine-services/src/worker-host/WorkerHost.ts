@@ -41,6 +41,12 @@ import {
   type PagesMoveWorkerRequest,
   type PagesRotateWorkerRequest,
   type PagesDeleteWorkerRequest,
+  type PagesExtractWorkerRequest,
+  type PagesInsertWorkerRequest,
+  type PieceInfoApplicationsWorkerRequest,
+  type PieceInfoClearWorkerRequest,
+  type PieceInfoReadWorkerRequest,
+  type PieceInfoUpdateWorkerRequest,
   type PagesRenderWorkerRequest,
   type PagesTextWorkerRequest,
   type SearchQueryWorkerRequest,
@@ -71,7 +77,8 @@ import { FormMutator, FormReader, disposeFormModel } from '../features/forms';
 import { FontRegistrar, type StartupFontSpec } from '../features/fonts';
 import { PageGeometryReader } from '../features/geometry';
 import { MetadataMutator, MetadataReader } from '../features/metadata';
-import { PagesMutator, PagesReader } from '../features/pages';
+import { PagesExtractor, PagesInserter, PagesMutator, PagesReader } from '../features/pages';
+import { PieceInfoAccessor } from '../features/pieceinfo';
 import { PageRenderReader } from '../features/render';
 import { DocumentSaver } from '../features/save';
 import { SearchReader } from '../features/search';
@@ -227,6 +234,24 @@ export class WorkerHost {
           break;
         case 'pages.delete':
           resultPack = this.handlePagesDelete(msg, ctrl.signal);
+          break;
+        case 'pages.extract':
+          resultPack = this.handlePagesExtract(msg, ctrl.signal);
+          break;
+        case 'pages.insert':
+          resultPack = this.handlePagesInsert(msg, ctrl.signal);
+          break;
+        case 'pieceInfo.read':
+          resultPack = this.handlePieceInfoRead(msg, ctrl.signal);
+          break;
+        case 'pieceInfo.update':
+          resultPack = this.handlePieceInfoUpdate(msg, ctrl.signal);
+          break;
+        case 'pieceInfo.applications':
+          resultPack = this.handlePieceInfoApplications(msg, ctrl.signal);
+          break;
+        case 'pieceInfo.clear':
+          resultPack = this.handlePieceInfoClear(msg, ctrl.signal);
           break;
         case 'pages.text':
           resultPack = this.handlePagesText(msg, ctrl.signal);
@@ -479,6 +504,72 @@ export class WorkerHost {
     const mutator = new PagesMutator(this.runtime, session);
     const result = mutator.delete(req.pageObjectNumbers, signal);
     return this.finishMutation(session, { tag: 'pages.delete', result }, req.artifactPath);
+  }
+
+  private handlePagesExtract(
+    req: PagesExtractWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const extracted = new PagesExtractor(this.runtime, session).extract(
+      req.pageObjectNumbers,
+      signal,
+    );
+    // A read: no finishMutation, no layer artifact. Bytes transfer zero-copy.
+    return wirePack({ tag: 'pages.extract', bytes: extracted.bytes, size: extracted.size }, [
+      extracted.bytes,
+    ]);
+  }
+
+  private handlePagesInsert(
+    req: PagesInsertWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const inserter = new PagesInserter(this.runtime, session);
+    const result = inserter.insert(req.bytes, req.destIndex, signal);
+    return this.finishMutation(session, { tag: 'pages.insert', result }, req.artifactPath);
+  }
+
+  private handlePieceInfoRead(
+    req: PieceInfoReadWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const accessor = new PieceInfoAccessor(this.runtime, session, req.pageObjectNumber);
+    const snapshot = accessor.read(req.application, signal);
+    return wirePack({ tag: 'pieceInfo.read', snapshot });
+  }
+
+  private handlePieceInfoUpdate(
+    req: PieceInfoUpdateWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const accessor = new PieceInfoAccessor(this.runtime, session, req.pageObjectNumber);
+    accessor.update(req.application, req.patch, signal);
+    // A mutation: layer sessions persist the artifact like every other write.
+    return this.finishMutation(session, { tag: 'pieceInfo.update' }, req.artifactPath);
+  }
+
+  private handlePieceInfoApplications(
+    req: PieceInfoApplicationsWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const accessor = new PieceInfoAccessor(this.runtime, session, req.pageObjectNumber);
+    const applications = accessor.applications(signal);
+    return wirePack({ tag: 'pieceInfo.applications', applications });
+  }
+
+  private handlePieceInfoClear(
+    req: PieceInfoClearWorkerRequest,
+    signal: AbortSignal,
+  ): WirePack<WorkerResultPayload> {
+    const session = this.requireSession(req);
+    const accessor = new PieceInfoAccessor(this.runtime, session, req.pageObjectNumber);
+    accessor.clear(req.application, signal);
+    return this.finishMutation(session, { tag: 'pieceInfo.clear' }, req.artifactPath);
   }
 
   private handlePagesText(

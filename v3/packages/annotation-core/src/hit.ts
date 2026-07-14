@@ -126,6 +126,7 @@ export function hitTest(
   geom: ChromeGeom,
   strokeMargin: number,
   pageBox?: Rect,
+  inert?: ReadonlySet<Id>,
 ): Target {
   if (m.selected.length === 1 && isSelectable(m, m.selected[0])) {
     const a = m.byId[m.selected[0]];
@@ -207,7 +208,9 @@ export function hitTest(
   for (let i = order.length - 1; i >= 0; i--) {
     const id = order[i];
     const a = m.byId[id];
-    if (!a || !isSelectable(m, id)) continue;
+    // `inert` ids (engaged Behaviors — form widgets under a fill tool) are
+    // invisible here: their own DOM owns the pointer.
+    if (!a || inert?.has(id) || !isSelectable(m, id)) continue;
     // A SELECTED annotation is sticky-grabbable from anywhere in its bounds, but
     // only if it can actually move; otherwise it's grabbed on its stroke/fill like
     // an unselected one (so a selectable-but-anchored kind still re-selects cleanly).
@@ -239,8 +242,9 @@ export function cursorAt(
   geom: ChromeGeom,
   strokeMargin: number,
   pageBox?: Rect,
+  inert?: ReadonlySet<Id>,
 ): Cursor | null {
-  const t = hitTest(m, pon, p, geom, strokeMargin, pageBox);
+  const t = hitTest(m, pon, p, geom, strokeMargin, pageBox, inert);
   if (t.t === 'handle') return t.cursor;
   if (t.t === 'group-handle') return t.cursor;
   if (t.t === 'rotate') return 'grab';

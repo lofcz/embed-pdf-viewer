@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import type { FormFieldDTO, FormSnapshot } from '@embedpdf/engine-core/runtime';
 
-import { fillItems } from '../src/core/fill-items';
+import { fillItemForWidget, fillItems } from '../src/core/fill-items';
 import { fieldByKey, fieldForWidget, fieldKeyOf, initialModel, update } from '../src/core/model';
 
 const text = (over: Partial<Extract<FormFieldDTO, { family: 'text' }>> = {}): FormFieldDTO => ({
@@ -74,6 +74,25 @@ describe('form model', () => {
     expect(fillItems(m, 99)).toEqual([]);
     m = update(m, { t: 'clearGeom' });
     expect(fillItems(m, 3)).toEqual([]);
+  });
+
+  test('fillItemForWidget projects one widget without geometry', () => {
+    let m = update(initialModel(), { t: 'snapshot', snapshot: snapshot([text()]) });
+    // No geometry needed — the annotation plane owns the live box; the
+    // projected box falls back to zeros (advisory only on this path).
+    const item = fillItemForWidget(m, 4);
+    expect(item?.control).toBe('text');
+    expect(item?.box).toEqual({ x: 0, y: 0, width: 0, height: 0 });
+    if (item?.control === 'text') expect(item.value).toBe('abc');
+    // Cached geometry is used when it happens to be loaded.
+    m = update(m, {
+      t: 'pageGeom',
+      pageObjectNumber: 3,
+      boxes: { 4: { x: 10, y: 20, width: 200, height: 24 } },
+    });
+    expect(fillItemForWidget(m, 4)?.box).toEqual({ x: 10, y: 20, width: 200, height: 24 });
+    // Unknown widget → null.
+    expect(fillItemForWidget(m, 999)).toBeNull();
   });
 
   test('read-only and in-flight fields project as disabled', () => {

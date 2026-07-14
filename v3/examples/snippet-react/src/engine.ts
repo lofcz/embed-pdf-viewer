@@ -49,12 +49,16 @@ export const fetchBytes = async (url: string): Promise<Uint8Array> =>
     return new Uint8Array(await response.arrayBuffer());
   });
 
-/** The default document — more arrive via the tab bar's open-file button. */
+/** The default documents — more arrive via the tab bar's open-file button. */
 export async function loadInitialDocuments(): Promise<InitialDocument[]> {
   return [
     {
       source: { kind: 'bytes', id: 'ebook', bytes: await fetchBytes('/ebook.pdf') } as OpenInput,
       name: 'Ebook',
+    },
+    {
+      source: { kind: 'bytes', id: 'form', bytes: await fetchBytes('/form.pdf') } as OpenInput,
+      name: 'Form',
     },
   ];
 }

@@ -15,6 +15,7 @@ import type {
   AnnotationPropsPatch,
   ChromeNode,
   CreationDraftAnchor,
+  Geom,
   Id,
   Model,
   PropKey,
@@ -100,7 +101,31 @@ export interface ChromeSettingsPatch {
 export interface AnnotationState {
   model: Model;
   chrome: ChromeSettings;
+  /**
+   * The armed tool's FOOTPRINT ghost: where (and what) the NEXT click would
+   * place — the stamp's fitted image box, or a click-create tool's default
+   * geometry — computed by the same rules the placement uses (WYSIWYG). In the
+   * store (not the capability closure) because it is RENDERED — vector ghosts
+   * ride `pageItems`, image ghosts (stamp) render via the framework's
+   * `ToolGhost`. The armed bytes stay out of the store.
+   */
+  toolGhost: ToolGhost | null;
+  /** Bumps on every arm/disarm — the render layer's cue to rebuild (or drop)
+   *  the ghost preview object URL. Never rendered itself. */
+  stampArmEpoch: number;
 }
+
+/** The armed tool's would-be placement under the cursor (content space). */
+export type ToolGhost = {
+  pon: PageObjectNumber;
+  /** The exact box the click's placement would use. */
+  box: Rect;
+  /** The tool's upright counter-rotation at this hover (deg, CW). */
+  rot: number;
+} & (
+  | { kind: 'image' } // the armed stamp raster — framework blits it
+  | { kind: 'vector'; toolId: string; geom: Geom } // painted via pageItems/scene
+);
 
 /** Registration options for {@link annotationPlugin} — the initial values of the
  *  live-adjustable {@link AnnotationCapability.setSnap} /
@@ -133,7 +158,9 @@ export interface AnnotationConfig {
 }
 export type AnnotationAction =
   | { type: 'SET_MODEL'; model: Model }
-  | { type: 'SET_CHROME'; patch: ChromeSettingsPatch };
+  | { type: 'SET_CHROME'; patch: ChromeSettingsPatch }
+  | { type: 'SET_TOOL_GHOST'; ghost: ToolGhost | null }
+  | { type: 'STAMP_ARM_CHANGED' };
 
 /** A plugin (forms, links) marks some annotations as interactive: while engaged,
  *  they render their own DOM and are NOT geometry-editable. Suspend → editable. */
@@ -335,6 +362,28 @@ export interface StampToolInput {
   source: BinarySource;
   /** Placed width in PDF points (height follows the intrinsic aspect). Default 150. */
   targetWidth?: number;
+  /**
+   * A browser-paintable render of `source` for the hover ghost (PNG/JPEG).
+   * Required for the ghost when `source` is PDF bytes — the browser cannot
+   * paint those; the caller (e.g. a stamp library) supplies its cached page
+   * render. Raster sources default to the source itself; omit everywhere
+   * else and the tool simply shows no ghost.
+   */
+  preview?: BinarySource;
+  /**
+   * The source's intrinsic size in PDF points. Raster sources are measured
+   * from their own header, but PDF bytes carry no sniffable dimensions —
+   * callers that know the page size (a stamp library does, from import)
+   * pass it here so placement honours the true aspect instead of falling
+   * back to a square.
+   */
+  intrinsicSize?: { width: number; height: number };
+}
+
+/** The armed stamp's paintable preview, for the render layer's ghost `<img>`. */
+export interface ArmedStampPreview {
+  bytes: Uint8Array;
+  mimeType?: string;
 }
 
 /**
@@ -428,6 +477,10 @@ export interface AnnotationHostCapability extends AnnotationCapability {
   /** The cursor to show at a content point (resize over a handle, move/pointer over a body, else null). */
   cursorAt(pon: PageObjectNumber, point: Vec, scale?: number): string | null;
   behaviorFor(a: { subtype: Subtype; ref: AnnotationRef | null }): Behavior | null;
+  /** Drop selected annotations whose Behavior is currently ENGAGED — inert
+   *  things cannot stay selected. Call after anything that flips engagement
+   *  (the plugin wires it to tool changes). */
+  pruneEngagedSelection(): void;
   // ── interaction intents (run the pure core + perform engine effects) ──
   editPointer(
     phase: 'down' | 'move' | 'up',
@@ -474,6 +527,32 @@ export interface AnnotationHostCapability extends AnnotationCapability {
    *  capture) when nothing is armed. `displayRotation` (the click sample's page
    *  rotation) feeds the active tool's `upright` policy. */
   placeArmedStamp(pon: PageObjectNumber, point: Vec, displayRotation?: PageRotation): boolean;
+  /** Whether a stamp payload is armed — the hover handler's cheap pre-check. */
+  hasArmedStamp(): boolean;
+  /**
+   * Update the armed tool's FOOTPRINT ghost to a content point — the stamp's
+   * fitted image box (same fit + clamp as placement), or a click-create tool's
+   * default geometry (same anchor + clamp as the click commit). The ghost IS
+   * the placement, never an approximation. Tools without a determinable
+   * footprint (or with a `badge`/`false` ghost policy) clear instead.
+   */
+  ghostHoverAt(
+    toolId: string,
+    pon: PageObjectNumber,
+    point: Vec,
+    displayRotation?: PageRotation,
+  ): void;
+  /** Drop the hover ghost (pointer left the pages / a gesture started). */
+  clearGhost(): void;
+  // ── ghost projection (consumed by the framework render layer) ──
+  /** The armed tool's footprint ghost on a page (content space), or null.
+   *  Vector ghosts also ride {@link pageItems}; only `kind: 'image'` ghosts
+   *  need the framework's blit. */
+  toolGhost(pon: PageObjectNumber): ToolGhost | null;
+  /** The armed stamp's paintable preview bytes, or null (no ghost to show). */
+  armedStampPreview(): ArmedStampPreview | null;
+  /** Bumps on arm/disarm — keys the render layer's preview object-URL lifetime. */
+  stampArmEpoch(): number;
   /**
    * Resolve the ACTIVE tool's {@link StampSourceSpec} for a click and place a
    * stamp centred on `point`: fixed `bytes` land immediately; a `'prompt'` source

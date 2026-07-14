@@ -53,6 +53,10 @@
       "types": "./src/search.tsx",
       "import": "./src/search.tsx"
     },
+    "./stamp": {
+      "types": "./src/stamp.tsx",
+      "import": "./src/stamp.tsx"
+    },
     "./views": {
       "types": "./src/views.ts",
       "import": "./src/views.ts"
@@ -76,6 +80,10 @@
     "./shell": {
       "types": "./src/shell.ts",
       "import": "./src/shell.ts"
+    },
+    "./form": {
+      "types": "./src/form.tsx",
+      "import": "./src/form.tsx"
     },
     "./toolbar": {
       "types": "./src/toolbar.tsx",
@@ -131,6 +139,10 @@
         "types": "./dist/search.d.ts",
         "import": "./dist/search.js"
       },
+      "./stamp": {
+        "types": "./dist/stamp.d.ts",
+        "import": "./dist/stamp.js"
+      },
       "./views": {
         "types": "./dist/views.d.ts",
         "import": "./dist/views.js"
@@ -154,6 +166,10 @@
       "./shell": {
         "types": "./dist/shell.d.ts",
         "import": "./dist/shell.js"
+      },
+      "./form": {
+        "types": "./dist/form.d.ts",
+        "import": "./dist/form.js"
       },
       "./toolbar": {
         "types": "./dist/toolbar.d.ts",
@@ -185,6 +201,7 @@
     "@embedpdf-x/plugin-view-manager": "workspace:*",
     "@embedpdf-x/plugin-form": "workspace:*",
     "@embedpdf-x/plugin-search": "workspace:*",
+    "@embedpdf-x/plugin-stamp": "workspace:*",
     "@embedpdf-x/plugin-i18n": "workspace:*",
     "@embedpdf-x/plugin-commands": "workspace:*",
     "@embedpdf-x/plugin-shell": "workspace:*",

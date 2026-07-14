@@ -12,6 +12,7 @@ export * from './page-edit';
 export * from './metadata';
 export { FormLayer, useForm, useFormField } from './form';
 export { SearchLayer, useSearch, useSearchState } from './search';
+export * from './stamp';
 export { useI18n, useT, useLocale } from './i18n';
 export * from './commands';
 export * from './shell';
