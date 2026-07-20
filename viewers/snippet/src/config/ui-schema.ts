@@ -1543,7 +1543,9 @@ export const viewerUISchema: UISchema = {
       },
       width: '250px',
       collapsible: true,
-      defaultOpen: false,
+      // Open the thumbnails/outline panel by default so readers can jump pages
+      // without hunting for the sidebar toggle.
+      defaultOpen: true,
     },
 
     'annotation-panel': {

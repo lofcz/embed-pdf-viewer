@@ -88,7 +88,10 @@ export class StampPlugin extends BasePlugin<
     }
 
     if (this.config.manifests && this.config.manifests.length > 0) {
-      await this.initializeManifests();
+      // Remote stamp manifests (default: jsDelivr) must not block viewer boot —
+      // a slow/unreachable CDN was freezing the whole plugin registry for tens
+      // of seconds. Libraries appear once the fetch settles.
+      void this.initializeManifests();
     }
   }
 

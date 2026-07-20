@@ -52,6 +52,33 @@ export const uiReducer = (state = initialState, action: UIAction): UIState => {
         }
       });
 
+      // Initialize sidebars that opt into `defaultOpen: true`. Without this the
+      // schema field is dead weight — sidebars always started closed.
+      const activeSidebars: UIDocumentState['activeSidebars'] = {};
+      const sidebarTabs: UIDocumentState['sidebarTabs'] = {};
+
+      if (schema.sidebars) {
+        Object.values(schema.sidebars).forEach((sidebar) => {
+          if (!sidebar.defaultOpen || !sidebar.position) return;
+
+          const slotKey = `${sidebar.position.placement}-${sidebar.position.slot}`;
+          // First defaultOpen sidebar wins a contested slot (mirrors toolbar init).
+          if (activeSidebars[slotKey]?.isOpen) return;
+
+          activeSidebars[slotKey] = {
+            sidebarId: sidebar.id,
+            isOpen: true,
+          };
+
+          if (sidebar.content.type === 'tabs') {
+            const defaultTab = sidebar.content.defaultTab ?? sidebar.content.tabs[0]?.id;
+            if (defaultTab) {
+              sidebarTabs[sidebar.id] = defaultTab;
+            }
+          }
+        });
+      }
+
       // Initialize overlay enabled state from schema's defaultEnabled
       const enabledOverlays: Record<string, boolean> = {};
 
@@ -69,6 +96,8 @@ export const uiReducer = (state = initialState, action: UIAction): UIState => {
           [documentId]: {
             ...initialDocumentState,
             activeToolbars, // Initialize with permanent toolbars
+            activeSidebars,
+            sidebarTabs,
             enabledOverlays, // Initialize with overlay enabled states
           },
         },
