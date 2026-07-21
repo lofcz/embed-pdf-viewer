@@ -46,6 +46,11 @@
     "dist",
     "README.md"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lofcz/embed-pdf-viewer",
+    "directory": "packages/core"
+  },
   "publishConfig": {
     "access": "public"
   }

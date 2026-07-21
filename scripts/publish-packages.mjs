@@ -107,8 +107,38 @@ function publishLocal(dir) {
   }).status;
 }
 
+const REPO_URL = "https://github.com/lofcz/embed-pdf-viewer";
+
+/** Provenance requires repository.url === GitHub repo (no empty / .git suffix). */
+function ensureRepositoryField(dir) {
+  const pkgPath = path.join(dir, "package.json");
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+  const rel = path.relative(ROOT, dir).split(path.sep).join("/");
+  const currentUrl = typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url;
+  const normalized = String(currentUrl || "")
+    .replace(/\.git$/i, "")
+    .replace(/^git\+/, "");
+  if (
+    normalized === REPO_URL &&
+    pkg.repository &&
+    typeof pkg.repository === "object" &&
+    pkg.repository.directory === rel
+  ) {
+    return;
+  }
+
+  pkg.repository = {
+    type: "git",
+    url: REPO_URL,
+    directory: rel,
+  };
+  fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+  console.log(`  set repository.url → ${REPO_URL} (${rel})`);
+}
+
 /** Pack with pnpm (workspace rewrite), publish tarball with npm (OIDC). */
 function publishCI(dir) {
+  ensureRepositoryField(dir);
   const env = publishEnv();
   const pack = spawnSync("pnpm", ["pack"], {
     cwd: dir,
