@@ -74,12 +74,20 @@ jobs:
           BRANCH="${{ github.ref_name }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Drop publish artifacts that would dirty the tree
+          rm -f pnpm-publish-summary.json
           git add packages viewers
           if git diff --cached --quiet; then
             echo "No version file changes to commit."
           else
             git commit -m "chore: release v${VERSION}"
           fi
+
+          # pack/publish can leave unstaged noise — rebase needs a clean tree
+          git reset --hard HEAD
+          git clean -fd
+
           # main may have moved while build/publish ran — rebase before push
           git fetch origin "$BRANCH"
           if ! git rebase "origin/$BRANCH"; then
@@ -87,6 +95,7 @@ jobs:
             git rebase --abort || true
             exit 1
           fi
+
           # Tag after rebase so it points at the commit we push
           if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
             git tag -d "v${VERSION}"
