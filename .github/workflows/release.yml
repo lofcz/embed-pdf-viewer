@@ -67,9 +67,10 @@ jobs:
           createGithubReleases: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Until every @lofcz/embedpdf-* package has a Trusted Publisher on
-          # npm, publish with an Automation token. After trusted publishing is
-          # configured for all packages, NODE_AUTH_TOKEN / NPM_TOKEN can go.
+          # After `pnpm trust:setup` (npm trust github → release.yml on
+          # lofcz/embed-pdf-viewer), OIDC via id-token publishes without a
+          # token. Keep NPM_TOKEN only as a temporary fallback until every
+          # package has a trusted publisher configured.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: "true"
