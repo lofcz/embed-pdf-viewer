@@ -49,8 +49,10 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          # Required for npm trusted publishing (OIDC). Do not set NODE_AUTH_TOKEN.
-          registry-url: "https://registry.npmjs.org"
+          # registry-url writes an .npmrc with _authToken=${NODE_AUTH_TOKEN}.
+          # That makes setup-node inject secrets.NPM_TOKEN and overrides OIDC
+          # trusted publishing (npm then returns E404 on PUT for scoped pkgs).
+          # Do NOT set registry-url / NODE_AUTH_TOKEN / NPM_TOKEN here.
 
       - name: Install deps
         run: pnpm install --frozen-lockfile

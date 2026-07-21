@@ -73,10 +73,24 @@ if (!isCI && !process.stdin.isTTY) {
   process.exit(1);
 }
 
+function publishEnv() {
+  const env = { ...process.env };
+  if (isCI) {
+    // Classic tokens override OIDC trusted publishing and produce E404 on PUT.
+    delete env.NODE_AUTH_TOKEN;
+    delete env.NPM_TOKEN;
+    env.NPM_CONFIG_PROVENANCE = env.NPM_CONFIG_PROVENANCE || "true";
+  }
+  return env;
+}
+
 if (!isCI) {
   console.log("Interactive publish: complete any browser auth challenge when prompted.\n");
 } else {
   console.log("CI publish via npm trusted publishing (OIDC).\n");
+  if (process.env.NODE_AUTH_TOKEN || process.env.NPM_TOKEN) {
+    console.log("Note: clearing NODE_AUTH_TOKEN / NPM_TOKEN so OIDC is used.\n");
+  }
 }
 
 for (const dir of dirs) {
@@ -105,7 +119,7 @@ for (const dir of dirs) {
     cwd: dir,
     shell: true,
     stdio: "inherit",
-    env: process.env,
+    env: publishEnv(),
   });
 
   if (result.status === 0) {
