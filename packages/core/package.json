@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/core",
+  "name": "@lofcz/embedpdf-core",
   "version": "2.14.4",
   "type": "module",
   "license": "MIT",
@@ -46,13 +46,13 @@
     "lint:fix": "eslint src --color --fix"
   },
   "devDependencies": {
-    "@embedpdf/build": "workspace:*",
+    "@embedpdf/build": "workspace:@lofcz/embedpdf-build@*",
     "@types/react": "^18.2.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@embedpdf/engines": "workspace:*",
-    "@embedpdf/models": "workspace:*"
+    "@embedpdf/engines": "workspace:@lofcz/embedpdf-engines@*",
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*"
   },
   "peerDependencies": {
     "preact": "^10.26.4",

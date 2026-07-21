@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/build",
+  "name": "@lofcz/embedpdf-build",
   "private": true,
   "version": "1.1.0",
   "type": "module",

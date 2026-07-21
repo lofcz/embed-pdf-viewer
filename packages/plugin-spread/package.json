@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-spread",
+  "name": "@lofcz/embedpdf-plugin-spread",
   "version": "2.14.4",
   "type": "module",
   "license": "MIT",
@@ -45,17 +45,17 @@
     "lint:fix": "eslint src --color --fix"
   },
   "dependencies": {
-    "@embedpdf/models": "workspace:*"
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*"
   },
   "devDependencies": {
-    "@embedpdf/build": "workspace:*",
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/plugin-viewport": "workspace:*",
+    "@embedpdf/build": "workspace:@lofcz/embedpdf-build@*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/plugin-viewport": "workspace:@lofcz/embedpdf-plugin-viewport@*",
     "@types/react": "^18.2.0",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@embedpdf/core": "workspace:*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0",
     "preact": "^10.26.4",
@@ -68,7 +68,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "url": "https://github.com/lofcz/embed-pdf-viewer",
     "directory": "packages/plugin-spread"
   },
   "homepage": "https://www.embedpdf.com/docs",

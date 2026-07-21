@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-rotate",
+  "name": "@lofcz/embedpdf-plugin-rotate",
   "version": "2.14.4",
   "type": "module",
   "license": "MIT",
@@ -45,16 +45,16 @@
     "lint:fix": "eslint src --color --fix"
   },
   "dependencies": {
-    "@embedpdf/models": "workspace:*"
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*"
   },
   "devDependencies": {
-    "@embedpdf/build": "workspace:*",
-    "@embedpdf/core": "workspace:*",
+    "@embedpdf/build": "workspace:@lofcz/embedpdf-build@*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
     "@types/react": "^18.2.0",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@embedpdf/core": "workspace:*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
     "preact": "^10.26.4",
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0",
@@ -67,7 +67,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "url": "https://github.com/lofcz/embed-pdf-viewer",
     "directory": "packages/plugin-rotate"
   },
   "homepage": "https://www.embedpdf.com/docs",

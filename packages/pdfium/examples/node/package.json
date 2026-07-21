@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-pdfium-node",
+  "name": "@lofcz/embedpdf-example-pdfium-node",
   "version": "1.0.1",
   "private": true,
   "description": "Node.js examples for @embedpdf/pdfium",
@@ -12,7 +12,7 @@
     "example:text": "node text-extraction-example.js"
   },
   "dependencies": {
-    "@embedpdf/pdfium": "workspace:*"
+    "@embedpdf/pdfium": "workspace:@lofcz/embedpdf-pdfium@*"
   },
   "keywords": [
     "pdf",

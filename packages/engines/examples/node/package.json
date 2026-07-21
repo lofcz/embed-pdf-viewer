@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-engines-node",
+  "name": "@lofcz/embedpdf-example-engines-node",
   "version": "1.0.1",
   "private": true,
   "description": "Node.js examples for @embedpdf/engines",
@@ -12,9 +12,9 @@
     "start:annotation-render": "node annotation-render-example.js"
   },
   "dependencies": {
-    "@embedpdf/engines": "workspace:*",
-    "@embedpdf/models": "workspace:*",
-    "@embedpdf/pdfium": "workspace:*",
+    "@embedpdf/engines": "workspace:@lofcz/embedpdf-engines@*",
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*",
+    "@embedpdf/pdfium": "workspace:@lofcz/embedpdf-pdfium@*",
     "sharp": "^0.34.2"
   },
   "keywords": [

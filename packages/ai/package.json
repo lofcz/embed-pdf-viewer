@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/ai",
+  "name": "@lofcz/embedpdf-ai",
   "version": "0.0.1",
   "description": "AI runtime for EmbedPDF – manages ONNX model loading, inference, and built-in pipelines (layout detection, table structure) across browser and Node.js.",
   "type": "module",
@@ -31,10 +31,10 @@
     "lint:fix": "eslint src --color --fix"
   },
   "dependencies": {
-    "@embedpdf/models": "workspace:*"
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*"
   },
   "devDependencies": {
-    "@embedpdf/build": "workspace:*",
+    "@embedpdf/build": "workspace:@lofcz/embedpdf-build@*",
     "onnxruntime-web": "^1.22.0",
     "typescript": "^5.0.0"
   },
@@ -56,7 +56,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "url": "https://github.com/lofcz/embed-pdf-viewer",
     "directory": "packages/ai"
   },
   "homepage": "https://www.embedpdf.com/docs",

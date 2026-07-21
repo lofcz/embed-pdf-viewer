@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/fonts-arabic",
+  "name": "@lofcz/embedpdf-fonts-arabic",
   "version": "1.0.0",
   "private": false,
   "description": "Arabic fallback fonts for EmbedPDF - Noto Naskh Arabic (Regular and Bold)",
@@ -28,7 +28,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "url": "https://github.com/lofcz/embed-pdf-viewer",
     "directory": "packages/fonts/arabic"
   },
   "homepage": "https://www.embedpdf.com/docs",
@@ -43,14 +43,14 @@
     "README.md"
   ],
   "devDependencies": {
-    "@embedpdf/build": "workspace:*",
-    "@embedpdf/models": "workspace:*",
+    "@embedpdf/build": "workspace:@lofcz/embedpdf-build@*",
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*",
     "typescript": "^5.0.0"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@embedpdf/models": "workspace:*"
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*"
   }
 }

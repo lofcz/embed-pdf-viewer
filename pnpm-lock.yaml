@@ -89,79 +89,79 @@ importers:
   examples/react-mui:
     dependencies:
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../packages/core
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../../packages/engines
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../packages/models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../../packages/pdfium
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../../packages/plugin-annotation
       '@embedpdf/plugin-capture':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-capture@*
         version: link:../../packages/plugin-capture
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../../packages/plugin-document-manager
       '@embedpdf/plugin-export':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-export@*
         version: link:../../packages/plugin-export
       '@embedpdf/plugin-fullscreen':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-fullscreen@*
         version: link:../../packages/plugin-fullscreen
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../../packages/plugin-history
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../../packages/plugin-interaction-manager
       '@embedpdf/plugin-pan':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-pan@*
         version: link:../../packages/plugin-pan
       '@embedpdf/plugin-print':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-print@*
         version: link:../../packages/plugin-print
       '@embedpdf/plugin-redaction':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-redaction@*
         version: link:../../packages/plugin-redaction
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../../packages/plugin-render
       '@embedpdf/plugin-rotate':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-rotate@*
         version: link:../../packages/plugin-rotate
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../../packages/plugin-scroll
       '@embedpdf/plugin-search':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-search@*
         version: link:../../packages/plugin-search
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../../packages/plugin-selection
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../../packages/plugin-spread
       '@embedpdf/plugin-thumbnail':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-thumbnail@*
         version: link:../../packages/plugin-thumbnail
       '@embedpdf/plugin-tiling':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-tiling@*
         version: link:../../packages/plugin-tiling
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../../packages/plugin-viewport
       '@embedpdf/plugin-zoom':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-zoom@*
         version: link:../../packages/plugin-zoom
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../../packages/utils
       '@emotion/react':
         specifier: ^11.14.0
@@ -216,91 +216,91 @@ importers:
   examples/react-tailwind:
     dependencies:
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../packages/core
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../../packages/engines
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../packages/models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../../packages/pdfium
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../../packages/plugin-annotation
       '@embedpdf/plugin-capture':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-capture@*
         version: link:../../packages/plugin-capture
       '@embedpdf/plugin-commands':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-commands@*
         version: link:../../packages/plugin-commands
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../../packages/plugin-document-manager
       '@embedpdf/plugin-export':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-export@*
         version: link:../../packages/plugin-export
       '@embedpdf/plugin-fullscreen':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-fullscreen@*
         version: link:../../packages/plugin-fullscreen
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../../packages/plugin-history
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../../packages/plugin-i18n
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../../packages/plugin-interaction-manager
       '@embedpdf/plugin-pan':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-pan@*
         version: link:../../packages/plugin-pan
       '@embedpdf/plugin-print':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-print@*
         version: link:../../packages/plugin-print
       '@embedpdf/plugin-redaction':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-redaction@*
         version: link:../../packages/plugin-redaction
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../../packages/plugin-render
       '@embedpdf/plugin-rotate':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-rotate@*
         version: link:../../packages/plugin-rotate
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../../packages/plugin-scroll
       '@embedpdf/plugin-search':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-search@*
         version: link:../../packages/plugin-search
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../../packages/plugin-selection
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../../packages/plugin-spread
       '@embedpdf/plugin-thumbnail':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-thumbnail@*
         version: link:../../packages/plugin-thumbnail
       '@embedpdf/plugin-tiling':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-tiling@*
         version: link:../../packages/plugin-tiling
       '@embedpdf/plugin-ui':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ui@*
         version: link:../../packages/plugin-ui
       '@embedpdf/plugin-view-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-view-manager@*
         version: link:../../packages/plugin-view-manager
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../../packages/plugin-viewport
       '@embedpdf/plugin-zoom':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-zoom@*
         version: link:../../packages/plugin-zoom
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../../packages/utils
       react:
         specifier: ^18.2.0
@@ -356,115 +356,115 @@ importers:
         version: 0.555.0(svelte@5.50.1)
     devDependencies:
       '@embedpdf/ai':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-ai@*
         version: link:../../packages/ai
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../packages/core
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../../packages/engines
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../packages/models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../../packages/pdfium
       '@embedpdf/plugin-ai-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ai-manager@*
         version: link:../../packages/plugin-ai-manager
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../../packages/plugin-annotation
       '@embedpdf/plugin-capture':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-capture@*
         version: link:../../packages/plugin-capture
       '@embedpdf/plugin-commands':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-commands@*
         version: link:../../packages/plugin-commands
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../../packages/plugin-document-manager
       '@embedpdf/plugin-export':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-export@*
         version: link:../../packages/plugin-export
       '@embedpdf/plugin-form':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-form@*
         version: link:../../packages/plugin-form
       '@embedpdf/plugin-fullscreen':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-fullscreen@*
         version: link:../../packages/plugin-fullscreen
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../../packages/plugin-history
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../../packages/plugin-i18n
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../../packages/plugin-interaction-manager
       '@embedpdf/plugin-layout-analysis':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-layout-analysis@*
         version: link:../../packages/plugin-layout-analysis
       '@embedpdf/plugin-pan':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-pan@*
         version: link:../../packages/plugin-pan
       '@embedpdf/plugin-print':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-print@*
         version: link:../../packages/plugin-print
       '@embedpdf/plugin-redaction':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-redaction@*
         version: link:../../packages/plugin-redaction
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../../packages/plugin-render
       '@embedpdf/plugin-rotate':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-rotate@*
         version: link:../../packages/plugin-rotate
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../../packages/plugin-scroll
       '@embedpdf/plugin-search':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-search@*
         version: link:../../packages/plugin-search
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../../packages/plugin-selection
       '@embedpdf/plugin-signature':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-signature@*
         version: link:../../packages/plugin-signature
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../../packages/plugin-spread
       '@embedpdf/plugin-stamp':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-stamp@*
         version: link:../../packages/plugin-stamp
       '@embedpdf/plugin-thumbnail':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-thumbnail@*
         version: link:../../packages/plugin-thumbnail
       '@embedpdf/plugin-tiling':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-tiling@*
         version: link:../../packages/plugin-tiling
       '@embedpdf/plugin-ui':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ui@*
         version: link:../../packages/plugin-ui
       '@embedpdf/plugin-view-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-view-manager@*
         version: link:../../packages/plugin-view-manager
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../../packages/plugin-viewport
       '@embedpdf/plugin-zoom':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-zoom@*
         version: link:../../packages/plugin-zoom
       '@embedpdf/snippet':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-snippet@*
         version: link:../../viewers/snippet
       '@embedpdf/svelte-pdf-viewer':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-svelte-pdf-viewer@*
         version: link:../../viewers/svelte
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../../packages/utils
       '@sveltejs/adapter-auto':
         specifier: ^7.0.0
@@ -508,115 +508,115 @@ importers:
   examples/vue-tailwind:
     dependencies:
       '@embedpdf/ai':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-ai@*
         version: link:../../packages/ai
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../packages/core
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../../packages/engines
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../packages/models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../../packages/pdfium
       '@embedpdf/plugin-ai-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ai-manager@*
         version: link:../../packages/plugin-ai-manager
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../../packages/plugin-annotation
       '@embedpdf/plugin-capture':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-capture@*
         version: link:../../packages/plugin-capture
       '@embedpdf/plugin-commands':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-commands@*
         version: link:../../packages/plugin-commands
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../../packages/plugin-document-manager
       '@embedpdf/plugin-export':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-export@*
         version: link:../../packages/plugin-export
       '@embedpdf/plugin-form':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-form@*
         version: link:../../packages/plugin-form
       '@embedpdf/plugin-fullscreen':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-fullscreen@*
         version: link:../../packages/plugin-fullscreen
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../../packages/plugin-history
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../../packages/plugin-i18n
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../../packages/plugin-interaction-manager
       '@embedpdf/plugin-layout-analysis':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-layout-analysis@*
         version: link:../../packages/plugin-layout-analysis
       '@embedpdf/plugin-pan':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-pan@*
         version: link:../../packages/plugin-pan
       '@embedpdf/plugin-print':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-print@*
         version: link:../../packages/plugin-print
       '@embedpdf/plugin-redaction':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-redaction@*
         version: link:../../packages/plugin-redaction
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../../packages/plugin-render
       '@embedpdf/plugin-rotate':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-rotate@*
         version: link:../../packages/plugin-rotate
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../../packages/plugin-scroll
       '@embedpdf/plugin-search':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-search@*
         version: link:../../packages/plugin-search
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../../packages/plugin-selection
       '@embedpdf/plugin-signature':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-signature@*
         version: link:../../packages/plugin-signature
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../../packages/plugin-spread
       '@embedpdf/plugin-stamp':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-stamp@*
         version: link:../../packages/plugin-stamp
       '@embedpdf/plugin-thumbnail':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-thumbnail@*
         version: link:../../packages/plugin-thumbnail
       '@embedpdf/plugin-tiling':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-tiling@*
         version: link:../../packages/plugin-tiling
       '@embedpdf/plugin-ui':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ui@*
         version: link:../../packages/plugin-ui
       '@embedpdf/plugin-view-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-view-manager@*
         version: link:../../packages/plugin-view-manager
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../../packages/plugin-viewport
       '@embedpdf/plugin-zoom':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-zoom@*
         version: link:../../packages/plugin-zoom
       '@embedpdf/snippet':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-snippet@*
         version: link:../../viewers/snippet
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../../packages/utils
       '@embedpdf/vue-pdf-viewer':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-vue-pdf-viewer@*
         version: link:../../viewers/vue
       lucide-vue-next:
         specifier: ^0.562.0
@@ -668,76 +668,76 @@ importers:
   examples/vue-vuetify:
     dependencies:
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../packages/core
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../../packages/engines
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../packages/models
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../../packages/plugin-annotation
       '@embedpdf/plugin-capture':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-capture@*
         version: link:../../packages/plugin-capture
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../../packages/plugin-document-manager
       '@embedpdf/plugin-export':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-export@*
         version: link:../../packages/plugin-export
       '@embedpdf/plugin-fullscreen':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-fullscreen@*
         version: link:../../packages/plugin-fullscreen
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../../packages/plugin-history
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../../packages/plugin-interaction-manager
       '@embedpdf/plugin-pan':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-pan@*
         version: link:../../packages/plugin-pan
       '@embedpdf/plugin-print':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-print@*
         version: link:../../packages/plugin-print
       '@embedpdf/plugin-redaction':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-redaction@*
         version: link:../../packages/plugin-redaction
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../../packages/plugin-render
       '@embedpdf/plugin-rotate':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-rotate@*
         version: link:../../packages/plugin-rotate
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../../packages/plugin-scroll
       '@embedpdf/plugin-search':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-search@*
         version: link:../../packages/plugin-search
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../../packages/plugin-selection
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../../packages/plugin-spread
       '@embedpdf/plugin-thumbnail':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-thumbnail@*
         version: link:../../packages/plugin-thumbnail
       '@embedpdf/plugin-tiling':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-tiling@*
         version: link:../../packages/plugin-tiling
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../../packages/plugin-viewport
       '@embedpdf/plugin-zoom':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-zoom@*
         version: link:../../packages/plugin-zoom
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../../packages/utils
       '@fontsource/roboto':
         specifier: 5.2.6
@@ -792,14 +792,14 @@ importers:
   packages/ai:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       onnxruntime-node:
         specifier: '>=1.18.0'
         version: 1.24.1
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       onnxruntime-web:
         specifier: ^1.22.0
@@ -839,10 +839,10 @@ importers:
   packages/core:
     dependencies:
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../engines
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -861,7 +861,7 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@types/react':
         specifier: ^18.2.0
@@ -875,31 +875,31 @@ importers:
   packages/engines:
     dependencies:
       '@embedpdf/fonts-arabic':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-fonts-arabic@*
         version: link:../fonts/arabic
       '@embedpdf/fonts-hebrew':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-fonts-hebrew@*
         version: link:../fonts/hebrew
       '@embedpdf/fonts-jp':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-fonts-jp@*
         version: link:../fonts/jp
       '@embedpdf/fonts-kr':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-fonts-kr@*
         version: link:../fonts/kr
       '@embedpdf/fonts-latin':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-fonts-latin@*
         version: link:../fonts/latin
       '@embedpdf/fonts-sc':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-fonts-sc@*
         version: link:../fonts/sc
       '@embedpdf/fonts-tc':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-fonts-tc@*
         version: link:../fonts/tc
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../pdfium
       preact:
         specifier: ^10.26.4
@@ -918,7 +918,7 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@types/jest':
         specifier: ^29.5.14
@@ -939,13 +939,13 @@ importers:
   packages/engines/examples/node:
     dependencies:
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../..
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../../models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../../../pdfium
       sharp:
         specifier: ^0.34.2
@@ -954,11 +954,11 @@ importers:
   packages/fonts/arabic:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../models
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../../build
       typescript:
         specifier: ^5.0.0
@@ -967,11 +967,11 @@ importers:
   packages/fonts/hebrew:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../models
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../../build
       typescript:
         specifier: ^5.0.0
@@ -980,11 +980,11 @@ importers:
   packages/fonts/jp:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../models
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../../build
       typescript:
         specifier: ^5.0.0
@@ -993,11 +993,11 @@ importers:
   packages/fonts/kr:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../models
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../../build
       typescript:
         specifier: ^5.0.0
@@ -1006,11 +1006,11 @@ importers:
   packages/fonts/latin:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../models
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../../build
       typescript:
         specifier: ^5.0.0
@@ -1019,11 +1019,11 @@ importers:
   packages/fonts/sc:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../models
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../../build
       typescript:
         specifier: ^5.0.0
@@ -1032,11 +1032,11 @@ importers:
   packages/fonts/tc:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../models
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../../build
       typescript:
         specifier: ^5.0.0
@@ -1045,7 +1045,7 @@ importers:
   packages/models:
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@types/jest':
         specifier: ^30.0.0
@@ -1096,16 +1096,16 @@ importers:
   packages/pdfium/examples/node:
     dependencies:
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../..
 
   packages/plugin-ai-manager:
     dependencies:
       '@embedpdf/ai':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-ai@*
         version: link:../ai
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1124,10 +1124,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1139,13 +1139,13 @@ importers:
   packages/plugin-annotation:
     dependencies:
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
       preact:
         specifier: ^10.26.4
@@ -1164,19 +1164,19 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../plugin-history
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../plugin-interaction-manager
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../plugin-scroll
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../plugin-selection
       '@types/react':
         specifier: ^18.2.0
@@ -1191,7 +1191,7 @@ importers:
   packages/plugin-attachment:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1210,10 +1210,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1225,7 +1225,7 @@ importers:
   packages/plugin-bookmark:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1244,10 +1244,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1259,7 +1259,7 @@ importers:
   packages/plugin-capture:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1278,16 +1278,16 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../plugin-interaction-manager
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../plugin-render
       '@types/react':
         specifier: ^18.2.0
@@ -1299,7 +1299,7 @@ importers:
   packages/plugin-commands:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1318,13 +1318,13 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../plugin-i18n
       '@types/react':
         specifier: ^18.2.0
@@ -1336,7 +1336,7 @@ importers:
   packages/plugin-document-manager:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1355,10 +1355,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1370,7 +1370,7 @@ importers:
   packages/plugin-export:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1389,10 +1389,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1404,10 +1404,10 @@ importers:
   packages/plugin-form:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
       preact:
         specifier: ^10.26.4
@@ -1426,16 +1426,16 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../plugin-annotation
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../plugin-history
       '@types/react':
         specifier: ^18.2.0
@@ -1447,7 +1447,7 @@ importers:
   packages/plugin-fullscreen:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1466,10 +1466,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1481,7 +1481,7 @@ importers:
   packages/plugin-history:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1500,10 +1500,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1515,7 +1515,7 @@ importers:
   packages/plugin-i18n:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1534,10 +1534,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1549,7 +1549,7 @@ importers:
   packages/plugin-interaction-manager:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1568,10 +1568,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1583,10 +1583,10 @@ importers:
   packages/plugin-layout-analysis:
     dependencies:
       '@embedpdf/ai':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-ai@*
         version: link:../ai
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1605,16 +1605,16 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-ai-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ai-manager@*
         version: link:../plugin-ai-manager
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../plugin-render
       '@types/react':
         specifier: ^18.2.0
@@ -1629,10 +1629,10 @@ importers:
   packages/plugin-pan:
     dependencies:
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1651,13 +1651,13 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../plugin-interaction-manager
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../plugin-viewport
       '@types/react':
         specifier: ^18.2.0
@@ -1669,7 +1669,7 @@ importers:
   packages/plugin-print:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1688,10 +1688,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1706,10 +1706,10 @@ importers:
   packages/plugin-redaction:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
       preact:
         specifier: ^10.26.4
@@ -1728,22 +1728,22 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../plugin-annotation
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../plugin-history
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../plugin-interaction-manager
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../plugin-selection
       '@types/react':
         specifier: ^18.2.0
@@ -1755,7 +1755,7 @@ importers:
   packages/plugin-render:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1774,10 +1774,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1789,7 +1789,7 @@ importers:
   packages/plugin-rotate:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1808,10 +1808,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1823,7 +1823,7 @@ importers:
   packages/plugin-scroll:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1842,19 +1842,19 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../plugin-interaction-manager
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../plugin-spread
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../plugin-viewport
       '@types/react':
         specifier: ^18.2.0
@@ -1866,7 +1866,7 @@ importers:
   packages/plugin-search:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1885,10 +1885,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -1900,10 +1900,10 @@ importers:
   packages/plugin-selection:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
       preact:
         specifier: ^10.26.4
@@ -1922,19 +1922,19 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../plugin-interaction-manager
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../plugin-scroll
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../plugin-viewport
       '@types/react':
         specifier: ^18.2.0
@@ -1946,7 +1946,7 @@ importers:
   packages/plugin-signature:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -1965,13 +1965,13 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../plugin-annotation
       '@types/react':
         specifier: ^18.2.0
@@ -1983,7 +1983,7 @@ importers:
   packages/plugin-spread:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2002,13 +2002,13 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../plugin-viewport
       '@types/react':
         specifier: ^18.2.0
@@ -2020,7 +2020,7 @@ importers:
   packages/plugin-stamp:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2039,16 +2039,16 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../plugin-annotation
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../plugin-i18n
       '@types/react':
         specifier: ^18.2.0
@@ -2060,7 +2060,7 @@ importers:
   packages/plugin-thumbnail:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2079,16 +2079,16 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../plugin-render
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../plugin-scroll
       '@types/react':
         specifier: ^18.2.0
@@ -2100,7 +2100,7 @@ importers:
   packages/plugin-tiling:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2119,19 +2119,19 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../plugin-render
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../plugin-scroll
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../plugin-viewport
       '@types/react':
         specifier: ^18.2.0
@@ -2143,7 +2143,7 @@ importers:
   packages/plugin-ui:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2162,25 +2162,25 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../plugin-i18n
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../plugin-render
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../plugin-scroll
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../plugin-viewport
       '@embedpdf/utils':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
       '@types/react':
         specifier: ^18.2.0
@@ -2192,7 +2192,7 @@ importers:
   packages/plugin-view-manager:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2211,13 +2211,13 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../plugin-document-manager
       '@types/react':
         specifier: ^18.2.0
@@ -2229,7 +2229,7 @@ importers:
   packages/plugin-viewport:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2248,10 +2248,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@types/react':
         specifier: ^18.2.0
@@ -2263,7 +2263,7 @@ importers:
   packages/plugin-zoom:
     dependencies:
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       preact:
         specifier: ^10.26.4
@@ -2282,22 +2282,22 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../core
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../plugin-interaction-manager
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../plugin-scroll
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../plugin-spread
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../plugin-viewport
       '@types/react':
         specifier: ^18.2.0
@@ -2325,10 +2325,10 @@ importers:
         version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-build@*
         version: link:../build
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
       '@types/react':
         specifier: ^18.2.0
@@ -2340,7 +2340,7 @@ importers:
   viewers/react:
     dependencies:
       '@embedpdf/snippet':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-snippet@*
         version: link:../snippet
       react:
         specifier: '>=17.0.0'
@@ -2371,100 +2371,100 @@ importers:
   viewers/snippet:
     dependencies:
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../packages/core
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../../packages/engines
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../../packages/models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../../packages/pdfium
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../../packages/plugin-annotation
       '@embedpdf/plugin-attachment':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-attachment@*
         version: link:../../packages/plugin-attachment
       '@embedpdf/plugin-bookmark':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-bookmark@*
         version: link:../../packages/plugin-bookmark
       '@embedpdf/plugin-capture':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-capture@*
         version: link:../../packages/plugin-capture
       '@embedpdf/plugin-commands':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-commands@*
         version: link:../../packages/plugin-commands
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../../packages/plugin-document-manager
       '@embedpdf/plugin-export':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-export@*
         version: link:../../packages/plugin-export
       '@embedpdf/plugin-form':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-form@*
         version: link:../../packages/plugin-form
       '@embedpdf/plugin-fullscreen':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-fullscreen@*
         version: link:../../packages/plugin-fullscreen
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../../packages/plugin-history
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../../packages/plugin-i18n
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../../packages/plugin-interaction-manager
       '@embedpdf/plugin-pan':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-pan@*
         version: link:../../packages/plugin-pan
       '@embedpdf/plugin-print':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-print@*
         version: link:../../packages/plugin-print
       '@embedpdf/plugin-redaction':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-redaction@*
         version: link:../../packages/plugin-redaction
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../../packages/plugin-render
       '@embedpdf/plugin-rotate':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-rotate@*
         version: link:../../packages/plugin-rotate
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../../packages/plugin-scroll
       '@embedpdf/plugin-search':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-search@*
         version: link:../../packages/plugin-search
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../../packages/plugin-selection
       '@embedpdf/plugin-signature':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-signature@*
         version: link:../../packages/plugin-signature
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../../packages/plugin-spread
       '@embedpdf/plugin-stamp':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-stamp@*
         version: link:../../packages/plugin-stamp
       '@embedpdf/plugin-thumbnail':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-thumbnail@*
         version: link:../../packages/plugin-thumbnail
       '@embedpdf/plugin-tiling':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-tiling@*
         version: link:../../packages/plugin-tiling
       '@embedpdf/plugin-ui':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ui@*
         version: link:../../packages/plugin-ui
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../../packages/plugin-viewport
       '@embedpdf/plugin-zoom':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-zoom@*
         version: link:../../packages/plugin-zoom
       preact:
         specifier: ^10.17.0
@@ -2567,7 +2567,7 @@ importers:
   viewers/svelte:
     dependencies:
       '@embedpdf/snippet':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-snippet@*
         version: link:../snippet
     devDependencies:
       '@sveltejs/package':
@@ -2586,7 +2586,7 @@ importers:
   viewers/vue:
     dependencies:
       '@embedpdf/snippet':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-snippet@*
         version: link:../snippet
     devDependencies:
       '@vitejs/plugin-vue':
@@ -2623,109 +2623,109 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@18.3.1)
       '@embedpdf/ai':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-ai@*
         version: link:../packages/ai
       '@embedpdf/core':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../packages/core
       '@embedpdf/engines':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-engines@*
         version: link:../packages/engines
       '@embedpdf/example-svelte-tailwind':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-example-svelte-tailwind@*
         version: link:../examples/svelte-tailwind
       '@embedpdf/example-vue-tailwind':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-example-vue-tailwind@*
         version: link:../examples/vue-tailwind
       '@embedpdf/models':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../packages/models
       '@embedpdf/pdfium':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../packages/pdfium
       '@embedpdf/plugin-ai-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-ai-manager@*
         version: link:../packages/plugin-ai-manager
       '@embedpdf/plugin-annotation':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../packages/plugin-annotation
       '@embedpdf/plugin-capture':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-capture@*
         version: link:../packages/plugin-capture
       '@embedpdf/plugin-commands':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-commands@*
         version: link:../packages/plugin-commands
       '@embedpdf/plugin-document-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-document-manager@*
         version: link:../packages/plugin-document-manager
       '@embedpdf/plugin-export':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-export@*
         version: link:../packages/plugin-export
       '@embedpdf/plugin-form':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-form@*
         version: link:../packages/plugin-form
       '@embedpdf/plugin-history':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-history@*
         version: link:../packages/plugin-history
       '@embedpdf/plugin-i18n':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-i18n@*
         version: link:../packages/plugin-i18n
       '@embedpdf/plugin-interaction-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-interaction-manager@*
         version: link:../packages/plugin-interaction-manager
       '@embedpdf/plugin-layout-analysis':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-layout-analysis@*
         version: link:../packages/plugin-layout-analysis
       '@embedpdf/plugin-pan':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-pan@*
         version: link:../packages/plugin-pan
       '@embedpdf/plugin-print':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-print@*
         version: link:../packages/plugin-print
       '@embedpdf/plugin-redaction':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-redaction@*
         version: link:../packages/plugin-redaction
       '@embedpdf/plugin-render':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-render@*
         version: link:../packages/plugin-render
       '@embedpdf/plugin-rotate':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-rotate@*
         version: link:../packages/plugin-rotate
       '@embedpdf/plugin-scroll':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-scroll@*
         version: link:../packages/plugin-scroll
       '@embedpdf/plugin-selection':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-selection@*
         version: link:../packages/plugin-selection
       '@embedpdf/plugin-signature':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-signature@*
         version: link:../packages/plugin-signature
       '@embedpdf/plugin-spread':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-spread@*
         version: link:../packages/plugin-spread
       '@embedpdf/plugin-stamp':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-stamp@*
         version: link:../packages/plugin-stamp
       '@embedpdf/plugin-thumbnail':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-thumbnail@*
         version: link:../packages/plugin-thumbnail
       '@embedpdf/plugin-tiling':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-tiling@*
         version: link:../packages/plugin-tiling
       '@embedpdf/plugin-view-manager':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-view-manager@*
         version: link:../packages/plugin-view-manager
       '@embedpdf/plugin-viewport':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-viewport@*
         version: link:../packages/plugin-viewport
       '@embedpdf/plugin-zoom':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-plugin-zoom@*
         version: link:../packages/plugin-zoom
       '@embedpdf/react-pdf-viewer':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-react-pdf-viewer@*
         version: link:../viewers/react
       '@embedpdf/snippet':
-        specifier: workspace:*
+        specifier: workspace:@lofcz/embedpdf-snippet@*
         version: link:../viewers/snippet
       '@headlessui/react':
         specifier: ^2.2.0

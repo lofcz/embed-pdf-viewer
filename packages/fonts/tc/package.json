@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/fonts-tc",
+  "name": "@lofcz/embedpdf-fonts-tc",
   "version": "1.0.0",
   "private": false,
   "description": "Traditional Chinese (Big5) fallback fonts for EmbedPDF - Noto Sans Hant (7 weights)",
@@ -30,7 +30,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "url": "https://github.com/lofcz/embed-pdf-viewer",
     "directory": "packages/fonts/tc"
   },
   "homepage": "https://www.embedpdf.com/docs",
@@ -45,14 +45,14 @@
     "README.md"
   ],
   "devDependencies": {
-    "@embedpdf/build": "workspace:*",
-    "@embedpdf/models": "workspace:*",
+    "@embedpdf/build": "workspace:@lofcz/embedpdf-build@*",
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*",
     "typescript": "^5.0.0"
   },
   "publishConfig": {
     "access": "public"
   },
   "dependencies": {
-    "@embedpdf/models": "workspace:*"
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*"
   }
 }

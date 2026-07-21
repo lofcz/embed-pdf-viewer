@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/svelte-pdf-viewer",
+  "name": "@lofcz/embedpdf-svelte-pdf-viewer",
   "version": "2.14.4",
   "description": "Svelte component for embedding PDF documents",
   "license": "MIT",
@@ -24,7 +24,7 @@
     "build": "pnpm run clean && svelte-package -i src -o dist"
   },
   "dependencies": {
-    "@embedpdf/snippet": "workspace:*"
+    "@embedpdf/snippet": "workspace:@lofcz/embedpdf-snippet@*"
   },
   "devDependencies": {
     "@sveltejs/package": "^2.3.0",
@@ -44,7 +44,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "viewers/svelte"
   },
   "publishConfig": {

@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-tiling",
+  "name": "@lofcz/embedpdf-plugin-tiling",
   "version": "2.14.4",
   "type": "module",
   "license": "MIT",
@@ -46,22 +46,22 @@
     "lint:fix": "eslint src --color --fix"
   },
   "dependencies": {
-    "@embedpdf/models": "workspace:*"
+    "@embedpdf/models": "workspace:@lofcz/embedpdf-models@*"
   },
   "devDependencies": {
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/build": "workspace:*",
-    "@embedpdf/plugin-render": "workspace:*",
-    "@embedpdf/plugin-scroll": "workspace:*",
-    "@embedpdf/plugin-viewport": "workspace:*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/build": "workspace:@lofcz/embedpdf-build@*",
+    "@embedpdf/plugin-render": "workspace:@lofcz/embedpdf-plugin-render@*",
+    "@embedpdf/plugin-scroll": "workspace:@lofcz/embedpdf-plugin-scroll@*",
+    "@embedpdf/plugin-viewport": "workspace:@lofcz/embedpdf-plugin-viewport@*",
     "@types/react": "^18.2.0",
     "typescript": "^5.0.0"
   },
   "peerDependencies": {
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/plugin-render": "workspace:*",
-    "@embedpdf/plugin-scroll": "workspace:*",
-    "@embedpdf/plugin-viewport": "workspace:*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/plugin-render": "workspace:@lofcz/embedpdf-plugin-render@*",
+    "@embedpdf/plugin-scroll": "workspace:@lofcz/embedpdf-plugin-scroll@*",
+    "@embedpdf/plugin-viewport": "workspace:@lofcz/embedpdf-plugin-viewport@*",
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0",
     "preact": "^10.26.4",
@@ -74,7 +74,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/embedpdf/embed-pdf-viewer",
+    "url": "https://github.com/lofcz/embed-pdf-viewer",
     "directory": "packages/plugin-tiling"
   },
   "homepage": "https://www.embedpdf.com/docs",
