@@ -35,7 +35,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          # Needed so the version commit/tag can push back to main.
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup PNPM
@@ -47,12 +46,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
-          # registry-url writes an .npmrc with _authToken=${NODE_AUTH_TOKEN}.
-          # That makes setup-node inject secrets.NPM_TOKEN and overrides OIDC
-          # trusted publishing (npm then returns E404 on PUT for scoped pkgs).
-          # Do NOT set registry-url / NODE_AUTH_TOKEN / NPM_TOKEN here.
+          # Do NOT set registry-url: it writes `_authToken=${NODE_AUTH_TOKEN}`
+          # which blocks OIDC when the token is absent (ENEEDAUTH / E404).
 
       - name: Install deps
         run: pnpm install --frozen-lockfile

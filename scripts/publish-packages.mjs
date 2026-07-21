@@ -1,9 +1,9 @@
 /**
  * Publish fork packages to npm.
  *
- * Uses `pnpm publish` so workspace: deps are rewritten to real versions.
- * - Local: needs interactive TTY for browser/web-auth when not trusted.
- * - CI: OIDC trusted publishing via setup-node registry-url + id-token.
+ * - Local: `pnpm publish` (interactive TTY / web-auth).
+ * - CI: `pnpm pack` (rewrites workspace: deps) + `npm publish` (OIDC trusted
+ *   publishing requires npm >= 11.5.1; no NODE_AUTH_TOKEN / registry-url auth).
  */
 import { spawnSync } from "child_process";
 import fs from "fs";
@@ -64,6 +64,104 @@ function alreadyPublished(name, version) {
   return (result.stdout || "").trim() === version;
 }
 
+function publishEnv() {
+  const env = { ...process.env };
+  if (isCI) {
+    // Classic / empty tokens prevent the OIDC trusted-publishing exchange.
+    delete env.NODE_AUTH_TOKEN;
+    delete env.NPM_TOKEN;
+    env.NPM_CONFIG_PROVENANCE = env.NPM_CONFIG_PROVENANCE || "true";
+  }
+  return env;
+}
+
+function assertNpmSupportsOidc() {
+  const result = spawnSync("npm", ["-v"], {
+    encoding: "utf8",
+    shell: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  const version = (result.stdout || "").trim();
+  console.log(`npm ${version}`);
+  const m = version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (!m) {
+    console.error("Could not parse npm version; trusted publishing needs npm >= 11.5.1");
+    process.exit(1);
+  }
+  const major = Number(m[1]);
+  const minor = Number(m[2]);
+  const patch = Number(m[3]);
+  const ok = major > 11 || (major === 11 && (minor > 5 || (minor === 5 && patch >= 1)));
+  if (!ok) {
+    console.error(`npm ${version} is too old for trusted publishing (need >= 11.5.1).`);
+    process.exit(1);
+  }
+}
+
+function publishLocal(dir) {
+  return spawnSync("pnpm", ["publish", "--access", "public", "--no-git-checks"], {
+    cwd: dir,
+    shell: true,
+    stdio: "inherit",
+    env: publishEnv(),
+  }).status;
+}
+
+/** Pack with pnpm (workspace rewrite), publish tarball with npm (OIDC). */
+function publishCI(dir) {
+  const env = publishEnv();
+  const pack = spawnSync("pnpm", ["pack"], {
+    cwd: dir,
+    shell: true,
+    encoding: "utf8",
+    env,
+  });
+  if (pack.status !== 0) {
+    console.error(pack.stderr || pack.stdout || "pnpm pack failed");
+    return pack.status ?? 1;
+  }
+
+  const lines = `${pack.stdout || ""}\n${pack.stderr || ""}`
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const tgzLine = [...lines].reverse().find((l) => l.endsWith(".tgz"));
+  if (!tgzLine) {
+    console.error("pnpm pack did not print a .tgz path");
+    return 1;
+  }
+
+  const tgzPath = path.isAbsolute(tgzLine) ? tgzLine : path.join(dir, path.basename(tgzLine));
+  if (!fs.existsSync(tgzPath)) {
+    // pnpm sometimes prints a relative name from cwd
+    const alt = path.join(dir, tgzLine);
+    if (!fs.existsSync(alt)) {
+      console.error(`Packed tarball not found: ${tgzPath}`);
+      return 1;
+    }
+  }
+  const resolvedTgz = fs.existsSync(tgzPath) ? tgzPath : path.join(dir, tgzLine);
+
+  const result = spawnSync(
+    "npm",
+    ["publish", resolvedTgz, "--access", "public", "--provenance"],
+    {
+      cwd: dir,
+      shell: true,
+      stdio: "inherit",
+      env,
+    },
+  );
+
+  try {
+    fs.unlinkSync(resolvedTgz);
+  } catch {
+    // ignore cleanup errors
+  }
+
+  return result.status ?? 1;
+}
+
 const published = [];
 const skipped = [];
 const failed = [];
@@ -73,21 +171,11 @@ if (!isCI && !process.stdin.isTTY) {
   process.exit(1);
 }
 
-function publishEnv() {
-  const env = { ...process.env };
-  if (isCI) {
-    // Classic tokens override OIDC trusted publishing and produce E404 on PUT.
-    delete env.NODE_AUTH_TOKEN;
-    delete env.NPM_TOKEN;
-    env.NPM_CONFIG_PROVENANCE = env.NPM_CONFIG_PROVENANCE || "true";
-  }
-  return env;
-}
-
 if (!isCI) {
   console.log("Interactive publish: complete any browser auth challenge when prompted.\n");
 } else {
   console.log("CI publish via npm trusted publishing (OIDC).\n");
+  assertNpmSupportsOidc();
   if (process.env.NODE_AUTH_TOKEN || process.env.NPM_TOKEN) {
     console.log("Note: clearing NODE_AUTH_TOKEN / NPM_TOKEN so OIDC is used.\n");
   }
@@ -112,23 +200,15 @@ for (const dir of dirs) {
 
   console.log(`\n→ publishing ${pkg.name}@${pkg.version}`);
 
-  const args = ["publish", "--access", "public", "--no-git-checks"];
-  if (isCI) args.push("--provenance");
+  const status = isCI ? publishCI(dir) : publishLocal(dir);
 
-  const result = spawnSync("pnpm", args, {
-    cwd: dir,
-    shell: true,
-    stdio: "inherit",
-    env: publishEnv(),
-  });
-
-  if (result.status === 0) {
+  if (status === 0) {
     published.push(`${pkg.name}@${pkg.version}`);
     continue;
   }
 
   failed.push(`${pkg.name}@${pkg.version}`);
-  console.error(`✖ failed: ${pkg.name}@${pkg.version} (exit ${result.status})`);
+  console.error(`✖ failed: ${pkg.name}@${pkg.version} (exit ${status})`);
   if (isCI) break;
   console.error("Fix auth / retry. Re-run `pnpm ci:publish` — already-published packages are skipped.");
   break;
