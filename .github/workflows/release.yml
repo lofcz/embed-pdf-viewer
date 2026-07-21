@@ -71,6 +71,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ steps.bump.outputs.version }}"
+          BRANCH="${{ github.ref_name }}"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add packages viewers
@@ -79,12 +80,19 @@ jobs:
           else
             git commit -m "chore: release v${VERSION}"
           fi
-          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
-            echo "Tag v${VERSION} already exists locally."
-          else
-            git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          # main may have moved while build/publish ran — rebase before push
+          git fetch origin "$BRANCH"
+          if ! git rebase "origin/$BRANCH"; then
+            echo "Rebase conflict integrating origin/${BRANCH}; resolve and re-run."
+            git rebase --abort || true
+            exit 1
           fi
-          git push origin HEAD:${{ github.ref_name }}
+          # Tag after rebase so it points at the commit we push
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            git tag -d "v${VERSION}"
+          fi
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "HEAD:${BRANCH}"
           git push origin "v${VERSION}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 

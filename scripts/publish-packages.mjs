@@ -251,6 +251,11 @@ console.log(JSON.stringify(summary, null, 2));
 
 if (failed.length) process.exit(1);
 if (isCI && published.length === 0) {
-  console.error("CI publish published 0 packages.");
-  process.exit(1);
+  const already = skipped.filter((s) => s.includes("already on npm"));
+  if (already.length === 0) {
+    console.error("CI publish published 0 packages.");
+    process.exit(1);
+  }
+  // Idempotent re-run after a prior successful publish + failed git push.
+  console.log(`All ${already.length} target versions already on npm — nothing new to publish.`);
 }
