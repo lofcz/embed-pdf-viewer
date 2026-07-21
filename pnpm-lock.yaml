@@ -844,21 +844,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -901,21 +892,12 @@ importers:
       '@embedpdf/pdfium':
         specifier: workspace:@lofcz/embedpdf-pdfium@*
         version: link:../pdfium
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1107,21 +1089,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1147,21 +1120,12 @@ importers:
       '@embedpdf/utils':
         specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1193,21 +1157,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1227,21 +1182,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1261,21 +1207,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1301,21 +1238,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1338,21 +1266,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1372,21 +1291,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1409,21 +1319,12 @@ importers:
       '@embedpdf/utils':
         specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1449,21 +1350,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1483,21 +1375,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1517,21 +1400,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1551,21 +1425,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1588,21 +1453,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1634,21 +1490,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1671,21 +1518,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=18.0.0'
         version: 18.3.1
       react-dom:
         specifier: '>=18.0.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1711,21 +1549,12 @@ importers:
       '@embedpdf/utils':
         specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1757,21 +1586,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1791,21 +1611,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1825,21 +1636,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1868,21 +1670,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1905,21 +1698,12 @@ importers:
       '@embedpdf/utils':
         specifier: workspace:@lofcz/embedpdf-utils@*
         version: link:../utils
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1948,21 +1732,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -1985,21 +1760,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2022,21 +1788,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2062,21 +1819,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2102,21 +1850,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2145,21 +1884,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2194,21 +1924,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2231,21 +1952,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2265,21 +1977,12 @@ importers:
       '@embedpdf/models':
         specifier: workspace:@lofcz/embedpdf-models@*
         version: link:../models
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
@@ -2308,21 +2011,12 @@ importers:
 
   packages/utils:
     dependencies:
-      preact:
-        specifier: ^10.26.4
-        version: 10.28.3
       react:
         specifier: '>=16.8.0'
         version: 18.3.1
       react-dom:
         specifier: '>=16.8.0'
         version: 18.3.1(react@18.3.1)
-      svelte:
-        specifier: '>=5 <6'
-        version: 5.50.1
-      vue:
-        specifier: '>=3.2.0'
-        version: 3.5.28(typescript@5.9.3)
     devDependencies:
       '@embedpdf/build':
         specifier: workspace:@lofcz/embedpdf-build@*
