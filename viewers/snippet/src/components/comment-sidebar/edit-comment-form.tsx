@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 
 interface EditCommentFormProps {
   initialText: string;

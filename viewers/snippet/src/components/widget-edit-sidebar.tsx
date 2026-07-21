@@ -11,10 +11,10 @@ import {
   PDF_FORM_FIELD_FLAG,
 } from '@embedpdf/models';
 import type { RenameFieldResult } from '@embedpdf/plugin-form';
-import { useAnnotation } from '@embedpdf/plugin-annotation/preact';
+import { useAnnotation } from '@embedpdf/plugin-annotation/react';
 import { getSelectedAnnotations } from '@embedpdf/plugin-annotation';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
-import { useFormCapability } from '@embedpdf/plugin-form/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
+import { useFormCapability } from '@embedpdf/plugin-form/react';
 
 import { Checkbox } from './ui/checkbox';
 

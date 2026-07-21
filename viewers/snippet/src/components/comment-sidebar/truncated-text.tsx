@@ -1,6 +1,6 @@
 import { h, Fragment } from 'preact';
 import { useState } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 
 interface TruncatedTextProps {
   text: string;

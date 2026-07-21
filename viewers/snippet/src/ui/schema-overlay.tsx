@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { OverlaySchema, OverlayAnchor, UI_ATTRIBUTES } from '@embedpdf/plugin-ui';
-import { useItemRenderer } from '@embedpdf/plugin-ui/preact';
+import { useItemRenderer } from '@embedpdf/plugin-ui/react';
 
 export interface OverlayRendererProps {
   schema: OverlaySchema;

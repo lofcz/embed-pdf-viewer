@@ -2,27 +2,27 @@ import { h, Fragment } from 'preact';
 import type { JSX } from 'preact';
 import { useEffect, useMemo } from 'preact/hooks';
 import styles from '../styles/index.css';
-import { EmbedPDF } from '@embedpdf/core/preact';
+import { EmbedPDF } from '@embedpdf/core/react';
 import { createPluginRegistration, PluginRegistry, PermissionConfig } from '@embedpdf/core';
-import { usePdfiumEngine } from '@embedpdf/engines/preact';
+import { usePdfiumEngine } from '@embedpdf/engines/react';
 import type { FontFallbackConfig } from '@embedpdf/engines';
 import { AllLogger, ConsoleLogger, PerfLogger, Rotation } from '@embedpdf/models';
 import {
   Viewport,
   ViewportPluginPackage,
   ViewportPluginConfig,
-} from '@embedpdf/plugin-viewport/preact';
+} from '@embedpdf/plugin-viewport/react';
 import {
   Scroller,
   ScrollPluginPackage,
   ScrollPluginConfig,
   ScrollStrategy,
-} from '@embedpdf/plugin-scroll/preact';
+} from '@embedpdf/plugin-scroll/react';
 import {
   SpreadMode,
   SpreadPluginPackage,
   SpreadPluginConfig,
-} from '@embedpdf/plugin-spread/preact';
+} from '@embedpdf/plugin-spread/react';
 import {
   UIProvider,
   useSchemaRenderer,
@@ -30,87 +30,87 @@ import {
   UIPluginConfig,
   UIComponents,
   useSelectionMenu,
-} from '@embedpdf/plugin-ui/preact';
+} from '@embedpdf/plugin-ui/react';
 import {
   DocumentManagerPluginPackage,
   DocumentManagerPluginConfig,
   DocumentContent,
   useOpenDocuments,
   useActiveDocument,
-} from '@embedpdf/plugin-document-manager/preact';
-import { CommandsPluginPackage, CommandsPluginConfig } from '@embedpdf/plugin-commands/preact';
-import { I18nPluginPackage, I18nPluginConfig, useTranslations } from '@embedpdf/plugin-i18n/preact';
+} from '@embedpdf/plugin-document-manager/react';
+import { CommandsPluginPackage, CommandsPluginConfig } from '@embedpdf/plugin-commands/react';
+import { I18nPluginPackage, I18nPluginConfig, useTranslations } from '@embedpdf/plugin-i18n/react';
 import {
   MarqueeZoom,
   ZoomMode,
   ZoomPluginPackage,
   ZoomPluginConfig,
   ZoomGestureWrapper,
-} from '@embedpdf/plugin-zoom/preact';
+} from '@embedpdf/plugin-zoom/react';
 import {
   RenderLayer,
   RenderPluginPackage,
   RenderPluginConfig,
-} from '@embedpdf/plugin-render/preact';
-import { Rotate, RotatePluginPackage, RotatePluginConfig } from '@embedpdf/plugin-rotate/preact';
+} from '@embedpdf/plugin-render/react';
+import { Rotate, RotatePluginPackage, RotatePluginConfig } from '@embedpdf/plugin-rotate/react';
 import {
   SearchLayer,
   SearchPluginPackage,
   SearchPluginConfig,
-} from '@embedpdf/plugin-search/preact';
+} from '@embedpdf/plugin-search/react';
 import {
   SelectionLayer,
   SelectionPluginPackage,
   SelectionPluginConfig,
-} from '@embedpdf/plugin-selection/preact';
+} from '@embedpdf/plugin-selection/react';
 import {
   TilingLayer,
   TilingPluginPackage,
   TilingPluginConfig,
-} from '@embedpdf/plugin-tiling/preact';
-import { ThumbnailPluginPackage, ThumbnailPluginConfig } from '@embedpdf/plugin-thumbnail/preact';
+} from '@embedpdf/plugin-tiling/react';
+import { ThumbnailPluginPackage, ThumbnailPluginConfig } from '@embedpdf/plugin-thumbnail/react';
 import {
   AnnotationLayer,
   AnnotationPluginPackage,
   AnnotationPluginConfig,
   LockModeType,
-} from '@embedpdf/plugin-annotation/preact';
-import { PrintPluginPackage, PrintPluginConfig } from '@embedpdf/plugin-print/preact';
+} from '@embedpdf/plugin-annotation/react';
+import { PrintPluginPackage, PrintPluginConfig } from '@embedpdf/plugin-print/react';
 import {
   FullscreenPluginPackage,
   FullscreenPluginConfig,
-} from '@embedpdf/plugin-fullscreen/preact';
-import { BookmarkPluginPackage, BookmarkPluginConfig } from '@embedpdf/plugin-bookmark/preact';
-import { ExportPluginPackage, ExportPluginConfig } from '@embedpdf/plugin-export/preact';
+} from '@embedpdf/plugin-fullscreen/react';
+import { BookmarkPluginPackage, BookmarkPluginConfig } from '@embedpdf/plugin-bookmark/react';
+import { ExportPluginPackage, ExportPluginConfig } from '@embedpdf/plugin-export/react';
 import {
   GlobalPointerProvider,
   PagePointerProvider,
   InteractionManagerPluginPackage,
   InteractionManagerPluginConfig,
-} from '@embedpdf/plugin-interaction-manager/preact';
-import { PanPluginPackage, PanPluginConfig } from '@embedpdf/plugin-pan/preact';
+} from '@embedpdf/plugin-interaction-manager/react';
+import { PanPluginPackage, PanPluginConfig } from '@embedpdf/plugin-pan/react';
 import {
   MarqueeCapture,
   CapturePluginPackage,
   CapturePluginConfig,
-} from '@embedpdf/plugin-capture/preact';
-import { HistoryPluginPackage, HistoryPluginConfig } from '@embedpdf/plugin-history/preact';
+} from '@embedpdf/plugin-capture/react';
+import { HistoryPluginPackage, HistoryPluginConfig } from '@embedpdf/plugin-history/react';
 import {
   RedactionLayer,
   RedactionPluginPackage,
   RedactionPluginConfig,
-} from '@embedpdf/plugin-redaction/preact';
+} from '@embedpdf/plugin-redaction/react';
 import {
   AttachmentPluginPackage,
   AttachmentPluginConfig,
-} from '@embedpdf/plugin-attachment/preact';
-import { FormPluginPackage, FormPluginConfig } from '@embedpdf/plugin-form/preact';
-import { StampPluginPackage, StampPluginConfig } from '@embedpdf/plugin-stamp/preact';
+} from '@embedpdf/plugin-attachment/react';
+import { FormPluginPackage, FormPluginConfig } from '@embedpdf/plugin-form/react';
+import { StampPluginPackage, StampPluginConfig } from '@embedpdf/plugin-stamp/react';
 import {
   SignaturePluginPackage,
   SignaturePluginConfig,
   SignatureMode,
-} from '@embedpdf/plugin-signature/preact';
+} from '@embedpdf/plugin-signature/react';
 
 import { SchemaToolbar } from '@/ui/schema-toolbar';
 import { SchemaSidebar } from '@/ui/schema-sidebar';

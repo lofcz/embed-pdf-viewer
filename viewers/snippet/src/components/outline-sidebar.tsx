@@ -1,8 +1,8 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useBookmarkCapability } from '@embedpdf/plugin-bookmark/preact';
-import { useScrollCapability } from '@embedpdf/plugin-scroll/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useBookmarkCapability } from '@embedpdf/plugin-bookmark/react';
+import { useScrollCapability } from '@embedpdf/plugin-scroll/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import {
   PdfBookmarkObject,
   PdfZoomMode,
@@ -11,7 +11,7 @@ import {
   PdfActionType,
   PdfDestinationObject,
 } from '@embedpdf/models';
-import { useDocumentState } from '@embedpdf/core/preact';
+import { useDocumentState } from '@embedpdf/core/react';
 import { Icon } from './ui/icon';
 import { ChevronDownIcon } from './icons/chevron-down';
 import { ChevronRightIcon } from './icons/chevron-right';

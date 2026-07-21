@@ -1,9 +1,9 @@
 import { h, Fragment } from 'preact';
-import { useCaptureCapability } from '@embedpdf/plugin-capture/preact';
+import { useCaptureCapability } from '@embedpdf/plugin-capture/react';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 
 export interface CaptureData {
   pageIndex: number;

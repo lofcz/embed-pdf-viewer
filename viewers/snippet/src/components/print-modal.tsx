@@ -1,12 +1,12 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useScrollCapability } from '@embedpdf/plugin-scroll/preact';
-import { usePrintCapability } from '@embedpdf/plugin-print/preact';
+import { useScrollCapability } from '@embedpdf/plugin-scroll/react';
+import { usePrintCapability } from '@embedpdf/plugin-print/react';
 import { PdfPrintOptions } from '@embedpdf/models';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Spinner } from './ui/loading-indicator';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 
 type PageSelection = 'all' | 'current' | 'custom';
 

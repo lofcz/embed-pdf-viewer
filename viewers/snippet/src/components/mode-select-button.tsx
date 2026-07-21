@@ -1,4 +1,4 @@
-import { useCommand } from '@embedpdf/plugin-commands/preact';
+import { useCommand } from '@embedpdf/plugin-commands/react';
 import { h } from 'preact';
 import { useCallback, useMemo } from 'preact/hooks';
 import { Button } from './ui/button';

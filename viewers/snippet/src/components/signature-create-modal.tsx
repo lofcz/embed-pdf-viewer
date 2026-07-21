@@ -1,6 +1,6 @@
 import { h, Fragment } from 'preact';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import {
   useSignatureCapability,
   SignatureDrawPad,
@@ -10,7 +10,7 @@ import {
   useSignatureUpload,
   SignatureFieldDefinition,
   SignatureMode,
-} from '@embedpdf/plugin-signature/preact';
+} from '@embedpdf/plugin-signature/react';
 import { Dialog } from './ui/dialog';
 import { useSnippetConfig } from './snippet-config-context';
 import { ensureFontStylesheet, preloadFontFamilies, waitForStylesheet } from './font-loader';

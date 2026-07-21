@@ -1,14 +1,14 @@
 import { h } from 'preact';
 import { useCallback } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import {
   useSignatureEntries,
   useActivePlacement,
   SignatureEntry,
   SignatureFieldKind,
   SignatureMode,
-} from '@embedpdf/plugin-signature/preact';
-import { useCapability } from '@embedpdf/core/preact';
+} from '@embedpdf/plugin-signature/react';
+import { useCapability } from '@embedpdf/core/react';
 import { UIPlugin } from '@embedpdf/plugin-ui';
 import { Icon } from './ui/icon';
 

@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { SidebarAnnotationEntry, TrackedAnnotation } from '@embedpdf/plugin-annotation';
 import { AnnotationInput } from './annotation-input';
 import { Comment } from './comment';

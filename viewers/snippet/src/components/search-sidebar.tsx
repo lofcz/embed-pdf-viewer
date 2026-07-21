@@ -1,9 +1,9 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect } from 'preact/hooks';
-import { useSearch } from '@embedpdf/plugin-search/preact';
-import { useScrollCapability } from '@embedpdf/plugin-scroll/preact';
+import { useSearch } from '@embedpdf/plugin-search/react';
+import { useScrollCapability } from '@embedpdf/plugin-scroll/react';
 import { MatchFlag, SearchResult } from '@embedpdf/models';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { useDebounce } from '../hooks/use-debounce';
 import { Checkbox } from './ui/checkbox';
 import { Button } from './ui/button';

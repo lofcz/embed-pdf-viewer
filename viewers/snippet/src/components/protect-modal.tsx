@@ -5,9 +5,9 @@ import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 import { Spinner } from './ui/loading-indicator';
 import { PermissionsDisplay, PERMISSION_OPTIONS } from './permissions-display';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
-import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/preact';
-import { useDocumentState } from '@embedpdf/core/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
+import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/react';
+import { useDocumentState } from '@embedpdf/core/react';
 import { PdfPermissionFlag } from '@embedpdf/models';
 
 interface ProtectModalProps {

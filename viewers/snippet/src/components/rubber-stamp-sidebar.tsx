@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useCallback, useEffect } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import {
   useStampLibraries,
   useStampsByLibrary,
@@ -8,7 +8,7 @@ import {
   useActiveStamp,
   StampImg,
   StampDefinition,
-} from '@embedpdf/plugin-stamp/preact';
+} from '@embedpdf/plugin-stamp/react';
 import { Icon } from './ui/icon';
 import { ignore } from '@embedpdf/models';
 

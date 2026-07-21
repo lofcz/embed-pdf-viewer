@@ -1,6 +1,6 @@
 import { h, Fragment } from 'preact';
-import { useCommand } from '@embedpdf/plugin-commands/preact';
-import { useRegisterAnchor } from '@embedpdf/plugin-ui/preact';
+import { useCommand } from '@embedpdf/plugin-commands/react';
+import { useRegisterAnchor } from '@embedpdf/plugin-ui/react';
 import { twMerge } from 'tailwind-merge';
 import { Button } from './ui/button';
 import { Tooltip } from './ui/tooltip';

@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useState, useRef, useEffect, useCallback } from 'preact/hooks';
-import { useScroll } from '@embedpdf/plugin-scroll/preact';
-import { useViewportCapability } from '@embedpdf/plugin-viewport/preact';
+import { useScroll } from '@embedpdf/plugin-scroll/react';
+import { useViewportCapability } from '@embedpdf/plugin-viewport/react';
 import { ChevronLeftIcon } from './icons/chevron-left';
 import { ChevronRightIcon } from './icons/chevron-right';
 import { CommandButton } from './command-button';

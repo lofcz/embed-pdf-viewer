@@ -1,8 +1,8 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useScrollCapability } from '@embedpdf/plugin-scroll/preact';
-import { useAnnotationCapability } from '@embedpdf/plugin-annotation/preact';
-import { useSelectionCapability } from '@embedpdf/plugin-selection/preact';
+import { useScrollCapability } from '@embedpdf/plugin-scroll/react';
+import { useAnnotationCapability } from '@embedpdf/plugin-annotation/react';
+import { useSelectionCapability } from '@embedpdf/plugin-selection/react';
 import {
   PdfActionType,
   PdfAnnotationSubtype,
@@ -17,7 +17,7 @@ import {
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { TabButton } from './ui/tab-button';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 
 type LinkTab = 'url' | 'page';
 type LinkSource = 'annotation' | 'selection';

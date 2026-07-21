@@ -1,7 +1,7 @@
 import { h, Fragment } from 'preact';
 import { createPortal } from 'preact/compat';
 import { useState, useRef, useCallback, useEffect } from 'preact/hooks';
-import { SidebarRendererProps, useItemRenderer, useUIContainer } from '@embedpdf/plugin-ui/preact';
+import { SidebarRendererProps, useItemRenderer, useUIContainer } from '@embedpdf/plugin-ui/react';
 import { Icon } from '@/components/ui/icon';
 
 // Drawer snap points as percentages

@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useZoom } from '@embedpdf/plugin-zoom/preact';
+import { useZoom } from '@embedpdf/plugin-zoom/react';
 import { CommandButton } from './command-button';
 
 /**

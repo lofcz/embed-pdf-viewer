@@ -1,8 +1,8 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
-import { useDocumentState } from '@embedpdf/core/preact';
-import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
+import { useDocumentState } from '@embedpdf/core/react';
+import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/react';
 import { Dialog } from './ui/dialog';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';

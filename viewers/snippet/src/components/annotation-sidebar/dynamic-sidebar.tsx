@@ -2,8 +2,8 @@ import { h, Fragment } from 'preact';
 
 import { PdfAnnotationObject } from '@embedpdf/models';
 import { AnnotationTool, TrackedAnnotation } from '@embedpdf/plugin-annotation';
-import { useAnnotationCapability } from '@embedpdf/plugin-annotation/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useAnnotationCapability } from '@embedpdf/plugin-annotation/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 
 import { PROPERTY_CONFIGS, getSharedProperties } from './property-schema';
 import { PropertySection } from './property-sections';

@@ -1,7 +1,7 @@
 import { h } from 'preact';
-import { useInteractionManagerCapability } from '@embedpdf/plugin-interaction-manager/preact';
+import { useInteractionManagerCapability } from '@embedpdf/plugin-interaction-manager/react';
 import { useEffect, useState } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 
 interface HintState {
   show: boolean;

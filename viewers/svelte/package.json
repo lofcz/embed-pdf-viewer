@@ -47,7 +47,5 @@
     "url": "https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "viewers/svelte"
   },
-  "publishConfig": {
-    "access": "public"
-  }
+  "private": true
 }

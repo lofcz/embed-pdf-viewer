@@ -6,15 +6,13 @@
   "license": "MIT",
   "scripts": {
     "dev": "turbo run dev --parallel",
-    "dev:vanilla": "pnpm --filter @embedpdf/example-vanilla run dev",
+    "dev:vanilla": "pnpm --filter @lofcz/embedpdf-example-vanilla-tailwind run dev",
     "clean": "turbo run clean && rimraf .turbo/cache",
-    "build:fresh": "pnpm clean && turbo run build",
-    "build": "turbo run build",
+    "build:fresh": "pnpm clean && pnpm run build",
+    "build": "pnpm run build:viewers",
     "build:react-mui": "turbo run build --filter=\"./packages/*\" --filter=\"./examples/react-mui\"",
-    "build:vue-vuetify": "turbo run build --filter=\"./packages/*\" --filter=\"./examples/vue-vuetify\"",
-    "build:svelte-tailwind": "pnpm build:viewers && pnpm --filter @embedpdf/example-svelte-tailwind run build:app",
     "build:packages": "turbo run build --filter=\"./packages/*\"",
-    "build:viewers": "turbo run build --filter=\"./packages/*\" --filter=\"./viewers/*\"",
+    "build:viewers": "turbo run build --filter=\"./packages/*\" --filter=\"./viewers/react\" --filter=\"./viewers/snippet\"",
     "build:snippet": "turbo run build --filter=\"./packages/*\" --filter=\"./viewers/snippet\"",
     "build:watch": "ROARR_LOG=true turbowatch ./config/turbowatch.config.ts | roarr",
     "watch": "turbo watch",
@@ -22,8 +20,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
     "changeset": "changeset",
-    "ci:publish": "pnpm publish -r --access public --report-summary $GITHUB_WORKSPACE/publish-summary.json",
-    "ci:publish:next": "pnpm publish -r --access public --tag next --publish-branch next --report-summary $GITHUB_WORKSPACE/publish-summary.json"
+    "ci:publish": "pnpm publish -r --access public --filter \"./packages/**\" --filter \"./viewers/react\" --filter \"./viewers/snippet\" --report-summary pnpm-publish-summary.json",
+    "ci:publish:next": "pnpm publish -r --access public --tag next --publish-branch next --filter \"./packages/**\" --filter \"./viewers/react\" --filter \"./viewers/snippet\" --report-summary pnpm-publish-summary.json"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.6",

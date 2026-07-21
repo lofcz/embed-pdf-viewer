@@ -6,10 +6,10 @@ import {
   getSidebarAnnotationsWithRepliesGroupedByPage,
   useAnnotation,
   useAnnotationCapability,
-} from '@embedpdf/plugin-annotation/preact';
-import { useScrollCapability } from '@embedpdf/plugin-scroll/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
-import { useDocumentPermissions } from '@embedpdf/core/preact';
+} from '@embedpdf/plugin-annotation/react';
+import { useScrollCapability } from '@embedpdf/plugin-scroll/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
+import { useDocumentPermissions } from '@embedpdf/core/react';
 import { TrackedAnnotation } from '@embedpdf/plugin-annotation';
 import { uuidV4, PdfAnnotationSubtype, PdfAnnotationName } from '@embedpdf/models';
 import { AnnotationCard } from './comment-sidebar/annotation-card';

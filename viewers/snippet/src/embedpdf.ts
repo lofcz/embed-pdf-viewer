@@ -19,7 +19,7 @@ export {
   type ViewportCapability,
   type ViewportScope,
   type ViewportMetrics,
-} from '@embedpdf/plugin-viewport/preact';
+} from '@embedpdf/plugin-viewport/react';
 export {
   ScrollPlugin,
   ScrollStrategy,
@@ -30,14 +30,14 @@ export {
   type PageChangeEvent,
   type ScrollEvent,
   type LayoutChangeEvent,
-} from '@embedpdf/plugin-scroll/preact';
+} from '@embedpdf/plugin-scroll/react';
 export {
   SpreadPlugin,
   SpreadMode,
   type SpreadPluginConfig,
   type SpreadCapability,
   type SpreadScope,
-} from '@embedpdf/plugin-spread/preact';
+} from '@embedpdf/plugin-spread/react';
 export {
   ZoomPlugin,
   ZoomMode,
@@ -46,25 +46,25 @@ export {
   type ZoomScope,
   type ZoomLevel,
   type ZoomChangeEvent,
-} from '@embedpdf/plugin-zoom/preact';
+} from '@embedpdf/plugin-zoom/react';
 export {
   RotatePlugin,
   type RotatePluginConfig,
   type RotateCapability,
   type RotateScope,
-} from '@embedpdf/plugin-rotate/preact';
+} from '@embedpdf/plugin-rotate/react';
 export {
   TilingPlugin,
   type TilingPluginConfig,
   type TilingCapability,
   type TilingScope,
-} from '@embedpdf/plugin-tiling/preact';
+} from '@embedpdf/plugin-tiling/react';
 export {
   ThumbnailPlugin,
   type ThumbnailPluginConfig,
   type ThumbnailCapability,
   type ThumbnailScope,
-} from '@embedpdf/plugin-thumbnail/preact';
+} from '@embedpdf/plugin-thumbnail/react';
 export {
   AnnotationPlugin,
   type AnnotationPluginConfig,
@@ -77,19 +77,19 @@ export {
   type GetAnnotationsOptions,
   type TrackedAnnotation,
   LockModeType,
-} from '@embedpdf/plugin-annotation/preact';
+} from '@embedpdf/plugin-annotation/react';
 export {
   SearchPlugin,
   type SearchPluginConfig,
   type SearchCapability,
   type SearchScope,
-} from '@embedpdf/plugin-search/preact';
+} from '@embedpdf/plugin-search/react';
 export {
   SelectionPlugin,
   type SelectionPluginConfig,
   type SelectionCapability,
   type SelectionScope,
-} from '@embedpdf/plugin-selection/preact';
+} from '@embedpdf/plugin-selection/react';
 export {
   FormPlugin,
   type FormPluginConfig,
@@ -98,13 +98,13 @@ export {
   type FormFieldInfo,
   type FormReadyEvent,
   type FieldValueChangeEvent,
-} from '@embedpdf/plugin-form/preact';
+} from '@embedpdf/plugin-form/react';
 export {
   CapturePlugin,
   type CapturePluginConfig,
   type CaptureCapability,
   type CaptureScope,
-} from '@embedpdf/plugin-capture/preact';
+} from '@embedpdf/plugin-capture/react';
 export {
   RedactionPlugin,
   RedactionMode,
@@ -112,13 +112,13 @@ export {
   type RedactionCapability,
   type RedactionScope,
   type RedactionItem,
-} from '@embedpdf/plugin-redaction/preact';
+} from '@embedpdf/plugin-redaction/react';
 export {
   UIPlugin,
   type UIPluginConfig,
   type UICapability,
   type UIScope,
-} from '@embedpdf/plugin-ui/preact';
+} from '@embedpdf/plugin-ui/react';
 
 // UI Schema Types - for customizing toolbars, menus, sidebars, etc.
 export type {
@@ -175,7 +175,7 @@ export type {
 
   // Utility types
   VisibilityDependency,
-} from '@embedpdf/plugin-ui/preact';
+} from '@embedpdf/plugin-ui/react';
 export {
   I18nPlugin,
   type I18nPluginConfig,
@@ -183,7 +183,7 @@ export {
   type I18nScope,
   type Locale,
   type LocaleChangeEvent,
-} from '@embedpdf/plugin-i18n/preact';
+} from '@embedpdf/plugin-i18n/react';
 export {
   CommandsPlugin,
   type CommandsPluginConfig,
@@ -191,7 +191,7 @@ export {
   type ResolvedCommand,
   type CommandsCapability,
   type CommandScope,
-} from '@embedpdf/plugin-commands/preact';
+} from '@embedpdf/plugin-commands/react';
 export {
   DocumentManagerPlugin,
   type DocumentManagerPluginConfig,
@@ -199,60 +199,60 @@ export {
   type DocumentChangeEvent,
   type LoadDocumentUrlOptions,
   type LoadDocumentBufferOptions,
-} from '@embedpdf/plugin-document-manager/preact';
+} from '@embedpdf/plugin-document-manager/react';
 export {
   PrintPlugin,
   type PrintPluginConfig,
   type PrintCapability,
   type PrintScope,
-} from '@embedpdf/plugin-print/preact';
+} from '@embedpdf/plugin-print/react';
 export {
   FullscreenPlugin,
   type FullscreenPluginConfig,
   type FullscreenCapability,
-} from '@embedpdf/plugin-fullscreen/preact';
+} from '@embedpdf/plugin-fullscreen/react';
 export {
   BookmarkPlugin,
   type BookmarkPluginConfig,
   type BookmarkCapability,
   type BookmarkScope,
-} from '@embedpdf/plugin-bookmark/preact';
+} from '@embedpdf/plugin-bookmark/react';
 export {
   ExportPlugin,
   type ExportPluginConfig,
   type ExportCapability,
   type ExportScope,
-} from '@embedpdf/plugin-export/preact';
+} from '@embedpdf/plugin-export/react';
 export {
   PanPlugin,
   type PanPluginConfig,
   type PanCapability,
   type PanScope,
-} from '@embedpdf/plugin-pan/preact';
+} from '@embedpdf/plugin-pan/react';
 export {
   HistoryPlugin,
   type HistoryPluginConfig,
   type HistoryCapability,
   type HistoryScope,
-} from '@embedpdf/plugin-history/preact';
+} from '@embedpdf/plugin-history/react';
 export {
   AttachmentPlugin,
   type AttachmentPluginConfig,
   type AttachmentCapability,
   type AttachmentScope,
-} from '@embedpdf/plugin-attachment/preact';
+} from '@embedpdf/plugin-attachment/react';
 export {
   RenderPlugin,
   type RenderPluginConfig,
   type RenderCapability,
   type RenderScope,
-} from '@embedpdf/plugin-render/preact';
+} from '@embedpdf/plugin-render/react';
 export {
   InteractionManagerPlugin,
   type InteractionManagerPluginConfig,
   type InteractionManagerCapability,
   type InteractionManagerScope,
-} from '@embedpdf/plugin-interaction-manager/preact';
+} from '@embedpdf/plugin-interaction-manager/react';
 export {
   SignaturePlugin,
   SignatureMode,
@@ -264,7 +264,7 @@ export {
   serializeEntries,
   deserializeEntries,
   type SerializedSignatureEntry,
-} from '@embedpdf/plugin-signature/preact';
+} from '@embedpdf/plugin-signature/react';
 
 // Re-export from models
 export { Rotation, ignore } from '@embedpdf/models';

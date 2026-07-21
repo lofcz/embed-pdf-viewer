@@ -1,7 +1,7 @@
 import { h, Fragment } from 'preact';
 import { useCallback } from 'preact/hooks';
 import { DocumentState } from '@embedpdf/core';
-import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/preact';
+import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/react';
 import { Icon } from './ui/icon';
 
 export type TabBarVisibility = 'always' | 'multiple' | 'never';

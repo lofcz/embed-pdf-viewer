@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { useI18nCapability } from '@embedpdf/plugin-i18n/preact';
+import { useI18nCapability } from '@embedpdf/plugin-i18n/react';
 
 /**
  * Locale Switcher Component

@@ -1,9 +1,9 @@
 import { h } from 'preact';
 import { useCallback } from 'preact/hooks';
 import { Icon } from './ui/icon';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
-import { useUICapability } from '@embedpdf/plugin-ui/preact';
-import { useDocumentState } from '@embedpdf/core/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
+import { useUICapability } from '@embedpdf/plugin-ui/react';
+import { useDocumentState } from '@embedpdf/core/react';
 import { PdfPermissionFlag } from '@embedpdf/models';
 
 interface UnlockOwnerOverlayProps {

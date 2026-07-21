@@ -1,7 +1,7 @@
 import { h } from 'preact';
 import { useState } from 'preact/hooks';
-import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { PdfErrorCode } from '@embedpdf/models';
 import { DocumentState } from '@embedpdf/core';
 import { Icon } from './ui/icon';

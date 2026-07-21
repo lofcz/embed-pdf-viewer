@@ -5,8 +5,8 @@ import {
   useItemRenderer,
   useRegisterAnchor,
   getUIItemProps,
-} from '@embedpdf/plugin-ui/preact';
-import { useCommand } from '@embedpdf/plugin-commands/preact';
+} from '@embedpdf/plugin-ui/react';
+import { useCommand } from '@embedpdf/plugin-commands/react';
 import { twMerge } from 'tailwind-merge';
 import { TabButton } from '@/components/ui/tab-button';
 import { Icon } from '@/components/ui/icon';

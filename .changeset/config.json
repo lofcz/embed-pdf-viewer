@@ -39,9 +39,7 @@
       "@lofcz/embedpdf-pdfium",
       "@lofcz/embedpdf-utils",
       "@lofcz/embedpdf-snippet",
-      "@lofcz/embedpdf-react-pdf-viewer",
-      "@lofcz/embedpdf-vue-pdf-viewer",
-      "@lofcz/embedpdf-svelte-pdf-viewer"
+      "@lofcz/embedpdf-react-pdf-viewer"
     ]
   ],
   "linked": [],
@@ -55,11 +53,14 @@
     "@lofcz/embedpdf-example-vue-tailwind",
     "@lofcz/embedpdf-example-vue-vuetify",
     "@lofcz/embedpdf-example-svelte-tailwind",
+    "@lofcz/embedpdf-example-vanilla-tailwind",
     "@lofcz/embedpdf-example-engines-node",
     "@lofcz/embedpdf-example-pdfium-node",
     "@lofcz/embedpdf-ai",
     "@lofcz/embedpdf-plugin-ai-manager",
     "@lofcz/embedpdf-plugin-layout-analysis",
-    "@lofcz/embedpdf-default-stamps"
+    "@lofcz/embedpdf-default-stamps",
+    "@lofcz/embedpdf-vue-pdf-viewer",
+    "@lofcz/embedpdf-svelte-pdf-viewer"
   ]
 }

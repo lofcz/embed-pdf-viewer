@@ -1,6 +1,6 @@
 import { h } from 'preact';
-import { ThumbnailsPane, ThumbImg } from '@embedpdf/plugin-thumbnail/preact';
-import { useScroll } from '@embedpdf/plugin-scroll/preact';
+import { ThumbnailsPane, ThumbImg } from '@embedpdf/plugin-thumbnail/react';
+import { useScroll } from '@embedpdf/plugin-scroll/react';
 
 type ThumbnailsSidebarProps = {
   documentId: string;

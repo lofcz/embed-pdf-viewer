@@ -8,9 +8,9 @@ import {
   MenuSchema,
   getUIItemProps,
   useUIContainer,
-} from '@embedpdf/plugin-ui/preact';
-import { useCommand } from '@embedpdf/plugin-commands/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+} from '@embedpdf/plugin-ui/react';
+import { useCommand } from '@embedpdf/plugin-commands/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { ChevronLeftIcon } from '@/components/icons/chevron-left';
 import { Icon } from '@/components/ui/icon';
 import { ChevronRightIcon } from '@/components/icons/chevron-right';

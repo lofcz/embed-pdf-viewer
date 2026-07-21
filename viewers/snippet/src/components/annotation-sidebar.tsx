@@ -1,7 +1,7 @@
 /** @jsxImportSource preact */
 import { h } from 'preact';
-import { useAnnotationCapability, useAnnotation } from '@embedpdf/plugin-annotation/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useAnnotationCapability, useAnnotation } from '@embedpdf/plugin-annotation/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { getSelectedAnnotations } from '@embedpdf/plugin-annotation';
 
 import { EmptyState } from './annotation-sidebar/empty-state';

@@ -1,6 +1,6 @@
 import { h } from 'preact';
-import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useDocumentManagerCapability } from '@embedpdf/plugin-document-manager/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { Icon } from './ui/icon';
 
 export function EmptyState() {

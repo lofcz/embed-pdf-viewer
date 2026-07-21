@@ -1,6 +1,6 @@
 import { h, Fragment } from 'preact';
 import { ModalSchema } from '@embedpdf/plugin-ui';
-import { useItemRenderer } from '@embedpdf/plugin-ui/preact';
+import { useItemRenderer } from '@embedpdf/plugin-ui/react';
 
 export interface ModalRendererProps {
   schema: ModalSchema;

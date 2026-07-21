@@ -1,6 +1,6 @@
 import { h } from 'preact';
 import { useRef } from 'preact/hooks';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { useClickOutside } from '../../hooks/use-click-outside';
 
 interface MenuDropdownProps {

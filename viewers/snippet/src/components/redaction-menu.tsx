@@ -2,7 +2,7 @@ import { h, JSX } from 'preact';
 import { Button } from './ui/button';
 import { Icon } from './ui/icon';
 import { RedactionItem } from '@embedpdf/plugin-redaction';
-import { useRedactionCapability } from '@embedpdf/plugin-redaction/preact';
+import { useRedactionCapability } from '@embedpdf/plugin-redaction/react';
 import { Tooltip } from './ui/tooltip';
 
 type RedactionMenuProps = Omit<JSX.HTMLAttributes<HTMLDivElement>, 'style'> & {

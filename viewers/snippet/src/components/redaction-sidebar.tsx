@@ -1,13 +1,13 @@
 import { h } from 'preact';
-import { useRedaction } from '@embedpdf/plugin-redaction/preact';
-import { useScrollCapability } from '@embedpdf/plugin-scroll/preact';
-import { useTranslations } from '@embedpdf/plugin-i18n/preact';
+import { useRedaction } from '@embedpdf/plugin-redaction/react';
+import { useScrollCapability } from '@embedpdf/plugin-scroll/react';
+import { useTranslations } from '@embedpdf/plugin-i18n/react';
 import { RedactionItem } from '@embedpdf/plugin-redaction';
 import { RedactIcon } from './icons/redact';
 import { RedactAreaIcon } from './icons/redact-area';
 import { Icon } from './ui/icon';
 import { Button } from './ui/button';
-import { useDocumentPermissions } from '@embedpdf/core/preact';
+import { useDocumentPermissions } from '@embedpdf/core/react';
 
 export interface RedactionSidebarProps {
   documentId: string;
