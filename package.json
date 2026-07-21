@@ -60,6 +60,15 @@
     },
     "patchedDependencies": {
       "@changesets/assemble-release-plan@6.0.9": "patches/@changesets__assemble-release-plan@6.0.9.patch"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "core-js",
+      "esbuild",
+      "onnxruntime-node",
+      "protobufjs",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }

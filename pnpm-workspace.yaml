@@ -6,3 +6,13 @@ packages:
   - 'website'
     # exclude the git submodule (and everything inside it)
   - '!packages/pdfium/pdfium-src/**'
+
+# Allow postinstall/build scripts (pnpm 10+ blocks them by default).
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - core-js
+  - esbuild
+  - onnxruntime-node
+  - protobufjs
+  - sharp
+  - unrs-resolver
