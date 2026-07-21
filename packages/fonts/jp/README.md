@@ -14,36 +14,17 @@ All 7 weights of Noto Sans JP:
 - `NotoSansJP-Bold.otf` - Bold weight (700)
 - `NotoSansJP-Black.otf` - Black weight (900)
 
-## Usage
 
-```typescript
-import { FontCharset } from '@embedpdf/models';
+## Usage (recommended — local, no CDN)
 
-const fontFallback = {
-  fonts: {
-    [FontCharset.SHIFTJIS]: [
-      { url: 'NotoSansJP-Thin.otf', weight: 100 },
-      { url: 'NotoSansJP-Light.otf', weight: 300 },
-      { url: 'NotoSansJP-DemiLight.otf', weight: 350 },
-      { url: 'NotoSansJP-Regular.otf', weight: 400 },
-      { url: 'NotoSansJP-Medium.otf', weight: 500 },
-      { url: 'NotoSansJP-Bold.otf', weight: 700 },
-      { url: 'NotoSansJP-Black.otf', weight: 900 },
-    ],
-  },
-  baseUrl: 'https://cdn.jsdelivr.net/npm/@embedpdf/fonts-jp@1/fonts',
-};
+```ts
+import { createFontFallback } from '@embedpdf/fonts-jp';
+
+fontFallback: createFontFallback();
 ```
 
-Or use the pre-configured CDN config:
-
-```typescript
-import { cdnFontConfig } from '@embedpdf/engines/pdfium';
-
-const native = new PdfiumNative(pdfiumModule, {
-  fontFallback: cdnFontConfig,
-});
-```
+Fonts resolve from this package via `import.meta.url` (Vite/Rollup/webpack 5+).
+Combine packs with `mergeFontFallbacks` from `@embedpdf/engines`.
 
 ## License
 

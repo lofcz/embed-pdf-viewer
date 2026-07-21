@@ -14,36 +14,17 @@ All 7 weights of Noto Sans Hant (Traditional Chinese):
 - `NotoSansHant-Bold.otf` - Bold weight (700)
 - `NotoSansHant-Black.otf` - Black weight (900)
 
-## Usage
 
-```typescript
-import { FontCharset } from '@embedpdf/models';
+## Usage (recommended — local, no CDN)
 
-const fontFallback = {
-  fonts: {
-    [FontCharset.CHINESEBIG5]: [
-      { url: 'NotoSansHant-Thin.otf', weight: 100 },
-      { url: 'NotoSansHant-Light.otf', weight: 300 },
-      { url: 'NotoSansHant-DemiLight.otf', weight: 350 },
-      { url: 'NotoSansHant-Regular.otf', weight: 400 },
-      { url: 'NotoSansHant-Medium.otf', weight: 500 },
-      { url: 'NotoSansHant-Bold.otf', weight: 700 },
-      { url: 'NotoSansHant-Black.otf', weight: 900 },
-    ],
-  },
-  baseUrl: 'https://cdn.jsdelivr.net/npm/@embedpdf/fonts-tc@1/fonts',
-};
+```ts
+import { createFontFallback } from '@embedpdf/fonts-tc';
+
+fontFallback: createFontFallback();
 ```
 
-Or use the pre-configured CDN config:
-
-```typescript
-import { cdnFontConfig } from '@embedpdf/engines/pdfium';
-
-const native = new PdfiumNative(pdfiumModule, {
-  fontFallback: cdnFontConfig,
-});
-```
+Fonts resolve from this package via `import.meta.url` (Vite/Rollup/webpack 5+).
+Combine packs with `mergeFontFallbacks` from `@embedpdf/engines`.
 
 ## License
 

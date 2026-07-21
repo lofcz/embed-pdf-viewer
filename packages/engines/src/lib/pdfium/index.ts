@@ -10,6 +10,10 @@ export * from './cdn-fonts';
 export { createPdfiumEngine as createPdfiumDirectEngine } from './web/direct-engine';
 export { createPdfiumEngine as createPdfiumWorkerEngine } from './web/worker-engine';
 export type { CreatePdfiumEngineOptions } from './web/direct-engine';
+export { mergeFontFallbacks } from './merge-font-fallbacks';
 
-export const DEFAULT_PDFIUM_WASM_URL: string =
-  'https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@__PDFIUM_VERSION__/dist/pdfium.wasm';
+export {
+  PDFIUM_WASM_URL,
+  DEFAULT_PDFIUM_WASM_URL,
+  PDFIUM_WASM_CDN_URL,
+} from '@embedpdf/pdfium';

@@ -14,7 +14,37 @@ Simplified Chinese (GB2312) fallback fonts for EmbedPDF.
 
 Note: Thin and Black weights are not included to keep the package under size limits.
 
-## Usage
+## Usage (recommended — local, no CDN)
+
+Install the package and pass `createFontFallback()` to the viewer. Fonts are
+resolved from `node_modules` via `import.meta.url` (works with Vite, Rollup,
+webpack 5+ without copying files into `public/`).
+
+```ts
+import { PDFViewer } from '@embedpdf/react-pdf-viewer';
+import { createFontFallback } from '@embedpdf/fonts-sc';
+
+<PDFViewer
+  config={{
+    src: '/doc.pdf',
+    fontFallback: createFontFallback(),
+  }}
+/>;
+```
+
+Combine multiple script packs with `mergeFontFallbacks` from `@embedpdf/engines`:
+
+```ts
+import { mergeFontFallbacks } from '@embedpdf/engines';
+import { createFontFallback as createScFontFallback } from '@embedpdf/fonts-sc';
+import { createFontFallback as createLatinFontFallback } from '@embedpdf/fonts-latin';
+
+fontFallback: mergeFontFallbacks(createScFontFallback(), createLatinFontFallback());
+```
+
+## CDN (optional)
+
+If you intentionally want remote fonts:
 
 ```typescript
 import { FontCharset } from '@embedpdf/models';
@@ -31,16 +61,6 @@ const fontFallback = {
   },
   baseUrl: 'https://cdn.jsdelivr.net/npm/@embedpdf/fonts-sc@1/fonts',
 };
-```
-
-Or use the pre-configured CDN config:
-
-```typescript
-import { cdnFontConfig } from '@embedpdf/engines/pdfium';
-
-const native = new PdfiumNative(pdfiumModule, {
-  fontFallback: cdnFontConfig,
-});
 ```
 
 ## License

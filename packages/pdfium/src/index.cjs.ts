@@ -16,7 +16,7 @@ export type {
   WrappedPdfiumModule,
 } from './base';
 
-export { DEFAULT_PDFIUM_WASM_URL } from './base';
+export { PDFIUM_WASM_URL, DEFAULT_PDFIUM_WASM_URL, PDFIUM_WASM_CDN_URL } from './base';
 
 export async function init(moduleOverrides: Partial<PdfiumModule>): Promise<WrappedPdfiumModule> {
   const pdfium = await createPdfium<PdfiumRuntimeMethods>(moduleOverrides);

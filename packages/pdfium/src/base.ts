@@ -5,7 +5,23 @@ import { functions } from './vendor/functions';
 export type { PdfiumModule } from './vendor/pdfium';
 export type { PdfiumRuntimeMethods } from './vendor/runtime-methods';
 
-export const DEFAULT_PDFIUM_WASM_URL: string =
+/**
+ * Package-local PDFium WASM URL (resolved next to this module in `dist/`).
+ * Bundlers that understand `import.meta.url` (Vite, Rollup, webpack 5+) emit a
+ * correct asset URL — no CDN and no host `vite.config` hacks required.
+ */
+export const PDFIUM_WASM_URL: string = new URL('./pdfium.wasm', import.meta.url).href;
+
+/**
+ * @deprecated Use {@link PDFIUM_WASM_URL}. Kept as an alias for existing imports.
+ */
+export const DEFAULT_PDFIUM_WASM_URL: string = PDFIUM_WASM_URL;
+
+/**
+ * jsDelivr CDN URL for the WASM binary. Prefer {@link PDFIUM_WASM_URL} unless you
+ * intentionally want a remote fallback.
+ */
+export const PDFIUM_WASM_CDN_URL: string =
   'https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@__PDFIUM_VERSION__/dist/pdfium.wasm';
 
 /**

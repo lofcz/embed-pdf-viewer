@@ -571,8 +571,13 @@ function ViewerLayout({ documentId, tabBarVisibility = 'multiple' }: ViewerLayou
 const logger = new AllLogger([new ConsoleLogger(), new PerfLogger()]);
 
 export function PDFViewer({ config, onRegistryReady }: PDFViewerProps) {
+  // Prefer an explicit override; otherwise resolve the WASM file copied next to
+  // this bundle (`dist/pdfium.wasm`) so Vite/Rollup never need a CDN or host
+  // `optimizeDeps.exclude` hacks.
+  const wasmUrl = config.wasmUrl ?? new URL('./pdfium.wasm', import.meta.url).href;
+
   const { engine, isLoading } = usePdfiumEngine({
-    ...(config.wasmUrl && { wasmUrl: config.wasmUrl }),
+    wasmUrl,
     ...(config.fontFallback !== undefined && { fontFallback: config.fontFallback }),
     worker: config.worker,
     logger: config.log ? logger : undefined,

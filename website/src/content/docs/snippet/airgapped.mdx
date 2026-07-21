@@ -16,38 +16,51 @@ This guide walks through every CDN default in the snippet and shows how to redir
 
 | Asset | Default source | Triggered by |
 | :--- | :--- | :--- |
-| `pdfium.wasm` | `cdn.jsdelivr.net/npm/@embedpdf/pdfium` | Viewer init |
-| PDFium font fallback (fonts for missing glyphs) | `cdn.jsdelivr.net/npm/@embedpdf/fonts-*` | Rendering text the PDF's embedded fonts can't cover |
+| `pdfium.wasm` | Package-local (`@embedpdf/pdfium` / snippet `dist/pdfium.wasm` via `import.meta.url`) | Viewer init |
+| PDFium font fallback (fonts for missing glyphs) | `cdn.jsdelivr.net/npm/@embedpdf/fonts-*` unless you pass `fontFallback` | Rendering text the PDF's embedded fonts can't cover |
 | Snippet UI + signature webfonts | `fonts.googleapis.com` / `fonts.gstatic.com` | Viewer init (UI font) and opening the Create Signature modal (signature fonts) |
 | Default stamp library | `cdn.jsdelivr.net/npm/@embedpdf/default-stamps` | Stamp plugin init (Rubber Stamp panel) |
 
-Each of them is independently configurable via `EmbedPDF.init`.
+Each of them is independently configurable via `EmbedPDF.init` / `<PDFViewer config>`.
 
-## 1. Self-host the PDFium WebAssembly binary
+## 1. PDFium WebAssembly (already local by default)
 
-Copy the wasm file out of `@embedpdf/pdfium` at build time and serve it from your own origin, then point `wasmUrl` at it.
+The viewer resolves `pdfium.wasm` from the installed package (or the file copied next to the snippet bundle). **No `wasmUrl` and no Vite `optimizeDeps` excludes are required** for normal Vite/Rollup apps.
 
-```sh
-cp node_modules/@embedpdf/pdfium/dist/pdfium.wasm public/pdfium.wasm
-```
+Override only when you want a custom URL:
 
 ```js
 EmbedPDF.init({
   target: document.getElementById('pdf-viewer'),
   src: '/document.pdf',
-  wasmUrl: '/pdfium.wasm',
+  wasmUrl: '/assets/pdfium.wasm', // optional override
 });
 ```
 
 <Callout type="info">
-  The wasm file is a few MB in size. Serving it with long-lived cache headers (`Cache-Control: public, max-age=31536000, immutable`) alongside a versioned filename works well.
+  The wasm file is a few MB in size. If you copy it to your own CDN/origin, serve it with long-lived cache headers (`Cache-Control: public, max-age=31536000, immutable`) alongside a versioned filename.
 </Callout>
 
 ## 2. Replace the PDFium font fallback CDN
 
-When a PDF references a font that isn't embedded (common with East Asian languages, Hebrew, Arabic, etc.), PDFium needs a fallback font to render correctly. The snippet's default downloads those fonts from jsDelivr. You have three options:
+When a PDF references a font that isn't embedded (common with East Asian languages, Hebrew, Arabic, etc.), PDFium needs a fallback font to render correctly. The engine still defaults to jsDelivr for that case. Prefer installing the font packages you need and using their local helpers.
 
-### Option A — Disable fallback entirely
+### Option A — Local packages (recommended)
+
+```js
+import { createFontFallback as createScFontFallback } from '@embedpdf/fonts-sc';
+import { createFontFallback as createJpFontFallback } from '@embedpdf/fonts-jp';
+import { mergeFontFallbacks } from '@embedpdf/engines';
+
+EmbedPDF.init({
+  // ...
+  fontFallback: mergeFontFallbacks(createScFontFallback(), createJpFontFallback()),
+});
+```
+
+No file copying and no CDN — URLs resolve from `node_modules` via `import.meta.url`.
+
+### Option B — Disable fallback entirely
 
 Set `fontFallback` to `null`. Missing glyphs will render as "tofu" boxes but no external request is made.
 
@@ -58,9 +71,7 @@ EmbedPDF.init({
 });
 ```
 
-### Option B — Self-host the fonts
-
-Install the font packages you need and provide a custom `FontFallbackConfig` pointing at URLs you serve yourself. The `@embedpdf/fonts-*` packages ship the raw font files and ready-made font definitions you can reuse.
+### Option C — Custom absolute URLs
 
 ```js
 import { FontCharset } from '@embedpdf/models';
@@ -71,7 +82,6 @@ EmbedPDF.init({
     fonts: {
       [FontCharset.SHIFTJIS]: '/fonts/NotoSansJP-Regular.otf',
       [FontCharset.GB2312]: '/fonts/NotoSansSC-Regular.otf',
-      // ...add any charsets your documents need
     },
   },
 });
@@ -216,22 +226,19 @@ Putting it all together:
 
 ```js
 import EmbedPDF from '@embedpdf/snippet';
-import { FontCharset } from '@embedpdf/models';
+import { mergeFontFallbacks } from '@embedpdf/engines';
+import { createFontFallback as createJpFontFallback } from '@embedpdf/fonts-jp';
+import { createFontFallback as createScFontFallback } from '@embedpdf/fonts-sc';
 
 EmbedPDF.init({
   target: document.getElementById('pdf-viewer'),
   src: '/document.pdf',
 
-  // 1. Self-hosted wasm
-  wasmUrl: '/assets/pdfium.wasm',
+  // 1. wasm is package-local by default — override only if needed
+  // wasmUrl: '/assets/pdfium.wasm',
 
-  // 2. Self-hosted font fallback (or set to null to disable)
-  fontFallback: {
-    fonts: {
-      [FontCharset.SHIFTJIS]: '/fonts/NotoSansJP-Regular.otf',
-      [FontCharset.GB2312]: '/fonts/NotoSansSC-Regular.otf',
-    },
-  },
+  // 2. Local font packages (no CDN)
+  fontFallback: mergeFontFallbacks(createJpFontFallback(), createScFontFallback()),
 
   // 3. No external webfonts for UI or signature modal.
   fonts: {

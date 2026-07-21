@@ -1,8 +1,6 @@
 import { ignore, Logger, PdfEngine } from '@embedpdf/models';
+import { PDFIUM_WASM_URL } from '@embedpdf/pdfium';
 import type { FontFallbackConfig } from '@embedpdf/engines';
-
-const defaultWasmUrl =
-  'https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@__PDFIUM_VERSION__/dist/pdfium.wasm';
 
 export interface UsePdfiumEngineProps {
   wasmUrl?: string;
@@ -16,7 +14,7 @@ export interface UsePdfiumEngineProps {
 }
 
 export function usePdfiumEngine(config?: UsePdfiumEngineProps) {
-  const { wasmUrl = defaultWasmUrl, worker = true, logger, fontFallback } = config ?? {};
+  const { wasmUrl = PDFIUM_WASM_URL, worker = true, logger, fontFallback } = config ?? {};
 
   // Create a reactive state object
   const state = $state({

@@ -7,21 +7,17 @@ Hebrew fallback fonts for EmbedPDF.
 - `NotoSansHebrew-Regular.ttf` - Regular weight (400)
 - `NotoSansHebrew-Bold.ttf` - Bold weight (700)
 
-## Usage
 
-```typescript
-import { FontCharset } from '@embedpdf/models';
+## Usage (recommended — local, no CDN)
 
-const fontFallback = {
-  fonts: {
-    [FontCharset.HEBREW]: [
-      { url: 'NotoSansHebrew-Regular.ttf', weight: 400 },
-      { url: 'NotoSansHebrew-Bold.ttf', weight: 700 },
-    ],
-  },
-  baseUrl: 'https://cdn.jsdelivr.net/npm/@embedpdf/fonts-hebrew@1/fonts',
-};
+```ts
+import { createFontFallback } from '@embedpdf/fonts-hebrew';
+
+fontFallback: createFontFallback();
 ```
+
+Fonts resolve from this package via `import.meta.url` (Vite/Rollup/webpack 5+).
+Combine packs with `mergeFontFallbacks` from `@embedpdf/engines`.
 
 ## License
 

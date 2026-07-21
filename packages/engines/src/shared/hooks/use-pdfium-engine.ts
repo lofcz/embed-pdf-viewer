@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from '@framework';
 import { ignore, Logger, PdfEngine } from '@embedpdf/models';
+import { PDFIUM_WASM_URL } from '@embedpdf/pdfium';
 import type { FontFallbackConfig } from '@embedpdf/engines';
-
-const defaultWasmUrl = `https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@__PDFIUM_VERSION__/dist/pdfium.wasm`;
 
 interface UsePdfiumEngineProps {
   wasmUrl?: string;
@@ -18,7 +17,8 @@ interface UsePdfiumEngineProps {
 
 export function usePdfiumEngine(config?: UsePdfiumEngineProps) {
   const {
-    wasmUrl = defaultWasmUrl,
+    // Package-local WASM next to `@embedpdf/pdfium` — no CDN by default.
+    wasmUrl = PDFIUM_WASM_URL,
     worker = true,
     logger,
     encoderPoolSize,

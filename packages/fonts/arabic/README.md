@@ -7,21 +7,17 @@ Arabic fallback fonts for EmbedPDF.
 - `NotoNaskhArabic-Regular.ttf` - Regular weight (400)
 - `NotoNaskhArabic-Bold.ttf` - Bold weight (700)
 
-## Usage
 
-```typescript
-import { FontCharset } from '@embedpdf/models';
+## Usage (recommended — local, no CDN)
 
-const fontFallback = {
-  fonts: {
-    [FontCharset.ARABIC]: [
-      { url: 'NotoNaskhArabic-Regular.ttf', weight: 400 },
-      { url: 'NotoNaskhArabic-Bold.ttf', weight: 700 },
-    ],
-  },
-  baseUrl: 'https://cdn.jsdelivr.net/npm/@embedpdf/fonts-arabic@1/fonts',
-};
+```ts
+import { createFontFallback } from '@embedpdf/fonts-arabic';
+
+fontFallback: createFontFallback();
 ```
+
+Fonts resolve from this package via `import.meta.url` (Vite/Rollup/webpack 5+).
+Combine packs with `mergeFontFallbacks` from `@embedpdf/engines`.
 
 ## License
 

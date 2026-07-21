@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-import type { FontFile, FontPackageMeta } from '@embedpdf/models';
+import { FontCharset, type FontFile, type FontPackageMeta } from '@embedpdf/models';
 
 /**
  * Font files included in this package
@@ -50,3 +50,26 @@ export const fontsMeta: FontPackageMeta = {
   name: '@embedpdf/fonts-latin',
   fonts,
 };
+
+/**
+ * Build a font-fallback config that serves fonts from this package (no CDN).
+ * Maps Cyrillic, Greek, and Vietnamese charsets (same files cover Latin too).
+ * Pass the result to `PDFViewer` / `usePdfiumEngine` as `fontFallback`.
+ */
+export function createFontFallback() {
+  const variants = fonts.map((f) => ({
+    url: new URL(/* @vite-ignore */ `../fonts/${f.file}`, import.meta.url).href,
+    weight: f.weight,
+    italic: f.italic,
+  }));
+
+  return {
+    fonts: {
+      [FontCharset.CYRILLIC]: variants,
+      [FontCharset.GREEK]: variants,
+      [FontCharset.VIETNAMESE]: variants,
+      [FontCharset.EASTERNEUROPEAN]: variants,
+      [FontCharset.ANSI]: variants,
+    },
+  };
+}

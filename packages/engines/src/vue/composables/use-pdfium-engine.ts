@@ -1,9 +1,7 @@
 import { ref, onMounted, onBeforeUnmount, watch, Ref } from 'vue';
 import { ignore, type Logger, type PdfEngine } from '@embedpdf/models';
+import { PDFIUM_WASM_URL } from '@embedpdf/pdfium';
 import type { FontFallbackConfig } from '@embedpdf/engines';
-
-const defaultWasmUrl =
-  'https://cdn.jsdelivr.net/npm/@embedpdf/pdfium@__PDFIUM_VERSION__/dist/pdfium.wasm';
 
 interface UsePdfiumEngineProps {
   wasmUrl?: string;
@@ -27,7 +25,7 @@ interface UsePdfiumEngineResult {
  * and keeps its lifetime tied to the component.
  */
 export function usePdfiumEngine(props: UsePdfiumEngineProps = {}): UsePdfiumEngineResult {
-  const { wasmUrl = defaultWasmUrl, worker = true, logger, fontFallback } = props;
+  const { wasmUrl = PDFIUM_WASM_URL, worker = true, logger, fontFallback } = props;
 
   const engine = ref<PdfEngine | null>(null);
   const isLoading = ref(true);

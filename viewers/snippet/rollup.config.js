@@ -43,6 +43,11 @@ export default [
       dir: 'dist',
       format: 'esm',
       sourcemap: false,
+      // Inline dynamic imports (worker/direct engine). Hashed sibling chunks
+      // break under Vite's dependency pre-bundler (`optimizeDeps`), forcing
+      // consumers to exclude this package from Vite config. A single ESM entry
+      // stays bundler-safe with zero host config.
+      inlineDynamicImports: true,
     },
     plugins: [
       copy({

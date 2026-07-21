@@ -26,51 +26,17 @@ This font covers multiple charsets used by PDFium:
 - `FontCharset.GREEK` (161) - Greek
 - `FontCharset.VIETNAMESE` (163) - Vietnamese
 
-## Usage
 
-```typescript
-import { FontCharset } from '@embedpdf/models';
+## Usage (recommended — local, no CDN)
 
-const latinFonts = [
-  { url: 'NotoSans-Thin.ttf', weight: 100 },
-  { url: 'NotoSans-ThinItalic.ttf', weight: 100, italic: true },
-  { url: 'NotoSans-ExtraLight.ttf', weight: 200 },
-  { url: 'NotoSans-ExtraLightItalic.ttf', weight: 200, italic: true },
-  { url: 'NotoSans-Light.ttf', weight: 300 },
-  { url: 'NotoSans-LightItalic.ttf', weight: 300, italic: true },
-  { url: 'NotoSans-Regular.ttf', weight: 400 },
-  { url: 'NotoSans-Italic.ttf', weight: 400, italic: true },
-  { url: 'NotoSans-Medium.ttf', weight: 500 },
-  { url: 'NotoSans-MediumItalic.ttf', weight: 500, italic: true },
-  { url: 'NotoSans-SemiBold.ttf', weight: 600 },
-  { url: 'NotoSans-SemiBoldItalic.ttf', weight: 600, italic: true },
-  { url: 'NotoSans-Bold.ttf', weight: 700 },
-  { url: 'NotoSans-BoldItalic.ttf', weight: 700, italic: true },
-  { url: 'NotoSans-ExtraBold.ttf', weight: 800 },
-  { url: 'NotoSans-ExtraBoldItalic.ttf', weight: 800, italic: true },
-  { url: 'NotoSans-Black.ttf', weight: 900 },
-  { url: 'NotoSans-BlackItalic.ttf', weight: 900, italic: true },
-];
+```ts
+import { createFontFallback } from '@embedpdf/fonts-latin';
 
-const fontFallback = {
-  fonts: {
-    [FontCharset.CYRILLIC]: latinFonts,
-    [FontCharset.GREEK]: latinFonts,
-    [FontCharset.VIETNAMESE]: latinFonts,
-  },
-  baseUrl: 'https://cdn.jsdelivr.net/npm/@embedpdf/fonts-latin@1/fonts',
-};
+fontFallback: createFontFallback();
 ```
 
-Or use the pre-configured CDN config:
-
-```typescript
-import { cdnFontConfig } from '@embedpdf/engines/pdfium';
-
-const native = new PdfiumNative(pdfiumModule, {
-  fontFallback: cdnFontConfig,
-});
-```
+Fonts resolve from this package via `import.meta.url` (Vite/Rollup/webpack 5+).
+Combine packs with `mergeFontFallbacks` from `@embedpdf/engines`.
 
 ## License
 
