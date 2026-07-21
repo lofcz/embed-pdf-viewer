@@ -1,12 +1,16 @@
 /**
- * Interactive recursive publish (stdio inherited so npm can block on the
- * browser / web-auth challenge). Skips versions already on the registry.
+ * Publish fork packages to npm.
+ *
+ * Uses `pnpm publish` so workspace: deps are rewritten to real versions.
+ * - Local: needs interactive TTY for browser/web-auth when not trusted.
+ * - CI: OIDC trusted publishing via setup-node registry-url + id-token.
  */
 import { spawnSync } from "child_process";
 import fs from "fs";
 import path from "path";
 
 const ROOT = process.cwd();
+const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 
 const ALLOW_PREFIXES = [
   "@lofcz/embedpdf-core",
@@ -64,14 +68,16 @@ const published = [];
 const skipped = [];
 const failed = [];
 
-// Interactive web-auth needs a real TTY. Do not pipe stdout/stderr.
-if (!process.stdin.isTTY) {
+if (!isCI && !process.stdin.isTTY) {
   console.error("Run this from an interactive terminal (cmd/PowerShell), not a pipe.");
   process.exit(1);
 }
 
-console.log("Interactive publish: when npm prints a browser URL, open it and finish the challenge.");
-console.log("The CLI will wait until that auth completes.\n");
+if (!isCI) {
+  console.log("Interactive publish: complete any browser auth challenge when prompted.\n");
+} else {
+  console.log("CI publish via npm trusted publishing (OIDC).\n");
+}
 
 for (const dir of dirs) {
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
@@ -91,10 +97,11 @@ for (const dir of dirs) {
   }
 
   console.log(`\n→ publishing ${pkg.name}@${pkg.version}`);
-  console.log(`  cwd: ${dir}`);
 
-  // Use npm directly so the web-auth / EOTP browser flow can block on this TTY.
-  const result = spawnSync("npm", ["publish", "--access", "public"], {
+  const args = ["publish", "--access", "public", "--no-git-checks"];
+  if (isCI) args.push("--provenance");
+
+  const result = spawnSync("pnpm", args, {
     cwd: dir,
     shell: true,
     stdio: "inherit",
@@ -108,6 +115,7 @@ for (const dir of dirs) {
 
   failed.push(`${pkg.name}@${pkg.version}`);
   console.error(`✖ failed: ${pkg.name}@${pkg.version} (exit ${result.status})`);
+  if (isCI) break;
   console.error("Fix auth / retry. Re-run `pnpm ci:publish` — already-published packages are skipped.");
   break;
 }
@@ -118,3 +126,7 @@ console.log("\n=== publish summary ===");
 console.log(JSON.stringify(summary, null, 2));
 
 if (failed.length) process.exit(1);
+if (isCI && published.length === 0) {
+  console.error("CI publish published 0 packages.");
+  process.exit(1);
+}

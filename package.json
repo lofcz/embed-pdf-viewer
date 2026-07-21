@@ -22,7 +22,7 @@
     "changeset": "changeset",
     "ci:publish": "node scripts/publish-packages.mjs",
     "ci:publish:next": "pnpm publish -r --access public --tag next --publish-branch next --filter \"./packages/**\" --filter \"./viewers/react\" --filter \"./viewers/snippet\" --report-summary pnpm-publish-summary.json",
-    "version:bump-patch": "node scripts/bump-publishable.mjs",
+    "version:bump": "node scripts/bump-publishable.mjs",
     "trust:setup": "node scripts/setup-trusted-publishing.mjs",
     "trust:setup:dry": "node scripts/setup-trusted-publishing.mjs --dry-run"
   },
