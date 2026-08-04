@@ -1,6 +1,6 @@
 {
   "name": "@lofcz/embedpdf-fonts-latin",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": false,
   "description": "Latin/European fallback fonts for EmbedPDF - Noto Sans (9 weights × 2 styles)",
   "type": "module",
