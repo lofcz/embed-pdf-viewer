@@ -1,10 +1,12 @@
 import { Rect } from '@embedpdf/models';
 import { useLayoutEffect, useRef } from '@framework';
+import { smoothScrollTo, SmoothScrollHandle } from '@embedpdf/plugin-viewport';
 import { useViewportPlugin } from './use-viewport';
 
 export function useViewportRef(documentId: string) {
   const { plugin: viewportPlugin } = useViewportPlugin();
   const containerRef = useRef<HTMLDivElement>(null);
+  const activeAnimationRef = useRef<SmoothScrollHandle | null>(null);
 
   useLayoutEffect(() => {
     if (!viewportPlugin) return;
@@ -46,18 +48,34 @@ export function useViewportRef(documentId: string) {
     });
     resizeObserver.observe(container);
 
+    // Cancel any in-flight smooth animation (superseded by a newer request).
+    const cancelActiveAnimation = () => {
+      activeAnimationRef.current?.cancel();
+      activeAnimationRef.current = null;
+    };
+
     // Subscribe to scroll requests for this document
     const unsubscribeScrollRequest = viewportPlugin.onScrollRequest(
       documentId,
       ({ x, y, behavior = 'auto' }) => {
         requestAnimationFrame(() => {
-          container.scrollTo({ left: x, top: y, behavior });
+          cancelActiveAnimation();
+
+          if (behavior === 'smooth') {
+            // Custom eased animation: capped duration regardless of distance,
+            // so long jumps feel as snappy as short ones.
+            activeAnimationRef.current = smoothScrollTo(container, { left: x, top: y });
+          } else {
+            // 'instant' / 'auto' jump straight to the target.
+            container.scrollTo({ left: x, top: y, behavior: 'auto' });
+          }
         });
       },
     );
 
     // Cleanup
     return () => {
+      cancelActiveAnimation();
       viewportPlugin.unregisterViewport(documentId);
       resizeObserver.disconnect();
       container.removeEventListener('scroll', onScroll);

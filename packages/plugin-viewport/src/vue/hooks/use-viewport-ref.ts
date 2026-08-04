@@ -1,5 +1,6 @@
 import { Rect } from '@embedpdf/models';
 import { onBeforeUnmount, ref, watch, toValue, type MaybeRefOrGetter } from 'vue';
+import { smoothScrollTo, SmoothScrollHandle } from '@embedpdf/plugin-viewport';
 import { useViewportPlugin } from './use-viewport';
 
 /**
@@ -11,6 +12,12 @@ export function useViewportRef(documentId: MaybeRefOrGetter<string>) {
   const containerRef = ref<HTMLDivElement | null>(null);
 
   let cleanup: (() => void) | null = null;
+  let activeAnimation: SmoothScrollHandle | null = null;
+
+  const cancelActiveAnimation = () => {
+    activeAnimation?.cancel();
+    activeAnimation = null;
+  };
 
   // Setup function that runs when both plugin and container are available
   const setupViewport = (docId: string) => {
@@ -58,13 +65,20 @@ export function useViewportRef(documentId: MaybeRefOrGetter<string>) {
       docId,
       ({ x, y, behavior = 'auto' }) => {
         requestAnimationFrame(() => {
-          container.scrollTo({ left: x, top: y, behavior });
+          cancelActiveAnimation();
+
+          if (behavior === 'smooth') {
+            activeAnimation = smoothScrollTo(container, { left: x, top: y });
+          } else {
+            container.scrollTo({ left: x, top: y, behavior: 'auto' });
+          }
         });
       },
     );
 
     // Return cleanup function
     return () => {
+      cancelActiveAnimation();
       viewportPlugin.unregisterViewport(docId);
       container.removeEventListener('scroll', onScroll);
       unsubscribeScrollRequest();

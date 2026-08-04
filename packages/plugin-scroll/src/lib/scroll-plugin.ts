@@ -56,6 +56,9 @@ export class ScrollPlugin extends BasePlugin<
   private viewport: ViewportCapability;
   private spread: SpreadCapability | null;
 
+  // Max page distance for a smooth animation; larger jumps go instant.
+  private readonly smoothScrollMaxPageDistance: number;
+
   // Elevated pages per document (derived from InteractionManager page activity)
   private elevatedPages = new Map<string, Set<number>>();
 
@@ -92,10 +95,19 @@ export class ScrollPlugin extends BasePlugin<
     this.viewport = this.registry.getPlugin<ViewportPlugin>('viewport')!.provides();
     this.spread = this.registry.getPlugin<SpreadPlugin>('spread')?.provides() ?? null;
 
+    this.smoothScrollMaxPageDistance = config?.smoothScrollMaxPageDistance ?? 5;
+
     // Subscribe to viewport scroll activity (per document)
     this.viewport.onScrollActivity((event) => {
       const docState = this.getDocumentState(event.documentId);
-      if (docState?.pageChangeState.isChanging && !event.activity.isSmoothScrolling) {
+      if (!docState?.pageChangeState.isChanging) return;
+
+      // Complete only once the viewport has fully settled: neither a smooth
+      // animation nor any residual scrolling may be in progress. Previously we
+      // completed as soon as `isSmoothScrolling` flipped false (a 300ms debounce),
+      // which rubber-banded the page indicator mid-animation on long scrolls.
+      const { isSmoothScrolling, isScrolling } = event.activity;
+      if (!isSmoothScrolling && !isScrolling) {
         this.completePageChange(event.documentId);
       }
     });
@@ -420,6 +432,59 @@ export class ScrollPlugin extends BasePlugin<
   // Page Change Management
   // ─────────────────────────────────────────────────────────
 
+  /**
+   * Decide whether a jump to `targetPage` should animate smoothly or go
+   * straight to the destination. Short jumps smooth-scroll; long jumps across
+   * many virtualized pages are instant (the destination is pre-rendered) so the
+   * user never watches a multi-page glide that the renderer can't keep up with.
+   */
+  private resolveBehavior(
+    docState: ScrollDocumentState,
+    targetPage: number,
+    requested: ScrollBehavior,
+  ): ScrollBehavior {
+    if (requested !== 'smooth') return requested;
+    const distance = Math.abs(targetPage - docState.currentPage);
+    return distance > this.smoothScrollMaxPageDistance ? 'instant' : 'smooth';
+  }
+
+  /**
+   * Pre-render the pages around `pageNumber` before the scroll lands, so an
+   * instant long-distance jump reveals rendered content instead of a blank gap.
+   * This updates the visible/rendered ranges (and pushes scroller layout) using
+   * a synthetic viewport positioned at the target page, without touching the
+   * persisted scrollOffset (the real scroll event will commit that).
+   */
+  private prewarmPagesAround(
+    documentId: string,
+    pageNumber: number,
+    position: { x: number; y: number },
+  ): void {
+    const docState = this.getDocumentState(documentId);
+    if (!docState) return;
+
+    const viewport = this.viewport.forDocument(documentId);
+    const vp = viewport.getMetrics();
+
+    const synthetic: ViewportMetrics = {
+      ...vp,
+      scrollLeft: position.x,
+      scrollTop: position.y,
+    };
+    const metrics = this.computeMetrics(documentId, synthetic, docState.virtualItems);
+
+    this.dispatch(
+      updateDocumentScrollState(documentId, {
+        visiblePages: metrics.visiblePages,
+        pageVisibilityMetrics: metrics.pageVisibilityMetrics,
+        renderedPageIndexes: metrics.renderedPageIndexes,
+        startSpacing: metrics.startSpacing,
+        endSpacing: metrics.endSpacing,
+      }),
+    );
+    this.pushScrollerLayout(documentId);
+  }
+
   private startPageChange(
     documentId: string,
     targetPage: number,
@@ -614,7 +679,11 @@ export class ScrollPlugin extends BasePlugin<
     const strategy = this.getStrategy(id);
     const coreDoc = this.getCoreDocumentOrThrow(id);
 
-    const { pageNumber, behavior = 'smooth', pageCoordinates, alignX, alignY } = options;
+    const { pageNumber, behavior: requested = 'smooth', pageCoordinates, alignX, alignY } = options;
+
+    // Long jumps across many pages become instant (with pre-render) so they
+    // feel snappy; short jumps keep the smooth animation.
+    const behavior = this.resolveBehavior(docState, pageNumber, requested);
 
     this.startPageChange(id, pageNumber, behavior);
 
@@ -631,6 +700,11 @@ export class ScrollPlugin extends BasePlugin<
     );
 
     if (position) {
+      // For instant jumps, render the destination before the scroll lands so
+      // the user sees content, not a blank gap.
+      if (behavior === 'instant') {
+        this.prewarmPagesAround(id, pageNumber, position);
+      }
       const viewport = this.viewport.forDocument(id);
       viewport.scrollTo({ ...position, behavior, alignX, alignY });
     } else {

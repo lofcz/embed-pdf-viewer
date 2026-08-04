@@ -21,3 +21,4 @@ export const ViewportPluginPackage: PluginPackage<
 export * from './viewport-plugin';
 export * from './types';
 export * from './manifest';
+export * from './smooth-scroll';

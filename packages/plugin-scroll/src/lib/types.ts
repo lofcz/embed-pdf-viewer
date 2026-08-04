@@ -92,6 +92,14 @@ export interface ScrollPluginConfig extends BasePluginConfig {
   defaultStrategy?: ScrollStrategy;
   defaultPageGap?: number;
   defaultBufferSize?: number;
+  /**
+   * Maximum number of pages between the current and target page for which a
+   * smooth scroll animation is used. Jumps larger than this are performed
+   * instantly (with the destination pre-rendered) to avoid a long, janky glide
+   * across many virtualized pages. Set to `Infinity` to always smooth-scroll.
+   * @default 5
+   */
+  smoothScrollMaxPageDistance?: number;
 }
 
 export type LayoutChangePayload = Pick<ScrollDocumentState, 'virtualItems' | 'totalContentSize'>;

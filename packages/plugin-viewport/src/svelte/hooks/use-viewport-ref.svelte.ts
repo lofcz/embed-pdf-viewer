@@ -1,4 +1,5 @@
 import { type Rect } from '@embedpdf/models';
+import { smoothScrollTo, type SmoothScrollHandle } from '@embedpdf/plugin-viewport';
 import { useViewportPlugin } from './use-viewport.svelte';
 
 /**
@@ -9,6 +10,12 @@ export function useViewportRef(getDocumentId: () => string | null) {
   const { plugin } = useViewportPlugin();
 
   let containerRef = $state<HTMLDivElement | null>(null);
+  let activeAnimation: SmoothScrollHandle | null = null;
+
+  const cancelActiveAnimation = () => {
+    activeAnimation?.cancel();
+    activeAnimation = null;
+  };
 
   // Reactive documentId
   const documentId = $derived(getDocumentId());
@@ -59,13 +66,20 @@ export function useViewportRef(getDocumentId: () => string | null) {
       docId,
       ({ x, y, behavior = 'auto' }) => {
         requestAnimationFrame(() => {
-          container.scrollTo({ left: x, top: y, behavior });
+          cancelActiveAnimation();
+
+          if (behavior === 'smooth') {
+            activeAnimation = smoothScrollTo(container, { left: x, top: y });
+          } else {
+            container.scrollTo({ left: x, top: y, behavior: 'auto' });
+          }
         });
       },
     );
 
     // Store cleanup function
     return () => {
+      cancelActiveAnimation();
       plugin.unregisterViewport(docId);
       container.removeEventListener('scroll', onScroll);
       resizeObserver.disconnect();

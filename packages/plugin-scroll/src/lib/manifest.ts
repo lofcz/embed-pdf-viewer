@@ -14,5 +14,6 @@ export const manifest: PluginManifest<ScrollPluginConfig> = {
     defaultPageGap: 10,
     defaultBufferSize: 4,
     defaultStrategy: ScrollStrategy.Vertical,
+    smoothScrollMaxPageDistance: 5,
   },
 };
