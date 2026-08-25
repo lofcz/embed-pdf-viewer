@@ -14,3 +14,5 @@ export { negotiateLocale } from './negotiate';
 // outside a kernel (e.g. rendering an email from the same packs).
 export { translate, interpolate } from './translate';
 export type { TranslateResult } from './translate';
+// Pre-plugin boot copy: same lookup as `t()`, no kernel required.
+export { getStaticTranslation, useStaticTranslation } from './static-translation';

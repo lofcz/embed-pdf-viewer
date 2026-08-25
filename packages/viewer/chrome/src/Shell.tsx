@@ -85,7 +85,7 @@ function OpeningDocuments() {
     <div className="grid h-full w-full place-items-center">
       <div className="text-fg-muted flex flex-col items-center gap-3">
         <div className="border-border-subtle border-t-accent h-8 w-8 animate-spin rounded-full border-2" />
-        <div className="text-sm">{t('demo.opening')}</div>
+        <div className="text-sm">{t('demo.opening', { fallback: 'Opening document…' })}</div>
       </div>
     </div>
   );

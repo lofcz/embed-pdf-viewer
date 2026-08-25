@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { negotiateLocale } from './negotiate';
 import { i18nReducer, initialI18nState } from './reducer';
+import { getStaticTranslation, useStaticTranslation } from './static-translation';
 import { interpolate, translate } from './translate';
 import type { I18nState, Locale } from './types';
 
@@ -62,6 +63,63 @@ describe('translate', () => {
 
   it('does not resolve a branch object without a count', () => {
     expect(translate(state(), 'pages').found).toBe(false);
+  });
+});
+
+describe('getStaticTranslation', () => {
+  const packs: Locale[] = [
+    en,
+    {
+      code: 'cs',
+      name: 'Čeština',
+      translations: { demo: { starting: 'Spouštění prohlížeče…' } },
+    },
+  ];
+
+  it('resolves a dotted key in the requested locale', () => {
+    expect(getStaticTranslation(packs, 'cs', 'demo.starting')).toBe('Spouštění prohlížeče…');
+  });
+
+  it('falls back to the English pack when the key misses the requested locale', () => {
+    expect(getStaticTranslation(packs, 'cs', 'commands.zoom.in')).toBe('Zoom In');
+  });
+
+  it('uses the English fallback string when the key misses every pack', () => {
+    expect(getStaticTranslation(packs, 'cs', 'demo.opening', 'Opening document…')).toBe(
+      'Opening document…',
+    );
+  });
+
+  it('returns the key itself when nothing matches and no fallback is given', () => {
+    expect(getStaticTranslation(packs, 'cs', 'nope.nothing')).toBe('nope.nothing');
+  });
+
+  it('falls back to English when the requested locale is not in the pack list', () => {
+    expect(getStaticTranslation(packs, 'pl', 'commands.save')).toBe('Save');
+  });
+
+  it('returns the fallback (or key) when the pack list is empty', () => {
+    expect(getStaticTranslation([], 'en', 'demo.starting', 'Starting viewer…')).toBe(
+      'Starting viewer…',
+    );
+    expect(getStaticTranslation([], 'en', 'demo.starting')).toBe('demo.starting');
+  });
+});
+
+describe('useStaticTranslation', () => {
+  it('binds packs and default locale into a t(key, fallback?) function', () => {
+    const t = useStaticTranslation({
+      locales: [en],
+      defaultLocale: 'en',
+    });
+    expect(t('commands.save')).toBe('Save');
+    expect(t('missing.key', 'Hello')).toBe('Hello');
+  });
+
+  it('defaults to an empty pack list and English when config is omitted', () => {
+    const t = useStaticTranslation();
+    expect(t('demo.starting', 'Starting viewer…')).toBe('Starting viewer…');
+    expect(t('demo.starting')).toBe('demo.starting');
   });
 });
 
