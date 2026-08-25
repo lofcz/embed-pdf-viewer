@@ -1,9 +1,30 @@
-import type { ShellAction, ShellState, SurfaceState } from './types';
+import type { ShellAction, ShellConfig, ShellState, SurfaceState } from './types';
 
-export const initialShellState: ShellState = {
+export const emptyShellState: ShellState = {
   surfaces: {},
   openMenus: [],
 };
+
+/**
+ * Seed document-scoped shell state. `defaultOpen` surfaces start open;
+ * first-wins per exclusivity tag so two left-slot panels cannot both claim it.
+ */
+export function initialShellState(config: ShellConfig = {}): ShellState {
+  const entries = config.defaultOpen;
+  if (!entries || entries.length === 0) return emptyShellState;
+
+  const surfaces: Record<string, SurfaceState> = {};
+  const claimedExclusive = new Set<string>();
+
+  for (const entry of entries) {
+    if (entry.exclusive !== undefined && claimedExclusive.has(entry.exclusive)) continue;
+    if (surfaces[entry.id]?.open) continue;
+    if (entry.exclusive !== undefined) claimedExclusive.add(entry.exclusive);
+    surfaces[entry.id] = { open: true, exclusive: entry.exclusive };
+  }
+
+  return { surfaces, openMenus: [] };
+}
 
 /** Close every open surface sharing the exclusivity tag. */
 function closeExclusive(

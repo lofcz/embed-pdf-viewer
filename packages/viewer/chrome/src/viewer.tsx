@@ -301,7 +301,9 @@ export function FullViewer({
       commands: resolved.commands,
       disabledCategories: disabledCategories ? [...disabledCategories] : undefined,
     }),
-    shellPlugin(),
+    // Open the thumbnails/outline sidebar on each new document (v2 snippet
+    // `defaultOpen: true` on the left sidebar — first-wins per exclusive slot).
+    shellPlugin({ defaultOpen: [{ id: 'sidebar', exclusive: 'left' }] }),
   ]);
 
   // Structural subset of `resolved`, identity-stable across renders.
