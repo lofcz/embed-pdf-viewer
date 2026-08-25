@@ -8,7 +8,7 @@
  * are the EMBEDDER's chrome, not the viewer's. The frame keeps a `header`
  * socket for a slotted one (see Shell).
  */
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSelector, useDocumentId } from '@embedpdf/react/runtime';
 import { Stage, StageToken, usePages } from '@embedpdf/react/stage';
 import { RenderLayer } from '@embedpdf/react/render';
@@ -17,23 +17,39 @@ import { useT } from '@embedpdf/react/i18n';
 import { ThumbsStageToken } from '../config/stage';
 import { Icon } from './icons';
 import { AnnotationStylePanel } from './annotation-style';
+import { OutlineList } from './outline-list';
 import { RedactionPanel } from './redaction-panel';
 import { SearchPanel } from './search-panel';
+
+type LeftTab = 'thumbnails' | 'outline';
 
 // ── left sidebar (thumbnails / outline tabs) ─────────────────────────────────
 export function LeftSidebar() {
   const t = useT();
   const sidebar = useSurface('sidebar');
+  const [tab, setTab] = useState<LeftTab>('thumbnails');
   if (!sidebar.isOpen) return null;
   return (
     <aside className="border-border-subtle bg-surface flex w-60 shrink-0 flex-col border-r">
       <div className="border-border-subtle flex items-center gap-1 border-b p-2">
-        <span className="bg-accent-light text-accent rounded-md px-2 py-1 text-xs font-medium">
+        <button
+          type="button"
+          onClick={() => setTab('thumbnails')}
+          className={`rounded-md px-2 py-1 text-xs font-medium ${
+            tab === 'thumbnails' ? 'bg-accent-light text-accent' : 'text-fg-muted'
+          }`}
+        >
           {t('demo.thumbnails')}
-        </span>
-        <span className="text-fg-muted rounded-md px-2 py-1 text-xs font-medium">
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('outline')}
+          className={`rounded-md px-2 py-1 text-xs font-medium ${
+            tab === 'outline' ? 'bg-accent-light text-accent' : 'text-fg-muted'
+          }`}
+        >
           {t('demo.outline')}
-        </span>
+        </button>
         <div className="flex-1" />
         <button
           type="button"
@@ -43,7 +59,7 @@ export function LeftSidebar() {
           <Icon name="x" size={16} />
         </button>
       </div>
-      <ThumbnailList />
+      {tab === 'thumbnails' ? <ThumbnailList /> : <OutlineList />}
     </aside>
   );
 }

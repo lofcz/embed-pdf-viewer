@@ -130,6 +130,8 @@ export const es: Locale = {
       more: 'Más',
       thumbnails: 'Miniaturas',
       outline: 'Esquema',
+      outlineEmpty: 'Sin esquema',
+      outlineNoBookmarks: 'Este documento no tiene marcadores.',
       searchPlaceholder: 'Buscar en el documento…',
       searchTitle: 'Buscar',
       searchCaseSensitive: 'Distinguir mayúsculas',

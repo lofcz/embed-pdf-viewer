@@ -127,6 +127,8 @@ export const en: Locale = {
       more: 'More',
       thumbnails: 'Thumbnails',
       outline: 'Outline',
+      outlineEmpty: 'No outline',
+      outlineNoBookmarks: 'This document has no bookmarks.',
       searchPlaceholder: 'Search document…',
       searchTitle: 'Search',
       searchCaseSensitive: 'Case sensitive',

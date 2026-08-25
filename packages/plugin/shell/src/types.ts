@@ -35,6 +35,19 @@ export interface OpenSurfaceOptions {
   readonly props?: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * A surface that should open when a document's shell state is first created.
+ * First-wins per exclusivity tag (v2's `SidebarSchema.defaultOpen` / slot).
+ */
+export interface DefaultOpenSurface {
+  readonly id: string;
+  readonly exclusive?: string;
+}
+
+export interface ShellConfig {
+  readonly defaultOpen?: readonly DefaultOpenSurface[];
+}
+
 export type ShellAction =
   | {
       type: 'SHELL/OPEN_SURFACE';
