@@ -83,3 +83,27 @@ export const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
  * a focal anchor, swings the anchored point along a curved path).
  */
 export const zoomLerp = (z0: number, z1: number, k: number): number => z0 * Math.pow(z1 / z0, k);
+
+// ── smooth-scroll duration (v2 plugin-viewport `smooth-scroll.ts`) ─────────────
+/** Floor: short hops stay snappy. */
+export const SMOOTH_SCROLL_MIN_MS = 160;
+/** Ceiling: long jumps never drag past this. */
+export const SMOOTH_SCROLL_MAX_MS = 420;
+/** Screen-px distance that maps onto the [MIN, MAX] duration range. */
+export const SMOOTH_SCROLL_DISTANCE_FOR_MAX = 2400;
+
+const clampDuration = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * Distance-aware tween length: ease-out cubic rides this, so a one-page hop
+ * and a twenty-page hop feel equally decisive (native smooth-scroll scales
+ * with distance and starves virtualization on long jumps).
+ */
+export function smoothScrollDuration(distancePx: number): number {
+  return clampDuration(
+    SMOOTH_SCROLL_MIN_MS +
+      (distancePx / SMOOTH_SCROLL_DISTANCE_FOR_MAX) * (SMOOTH_SCROLL_MAX_MS - SMOOTH_SCROLL_MIN_MS),
+    SMOOTH_SCROLL_MIN_MS,
+    SMOOTH_SCROLL_MAX_MS,
+  );
+}

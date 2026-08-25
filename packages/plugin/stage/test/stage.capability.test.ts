@@ -525,8 +525,8 @@ describe('smooth scroll via the injected scheduler', () => {
 
     const run = (t: number) => frames.splice(0).forEach((cb) => cb(t));
     run(0); // first frame: k = 0
-    run(120); // mid
-    run(240); // final: k = 1 → at target
+    run(200); // mid (duration is distance-clamped 160–420, not a fixed 240)
+    run(420); // final: k = 1 → at target
     expect(stage.currentPage()).toBe(4);
   });
 });
@@ -620,9 +620,9 @@ describe('the scroller contract — the camera in native DOM vocabulary', () => 
     expect(frames.length).toBeGreaterThan(0);
     const run = (t: number) => frames.splice(0).forEach((cb) => cb(t));
     run(0);
-    run(120);
+    run(200);
     expect(stage.currentPage()).toBe(0); // mid-tween: cursor not yet synced
-    run(240);
+    run(420);
     expect(stage.scrollMetrics().scrollTop).toBeCloseTo(2500, 1);
     expect(stage.currentPage()).toBeGreaterThan(0); // synced on natural completion
   });
@@ -865,9 +865,9 @@ describe('cursor is INTENT: a clamped camera never revokes navigation', () => {
     expect(stage.currentPage()).toBe(3); // intent holds immediately
     const run = (t: number) => frames.splice(0).forEach((cb) => cb(t));
     run(0);
-    run(120);
+    run(200);
     expect(stage.currentPage()).toBe(3); // …and mid-tween
-    run(240);
+    run(420);
     expect(stage.currentPage()).toBe(3); // …and at the end
   });
 });

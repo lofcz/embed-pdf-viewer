@@ -4,7 +4,12 @@ import type { StageAction, StageConfig, StageSettings, StageState } from './type
 export const initialStageState = (config: StageConfig): StageState => {
   // `scheduler` and `responsive` are capability config, not settings — strip
   // them so the spread below stays a pure settings override.
-  const { scheduler: _scheduler, responsive: _responsive, ...overrides } = config;
+  const {
+    scheduler: _scheduler,
+    responsive: _responsive,
+    prewarmPages: _prewarmPages,
+    ...overrides
+  } = config;
   return {
     camera: { x: 0, y: 0, zoom: 1 },
     placed: false,

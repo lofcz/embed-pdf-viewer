@@ -209,8 +209,28 @@ export interface StageSettings {
   viewRotation: PageRotation;
   /** Zoom intent: a fit-mode (automatic/fit-page/fit-width/fit-all) or a fixed level. */
   zoom: ZoomSpec;
+  /**
+   * When true, numeric zoom values are USER-space and the camera stores the
+   * EFFECTIVE scale `user × (96/72) × devicePixelRatio` (v2 `usePhysicalScaling`).
+   * Fit modes (`automatic` / `fit-page` / `fit-width` / `fit-all`) are unchanged
+   * — they still fit the viewport in CSS-pixel space. Default false.
+   */
+  usePhysicalScaling: boolean;
+  /**
+   * Per-notch wheel zoom increment (v2 `ZoomGestureOptions.zoomStep`).
+   * Wheel zooms by `1 − sign(deltaY) × zoomStep` instead of raw `deltaY`.
+   * Default 0.1 (10%).
+   */
+  zoomStep: number;
   /** Default behaviour for goToPage/next/prev. */
   scrollBehavior: ScrollBehaviorKind;
+  /**
+   * Maximum `|Δpage|` that still uses a smooth navigation tween. Longer jumps
+   * snap instantly (and pre-warm destination pages when a hook is registered)
+   * so virtualization is not starved by a long glide. `Infinity` = always
+   * smooth. Default 5.
+   */
+  smoothScrollMaxPageDistance: number;
   /**
    * View pixels per PDF point — the platform's physical unit factor, folded into
    * the layout so 100% (zoom 1) is physically accurate. Web = 96/72 (1 pt = 1/72",
@@ -494,7 +514,25 @@ export interface StageCapability {
   scrollBehavior(): ScrollBehaviorKind;
   /** The lens's view rotation — see {@link StageSettings.viewRotation}. */
   viewRotation(): PageRotation;
+  /**
+   * Effective / render scale (`currentZoomLevel`). Equals the camera zoom —
+   * user zoom × physical DPR when `usePhysicalScaling` is on.
+   */
   zoomLevel(): number;
+  /**
+   * User-space zoom (`currentUserZoomLevel`). Equals `zoomLevel()` when
+   * physical scaling is off; `zoomLevel() / getDpr()` (adjusted for
+   * `viewUnitsPerPoint`) when on.
+   */
+  userZoomLevel(): number;
+  /**
+   * Combined physical-scale multiplier: `(96/72) × devicePixelRatio` when
+   * `usePhysicalScaling` is on, else 1. Mirrors v2 `ZoomCapability.getDpr()`.
+   */
+  getDpr(): number;
+  usePhysicalScaling(): boolean;
+  zoomStep(): number;
+  smoothScrollMaxPageDistance(): number;
   /** The active zoom intent: a fit-mode, or 'custom' for a fixed level. */
   zoomMode(): ZoomModeValue | 'custom';
   /** What I'm looking at + zoom intent — capture for per-page view memory. */
@@ -518,6 +556,11 @@ export interface StageCapability {
   /** `Element.scrollBy`: relative offsets — sugar over `scrollTo`. */
   scrollBy(opts: StageScrollToOptions): void;
   zoomAround(screenPt: Point, factor: number): void;
+  /**
+   * Ctrl/cmd-wheel zoom: applies `1 − sign(deltaY) × zoomStep` around
+   * `screenPt` (v2 wheel, not raw `deltaY * 0.01`).
+   */
+  wheelZoom(screenPt: Point, deltaY: number): void;
   /**
    * Bracket a continuous direct-manipulation gesture (touch pan / pinch).
    * While a gesture is open the camera writes stay cheap and visually calm:
@@ -632,6 +675,9 @@ export interface StageCapability {
    *  relative sugar over {@link setViewRotation}, mirroring page-edit's `rotateBy`. */
   rotateView(delta: 90 | -90): void;
   setScrollBehavior(behavior: ScrollBehaviorKind): void;
+  setUsePhysicalScaling(on: boolean): void;
+  setZoomStep(step: number): void;
+  setSmoothScrollMaxPageDistance(n: number): void;
   applyViewState(view: StageViewState): void;
   /** Offer a candidate initial view; the highest-priority non-null wins at placement. */
   provideInitialView(priority: number, provider: () => StageViewState | null): void;
@@ -650,6 +696,12 @@ export interface StageConfig extends Partial<StageSettings> {
    * gutter); pass `[]` to opt out entirely.
    */
   responsive?: readonly ResponsiveRule[];
+  /**
+   * Called on instant long-distance navigation (`|Δpage| > smoothScrollMaxPageDistance`)
+   * with the destination pages that should be decoded before the camera lands,
+   * so the jump reveals content instead of a blank gap (v2 `prewarmPagesAround`).
+   */
+  prewarmPages?: (pageIndexes: readonly number[]) => void;
 }
 
 export const StageToken = createCapabilityToken<StageCapability>('stage');

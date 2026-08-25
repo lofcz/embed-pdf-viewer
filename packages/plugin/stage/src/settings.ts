@@ -29,7 +29,10 @@ export const DEFAULT_SETTINGS: StageSettings = {
   anchorAlign: { x: 'start', y: 'start' },
   viewRotation: 0,
   zoom: { mode: ZoomMode.Automatic },
+  usePhysicalScaling: false,
+  zoomStep: 0.1,
   scrollBehavior: 'smooth',
+  smoothScrollMaxPageDistance: 5,
   // Web: 1 PDF point = 96/72 CSS px, so 100% is physically accurate. A native
   // adapter overrides this at registration with its own logical-unit factor.
   viewUnitsPerPoint: 96 / 72,
@@ -85,7 +88,10 @@ export const SETTINGS_EFFECT: Record<keyof StageSettings, SettingEffect> = {
   anchorAlign: 'none',
   viewRotation: 'scene', // a layout input: every page's footprint swaps w↔h
   zoom: 'refit',
+  usePhysicalScaling: 'refit', // user↔effective conversion changes; re-resolve
+  zoomStep: 'none',
   scrollBehavior: 'none',
+  smoothScrollMaxPageDistance: 'none',
   viewUnitsPerPoint: 'scene', // a layout input: changing it resizes every page
 };
 export const SETTING_KEYS = Object.keys(SETTINGS_EFFECT) as Array<keyof StageSettings>;

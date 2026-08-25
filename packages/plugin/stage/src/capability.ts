@@ -11,7 +11,13 @@ import {
 } from '@embedpdf/core-geometry';
 import type { Rect } from '@embedpdf/core-geometry';
 import type { PluginContext } from '@embedpdf/core';
-import { FLING_STOP, easeOutCubic, glideStep, rubberIn, rubberOut, springStep, zoomLerp } from './motion';
+import { FLING_STOP, easeOutCubic, glideStep, rubberIn, rubberOut, smoothScrollDuration, springStep, zoomLerp } from './motion';
+import {
+  cameraToUserZoom,
+  physicalDpr,
+  userToCameraZoom,
+  wheelZoomFactor,
+} from './physical-scale';
 import { boxOf, eqSetting, mergeSettings, resolveResponsive } from './responsive';
 import { DEFAULT_RESPONSIVE, SETTINGS_EFFECT, SETTING_KEYS } from './settings';
 import type { SettingEffect } from './settings';
@@ -86,6 +92,24 @@ export function createStageCapability(
   const vp = () => ctx.getState().vp;
   const dpr = () => ctx.getState().dpr;
   const pad = () => ctx.getState().padding;
+  // v2 getDpr / user↔effective conversion. Fit modes never go through these.
+  const getDpr = (): number => physicalDpr(ctx.getState().usePhysicalScaling, dpr());
+  const toCameraZoom = (user: number): number =>
+    userToCameraZoom(user, ctx.getState().usePhysicalScaling, dpr(), ctx.getState().viewUnitsPerPoint);
+  const toUserZoom = (effective: number): number =>
+    cameraToUserZoom(effective, ctx.getState().usePhysicalScaling, dpr(), ctx.getState().viewUnitsPerPoint);
+  /**
+   * Resolve the stored zoom intent to a CAMERA zoom. Numeric `{ level }` is
+   * USER-space (so a "100%" preset stays 1 on Retina); fit / pageWidth /
+   * pageHeight stay CSS-pixel equations (`resolveZoom` unchanged).
+   */
+  const resolveIntentZoom = (item: S.SceneItem): number => {
+    const spec = ctx.getState().zoom;
+    if ('level' in spec) return S.resolveZoom({ level: toCameraZoom(spec.level) }, fitBox(item), vp(), pad());
+    return S.resolveZoom(spec, fitBox(item), vp(), pad());
+  };
+  /** Fit/auto only — numeric defaults must not re-enter an auto-fit. */
+  const isFitIntent = (): boolean => 'mode' in ctx.getState().zoom;
   const paged = () => ctx.getState().flow === 'paged';
   const isFitAll = () => {
     const z = ctx.getState().zoom;
@@ -531,7 +555,10 @@ export function createStageCapability(
   // current item), so animating toward a different item isn't clamped back.
   // `then` runs on natural completion only — a cancelled tween belongs to the
   // verb that cancelled it.
-  const animateTo = (target: S.Camera, bounds: S.Rect, ms = 240, then?: () => void) => {
+  const cameraDistancePx = (from: S.Camera, to: S.Camera): number =>
+    Math.hypot((to.x - from.x) * from.zoom, (to.y - from.y) * from.zoom);
+  const animateTo = (target: S.Camera, bounds: S.Rect, ms?: number, then?: () => void) => {
+    ms = ms ?? smoothScrollDuration(cameraDistancePx(cam(), target));
     if (!canAnimate) {
       setCam(target, bounds);
       then?.();
@@ -745,7 +772,7 @@ export function createStageCapability(
       const scene = buildScene();
       if (!scene.itemCount) return;
       const item = scene.items[scene.itemOfPage(anchor.pageIndex)];
-      const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
+      const zoom = resolveIntentZoom(item);
       // resolved against the CURRENT viewport — a resize restores the anchor to
       // the new viewport's policy point (start/start: the top stays pinned)
       const at = alignPoint(align ?? ctx.getState().anchorAlign, vp());
@@ -781,8 +808,15 @@ export function createStageCapability(
     cancelAnim();
     const doc = ctx.document();
     if (!doc || doc.pageCount === 0) return;
+    const fromPage = ctx.getState().cursor;
     const target = Math.max(0, Math.min(pageIndex, doc.pageCount - 1));
-    if (target !== ctx.getState().cursor) ctx.dispatch({ type: 'CURSOR', cursor: target });
+    const requested = opts?.behavior ?? ctx.getState().scrollBehavior;
+    const maxDist = ctx.getState().smoothScrollMaxPageDistance;
+    const pageDist = Math.abs(target - fromPage);
+    // Long jumps snap: a 20-page ease-out starves virtualization. Infinity = always smooth.
+    const longJump = Number.isFinite(maxDist) && pageDist > maxDist;
+    const behavior = requested === 'smooth' && longJump ? 'instant' : requested;
+    if (target !== fromPage) ctx.dispatch({ type: 'CURSOR', cursor: target });
 
     // Restore path (per-page view memory): exact viewpoint instead of fresh placement.
     if (opts?.viewpoint) {
@@ -796,7 +830,7 @@ export function createStageCapability(
       const sc = buildScene(); // paged: the (possibly new) slice; continuous: full scene
       if (!sc.itemCount) return null;
       const item = paged() ? sc.items[0] : sc.items[itemIndexOfPage(target)];
-      const zoom = S.resolveZoom(ctx.getState().zoom, fitBox(item), vp(), pad());
+      const zoom = resolveIntentZoom(item);
       const subject = isFitAll()
         ? sceneRect()
         : fits(itemRect(item), zoom)
@@ -832,16 +866,39 @@ export function createStageCapability(
       };
     };
 
-    if ((opts?.behavior ?? ctx.getState().scrollBehavior) === 'smooth') {
+    const prewarmAt = (camera: S.Camera) => {
+      const hook = config.prewarmPages;
+      if (!hook) return;
+      const sc = buildScene();
+      const pages = (sc.itemCount ? sc.query(S.cameraWorldRect(camera, vp())) : []).flatMap(
+        (it) => it.pageIndexes,
+      );
+      if (pages.length) hook(pages);
+    };
+
+    if (behavior === 'smooth') {
       const p = placement();
       if (p) animateTo(p.camera, p.bounds);
     } else {
       // instant placement converges with the scene (wrapped: zoom is a layout input)
       stabilized(() => {
         const p = placement();
-        if (p) setCam(p.camera, p.bounds);
+        if (p) {
+          if (longJump) prewarmAt(p.camera);
+          setCam(p.camera, p.bounds);
+        }
       });
     }
+  };
+
+  /**
+   * Re-resolve FIT/AUTO intents only. Numeric defaults stay put — calling this
+   * for a `{ level }` would be the v2 bug that dropped a numeric default back
+   * into automatic the next time the viewport resized.
+   */
+  const recalcAuto = (anchor?: S.Anchor) => {
+    if (!isFitIntent()) return;
+    reapply(anchor ?? currentAnchor());
   };
 
   /** Step by the navigation unit: the ITEM when it fits the viewport, else the PAGE. */
@@ -1023,7 +1080,8 @@ export function createStageCapability(
     } else if (touched('reclamp')) {
       setCam(cam()); // clamp policy changed: just re-clamp the current camera
     }
-    // 'none' (arrivalAlign, zoomAlign, anchorAlign, scrollBehavior): future verbs only
+    // 'none' (arrivalAlign, zoomAlign, anchorAlign, scrollBehavior, zoomStep,
+    // smoothScrollMaxPageDistance): future verbs only
   };
 
   // ── responsive settings (container queries for the settings bag) ─────────────
@@ -1174,6 +1232,11 @@ export function createStageCapability(
     scrollBehavior: () => ctx.getState().scrollBehavior,
     viewRotation: () => ctx.getState().viewRotation,
     zoomLevel: () => cam().zoom,
+    userZoomLevel: () => toUserZoom(cam().zoom),
+    getDpr,
+    usePhysicalScaling: () => ctx.getState().usePhysicalScaling,
+    zoomStep: () => ctx.getState().zoomStep,
+    smoothScrollMaxPageDistance: () => ctx.getState().smoothScrollMaxPageDistance,
     zoomMode: () => {
       const z = ctx.getState().zoom;
       return 'mode' in z ? z.mode : 'custom';
@@ -1212,15 +1275,23 @@ export function createStageCapability(
       const fx = syncResponsive(false);
       if (fx === 'reflow') {
         goToTarget(ctx.getState().cursor, { behavior: 'instant' });
+      } else if (isFitIntent()) {
+        recalcAuto(anchor); // fit/auto only — numeric defaults must not re-enter auto-fit
       } else {
-        reapply(anchor);
+        applyAnchor(anchor); // numeric: re-apply the stored user level
       }
     },
     setDevicePixelRatio: (ratio) => {
-      // Pure device-resolution change: it only affects each page transform's
-      // device px (crispness) + sub-pixel box snapping, never the layout or
-      // camera — so no re-place, just store it; visiblePages re-keys on dpr.
-      if (ratio > 0 && ratio !== dpr()) ctx.dispatch({ type: 'DPR', dpr: ratio });
+      // Device-resolution change: always stored for transform crispness.
+      // With usePhysicalScaling the effective camera zoom is user × getDpr(),
+      // so a monitor-drag must re-resolve (numeric keeps the user level; fit
+      // modes re-fit the viewport — they are CSS-space and stay unchanged).
+      if (!(ratio > 0) || ratio === dpr()) return;
+      ctx.dispatch({ type: 'DPR', dpr: ratio });
+      if (!ctx.getState().usePhysicalScaling || !placementStarted) return;
+      cancelAnim();
+      if (isFitIntent()) recalcAuto();
+      else applyAnchor(currentAnchor());
     },
     setCamera: (c) => {
       cancelAnim();
@@ -1246,7 +1317,7 @@ export function createStageCapability(
       if (!sc.itemCount) return;
       const next = S.cameraFromScroll(cam(), stayBounds(), vp(), pad(), opts);
       if (opts.behavior === 'smooth') {
-        animateTo(next, stayBounds(), 240, syncCursorFromCamera);
+        animateTo(next, stayBounds(), undefined, syncCursorFromCamera);
       } else {
         setCam(next);
         syncCursorFromCamera();
@@ -1270,7 +1341,9 @@ export function createStageCapability(
       // re-anchor… deferred to endGesture inside a gesture bracket (one PATCH
       // per pinch instead of one per event).
       if (gestureDepth === 0) {
-        ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: cam().zoom } } });
+        // Store USER-space so a later resolve does not multiply getDpr() twice
+        // (v2 pinch: `initialZoom / getDpr()`).
+        ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: toUserZoom(cam().zoom) } } });
       }
       // …UNLESS zoom is a LAYOUT INPUT (wrapped grid) and the scene just re-wrapped
       // underneath the camera. The old world point is stale then — re-pin the SAME
@@ -1307,7 +1380,7 @@ export function createStageCapability(
         // The deferred zoom intent: ONE patch for the whole gesture. (In a
         // wrapped grid this may re-wrap the scene; the next reframe
         // re-anchors through the normal update path.)
-        ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: cam().zoom } } });
+        ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: toUserZoom(cam().zoom) } } });
         armRest(); // the gesture is over — NOW the 150 ms rest countdown runs
       }
       syncCursorFromCamera();
@@ -1350,7 +1423,7 @@ export function createStageCapability(
       // must never leave the camera on some intermediate zoom while the stored
       // intent still says "fit" — the next refit would snap somewhere the user
       // didn't ask for. Interrupted or not, the record says where we were going.
-      ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: target } } });
+      ctx.dispatch({ type: 'PATCH', patch: { zoom: { level: toUserZoom(target) } } });
       // Wrapped grids re-layout on the intent change — anchor the focal point
       // against the scene that will actually be on screen.
       const sc = buildScene();
@@ -1364,6 +1437,7 @@ export function createStageCapability(
     // wheel pass their own pointer to zoomAround — physics beats policy).
     zoomIn: () => api.zoomAround(alignPoint(ctx.getState().zoomAlign, vp()), 1.2),
     zoomOut: () => api.zoomAround(alignPoint(ctx.getState().zoomAlign, vp()), 1 / 1.2),
+    wheelZoom: (pt, deltaY) => api.zoomAround(pt, wheelZoomFactor(deltaY, ctx.getState().zoomStep)),
     zoomTo: (spec) => api.update({ zoom: spec }),
     fitWidth: () => api.update({ zoom: { mode: S.ZoomMode.FitWidth } }),
     fitPage: () => api.update({ zoom: { mode: S.ZoomMode.FitPage } }),
@@ -1375,9 +1449,11 @@ export function createStageCapability(
       // re-place against the now-current scene, keeping the anchored page-point.
       // No-op until the first placement; the scene is re-keyed on the registry
       // revision, so `reapply` reads the rotated footprint.
+      // Numeric `{ level }` is re-anchored only — recalcAuto stays fit/auto.
       if (!placementStarted) return;
       cancelAnim();
-      reapply(currentAnchor());
+      if (isFitIntent()) recalcAuto();
+      else applyAnchor(currentAnchor());
     },
     goToPage: (pageIndex, opts) => goToTarget(pageIndex, opts),
     reveal: (pageIndex, opts) => {
@@ -1518,6 +1594,9 @@ export function createStageCapability(
     rotateView: (delta) =>
       api.setViewRotation(addRotations(ctx.getState().viewRotation, delta === 90 ? 90 : 270)),
     setScrollBehavior: (behavior) => api.update({ scrollBehavior: behavior }),
+    setUsePhysicalScaling: (on) => api.update({ usePhysicalScaling: on }),
+    setZoomStep: (step) => api.update({ zoomStep: step }),
+    setSmoothScrollMaxPageDistance: (n) => api.update({ smoothScrollMaxPageDistance: n }),
     applyViewState: (view) => {
       cancelAnim();
       // A restored view is app-level state: it writes the BASE, and the rules
@@ -1556,5 +1635,48 @@ export function createStageCapability(
     // fitting axis to its fitAlign rest point).
     resetView: () => goToTarget(0, { behavior: 'instant' }),
   };
+
+  // v2 DPR listener: matchMedia fires once per threshold; re-subscribe after
+  // each change. Debounced 150 ms so a display-scaling animation does not
+  // burst-recalculate. Only active when physical scaling is configured on
+  // (the flag can still be flipped later — the listener checks state).
+  // Structural type — this package's tsconfig is DOM-free (ES2020 only).
+  interface ResolutionQuery {
+    addEventListener(type: 'change', listener: () => void, opts?: { once?: boolean }): void;
+    removeEventListener(type: 'change', listener: () => void): void;
+  }
+  if (typeof globalThis === 'object') {
+    const win = globalThis as {
+      devicePixelRatio?: number;
+      matchMedia?: (q: string) => ResolutionQuery;
+    };
+    if (typeof win.matchMedia === 'function') {
+      let dprMql: ResolutionQuery | null = null;
+      let dprMqlListener: (() => void) | null = null;
+      let dprDebounce: ReturnType<typeof setTimeout> | null = null;
+      const onDprChange = () => {
+        if (dprDebounce !== null) clearTimeout(dprDebounce);
+        dprDebounce = setTimeout(() => {
+          dprDebounce = null;
+          if (!ctx.getState().usePhysicalScaling) return;
+          api.setDevicePixelRatio(win.devicePixelRatio || 1);
+        }, 150);
+      };
+      const subscribe = () => {
+        const prevMql = dprMql;
+        const prevListener = dprMqlListener;
+        dprMql = win.matchMedia!(`(resolution: ${win.devicePixelRatio || 1}dppx)`);
+        const listener = () => {
+          onDprChange();
+          subscribe();
+        };
+        dprMqlListener = listener;
+        dprMql.addEventListener('change', listener, { once: true });
+        prevMql?.removeEventListener('change', prevListener!);
+      };
+      subscribe();
+    }
+  }
+
   return api;
 }

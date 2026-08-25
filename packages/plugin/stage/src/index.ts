@@ -14,6 +14,19 @@ export { createScrollHandler } from './scroll-handler';
 export type { ScrollHandlerOptions } from './scroll-handler';
 export { DEFAULT_SETTINGS, DEFAULT_RESPONSIVE, settingsEqual } from './settings';
 export { boxOf, matchesQuery, resolveResponsive } from './responsive';
+export {
+  PT_TO_CSS_PX,
+  cameraToUserZoom,
+  physicalDpr,
+  userToCameraZoom,
+  wheelZoomFactor,
+} from './physical-scale';
+export {
+  SMOOTH_SCROLL_DISTANCE_FOR_MAX,
+  SMOOTH_SCROLL_MAX_MS,
+  SMOOTH_SCROLL_MIN_MS,
+  smoothScrollDuration,
+} from './motion';
 export type {
   BoxQuery,
   FlowMode,

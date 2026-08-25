@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   FLING_STOP,
+  SMOOTH_SCROLL_MAX_MS,
+  SMOOTH_SCROLL_MIN_MS,
   easeOutCubic,
   glideStep,
   rubberIn,
   rubberOut,
+  smoothScrollDuration,
   springStep,
   zoomLerp,
 } from '../src/motion';
@@ -113,6 +116,17 @@ describe('tween interpolators', () => {
     expect(zoomLerp(1, 4, 1)).toBeCloseTo(4, 12);
     expect(zoomLerp(1, 4, 0.5)).toBeCloseTo(2, 12); // √(1·4), not 2.5
     expect(zoomLerp(4, 1, 0.5)).toBeCloseTo(2, 12); // symmetric in direction
+  });
+});
+
+describe('smooth-scroll duration (v2 viewport animator)', () => {
+  it('clamps 160–420 ms by distance', () => {
+    expect(smoothScrollDuration(0)).toBe(SMOOTH_SCROLL_MIN_MS);
+    expect(smoothScrollDuration(100)).toBeGreaterThanOrEqual(SMOOTH_SCROLL_MIN_MS);
+    expect(smoothScrollDuration(2400)).toBe(SMOOTH_SCROLL_MAX_MS);
+    expect(smoothScrollDuration(1e9)).toBe(SMOOTH_SCROLL_MAX_MS);
+    expect(smoothScrollDuration(1200)).toBeGreaterThan(SMOOTH_SCROLL_MIN_MS);
+    expect(smoothScrollDuration(1200)).toBeLessThan(SMOOTH_SCROLL_MAX_MS);
   });
 });
 
