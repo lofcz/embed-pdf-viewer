@@ -5,6 +5,7 @@
  *   localEngine(options?)               -> LocalEngine (Web Worker; boots lazily on first use)
  *   createLocalEngine()                 -> LocalEngine using inline transport (Node, tests)
  *   createLocalEngineWithWorker(worker) -> LocalEngine using a caller-supplied Web Worker
+ *   mergeFontFallbacks(...lists)        -> combine RecipeFontSpec lists (later keys win)
  *
  * All three construct SYNCHRONOUSLY and allocate nothing until the first
  * operation (or `engine.warmup()`): readiness lives inside {@link LazyTransport},
@@ -83,6 +84,7 @@ export type {
   LocalImageEncoder,
 } from './render/BrowserImageEncoder';
 export { LocalFontService } from './fonts/LocalFontService';
+export { mergeFontFallbacks } from './fonts/mergeFontFallbacks';
 export { DEFAULT_WASM_URL, resolveWasmSource, resolveInlineWasmSource } from './wasm-source';
 export type { ResolvedWasmSource, WasmSourceOptions, WorkerSource } from './wasm-source';
 
@@ -298,6 +300,8 @@ export interface LocalEngineRecipeOptions extends WasmSourceOptions {
    * Fonts registered AND appended to the ordered glyph-fallback chain, in
    * order — the ones used to substitute missing glyphs during rendering and
    * appearance generation (e.g. a CJK fallback). This is the common case.
+   * Combine several pack lists with {@link mergeFontFallbacks} (later
+   * configs win on overlapping `key`s).
    */
   fallbackFonts?: RecipeFontSpec[];
   /**
