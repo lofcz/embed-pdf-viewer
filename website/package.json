@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/website",
+  "name": "@lofcz/embedpdf-website",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -18,11 +18,11 @@
     "typecheck": "tsc --noEmit && pnpm run check:samples"
   },
   "dependencies": {
-    "@embedpdf/angular": "workspace:*",
-    "@embedpdf/docs-kit": "workspace:*",
-    "@embedpdf/engine": "workspace:*",
-    "@embedpdf/react": "workspace:*",
-    "@embedpdf/viewer-react": "workspace:*",
+    "@embedpdf/angular": "workspace:@lofcz/embedpdf-angular@*",
+    "@embedpdf/docs-kit": "workspace:@lofcz/embedpdf-docs-kit@*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
+    "@embedpdf/react": "workspace:@lofcz/embedpdf-react@*",
+    "@embedpdf/viewer-react": "workspace:@lofcz/embedpdf-viewer-react@*",
     "@hugeicons/core-free-icons": "^4.2.0",
     "@hugeicons/react": "^1.1.7",
     "@theguild/remark-npm2yarn": "^0.3.3",

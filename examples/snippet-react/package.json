@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-snippet-react",
+  "name": "@lofcz/embedpdf-example-snippet-react",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,9 +11,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@embedpdf/engine": "workspace:*",
-    "@embedpdf/react": "workspace:*",
-    "@embedpdf/viewer-chrome": "workspace:*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
+    "@embedpdf/react": "workspace:@lofcz/embedpdf-react@*",
+    "@embedpdf/viewer-chrome": "workspace:@lofcz/embedpdf-viewer-chrome@*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

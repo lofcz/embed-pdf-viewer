@@ -16,6 +16,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
     "build:cloudpdf": "turbo run build --filter=\"./cloudpdf/**\" --filter=\"!@cloudpdf/website\"",
+    "build:viewers": "turbo run build --filter=\"./packages/**\"",
     "build:release": "turbo run build --filter=\"./packages/**\" && pnpm run build:cloudpdf",
     "verify:consume": "pnpm --filter @embedpdf/tooling-consume-fixtures run verify",
     "bootstrap:package": "node scripts/bootstrap-package.mjs",
@@ -24,7 +25,10 @@
     "cloudpdf:sdk:generate": "node fern/scripts/generate-sdks.mjs --only typescript --force",
     "api:sync": "node fern/scripts/generate-sdks.mjs && pnpm --filter @cloudpdf/website api:snippets && pnpm --filter @cloudpdf/website api:pages && pnpm --filter @cloudpdf/website api:check",
     "ci:version": "changeset version && pnpm --filter @cloudpdf/contract emit:openapi && pnpm run cloudpdf:sdk:generate && pnpm --filter @cloudpdf/website api:metadata && pnpm --filter @cloudpdf/website api:pages",
-    "ci:publish": "node scripts/assert-publish-phase.mjs && node fern/scripts/validate-sdk.mjs typescript && pnpm publish -r --access public --tag next --publish-branch main --report-summary"
+    "ci:publish": "node scripts/publish-packages.mjs",
+    "version:bump": "node scripts/bump-publishable.mjs",
+    "trust:setup": "node scripts/setup-trusted-publishing.mjs",
+    "trust:setup:dry": "node scripts/setup-trusted-publishing.mjs --dry-run"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.6",

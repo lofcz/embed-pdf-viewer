@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/engine-services",
+  "name": "@lofcz/embedpdf-engine-services",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Engine v3 service implementations: synchronous, runtime-agnostic logic that runs identically inside the local WASM worker and the @cloudpdf/server worker_thread.",
@@ -29,7 +29,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/engine/services"
   },
   "homepage": "https://www.embedpdf.com",
@@ -44,13 +44,13 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/engine-runtime": "workspace:*"
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+    "@embedpdf/engine-runtime": "workspace:@lofcz/embedpdf-engine-runtime@*"
   },
   "devDependencies": {
     "rimraf": "^5.0.0",
     "typescript": "^5.0.0",
-    "@embedpdf/tooling-build": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
   },
   "publishConfig": {
     "access": "public",

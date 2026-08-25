@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/core-geometry",
+  "name": "@lofcz/embedpdf-core-geometry",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "The viewer's pure 2D coordinate primitives: Point/Size, page rotation, and the rotation/scale transforms shared by stage-core, the stage plugin, and every framework adapter. Zero dependencies, DOM-free, serializable — the bottom of the pyramid.",
@@ -35,13 +35,13 @@
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/core/geometry"
   }
 }

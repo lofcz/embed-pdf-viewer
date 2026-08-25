@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/engine",
+  "name": "@lofcz/embedpdf-engine",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Engine v3 local implementation: the EmbedPDF Runtime (our PDFium fork) as WASM inside a Web Worker (or inline for Node), driven by an O(log n) abort-aware WorkerQueue. Speaks the same Engine interface as the cloud engine.",
@@ -39,7 +39,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/engine/main"
   },
   "homepage": "https://www.embedpdf.com",
@@ -54,13 +54,13 @@
   ],
   "license": "Apache-2.0",
   "dependencies": {
-    "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/engine-services": "workspace:*",
-    "@embedpdf/engine-runtime": "workspace:*",
-    "@embedpdf/engine-runtime-wasm32": "workspace:*"
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+    "@embedpdf/engine-services": "workspace:@lofcz/embedpdf-engine-services@*",
+    "@embedpdf/engine-runtime": "workspace:@lofcz/embedpdf-engine-runtime@*",
+    "@embedpdf/engine-runtime-wasm32": "workspace:@lofcz/embedpdf-engine-runtime-wasm32@*"
   },
   "devDependencies": {
-    "@embedpdf/tooling-build": "workspace:*",
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*",
     "esbuild": "^0.28.1",
     "rimraf": "^5.0.0",
     "typescript": "^5.0.0",

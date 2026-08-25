@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-cloud-dashboard",
+  "name": "@lofcz/embedpdf-example-cloud-dashboard",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -17,7 +17,7 @@
     "@cloudpdf/engine": "workspace:*",
     "@cloudpdf/server": "workspace:*",
     "@cloudpdf/viewer-react": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

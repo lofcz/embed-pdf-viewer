@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/engine-runtime",
+  "name": "@lofcz/embedpdf-engine-runtime",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Low-level PDF execution runtime for EmbedPDF, backed by EmbedPDF's fork of PDFium and distributed as WASM and native platform packages.",
@@ -28,7 +28,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/engine/runtime"
   },
   "homepage": "https://www.embedpdf.com",
@@ -76,15 +76,15 @@
     "detect-libc": "^2.1.2"
   },
   "optionalDependencies": {
-    "@embedpdf/engine-runtime-darwin-arm64": "workspace:*",
-    "@embedpdf/engine-runtime-darwin-x64": "workspace:*",
-    "@embedpdf/engine-runtime-linux-arm64": "workspace:*",
-    "@embedpdf/engine-runtime-linux-x64": "workspace:*",
-    "@embedpdf/engine-runtime-linuxmusl-arm64": "workspace:*",
-    "@embedpdf/engine-runtime-linuxmusl-x64": "workspace:*",
-    "@embedpdf/engine-runtime-wasm32": "workspace:*",
-    "@embedpdf/engine-runtime-win32-arm64": "workspace:*",
-    "@embedpdf/engine-runtime-win32-x64": "workspace:*"
+    "@embedpdf/engine-runtime-darwin-arm64": "workspace:@lofcz/embedpdf-engine-runtime-darwin-arm64@*",
+    "@embedpdf/engine-runtime-darwin-x64": "workspace:@lofcz/embedpdf-engine-runtime-darwin-x64@*",
+    "@embedpdf/engine-runtime-linux-arm64": "workspace:@lofcz/embedpdf-engine-runtime-linux-arm64@*",
+    "@embedpdf/engine-runtime-linux-x64": "workspace:@lofcz/embedpdf-engine-runtime-linux-x64@*",
+    "@embedpdf/engine-runtime-linuxmusl-arm64": "workspace:@lofcz/embedpdf-engine-runtime-linuxmusl-arm64@*",
+    "@embedpdf/engine-runtime-linuxmusl-x64": "workspace:@lofcz/embedpdf-engine-runtime-linuxmusl-x64@*",
+    "@embedpdf/engine-runtime-wasm32": "workspace:@lofcz/embedpdf-engine-runtime-wasm32@*",
+    "@embedpdf/engine-runtime-win32-arm64": "workspace:@lofcz/embedpdf-engine-runtime-win32-arm64@*",
+    "@embedpdf/engine-runtime-win32-x64": "workspace:@lofcz/embedpdf-engine-runtime-win32-x64@*"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.8",

@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-stamp",
+  "name": "@lofcz/embedpdf-plugin-stamp",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Stamp asset libraries: retain imported PDFs as canonical PieceInfo-backed libraries, derive per-page vector assets and previews, materialize opt-in dynamic stamps, and place them through the annotation plugin's armed-stamp flow.",
@@ -33,23 +33,23 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/core-js-sandbox": "workspace:*",
-    "@embedpdf/plugin-annotation": "workspace:*",
-    "@embedpdf/plugin-form": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*"
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/core-js-sandbox": "workspace:@lofcz/embedpdf-core-js-sandbox@*",
+    "@embedpdf/plugin-annotation": "workspace:@lofcz/embedpdf-plugin-annotation@*",
+    "@embedpdf/plugin-form": "workspace:@lofcz/embedpdf-plugin-form@*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*",
-    "@embedpdf/engine": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/plugin/stamp"
   }
 }

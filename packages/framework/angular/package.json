@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/angular",
+  "name": "@lofcz/embedpdf-angular",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Angular adapter for EmbedPDF v3: one generic signal binding + structural components (EpdfViewer, EpdfStage) + headless layers & inject functions. The whole framework surface, one secondary entry point per feature.",
@@ -34,13 +34,13 @@
   },
   "dependencies": {
     "tslib": "^2.6.0",
-    "@embedpdf/core-geometry": "workspace:*",
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/core-stage": "workspace:*",
-    "@embedpdf/plugin-stage": "workspace:*",
-    "@embedpdf/plugin-render": "workspace:*",
-    "@embedpdf/plugin-interaction": "workspace:*",
-    "@embedpdf/web": "workspace:*"
+    "@embedpdf/core-geometry": "workspace:@lofcz/embedpdf-core-geometry@*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/core-stage": "workspace:@lofcz/embedpdf-core-stage@*",
+    "@embedpdf/plugin-stage": "workspace:@lofcz/embedpdf-plugin-stage@*",
+    "@embedpdf/plugin-render": "workspace:@lofcz/embedpdf-plugin-render@*",
+    "@embedpdf/plugin-interaction": "workspace:@lofcz/embedpdf-plugin-interaction@*",
+    "@embedpdf/web": "workspace:@lofcz/embedpdf-web@*"
   },
   "peerDependencies": {
     "@angular/common": ">=20.2.0 <23.0.0",
@@ -59,7 +59,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/framework/angular"
   }
 }

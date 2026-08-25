@@ -34,7 +34,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "cloudpdf/server"
   },
   "homepage": "https://www.embedpdf.com",
@@ -50,9 +50,9 @@
   "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@cloudpdf/contract": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/engine-runtime": "workspace:*",
-    "@embedpdf/engine-services": "workspace:*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+    "@embedpdf/engine-runtime": "workspace:@lofcz/embedpdf-engine-runtime@*",
+    "@embedpdf/engine-services": "workspace:@lofcz/embedpdf-engine-services@*",
     "@fastify/compress": "^8",
     "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^9.0.0",

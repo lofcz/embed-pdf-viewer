@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-v3-angular",
+  "name": "@lofcz/embedpdf-example-v3-angular",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -12,8 +12,8 @@
     "@angular/compiler": "~20.2.0",
     "@angular/core": "~20.2.0",
     "@angular/platform-browser": "~20.2.0",
-    "@embedpdf/angular": "workspace:*",
-    "@embedpdf/engine": "workspace:*",
+    "@embedpdf/angular": "workspace:@lofcz/embedpdf-angular@*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
     "rxjs": "^7.8.0",
     "tslib": "^2.6.0"
   },

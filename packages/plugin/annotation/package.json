@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-annotation",
+  "name": "@lofcz/embedpdf-plugin-annotation",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Annotation feature plugin: the pure annotation-core wired to the engine repository (optimistic create/patch/delete) + the interaction hub (ambient edit + draw tools). Behaviors (forms) plug in here.",
@@ -38,23 +38,23 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/core-annotation": "workspace:*",
-    "@embedpdf/core-geometry": "workspace:*",
-    "@embedpdf/plugin-interaction": "workspace:*",
-    "@embedpdf/plugin-selection": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*"
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/core-annotation": "workspace:@lofcz/embedpdf-core-annotation@*",
+    "@embedpdf/core-geometry": "workspace:@lofcz/embedpdf-core-geometry@*",
+    "@embedpdf/plugin-interaction": "workspace:@lofcz/embedpdf-plugin-interaction@*",
+    "@embedpdf/plugin-selection": "workspace:@lofcz/embedpdf-plugin-selection@*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/plugin/annotation"
   }
 }

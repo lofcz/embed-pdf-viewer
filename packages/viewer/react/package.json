@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/viewer-react",
+  "name": "@lofcz/embedpdf-viewer-react",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "React wrapper for the full viewer: the PDFViewer component around the embedpdf-viewer custom element. Children are light-DOM slots - a child with slot=\"name\" projects into the chrome's matching custom() unit while staying in your React tree (your context, your CSS). No peer constraints beyond react>=18; the viewer inside is the Preact-compiled artifact.",
@@ -31,13 +31,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/viewer": "workspace:*"
+    "@embedpdf/viewer": "workspace:@lofcz/embedpdf-viewer@*"
   },
   "peerDependencies": {
     "react": ">=18"
   },
   "devDependencies": {
-    "@embedpdf/tooling-build": "workspace:*",
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*",
     "@types/react": "^18.3.0",
     "typescript": "^5.0.0"
   },
@@ -66,7 +66,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/viewer/react"
   },
   "epdf": {

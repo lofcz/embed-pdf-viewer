@@ -27,7 +27,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "cloudpdf/viewer/react"
   },
   "homepage": "https://www.cloudpdf.com",
@@ -44,13 +44,13 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@cloudpdf/viewer": "workspace:*",
-    "@embedpdf/viewer-react": "workspace:*"
+    "@embedpdf/viewer-react": "workspace:@lofcz/embedpdf-viewer-react@*"
   },
   "peerDependencies": {
     "react": ">=18"
   },
   "devDependencies": {
-    "@embedpdf/tooling-build": "workspace:*",
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*",
     "@types/react": "^18.3.0",
     "rimraf": "^5.0.0",
     "typescript": "^5.0.0"

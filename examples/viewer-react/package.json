@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-viewer-react",
+  "name": "@lofcz/embedpdf-example-viewer-react",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@embedpdf/viewer-react": "workspace:*",
+    "@embedpdf/viewer-react": "workspace:@lofcz/embedpdf-viewer-react@*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

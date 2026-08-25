@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-i18n",
+  "name": "@lofcz/embedpdf-plugin-i18n",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Workspace-scoped translation: locale packs as store state (pure lookup, reactive for free), lazy pack loading via effects, pure BCP-47 negotiation. Engine-free and DOM-free — alive before the engine boots.",
@@ -33,18 +33,18 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/core": "workspace:*"
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/plugin/i18n"
   }
 }

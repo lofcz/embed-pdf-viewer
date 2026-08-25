@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/example-pdf-runtime-demo",
+  "name": "@lofcz/embedpdf-example-pdf-runtime-demo",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -15,9 +15,9 @@
   "dependencies": {
     "@cloudpdf/engine": "workspace:*",
     "@cloudpdf/server": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/engine": "workspace:*",
-    "@embedpdf/engine-runtime": "workspace:*"
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
+    "@embedpdf/engine-runtime": "workspace:@lofcz/embedpdf-engine-runtime@*"
   },
   "devDependencies": {
     "@types/node": "^22.19.0",

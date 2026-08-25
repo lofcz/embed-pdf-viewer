@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-form",
+  "name": "@lofcz/embedpdf-plugin-form",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Document-scoped interactive forms: reactive field state over doc.forms, fill-mode controls (FillItem projection), and form-data interchange. Widgets stay annotations; this plugin owns the field plane.",
@@ -33,24 +33,24 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/core-acrojs": "workspace:*",
-    "@embedpdf/core-js-sandbox": "workspace:*",
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/plugin-interaction": "workspace:*",
-    "@embedpdf/plugin-annotation": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*"
+    "@embedpdf/core-acrojs": "workspace:@lofcz/embedpdf-core-acrojs@*",
+    "@embedpdf/core-js-sandbox": "workspace:@lofcz/embedpdf-core-js-sandbox@*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/plugin-interaction": "workspace:@lofcz/embedpdf-plugin-interaction@*",
+    "@embedpdf/plugin-annotation": "workspace:@lofcz/embedpdf-plugin-annotation@*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*",
-    "@embedpdf/engine": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/plugin/form"
   }
 }

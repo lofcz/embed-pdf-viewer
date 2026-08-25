@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-interaction",
+  "name": "@lofcz/embedpdf-plugin-interaction",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "The interaction hub: the active tool, the cursor, and pointer routing. Pure mechanism — knows nothing about selection/annotations/forms; they contribute tools + handlers.",
@@ -33,19 +33,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/core-geometry": "workspace:*"
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/core-geometry": "workspace:@lofcz/embedpdf-core-geometry@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/plugin/interaction"
   }
 }

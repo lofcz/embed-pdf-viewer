@@ -4,7 +4,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "name": "@embedpdf/engine-runtime-darwin-x64",
+  "name": "@lofcz/embedpdf-engine-runtime-darwin-x64",
   "os": [
     "darwin"
   ],
@@ -19,7 +19,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/engine/runtime/npm/darwin-x64"
   }
 }

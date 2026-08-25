@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/viewer",
+  "name": "@lofcz/embedpdf-viewer",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "The full viewer, delivered: the <embedpdf-viewer> custom element + EmbedPDF.init(). One Preact-compiled artifact of @embedpdf/viewer-chrome with the local wasm engine wired in — the thing the CDN serves and every framework wrapper wraps. Ships DIST only (the preact aliasing happens in THIS package's build), so consumers never compile the chrome.",
@@ -34,13 +34,13 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@embedpdf/engine": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/viewer-chrome": "workspace:*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+    "@embedpdf/viewer-chrome": "workspace:@lofcz/embedpdf-viewer-chrome@*",
     "preact": "^10.25.0"
   },
   "devDependencies": {
-    "@embedpdf/engine-runtime-wasm32": "workspace:*",
+    "@embedpdf/engine-runtime-wasm32": "workspace:@lofcz/embedpdf-engine-runtime-wasm32@*",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.0",
@@ -61,7 +61,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/viewer/main"
   }
 }

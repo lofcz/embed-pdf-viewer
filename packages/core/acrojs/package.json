@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/core-acrojs",
+  "name": "@lofcz/embedpdf-core-acrojs",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Pure Acrobat-JavaScript compatibility core: deterministic contracts, security policy, and a self-contained VM prelude.",
@@ -33,18 +33,18 @@
     "test": "tsc -p tsconfig.json && vitest run"
   },
   "dependencies": {
-    "@embedpdf/engine-core": "workspace:*"
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/core/acrojs"
   }
 }

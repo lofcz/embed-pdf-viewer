@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-render",
+  "name": "@lofcz/embedpdf-plugin-render",
   "version": "3.0.0-next.7",
   "private": false,
   "description": "Document-scoped render capability: turns the engine DocumentHandle into an abortable renderPage(pageIndex, scale) → RGBA. The home for tiling.",
@@ -33,19 +33,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/core-geometry": "workspace:*"
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/core-geometry": "workspace:@lofcz/embedpdf-core-geometry@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/plugin/render"
   }
 }
