@@ -231,11 +231,11 @@ async function createEngineWorker(
 
   let source: string;
   try {
-    source = (await import('@embedpdf/engine/worker-source')).default;
+    source = (await import('@lofcz/embedpdf-engine/worker-source')).default;
   } catch (cause) {
     throw new Error(
       '[embedpdf] could not load the inline engine worker module ' +
-        '(@embedpdf/engine/worker-source). If your bundler cannot resolve it, pass a ' +
+        '(@lofcz/embedpdf-engine/worker-source). If your bundler cannot resolve it, pass a ' +
         'worker explicitly: `localEngine({ worker: () => new Worker(...) })`.',
       { cause },
     );

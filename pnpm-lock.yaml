@@ -6,6 +6,11 @@ settings:
 
 overrides:
   '@types/node': ^22.0.0
+  '@embedpdf/engine': workspace:@lofcz/embedpdf-engine@*
+  '@embedpdf/engine-core': workspace:@lofcz/embedpdf-engine-core@*
+  '@embedpdf/engine-runtime': workspace:@lofcz/embedpdf-engine-runtime@*
+  '@embedpdf/engine-runtime-wasm32': workspace:@lofcz/embedpdf-engine-runtime-wasm32@*
+  '@embedpdf/engine-services': workspace:@lofcz/embedpdf-engine-services@*
 
 patchedDependencies:
   '@changesets/assemble-release-plan@6.0.9':
