@@ -31,7 +31,7 @@ import { redactionPlugin } from '@embedpdf/react/redaction';
 import { formPlugin } from '@embedpdf/react/form';
 import { linkPlugin } from '@embedpdf/react/link';
 import { searchPlugin } from '@embedpdf/react/search';
-import { i18nPlugin, negotiateLocale, useT } from '@embedpdf/react/i18n';
+import { i18nPlugin, negotiateLocale, useStaticTranslation } from '@embedpdf/react/i18n';
 import type { Locale, TranslationDictionary } from '@embedpdf/react/i18n';
 import { commandsPlugin } from '@embedpdf/react/commands';
 import type { CommandDef } from '@embedpdf/react/commands';
@@ -158,11 +158,13 @@ function HandleBridge({ onViewer }: { onViewer: (viewer: ViewerHandle) => void }
   return null;
 }
 
-function Booting() {
-  const t = useT();
+/** Workspace boot copy — resolved from eager packs (built-in `en` + `strings`
+ *  overrides like cs/pl/sk) so it localizes before the i18n plugin is live. */
+function Booting({ locales, locale }: { locales: readonly Locale[]; locale: string }) {
+  const t = useStaticTranslation({ locales, defaultLocale: locale });
   return (
     <div className="bg-app text-fg-muted grid h-full place-items-center">
-      <div className="animate-pulse text-sm">{t('demo.starting')}</div>
+      <div className="animate-pulse text-sm">{t('demo.starting', 'Starting viewer…')}</div>
     </div>
   );
 }
@@ -313,7 +315,11 @@ export function FullViewer({
         engine={engine}
         plugins={plugins}
         initialDocuments={initialDocuments}
-        fallback={fallback ?? <Booting />}
+        fallback={
+          fallback ?? (
+            <Booting locales={resolved.i18n.locales} locale={resolved.i18n.initial} />
+          )
+        }
       >
         <ViewerConfigProvider value={config}>
           {onViewer && <HandleBridge onViewer={onViewer} />}
