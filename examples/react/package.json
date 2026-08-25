@@ -1,0 +1,43 @@
+{
+  "name": "@lofcz/embedpdf-example-react",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@cloudpdf/engine": "workspace:*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+    "@embedpdf/engine-runtime": "workspace:@lofcz/embedpdf-engine-runtime@*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/plugin-interaction": "workspace:@lofcz/embedpdf-plugin-interaction@*",
+    "@embedpdf/plugin-selection": "workspace:@lofcz/embedpdf-plugin-selection@*",
+    "@embedpdf/core-annotation": "workspace:@lofcz/embedpdf-core-annotation@*",
+    "@embedpdf/plugin-annotation": "workspace:@lofcz/embedpdf-plugin-annotation@*",
+    "@embedpdf/plugin-page-edit": "workspace:@lofcz/embedpdf-plugin-page-edit@*",
+    "@embedpdf/plugin-metadata": "workspace:@lofcz/embedpdf-plugin-metadata@*",
+    "@embedpdf/plugin-render": "workspace:@lofcz/embedpdf-plugin-render@*",
+    "@embedpdf/plugin-view-manager": "workspace:@lofcz/embedpdf-plugin-view-manager@*",
+    "@embedpdf/react": "workspace:@lofcz/embedpdf-react@*",
+    "@embedpdf/plugin-stage": "workspace:@lofcz/embedpdf-plugin-stage@*",
+    "@embedpdf/core-stage": "workspace:@lofcz/embedpdf-core-stage@*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "@embedpdf/plugin-form": "workspace:@lofcz/embedpdf-plugin-form@*",
+    "@embedpdf/plugin-search": "workspace:@lofcz/embedpdf-plugin-search@*",
+    "@embedpdf/plugin-stamp": "workspace:@lofcz/embedpdf-plugin-stamp@*",
+    "@embedpdf/plugin-i18n": "workspace:@lofcz/embedpdf-plugin-i18n@*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.0.0",
+    "vite": "^6.0.0"
+  }
+}

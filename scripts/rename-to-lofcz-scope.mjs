@@ -9,7 +9,15 @@ import fs from "fs";
 import path from "path";
 
 const ROOT = process.cwd();
-const SKIP = new Set(["node_modules", "dist", ".git", "pdfium-src", ".turbo"]);
+const SKIP = new Set([
+  "node_modules",
+  "dist",
+  ".git",
+  "pdfium-src",
+  "runtime-src",
+  ".turbo",
+  ".next",
+]);
 
 function walk(dir, acc = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {

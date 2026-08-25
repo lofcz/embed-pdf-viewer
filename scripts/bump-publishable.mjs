@@ -3,42 +3,52 @@
  *
  * Usage:
  *   node scripts/bump-publishable.mjs patch|minor|major
- *   node scripts/bump-publishable.mjs 2.14.5 2.14.6   (legacy explicit)
  *
- * Stack packages (core/plugins/snippet/react) share one version.
- * Font packs bump independently with the same release type.
+ * Stack packages share one version (including 3.0.0-next.N).
+ * `patch` on a next line increments the next counter (3.0.0-next.7 → 3.0.0-next.8).
  */
 import fs from "fs";
 import path from "path";
 
 const ROOT = process.cwd();
 const arg1 = process.argv[2];
-const arg2 = process.argv[3];
 
 const STACK_PREFIXES = [
   "@lofcz/embedpdf-core",
-  "@lofcz/embedpdf-engines",
-  "@lofcz/embedpdf-models",
-  "@lofcz/embedpdf-pdfium",
-  "@lofcz/embedpdf-utils",
+  "@lofcz/embedpdf-engine",
+  "@lofcz/embedpdf-react",
+  "@lofcz/embedpdf-web",
   "@lofcz/embedpdf-plugin-",
-  "@lofcz/embedpdf-snippet",
-  "@lofcz/embedpdf-react-pdf-viewer",
+  "@lofcz/embedpdf-viewer",
 ];
 
-const FONT_PREFIX = "@lofcz/embedpdf-fonts-";
-
 const DENY = new Set([
-  "@lofcz/embedpdf-build",
-  "@lofcz/embedpdf-plugin-ai-manager",
-  "@lofcz/embedpdf-plugin-layout-analysis",
+  "@lofcz/embedpdf-tooling-build",
+  "@lofcz/embedpdf-angular",
+  "@lofcz/embedpdf-engine-runtime-darwin-arm64",
+  "@lofcz/embedpdf-engine-runtime-darwin-x64",
+  "@lofcz/embedpdf-engine-runtime-linux-arm64",
+  "@lofcz/embedpdf-engine-runtime-linux-x64",
+  "@lofcz/embedpdf-engine-runtime-linuxmusl-arm64",
+  "@lofcz/embedpdf-engine-runtime-linuxmusl-x64",
+  "@lofcz/embedpdf-engine-runtime-win32-arm64",
+  "@lofcz/embedpdf-engine-runtime-win32-x64",
+]);
+
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "examples",
+  "pdfium-src",
+  "runtime-src",
+  ".turbo",
+  ".next",
 ]);
 
 function walkPkgJson(dir, acc = []) {
   if (!fs.existsSync(dir)) return acc;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === "node_modules" || e.name === "dist" || e.name === "pdfium-src" || e.name === "examples")
-      continue;
+    if (SKIP_DIRS.has(e.name)) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walkPkgJson(p, acc);
     else if (e.name === "package.json") acc.push(p);
@@ -47,6 +57,18 @@ function walkPkgJson(dir, acc = []) {
 }
 
 function bumpSemver(version, type) {
+  const next = String(version).match(/^(\d+)\.(\d+)\.(\d+)-next\.(\d+)$/);
+  if (next) {
+    const major = Number(next[1]);
+    const minor = Number(next[2]);
+    const patch = Number(next[3]);
+    const n = Number(next[4]);
+    if (type === "major") return `${major + 1}.0.0-next.0`;
+    if (type === "minor") return `${major}.${minor + 1}.0-next.0`;
+    if (type === "patch") return `${major}.${minor}.${patch}-next.${n + 1}`;
+    throw new Error(`Unknown bump type: ${type}`);
+  }
+
   const m = String(version).match(/^(\d+)\.(\d+)\.(\d+)/);
   if (!m) throw new Error(`Invalid version: ${version}`);
   let major = Number(m[1]);
@@ -72,61 +94,30 @@ function isStack(name) {
   return STACK_PREFIXES.some((p) => name === p || name.startsWith(p));
 }
 
-function isFont(name) {
-  return name.startsWith(FONT_PREFIX);
-}
-
-const targets = [
-  ...walkPkgJson(path.join(ROOT, "packages")),
-  path.join(ROOT, "viewers/react/package.json"),
-  path.join(ROOT, "viewers/snippet/package.json"),
-];
-
+const targets = walkPkgJson(path.join(ROOT, "packages"));
 const releaseTypes = new Set(["patch", "minor", "major"]);
-let mode;
-let fromExplicit;
-let toExplicit;
 
-if (releaseTypes.has(arg1) && !arg2) {
-  mode = "semver";
-} else if (arg1 && arg2) {
-  mode = "explicit";
-  fromExplicit = arg1;
-  toExplicit = arg2;
-} else {
+if (!releaseTypes.has(arg1)) {
   console.error("Usage: node scripts/bump-publishable.mjs patch|minor|major");
   process.exit(1);
 }
 
-const reactPkg = JSON.parse(
-  fs.readFileSync(path.join(ROOT, "viewers/react/package.json"), "utf8"),
+const viewerPkg = JSON.parse(
+  fs.readFileSync(path.join(ROOT, "packages/viewer/react/package.json"), "utf8"),
 );
-const stackFrom = reactPkg.version;
-const stackTo = mode === "semver" ? bumpSemver(stackFrom, arg1) : toExplicit;
+const stackFrom = viewerPkg.version;
+const stackTo = bumpSemver(stackFrom, arg1);
 
 let n = 0;
 for (const file of targets) {
-  if (!fs.existsSync(file)) continue;
   const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (pkg.private || DENY.has(pkg.name)) continue;
-
-  let next = null;
-  if (mode === "explicit") {
-    if (pkg.version === fromExplicit && (isStack(pkg.name) || isFont(pkg.name))) {
-      next = toExplicit;
-    }
-  } else if (isStack(pkg.name)) {
-    next = stackTo;
-  } else if (isFont(pkg.name)) {
-    next = bumpSemver(pkg.version, arg1);
-  }
-
-  if (!next || next === pkg.version) continue;
+  if (pkg.private || DENY.has(pkg.name) || !isStack(pkg.name)) continue;
+  if (pkg.version === stackTo) continue;
   const prev = pkg.version;
-  pkg.version = next;
+  pkg.version = stackTo;
   fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
   n++;
-  console.log(`${pkg.name}: ${prev} → ${next}`);
+  console.log(`${pkg.name}: ${prev} → ${stackTo}`);
 }
 
 console.log(`bumped ${n} packages`);
@@ -134,5 +125,5 @@ console.log(`stack_version=${stackTo}`);
 
 if (process.env.GITHUB_OUTPUT) {
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${stackTo}\n`);
-  fs.appendFileSync(process.env.GITHUB_OUTPUT, `release_type=${arg1 || "explicit"}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `release_type=${arg1}\n`);
 }

@@ -2,26 +2,30 @@
   "name": "embedpdf",
   "private": true,
   "version": "0.0.0",
-  "packageManager": "pnpm@10.4.0",
+  "packageManager": "pnpm@10.34.0",
   "license": "MIT",
   "scripts": {
     "dev": "turbo run dev --parallel",
-    "dev:vanilla": "pnpm --filter @lofcz/embedpdf-example-vanilla-tailwind run dev",
+    "build": "turbo run build",
+    "build:website": "pnpm --filter @embedpdf/website run search:index:build && turbo run build --filter=@embedpdf/website...",
+    "build:cloudpdf-website": "turbo run build --filter=@cloudpdf/website...",
+    "build:fresh": "pnpm clean && turbo run build",
     "clean": "turbo run clean && rimraf .turbo/cache",
-    "build:fresh": "pnpm clean && pnpm run build",
-    "build": "pnpm run build:viewers",
-    "build:react-mui": "turbo run build --filter=\"./packages/*\" --filter=\"./examples/react-mui\"",
-    "build:packages": "turbo run build --filter=\"./packages/*\"",
-    "build:viewers": "turbo run build --filter=\"./packages/*\" --filter=\"./viewers/react\" --filter=\"./viewers/snippet\"",
-    "build:snippet": "turbo run build --filter=\"./packages/*\" --filter=\"./viewers/snippet\"",
-    "build:watch": "ROARR_LOG=true turbowatch ./config/turbowatch.config.ts | roarr",
-    "watch": "turbo watch",
-    "watch:packages": "turbo watch build --filter=\"./packages/*\"",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
+    "build:cloudpdf": "turbo run build --filter=\"./cloudpdf/**\" --filter=\"!@cloudpdf/website\"",
+    "build:viewers": "turbo run build --filter=\"./packages/**\" --filter=\"!@lofcz/embedpdf-angular\"",
+    "build:release": "turbo run build --filter=\"./packages/**\" && pnpm run build:cloudpdf",
+    "verify:consume": "pnpm --filter @embedpdf/tooling-consume-fixtures run verify",
+    "bootstrap:package": "node scripts/bootstrap-package.mjs",
+    "verify:engine-runtime-packages": "pnpm --filter @embedpdf/engine-runtime run verify:packages",
     "changeset": "changeset",
+    "cloudpdf:sdk:generate": "node fern/scripts/generate-sdks.mjs --only typescript --force",
+    "api:sync": "node fern/scripts/generate-sdks.mjs && pnpm --filter @cloudpdf/website api:snippets && pnpm --filter @cloudpdf/website api:pages && pnpm --filter @cloudpdf/website api:check",
+    "ci:version": "changeset version && pnpm --filter @cloudpdf/contract emit:openapi && pnpm run cloudpdf:sdk:generate && pnpm --filter @cloudpdf/website api:metadata && pnpm --filter @cloudpdf/website api:pages",
     "ci:publish": "node scripts/publish-packages.mjs",
-    "ci:publish:next": "pnpm publish -r --access public --tag next --publish-branch next --filter \"./packages/**\" --filter \"./viewers/react\" --filter \"./viewers/snippet\" --report-summary pnpm-publish-summary.json",
     "version:bump": "node scripts/bump-publishable.mjs",
     "trust:setup": "node scripts/setup-trusted-publishing.mjs",
     "trust:setup:dry": "node scripts/setup-trusted-publishing.mjs --dry-run"
@@ -29,6 +33,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.6",
     "@changesets/get-github-info": "^0.6.0",
+    "@next/eslint-plugin-next": "^15.5.12",
     "@roarr/cli": "^5.12.4",
     "@types/node": "latest",
     "@typescript-eslint/eslint-plugin": "^8.32.1",
@@ -48,7 +53,7 @@
     "rimraf": "latest",
     "turbo": "latest",
     "turbowatch": "^2.29.4",
-    "typescript": "latest",
+    "typescript": "^5.9.3",
     "vite": "^6.3.5"
   },
   "lint-staged": {
@@ -56,19 +61,18 @@
   },
   "pnpm": {
     "overrides": {
-      "@types/node": "^22.0.0"
+      "@types/node": "^22.0.0",
+      "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
+      "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+      "@embedpdf/engine-runtime": "workspace:@lofcz/embedpdf-engine-runtime@*",
+      "@embedpdf/engine-runtime-wasm32": "workspace:@lofcz/embedpdf-engine-runtime-wasm32@*",
+      "@embedpdf/engine-services": "workspace:@lofcz/embedpdf-engine-services@*"
     },
     "patchedDependencies": {
       "@changesets/assemble-release-plan@6.0.9": "patches/@changesets__assemble-release-plan@6.0.9.patch"
     },
     "onlyBuiltDependencies": [
-      "@parcel/watcher",
-      "core-js",
-      "esbuild",
-      "onnxruntime-node",
-      "protobufjs",
-      "sharp",
-      "unrs-resolver"
+      "better-sqlite3"
     ]
   }
 }

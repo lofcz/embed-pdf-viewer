@@ -1,0 +1,65 @@
+{
+  "name": "@lofcz/embedpdf-angular",
+  "version": "3.0.0-next.7",
+  "private": false,
+  "description": "Angular adapter for EmbedPDF v3: one generic signal binding + structural components (EpdfViewer, EpdfStage) + headless layers & inject functions. The whole framework surface, one secondary entry point per feature.",
+  "sideEffects": false,
+  "module": "./dist/fesm2022/embedpdf-angular.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/fesm2022/embedpdf-angular.mjs"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "default": "./dist/fesm2022/embedpdf-angular-runtime.mjs"
+    },
+    "./stage": {
+      "types": "./dist/stage/index.d.ts",
+      "default": "./dist/fesm2022/embedpdf-angular-stage.mjs"
+    },
+    "./render": {
+      "types": "./dist/render/index.d.ts",
+      "default": "./dist/fesm2022/embedpdf-angular-render.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "ng-packagr -p ng-package.json -c tsconfig.lib.json",
+    "clean": "rimraf dist",
+    "test": "node scripts/check-parity.mjs"
+  },
+  "dependencies": {
+    "tslib": "^2.6.0",
+    "@embedpdf/core-geometry": "workspace:@lofcz/embedpdf-core-geometry@*",
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/core-stage": "workspace:@lofcz/embedpdf-core-stage@*",
+    "@embedpdf/plugin-stage": "workspace:@lofcz/embedpdf-plugin-stage@*",
+    "@embedpdf/plugin-render": "workspace:@lofcz/embedpdf-plugin-render@*",
+    "@embedpdf/plugin-interaction": "workspace:@lofcz/embedpdf-plugin-interaction@*",
+    "@embedpdf/web": "workspace:@lofcz/embedpdf-web@*"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=20.2.0 <23.0.0",
+    "@angular/core": ">=20.2.0 <23.0.0"
+  },
+  "devDependencies": {
+    "@angular/common": "~20.2.0",
+    "@angular/compiler": "~20.2.0",
+    "@angular/compiler-cli": "~20.2.0",
+    "@angular/core": "~20.2.0",
+    "ng-packagr": "~20.2.0",
+    "rimraf": "^5.0.0",
+    "rxjs": "^7.8.0",
+    "typescript": "~5.8.3"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
+    "directory": "packages/framework/angular"
+  }
+}

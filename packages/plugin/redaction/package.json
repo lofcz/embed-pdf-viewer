@@ -1,0 +1,54 @@
+{
+  "name": "@lofcz/embedpdf-plugin-redaction",
+  "version": "3.0.0-next.8",
+  "private": false,
+  "description": "Document-scoped redaction: the destructive apply stage over redact annotation marks — pending queue view, collateral estimation, and the doc.redaction.apply wrapper. Marking itself rides the annotation plane.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "require": "./dist/index.cjs"
+      },
+      "./package.json": "./package.json"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "epdf-build",
+    "clean": "rimraf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/plugin-annotation": "workspace:@lofcz/embedpdf-plugin-annotation@*",
+    "@embedpdf/plugin-interaction": "workspace:@lofcz/embedpdf-plugin-interaction@*",
+    "@embedpdf/plugin-selection": "workspace:@lofcz/embedpdf-plugin-selection@*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^2.1.9",
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*"
+  },
+  "license": "Apache-2.0",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
+    "directory": "packages/plugin/redaction"
+  }
+}

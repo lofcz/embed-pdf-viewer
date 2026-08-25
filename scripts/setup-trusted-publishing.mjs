@@ -6,10 +6,6 @@
  * - Account 2FA enabled + interactive `npm login` (not a bypass-2FA token)
  * - Each package already published at least once
  *
- * First create opens a browser 2FA challenge. On the npm site, enable
- * "skip two-factor authentication for the next 5 minutes", then let the
- * loop finish with --yes.
- *
  * Usage:
  *   node scripts/setup-trusted-publishing.mjs
  *   node scripts/setup-trusted-publishing.mjs --dry-run
@@ -25,31 +21,44 @@ const dryRun = process.argv.includes("--dry-run");
 
 const ALLOW_PREFIXES = [
   "@lofcz/embedpdf-core",
-  "@lofcz/embedpdf-engines",
-  "@lofcz/embedpdf-models",
-  "@lofcz/embedpdf-pdfium",
-  "@lofcz/embedpdf-utils",
+  "@lofcz/embedpdf-engine",
+  "@lofcz/embedpdf-react",
+  "@lofcz/embedpdf-web",
   "@lofcz/embedpdf-plugin-",
-  "@lofcz/embedpdf-fonts-",
-  "@lofcz/embedpdf-snippet",
-  "@lofcz/embedpdf-react-pdf-viewer",
+  "@lofcz/embedpdf-viewer",
 ];
 
 const DENY = new Set([
-  "@lofcz/embedpdf-plugin-ai-manager",
-  "@lofcz/embedpdf-plugin-layout-analysis",
-  "@lofcz/embedpdf-build",
+  "@lofcz/embedpdf-tooling-build",
+  "@lofcz/embedpdf-angular",
+  "@lofcz/embedpdf-engine-runtime-darwin-arm64",
+  "@lofcz/embedpdf-engine-runtime-darwin-x64",
+  "@lofcz/embedpdf-engine-runtime-linux-arm64",
+  "@lofcz/embedpdf-engine-runtime-linux-x64",
+  "@lofcz/embedpdf-engine-runtime-linuxmusl-arm64",
+  "@lofcz/embedpdf-engine-runtime-linuxmusl-x64",
+  "@lofcz/embedpdf-engine-runtime-win32-arm64",
+  "@lofcz/embedpdf-engine-runtime-win32-x64",
+]);
+
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "examples",
+  "pdfium-src",
+  "runtime-src",
+  ".turbo",
+  ".next",
 ]);
 
 function listPackageDirs(dir, acc = []) {
   if (!fs.existsSync(dir)) return acc;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === "node_modules" || e.name === "dist" || e.name === "pdfium-src" || e.name === "examples")
-      continue;
+    if (SKIP_DIRS.has(e.name)) continue;
     const p = path.join(dir, e.name);
     if (!e.isDirectory()) continue;
     if (fs.existsSync(path.join(p, "package.json"))) acc.push(p);
-    else listPackageDirs(p, acc);
+    listPackageDirs(p, acc);
   }
   return acc;
 }
@@ -83,7 +92,6 @@ function npmEnv() {
   return env;
 }
 
-/** Returns true if this package already has our GitHub Actions trust config. */
 function hasDesiredTrust(name) {
   const result = spawnSync("npm", ["trust", "list", name, "--json"], {
     encoding: "utf8",
@@ -94,7 +102,6 @@ function hasDesiredTrust(name) {
   const raw = `${result.stdout || ""}\n${result.stderr || ""}`;
   if (result.status !== 0 && !raw.trim()) return false;
 
-  // Prefer JSON; fall back to plain-text scrape.
   try {
     const data = JSON.parse((result.stdout || "").trim() || "null");
     const rows = Array.isArray(data)
@@ -116,21 +123,12 @@ function hasDesiredTrust(name) {
       return repoOk && fileOk && typeOk && (repo || file || type);
     });
   } catch {
-    return (
-      raw.includes(REPO) &&
-      (raw.includes(WORKFLOW_FILE) || raw.includes("github"))
-    );
+    return raw.includes(REPO) && (raw.includes(WORKFLOW_FILE) || raw.includes("github"));
   }
 }
 
-const dirs = [
-  ...listPackageDirs(path.join(ROOT, "packages")),
-  path.join(ROOT, "viewers/react"),
-  path.join(ROOT, "viewers/snippet"),
-];
-
 const names = [];
-for (const dir of dirs) {
+for (const dir of listPackageDirs(path.join(ROOT, "packages"))) {
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
   if (pkg.private || !isAllowed(pkg.name)) continue;
   names.push(pkg.name);
@@ -141,9 +139,6 @@ console.log(`Configuring GitHub trusted publisher for ${names.length} packages`)
 console.log(`  repo:     ${REPO}`);
 console.log(`  workflow: .github/workflows/${WORKFLOW_FILE}`);
 console.log(`  dry-run:  ${dryRun}`);
-console.log("");
-console.log("Tip: after the first browser 2FA prompt, enable");
-console.log('"skip two-factor authentication for the next 5 minutes".');
 console.log("");
 
 if (!process.stdin.isTTY && !dryRun) {
@@ -172,7 +167,7 @@ for (const name of names) {
   if (hasDesiredTrust(name)) {
     skipped.push(`${name} (already configured)`);
     console.log(`↩ skip (already trusted): ${name}`);
-    interactiveDone = true; // auth already proven this session / account
+    interactiveDone = true;
     continue;
   }
 
@@ -186,7 +181,6 @@ for (const name of names) {
     REPO,
     "--allow-publish",
   ];
-  // After the first interactive create, use --yes for the 5-minute skip window.
   if (interactiveDone || dryRun) args.push("--yes");
   if (dryRun) args.push("--dry-run");
 
@@ -201,7 +195,6 @@ for (const name of names) {
     ok.push(name);
     interactiveDone = true;
   } else if (hasDesiredTrust(name)) {
-    // E409 conflict = already configured (e.g. created manually just now).
     skipped.push(`${name} (already configured)`);
     console.log(`↩ skip (already trusted after conflict): ${name}`);
     interactiveDone = true;

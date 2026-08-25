@@ -4,6 +4,9 @@
  * - Local: `pnpm publish` (interactive TTY / web-auth).
  * - CI: `pnpm pack` (rewrites workspace: deps) + `npm publish` (OIDC trusted
  *   publishing requires npm >= 11.5.1; no NODE_AUTH_TOKEN / registry-url auth).
+ *
+ * Prereleases (x.y.z-next.N) are published with `--tag next` so `latest`
+ * stays on the v2 line.
  */
 import { spawnSync } from "child_process";
 import fs from "fs";
@@ -14,37 +17,44 @@ const isCI = process.env.CI === "true" || process.env.GITHUB_ACTIONS === "true";
 
 const ALLOW_PREFIXES = [
   "@lofcz/embedpdf-core",
-  "@lofcz/embedpdf-engines",
-  "@lofcz/embedpdf-models",
-  "@lofcz/embedpdf-pdfium",
-  "@lofcz/embedpdf-utils",
+  "@lofcz/embedpdf-engine",
+  "@lofcz/embedpdf-react",
+  "@lofcz/embedpdf-web",
   "@lofcz/embedpdf-plugin-",
-  "@lofcz/embedpdf-fonts-",
-  "@lofcz/embedpdf-snippet",
-  "@lofcz/embedpdf-react-pdf-viewer",
+  "@lofcz/embedpdf-viewer",
 ];
 
 const DENY = new Set([
-  "@lofcz/embedpdf-plugin-ai-manager",
-  "@lofcz/embedpdf-plugin-layout-analysis",
-  "@lofcz/embedpdf-build",
+  "@lofcz/embedpdf-tooling-build",
+  "@lofcz/embedpdf-angular",
+  "@lofcz/embedpdf-engine-runtime-darwin-arm64",
+  "@lofcz/embedpdf-engine-runtime-darwin-x64",
+  "@lofcz/embedpdf-engine-runtime-linux-arm64",
+  "@lofcz/embedpdf-engine-runtime-linux-x64",
+  "@lofcz/embedpdf-engine-runtime-linuxmusl-arm64",
+  "@lofcz/embedpdf-engine-runtime-linuxmusl-x64",
+  "@lofcz/embedpdf-engine-runtime-win32-arm64",
+  "@lofcz/embedpdf-engine-runtime-win32-x64",
 ]);
 
-const dirs = [
-  ...listPackageDirs(path.join(ROOT, "packages")),
-  path.join(ROOT, "viewers/react"),
-  path.join(ROOT, "viewers/snippet"),
-];
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "examples",
+  "pdfium-src",
+  "runtime-src",
+  ".turbo",
+  ".next",
+]);
 
 function listPackageDirs(dir, acc = []) {
   if (!fs.existsSync(dir)) return acc;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name === "node_modules" || e.name === "dist" || e.name === "pdfium-src" || e.name === "examples")
-      continue;
+    if (SKIP_DIRS.has(e.name)) continue;
     const p = path.join(dir, e.name);
     if (!e.isDirectory()) continue;
     if (fs.existsSync(path.join(p, "package.json"))) acc.push(p);
-    else listPackageDirs(p, acc);
+    listPackageDirs(p, acc);
   }
   return acc;
 }
@@ -52,6 +62,10 @@ function listPackageDirs(dir, acc = []) {
 function isAllowed(name) {
   if (DENY.has(name)) return false;
   return ALLOW_PREFIXES.some((p) => name === p || name.startsWith(p));
+}
+
+function distTag(version) {
+  return String(version).includes("-next.") ? "next" : "latest";
 }
 
 function alreadyPublished(name, version) {
@@ -67,7 +81,6 @@ function alreadyPublished(name, version) {
 function publishEnv() {
   const env = { ...process.env };
   if (isCI) {
-    // Classic / empty tokens prevent the OIDC trusted-publishing exchange.
     delete env.NODE_AUTH_TOKEN;
     delete env.NPM_TOKEN;
     env.NPM_CONFIG_PROVENANCE = env.NPM_CONFIG_PROVENANCE || "true";
@@ -98,18 +111,21 @@ function assertNpmSupportsOidc() {
   }
 }
 
-function publishLocal(dir) {
-  return spawnSync("pnpm", ["publish", "--access", "public", "--no-git-checks"], {
-    cwd: dir,
-    shell: true,
-    stdio: "inherit",
-    env: publishEnv(),
-  }).status;
+function publishLocal(dir, tag) {
+  return spawnSync(
+    "pnpm",
+    ["publish", "--access", "public", "--no-git-checks", "--tag", tag],
+    {
+      cwd: dir,
+      shell: true,
+      stdio: "inherit",
+      env: publishEnv(),
+    },
+  ).status;
 }
 
 const REPO_URL = "https://github.com/lofcz/embed-pdf-viewer";
 
-/** Provenance requires repository.url === GitHub repo (no empty / .git suffix). */
 function ensureRepositoryField(dir) {
   const pkgPath = path.join(dir, "package.json");
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
@@ -136,8 +152,7 @@ function ensureRepositoryField(dir) {
   console.log(`  set repository.url → ${REPO_URL} (${rel})`);
 }
 
-/** Pack with pnpm (workspace rewrite), publish tarball with npm (OIDC). */
-function publishCI(dir) {
+function publishCI(dir, tag) {
   ensureRepositoryField(dir);
   const env = publishEnv();
   const pack = spawnSync("pnpm", ["pack"], {
@@ -162,19 +177,15 @@ function publishCI(dir) {
   }
 
   const tgzPath = path.isAbsolute(tgzLine) ? tgzLine : path.join(dir, path.basename(tgzLine));
-  if (!fs.existsSync(tgzPath)) {
-    // pnpm sometimes prints a relative name from cwd
-    const alt = path.join(dir, tgzLine);
-    if (!fs.existsSync(alt)) {
-      console.error(`Packed tarball not found: ${tgzPath}`);
-      return 1;
-    }
-  }
   const resolvedTgz = fs.existsSync(tgzPath) ? tgzPath : path.join(dir, tgzLine);
+  if (!fs.existsSync(resolvedTgz)) {
+    console.error(`Packed tarball not found: ${tgzPath}`);
+    return 1;
+  }
 
   const result = spawnSync(
     "npm",
-    ["publish", resolvedTgz, "--access", "public", "--provenance"],
+    ["publish", resolvedTgz, "--access", "public", "--provenance", "--tag", tag],
     {
       cwd: dir,
       shell: true,
@@ -192,6 +203,7 @@ function publishCI(dir) {
   return result.status ?? 1;
 }
 
+const dirs = listPackageDirs(path.join(ROOT, "packages"));
 const published = [];
 const skipped = [];
 const failed = [];
@@ -228,9 +240,10 @@ for (const dir of dirs) {
     continue;
   }
 
-  console.log(`\n→ publishing ${pkg.name}@${pkg.version}`);
+  const tag = distTag(pkg.version);
+  console.log(`\n→ publishing ${pkg.name}@${pkg.version} (tag ${tag})`);
 
-  const status = isCI ? publishCI(dir) : publishLocal(dir);
+  const status = isCI ? publishCI(dir, tag) : publishLocal(dir, tag);
 
   if (status === 0) {
     published.push(`${pkg.name}@${pkg.version}`);
@@ -256,6 +269,5 @@ if (isCI && published.length === 0) {
     console.error("CI publish published 0 packages.");
     process.exit(1);
   }
-  // Idempotent re-run after a prior successful publish + failed git push.
   console.log(`All ${already.length} target versions already on npm — nothing new to publish.`);
 }
