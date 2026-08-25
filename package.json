@@ -16,7 +16,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,jsx,json,css,md}\"",
     "build:cloudpdf": "turbo run build --filter=\"./cloudpdf/**\" --filter=\"!@cloudpdf/website\"",
-    "build:viewers": "turbo run build --filter=\"./packages/**\"",
+    "build:viewers": "turbo run build --filter=\"./packages/**\" --filter=\"!@lofcz/embedpdf-angular\"",
     "build:release": "turbo run build --filter=\"./packages/**\" && pnpm run build:cloudpdf",
     "verify:consume": "pnpm --filter @embedpdf/tooling-consume-fixtures run verify",
     "bootstrap:package": "node scripts/bootstrap-package.mjs",
