@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+
 import {
   EngineError,
   EngineErrorCode,
@@ -17,7 +17,10 @@ import {
   decodeRenderToken,
   pageRenderOptionsFromImageOptions,
   PageDeleteInputSchema,
+  PageExtractInputSchema,
   PageFlattenInputSchema,
+  PageInsertBlankInputSchema,
+  PageInsertInputSchema,
   PageMoveInputSchema,
   PageNetworkRenderFormatSchema,
   PageRotateInputSchema,
@@ -26,6 +29,9 @@ import {
   unflatten,
   type ManifestPage,
 } from '@embedpdf/engine-core/wire';
+import type { FastifyInstance, FastifyReply } from 'fastify';
+
+import { readMutationEnvelope } from './_mutationEnvelope';
 import {
   requireLayerCapability,
   requireLayerDocAccessOnly,
@@ -46,12 +52,25 @@ import {
   setNoStore,
   type SchemaLike,
 } from './_helpers';
+import { requireSharedDocRead } from './_planeGuard';
+import {
+  requireLayerCapability,
+  requireLayerDocAccessOnly,
+  requireLayerResource,
+} from '../app/jwt-plugin';
+import type { SharpImageEncoder } from '../render/SharpImageEncoder';
+import type { DerivedRenderService } from '../services/DerivedRenderService';
+import type { DocumentService, OpenContext } from '../services/DocumentService';
+import type { LayerService } from '../services/LayerService';
 
 interface PageRouteDeps {
   documentService: DocumentService;
   layerService: LayerService;
-  pool: WorkerThreadPool;
   imageEncoder: SharpImageEncoder;
+  /** Encode renders in the engine worker by default. `false` is
+   *  the one-release escape hatch (`CLOUDPDF_ENCODE_IN_ENGINE=0`) that keeps
+   *  API-side sharp on the raw raster kinds. */
+  encodeInEngine?: boolean;
   /** The derived-artifact plane for renders (absent = legacy compute-only). */
   derivedRenders?: DerivedRenderService;
 }
@@ -61,7 +80,8 @@ type ReadScope =
   | { kind: 'layer'; ctx: OpenContext; docId: string; layerName: string };
 
 export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDeps): Promise<void> {
-  const { documentService, layerService, pool, imageEncoder, derivedRenders } = deps;
+  const { documentService, layerService, imageEncoder, derivedRenders } = deps;
+  const encodeInEngine = deps.encodeInEngine ?? true;
 
   // Doc-level SHARED routes (plane-scope model): served from the BASE worker
   // session; visible through a layer-pinned token only while every plane the
@@ -73,7 +93,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = await requireSharedDocRead(req, documentService, docId, 'page-text', ['content']);
     return readPageText({
       documentService,
-      pool,
       reply,
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
@@ -87,7 +106,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = await requireSharedDocRead(req, documentService, docId, 'page-text', ['content']);
     return readPageText({
       documentService,
-      pool,
       reply,
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
@@ -102,7 +120,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     ]);
     return readPageGeometry({
       documentService,
-      pool,
       reply,
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
@@ -118,7 +135,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     ]);
     return readPageGeometry({
       documentService,
-      pool,
       reply,
       signal: abortSignalFromRequest(req),
       scope: { kind: 'base', ctx, docId },
@@ -131,8 +147,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = await requireSharedDocRead(req, documentService, docId, 'page-render', ['content']);
     return renderPageImage({
       documentService,
-      pool,
       imageEncoder,
+      encodeInEngine,
       ...(derivedRenders ? { derivedRenders } : {}),
       reply,
       signal: abortSignalFromRequest(req),
@@ -149,8 +165,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = await requireSharedDocRead(req, documentService, docId, 'page-render', ['content']);
     return renderPageImage({
       documentService,
-      pool,
       imageEncoder,
+      encodeInEngine,
       ...(derivedRenders ? { derivedRenders } : {}),
       reply,
       signal: abortSignalFromRequest(req),
@@ -169,8 +185,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     ]);
     return renderPageImage({
       documentService,
-      pool,
       imageEncoder,
+      encodeInEngine,
       ...(derivedRenders ? { derivedRenders } : {}),
       reply,
       signal: abortSignalFromRequest(req),
@@ -190,8 +206,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     ]);
     return renderPageImage({
       documentService,
-      pool,
       imageEncoder,
+      encodeInEngine,
       ...(derivedRenders ? { derivedRenders } : {}),
       reply,
       signal: abortSignalFromRequest(req),
@@ -214,7 +230,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = requireLayerResource(req, docId, layerName, 'layer-page-text', pdfBits);
     return readPageText({
       documentService,
-      pool,
       reply,
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
@@ -234,7 +249,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = requireLayerResource(req, docId, layerName, 'layer-page-text', pdfBits);
     return readPageText({
       documentService,
-      pool,
       reply,
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
@@ -256,7 +270,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       const ctx = requireLayerResource(req, docId, layerName, 'layer-page-geometry', pdfBits);
       return readPageGeometry({
         documentService,
-        pool,
         reply,
         signal: abortSignalFromRequest(req),
         scope: { kind: 'layer', ctx, docId, layerName },
@@ -277,7 +290,6 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = requireLayerResource(req, docId, layerName, 'layer-page-geometry', pdfBits);
     return readPageGeometry({
       documentService,
-      pool,
       reply,
       signal: abortSignalFromRequest(req),
       scope: { kind: 'layer', ctx, docId, layerName },
@@ -297,8 +309,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = requireLayerResource(req, docId, layerName, 'layer-page-render', pdfBits);
     return renderPageImage({
       documentService,
-      pool,
       imageEncoder,
+      encodeInEngine,
       ...(derivedRenders ? { derivedRenders } : {}),
       reply,
       signal: abortSignalFromRequest(req),
@@ -321,8 +333,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     const ctx = requireLayerResource(req, docId, layerName, 'layer-page-render', pdfBits);
     return renderPageImage({
       documentService,
-      pool,
       imageEncoder,
+      encodeInEngine,
       ...(derivedRenders ? { derivedRenders } : {}),
       reply,
       signal: abortSignalFromRequest(req),
@@ -353,8 +365,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       );
       return renderPageImage({
         documentService,
-        pool,
         imageEncoder,
+        encodeInEngine,
         ...(derivedRenders ? { derivedRenders } : {}),
         reply,
         signal: abortSignalFromRequest(req),
@@ -386,8 +398,8 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
       );
       return renderPageImage({
         documentService,
-        pool,
         imageEncoder,
+        encodeInEngine,
         ...(derivedRenders ? { derivedRenders } : {}),
         reply,
         signal: abortSignalFromRequest(req),
@@ -479,6 +491,111 @@ export async function registerPageRoutes(app: FastifyInstance, deps: PageRouteDe
     );
   });
 
+  app.post('/v1/docs/:docId/layers/:layerName/pages/insert', async (req, reply) => {
+    const { docId, layerName } = req.params as {
+      docId: string;
+      layerName: string;
+    };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.pages.assemble', pdfBits);
+    // Multipart mutation envelope: `body` JSON part + a `resource:source`
+    // part carrying the standalone PDF. Policy 'any', NOT the strict sniff:
+    // the worker's FPDF_LoadMemDocument is the real gate here, and the
+    // conformance contract wants malformed source bytes to surface as
+    // MalformedPdf (the parser's verdict), never the envelope's InvalidArg.
+    const envelope = await readMutationEnvelope(req, () => 'any');
+    const body = parseOrInvalidArg<{ destIndex?: number }>(
+      PageInsertInputSchema as unknown as SchemaLike<{ destIndex?: number }>,
+      envelope.body,
+      'request body',
+    );
+    const source = envelope.resources?.['source'];
+    if (!source) {
+      throw new EngineError(
+        EngineErrorCode.InvalidArg,
+        `pages.insert requires a multipart 'resource:source' part carrying the source PDF`,
+      );
+    }
+
+    setNoStore(reply);
+    return layerService.insertPages(
+      ctx,
+      {
+        docId,
+        layerName,
+        bytes: source.bytes,
+        ...(body.destIndex !== undefined ? { destIndex: body.destIndex } : {}),
+      },
+      abortSignalFromRequest(req),
+    );
+  });
+
+  app.post('/v1/docs/:docId/layers/:layerName/pages/insert-blank', async (req, reply) => {
+    const { docId, layerName } = req.params as {
+      docId: string;
+      layerName: string;
+    };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.pages.assemble', pdfBits);
+    const body = parseOrInvalidArg<{
+      size: { width: number; height: number };
+      count?: number;
+      destIndex?: number;
+    }>(
+      PageInsertBlankInputSchema as unknown as SchemaLike<{
+        size: { width: number; height: number };
+        count?: number;
+        destIndex?: number;
+      }>,
+      req.body,
+      'request body',
+    );
+
+    setNoStore(reply);
+    return layerService.insertBlankPages(
+      ctx,
+      {
+        docId,
+        layerName,
+        size: body.size,
+        ...(body.count !== undefined ? { count: body.count } : {}),
+        ...(body.destIndex !== undefined ? { destIndex: body.destIndex } : {}),
+      },
+      abortSignalFromRequest(req),
+    );
+  });
+
+  app.post('/v1/docs/:docId/layers/:layerName/pages/extract', async (req, reply) => {
+    const { docId, layerName } = req.params as {
+      docId: string;
+      layerName: string;
+    };
+    const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
+    const pdfBits = await documentService.getEffectivePdfBits(accessCtx, docId, layerName);
+    // Extract egresses content bytes (a partial download) — gated by
+    // `doc.download` like /download, NOT `doc.pages.assemble`: it reads,
+    // never restructures. Mirrors the local engine's gate exactly.
+    const ctx = requireLayerCapability(req, docId, layerName, 'doc.download', pdfBits);
+    const body = parseOrInvalidArg<{ pageObjectNumbers: number[] }>(
+      PageExtractInputSchema as unknown as SchemaLike<{ pageObjectNumbers: number[] }>,
+      req.body,
+      'request body',
+    );
+
+    const bytes = await documentService.extractLayerPages(
+      ctx,
+      docId,
+      layerName,
+      body.pageObjectNumbers,
+      abortSignalFromRequest(req),
+    );
+    setNoStore(reply);
+    reply.type('application/pdf');
+    return reply.send(Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength));
+  });
+
   app.post('/v1/docs/:docId/layers/:layerName/pages/flatten', async (req, reply) => {
     const { docId, layerName } = req.params as { docId: string; layerName: string };
     const accessCtx = requireLayerDocAccessOnly(req, docId, layerName);
@@ -520,8 +637,8 @@ function rejectQueryParamsOnTokenUrl(query: unknown): void {
 
 async function renderPageImage(input: {
   documentService: DocumentService;
-  pool: WorkerThreadPool;
   imageEncoder: SharpImageEncoder;
+  encodeInEngine: boolean;
   derivedRenders?: DerivedRenderService;
   reply: FastifyReply;
   signal: AbortSignal;
@@ -619,7 +736,7 @@ async function renderPageImage(input: {
     derived.rejectOffLattice();
   }
 
-  const renderRaster = async () => {
+  const ensureScopeOnPool = async () => {
     if (input.scope.kind === 'layer') {
       await input.documentService.ensureLayerOnPool(
         input.scope.ctx,
@@ -627,12 +744,15 @@ async function renderPageImage(input: {
         input.scope.layerName,
       );
     }
-    // Every server render carries the deployment's output-pixel budget —
-    // the worker rejects before allocating (degenerate-geometry guard).
-    const renderOptions = {
-      ...pageRenderOptionsFromImageOptions(imageOptions, includeAnnotations),
-      ...(derived !== undefined ? { maxOutputPixels: derived.maxRenderPixels } : {}),
-    };
+  };
+  // Every server render carries the deployment's output-pixel budget —
+  // the worker rejects before allocating (degenerate-geometry guard).
+  const preparedRenderOptions = () => ({
+    ...pageRenderOptionsFromImageOptions(imageOptions, includeAnnotations),
+    ...(derived !== undefined ? { maxOutputPixels: derived.maxRenderPixels } : {}),
+  });
+  const renderRaster = async () => {
+    await ensureScopeOnPool();
     const build = (jobId: WorkerJobId) =>
       wirePack({
         kind: 'pages.render' as const,
@@ -640,9 +760,16 @@ async function renderPageImage(input: {
         docId: input.scope.docId,
         ...(input.scope.kind === 'layer' ? { layerName: input.scope.layerName } : {}),
         pageObjectNumber: input.pageObjectNumber,
-        options: renderOptions,
+        options: preparedRenderOptions(),
       });
-    const result = await input.pool.run(input.scope.docId, build, input.signal);
+    const scope = input.scope;
+    const result = await input.documentService.readOnPool(
+      scope.ctx,
+      scope.docId,
+      scope.kind === 'layer' ? scope.layerName : undefined,
+      build,
+      input.signal,
+    );
     if (result.tag !== 'pages.render') {
       throw new EngineError(
         EngineErrorCode.WireFormat,
@@ -650,6 +777,40 @@ async function renderPageImage(input: {
       );
     }
     return result.raster;
+  };
+  // With in-engine encoding (the default), render and encode use one worker op — the
+  // raster never leaves the worker; only the compressed image crosses
+  // the engine boundary.
+  const renderEncoded = async () => {
+    await ensureScopeOnPool();
+    const build = (jobId: WorkerJobId) =>
+      wirePack({
+        kind: 'pages.renderEncoded' as const,
+        jobId,
+        docId: input.scope.docId,
+        ...(input.scope.kind === 'layer' ? { layerName: input.scope.layerName } : {}),
+        pageObjectNumber: input.pageObjectNumber,
+        options: preparedRenderOptions(),
+        encode: {
+          format,
+          ...(imageOptions.quality !== undefined ? { quality: imageOptions.quality } : {}),
+        },
+      });
+    const scope = input.scope;
+    const result = await input.documentService.readOnPool(
+      scope.ctx,
+      scope.docId,
+      scope.kind === 'layer' ? scope.layerName : undefined,
+      build,
+      input.signal,
+    );
+    if (result.tag !== 'pages.renderEncoded') {
+      throw new EngineError(
+        EngineErrorCode.WireFormat,
+        `unexpected pages.renderEncoded payload: ${result.tag}`,
+      );
+    }
+    return result.image;
   };
 
   if (derived !== undefined && classification?.canonicalToken !== undefined) {
@@ -673,19 +834,33 @@ async function renderPageImage(input: {
             classification.canonicalToken,
             input.annotated,
           );
-    const artifact = await derived.getOrRender(key, async () =>
-      input.imageEncoder.encodeToBuffer(await renderRaster(), {
+    const artifact = await derived.getOrRender(key, async () => {
+      if (input.encodeInEngine) {
+        const image = await renderEncoded();
+        return { bytes: image.bytes, contentType: image.contentType };
+      }
+      return input.imageEncoder.encodeToBuffer(await renderRaster(), {
         format,
         quality: imageOptions.quality,
-      }),
-    );
+      });
+    });
     setImmutableCache(input.reply);
     input.reply.type(artifact.contentType);
     return input.reply.send(Buffer.from(artifact.bytes));
   }
 
-  // Legacy compute-only path (off-lattice or unpinned): unchanged contract —
-  // streamed body plus the advisory dimension headers.
+  // Compute-only path (off-lattice or unpinned): unchanged contract —
+  // body plus the advisory dimension headers.
+  if (input.encodeInEngine) {
+    const image = await renderEncoded();
+    requestedContentVersion === undefined
+      ? setNoStore(input.reply)
+      : setImmutableCache(input.reply);
+    input.reply.type(image.contentType);
+    input.reply.header('X-EmbedPDF-Image-Width', String(image.width));
+    input.reply.header('X-EmbedPDF-Image-Height', String(image.height));
+    return input.reply.send(Buffer.from(image.bytes));
+  }
   const raster = await renderRaster();
   const encoded = input.imageEncoder.encode(raster, {
     format,
@@ -700,7 +875,6 @@ async function renderPageImage(input: {
 
 async function readPageText(input: {
   documentService: DocumentService;
-  pool: WorkerThreadPool;
   reply: { header(name: 'Cache-Control', value: string): unknown };
   signal: AbortSignal;
   scope: ReadScope;
@@ -738,7 +912,14 @@ async function readPageText(input: {
       ...(input.scope.kind === 'layer' ? { layerName: input.scope.layerName } : {}),
       pageObjectNumber: input.pageObjectNumber,
     });
-  const result = await input.pool.run(input.scope.docId, build, input.signal);
+  const scope = input.scope;
+  const result = await input.documentService.readOnPool(
+    scope.ctx,
+    scope.docId,
+    scope.kind === 'layer' ? scope.layerName : undefined,
+    build,
+    input.signal,
+  );
   if (result.tag !== 'pages.text') {
     throw new EngineError(
       EngineErrorCode.WireFormat,
@@ -755,7 +936,6 @@ async function readPageText(input: {
 
 async function readPageGeometry(input: {
   documentService: DocumentService;
-  pool: WorkerThreadPool;
   reply: { header(name: 'Cache-Control', value: string): unknown };
   signal: AbortSignal;
   scope: ReadScope;
@@ -793,7 +973,14 @@ async function readPageGeometry(input: {
       ...(input.scope.kind === 'layer' ? { layerName: input.scope.layerName } : {}),
       pageObjectNumber: input.pageObjectNumber,
     });
-  const result = await input.pool.run(input.scope.docId, build, input.signal);
+  const scope = input.scope;
+  const result = await input.documentService.readOnPool(
+    scope.ctx,
+    scope.docId,
+    scope.kind === 'layer' ? scope.layerName : undefined,
+    build,
+    input.signal,
+  );
   if (result.tag !== 'pages.geometry') {
     throw new EngineError(
       EngineErrorCode.WireFormat,

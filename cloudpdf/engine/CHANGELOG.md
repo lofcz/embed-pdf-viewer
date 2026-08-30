@@ -1,5 +1,22 @@
 # @cloudpdf/engine
 
+## 3.0.0-next.9
+
+### Minor Changes
+
+- [#772](https://github.com/embedpdf/embed-pdf-viewer/pull/772) by [@bobsingor](https://github.com/bobsingor) – Implement page insertion, blank-page creation, and page extraction in the
+  cloud document pages service. Insertions invalidate stale manifest rows and
+  publish local or realtime `pages.inserted` events with the updated layout.
+
+## 3.0.0-next.8
+
+### Minor Changes
+
+- [#783](https://github.com/embedpdf/embed-pdf-viewer/pull/783) by [@bobsingor](https://github.com/bobsingor) – Use the document-scoped access endpoint for unlock requests. Add an
+  opt-in `docAffinityHeader` option for routing document requests and
+  bounded retries for server `EngineBusy` and `EngineRestarting`
+  responses, including `Retry-After` handling and an `onRetry` callback.
+
 ## 3.0.0-next.7
 
 ## 3.0.0-next.6

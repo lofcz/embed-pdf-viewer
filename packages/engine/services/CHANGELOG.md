@@ -1,5 +1,25 @@
 # @embedpdf/engine-services
 
+## 3.0.0-next.9
+
+### Minor Changes
+
+- [#772](https://github.com/embedpdf/embed-pdf-viewer/pull/772) by [@bobsingor](https://github.com/bobsingor) – Implement blank-page insertion with PDFium and dispatch the new
+  `pages.insertBlank` worker request. The implementation validates page size,
+  count, and destination index, creates persistent blank pages, and returns
+  their new page object numbers and layout.
+
+## 3.0.0-next.8
+
+### Minor Changes
+
+- [#783](https://github.com/embedpdf/embed-pdf-viewer/pull/783) by [@bobsingor](https://github.com/bobsingor) – `WorkerHost` accepts an optional injected `WorkerImageEncoder` (third
+  constructor argument) and dispatches the new `*.renderEncoded` kinds
+  through it on a narrowly-scoped async path. No new dependencies: the
+  native encoder stays in the injecting package. Hosts without an encoder
+  (browser/local workers) reject those kinds with `NotImplemented`;
+  existing two-argument construction is unchanged.
+
 ## 3.0.0-next.7
 
 ## 3.0.0-next.6

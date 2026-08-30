@@ -1,5 +1,9 @@
 # @embedpdf/core-geometry
 
+## 3.0.0-next.9
+
+## 3.0.0-next.8
+
 ## 3.0.0-next.7
 
 ### Minor Changes

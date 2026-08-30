@@ -40,6 +40,8 @@ import {
   type PageDeleteResult,
   type PageFlattenResult,
   type PageFlattenUsage,
+  type PageInsertResult,
+  type PdfSize,
   type RedactionApplyResult,
   type RedactionApplyScope,
   type PageListSnapshot,
@@ -65,12 +67,13 @@ import type { AuditEvent, EventLogService } from './EventLogService';
 import type { LayerStateService } from './LayerStateService';
 import type { MutationImpactKind } from './LayerStateService';
 import type { WeakAnnotationSessionService } from './WeakAnnotationSessionService';
+import type { EngineCounters } from '../app/engine-counters';
 import type { AuditMutationKind } from '../db/repos/audit_log.repo';
 import type { DocumentsRepo } from '../db/repos/documents.repo';
 import type { DurablePageRow, LayerRow } from '../db/repos/page_state.repo';
 import type { Database as Schema } from '../db/schema';
 import type { RealtimeBus } from '../realtime/RealtimeBus';
-import type { WorkerThreadPool } from '../runtime/WorkerThreadPool';
+import type { EnginePool } from '../runtime/EnginePool';
 import { StorageKeys } from '../storage/keys';
 import type { ObjectStore } from '../storage/ObjectStore';
 
@@ -139,10 +142,12 @@ export interface LayerServiceOptions {
   documentService?: DocumentService;
   eventLog?: EventLogService;
   weakAnnotationSessions?: WeakAnnotationSessionService;
-  pool?: WorkerThreadPool;
+  pool?: EnginePool;
   storage?: ObjectStore;
   /** Cross-replica doorbell — rung after every mutation commit. */
   realtime?: RealtimeBus;
+  /** Operational counters read by metrics collect closures. */
+  counters?: EngineCounters;
 }
 
 export type LayerWriteContext = OpenContext;
@@ -168,7 +173,7 @@ export class LayerService {
   private readonly documentService?: DocumentService;
   private readonly eventLog?: EventLogService;
   private readonly weakAnnotationSessions?: WeakAnnotationSessionService;
-  private readonly pool?: WorkerThreadPool;
+  private readonly pool?: EnginePool;
   private readonly storage?: ObjectStore;
   private readonly realtime?: RealtimeBus;
   private readonly layerWriteQueues = new Map<string, Promise<unknown>>();
@@ -182,8 +187,11 @@ export class LayerService {
    */
   private readonly pendingAttemptKeys = new Map<string, Set<string>>();
 
+  private readonly counters?: EngineCounters;
+
   constructor(opts: LayerServiceOptions) {
     this.db = opts.db;
+    this.counters = opts.counters;
     this.documents = opts.documents;
     this.layerState = opts.layerState;
     this.revisionBridge = opts.revisionBridge;
@@ -637,6 +645,92 @@ export class LayerService {
         return this.persistPageDelete(ctx, input.docId, input.layerName, layer, {
           result: payload.result,
           deletedPages: input.pageObjectNumbers,
+          artifact: requireLayerArtifact(payload as unknown),
+        });
+      });
+    });
+  }
+
+  async insertPages(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      /** The standalone source PDF whose pages are copied in. NEVER put on
+       *  a postMessage transfer list — the fence-conflict rebase re-runs
+       *  this op, and a transferred (detached) buffer would corrupt the
+       *  retry. Structured clone copies it, like annotation resources. */
+      bytes: ArrayBuffer;
+      destIndex?: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<PageInsertResult> {
+    return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
+      const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      // No weak-session guard: like move, an insert only shifts display
+      // indices — it never touches an existing page's /Annots or identity.
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'pages.insert' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            bytes: input.bytes,
+            ...(input.destIndex !== undefined ? { destIndex: input.destIndex } : {}),
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'pages.insert') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected pages.insert payload: ${payload.tag}`,
+          );
+        }
+        return this.persistPageInsert(ctx, input.docId, input.layerName, layer, {
+          kind: 'pages.insert',
+          result: payload.result,
+          artifact: requireLayerArtifact(payload as unknown),
+        });
+      });
+    });
+  }
+
+  async insertBlankPages(
+    ctx: LayerWriteContext,
+    input: {
+      docId: string;
+      layerName: string;
+      size: PdfSize;
+      count?: number;
+      destIndex?: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<PageInsertResult> {
+    return this.enqueueLayerWrite(ctx, input.docId, input.layerName, async () => {
+      const { layer } = await this.prepareLayerMutation(ctx, input.docId, input.layerName);
+      return this.withTempWorkerFile('layer-artifact', 'artifact.layer', async (artifactPath) => {
+        const build = (jobId: WorkerJobId) =>
+          wirePack({
+            kind: 'pages.insertBlank' as const,
+            jobId,
+            docId: input.docId,
+            layerName: input.layerName,
+            size: input.size,
+            ...(input.count !== undefined ? { count: input.count } : {}),
+            ...(input.destIndex !== undefined ? { destIndex: input.destIndex } : {}),
+            artifactPath,
+          });
+        const payload = await this.requirePool().run(input.docId, build, signal);
+        if (payload.tag !== 'pages.insertBlank') {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `unexpected pages.insertBlank payload: ${payload.tag}`,
+          );
+        }
+        return this.persistPageInsert(ctx, input.docId, input.layerName, layer, {
+          kind: 'pages.insertBlank',
+          result: payload.result,
           artifact: requireLayerArtifact(payload as unknown),
         });
       });
@@ -1495,6 +1589,11 @@ export class LayerService {
       docId,
       layerName,
       materialized.layer.currentVersion,
+      null,
+      // Write alignment: records the engine generation this session lives
+      // under, so a mid-commit engine respawn can never get a recreated
+      // session blessed with the committed version (advanceLayerSession).
+      { forWrite: true },
     );
     return materialized;
   }
@@ -1726,6 +1825,37 @@ export class LayerService {
       layer,
       layout: input.result.layout,
       deletedPages: input.deletedPages,
+      artifactKey,
+      artifactSha: uploaded.sha256,
+      artifactSize: uploaded.size,
+      nextVersion,
+    });
+    this.finishLayerCommit(ctx, docId, layerName, nextVersion, artifactKey, committed.auditId);
+    return committed.result;
+  }
+
+  private async persistPageInsert(
+    ctx: LayerWriteContext,
+    docId: string,
+    layerName: string,
+    layer: LayerRow,
+    input: {
+      kind: 'pages.insert' | 'pages.insertBlank';
+      result: PageInsertResult;
+      artifact: LayerArtifactInput;
+    },
+  ): Promise<PageInsertResult> {
+    const nextVersion = layer.currentVersion + 1;
+    const artifactKey = this.nextArtifactKey(ctx, docId, layerName, nextVersion);
+    const uploaded = await this.uploadLayerArtifact(artifactKey, input.artifact);
+    const committed = await this.commitPageInsert({
+      ctx,
+      docId,
+      layerName,
+      layer,
+      kind: input.kind,
+      layout: input.result.layout,
+      insertedPages: input.result.insertedPageObjectNumbers,
       artifactKey,
       artifactSha: uploaded.sha256,
       artifactSize: uploaded.size,
@@ -2231,6 +2361,134 @@ export class LayerService {
           kind: 'pages.delete',
           pageObjectNumber: null,
           affectedPages: input.deletedPages,
+          artifactVersion: input.nextVersion,
+          artifactKey: input.artifactKey,
+          artifactSha: input.artifactSha,
+          artifactSize: input.artifactSize,
+          payload: result,
+          ts: now,
+        });
+        const auditId = (await this.eventLog?.appendDb(trx, auditEvent)) ?? 0;
+
+        await this.writeLayerAdvance(
+          trx,
+          input,
+          { doc_version: versions.docVersion, layout_version: versions.layoutVersion },
+          auditId,
+          now,
+        );
+
+        return { result, auditId };
+      });
+  }
+
+  /**
+   * Insert commit: the other page-structure op that mutates the page SET —
+   * the mirror of {@link commitPageDelete}. On top of the shared version
+   * bumps it ADDS `layer_pages` rows for the fresh PONs at the initial
+   * epoch (`content_version` 1, `annotation_version` 1, generation 0, no
+   * weak annotations — exactly what the base snapshot would have written
+   * had the pages always existed). Pre-existing rows are untouched, so
+   * their pins and revisions stay warm.
+   */
+  private async commitPageInsert(input: {
+    ctx: LayerWriteContext;
+    docId: string;
+    layerName: string;
+    layer: LayerRow;
+    kind: 'pages.insert' | 'pages.insertBlank';
+    /** The worker's post-insert layout — becomes `result.layout`. */
+    layout: PageListSnapshot;
+    insertedPages: PageObjectNumber[];
+    artifactKey: string;
+    artifactSha: string;
+    artifactSize: number;
+    nextVersion: number;
+  }): Promise<{
+    result: PageInsertResult;
+    auditId: number;
+  }> {
+    return this.requireDb()
+      .transaction()
+      .execute(async (trx) => {
+        const now = Date.now();
+        const currentLayer = await this.readLayerForCommit(trx, input.layer);
+
+        const rows = await trx
+          .selectFrom('layer_pages')
+          .select('page_object_number')
+          .where('layer_id', '=', input.layer.id)
+          .execute();
+        const known = new Set(rows.map((row) => Number(row.page_object_number)));
+        const inserted = new Set(input.insertedPages);
+        const pageOrder = input.layout.pages.map((page) => page.pageObjectNumber);
+        if (inserted.size !== input.insertedPages.length) {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `${input.kind} returned duplicate inserted page object numbers`,
+          );
+        }
+        if (rows.length + input.insertedPages.length !== pageOrder.length) {
+          throw new EngineError(
+            EngineErrorCode.WireFormat,
+            `${input.kind} returned ${pageOrder.length} pages for ${rows.length} layer page rows plus ${input.insertedPages.length} inserted`,
+          );
+        }
+        for (const pageObjectNumber of input.insertedPages) {
+          if (known.has(pageObjectNumber)) {
+            throw new EngineError(
+              EngineErrorCode.WireFormat,
+              `${input.kind} claims fresh page object number ${pageObjectNumber} but a row already exists`,
+            );
+          }
+        }
+        for (const pageObjectNumber of pageOrder) {
+          if (!known.has(pageObjectNumber) && !inserted.has(pageObjectNumber)) {
+            throw new EngineError(
+              EngineErrorCode.WireFormat,
+              `${input.kind} returned unknown page object number ${pageObjectNumber}`,
+            );
+          }
+        }
+
+        await trx
+          .insertInto('layer_pages')
+          .values(
+            input.insertedPages.map((pageObjectNumber) => ({
+              layer_id: input.layer.id,
+              page_object_number: pageObjectNumber,
+              content_version: 1,
+              annotation_version: 1,
+              annotation_generation: 0,
+              has_weak_annotations: 0,
+              updated_at: now,
+            })),
+          )
+          .execute();
+
+        const previousDocVersion = Number(currentLayer.doc_version);
+        const versions: PageStructureCache = {
+          previousDocVersion,
+          docVersion: previousDocVersion + 1,
+          layoutVersion: Number(currentLayer.layout_version) + 1,
+        };
+
+        // The finalized result — audited and returned IDENTICALLY: what we
+        // tell the caller is what we tell history (and remote subscribers).
+        const result: PageInsertResult = {
+          insertedPageObjectNumbers: input.insertedPages,
+          layout: input.layout,
+          cache: versions,
+        };
+
+        const auditEvent = makeAuditEvent({
+          ctx: input.ctx,
+          docId: input.docId,
+          layer: input.layer,
+          layerName: input.layerName,
+          kind: input.kind,
+          pageObjectNumber: null,
+          affectedPages: input.insertedPages,
           artifactVersion: input.nextVersion,
           artifactKey: input.artifactKey,
           artifactSha: input.artifactSha,
@@ -2865,7 +3123,23 @@ export class LayerService {
       try {
         return await op();
       } catch (err) {
-        if (!(err instanceof LayerFenceConflict)) throw err;
+        // Two retryable-once shapes, same mechanical recovery (invalidate
+        // → re-prepare reloads durable truth → re-apply):
+        //  - LayerFenceConflict: a REMOTE replica committed in our window.
+        //  - DocNotOpen at APPLY: the op parked across an engine respawn
+        //    (crash or recycle) and dispatched into a successor without
+        //    the session. Nothing applied — no ghost — so the rerun is
+        //    exactly the fence-conflict recovery. (The read-path twin is
+        //    `runReadWithReopen`.)
+        const parkedAcrossRespawn =
+          err instanceof EngineError && err.code === EngineErrorCode.DocNotOpen;
+        if (!(err instanceof LayerFenceConflict) && !parkedAcrossRespawn) throw err;
+        if (err instanceof LayerFenceConflict) {
+          // Count one cross-replica write race per rebase. The
+          // rate of this counter at N>1 replicas is the docAffinity
+          // flip evidence.
+          if (this.counters) this.counters.layerWriteConflicts += 1;
+        }
         documentService.invalidateLayerSession(docId, layerName);
         return await op();
       }
@@ -2928,7 +3202,7 @@ export class LayerService {
     return this.revisionBridge;
   }
 
-  private requirePool(): WorkerThreadPool {
+  private requirePool(): EnginePool {
     if (!this.pool) {
       throw new EngineError(
         EngineErrorCode.NotImplemented,
