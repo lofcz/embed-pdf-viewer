@@ -44,6 +44,7 @@ import { defaultCommands } from './config/commands';
 import { demoToolsPlugin } from './config/demo-tools.plugin';
 import { en } from './locales/en';
 import { ViewerConfigProvider, type ResolvedViewerConfig } from './config-context';
+import type { HighlightedPageRange } from './page-highlights';
 import { createViewerHandle, type ViewerHandle } from './handle';
 import { ICON_PATHS, type IconDef } from './ui/icons';
 import { ThemeProvider, type ThemePreference } from './ui/theme';
@@ -110,6 +111,18 @@ export interface ViewerCustomization {
    *  element adopts them into its shadow root); direct consumers of this
    *  package set the `--ep-*` variables in their own CSS instead. */
   theme?: ThemePreference | ThemeConfig;
+  /**
+   * 1-based page to land on when the document first places. Registered as a
+   * stage initial-view provider so it survives the first viewport report —
+   * no onReady / document-ready race.
+   */
+  initialPage?: number;
+  /**
+   * 1-based inclusive page ranges to mark in the thumbnail rail (citation
+   * ranges, deep links). The current page still uses the stronger selection
+   * chrome; cited pages get a quieter accent wash.
+   */
+  highlightedPageRanges?: readonly HighlightedPageRange[];
 }
 
 /** Token overrides — names WITHOUT the `--ep-` prefix ('accent', 'surface'…). */
@@ -182,6 +195,8 @@ export function FullViewer({
   theme,
   themeTarget,
   onViewer,
+  initialPage,
+  highlightedPageRanges,
 }: FullViewerProps) {
   // Customization is INIT-ONLY, exactly like v2's `EmbedPDF.init` (and like
   // the Viewer's own engine/plugins contract): the whole config resolves ONCE
@@ -224,6 +239,8 @@ export function FullViewer({
       chrome: resolvedChrome,
       icons: icons ?? {},
       i18n: { locales, loaders, initial },
+      initialPage,
+      highlightedPageRanges,
     };
   });
 
@@ -243,7 +260,12 @@ export function FullViewer({
   }, [resolved]);
 
   const [plugins] = useState(() => [
-    stagePlugin({ layout: 'vertical' }), // main lens (tools engage via interactionPlugin below)
+    stagePlugin({
+      layout: 'vertical',
+      ...(Number.isInteger(resolved.initialPage) && (resolved.initialPage as number) >= 1
+        ? { initialPage: (resolved.initialPage as number) - 1 }
+        : null),
+    }), // main lens (tools engage via interactionPlugin below)
     // Thumbnail lens over the SAME document: a single-column grid at a fixed small
     // zoom, its own camera. Click a thumb to navigate the main lens; the sidebar
     // follows the main view (see ui/panels ThumbnailList).
@@ -309,7 +331,11 @@ export function FullViewer({
   ]);
 
   // Structural subset of `resolved`, identity-stable across renders.
-  const config: ResolvedViewerConfig = resolved;
+  const config: ResolvedViewerConfig = {
+    chrome: resolved.chrome,
+    icons: resolved.icons,
+    highlightedPageRanges: resolved.highlightedPageRanges,
+  };
 
   return (
     <ThemeProvider preference={themeConfigOf(theme).preference} target={themeTarget}>

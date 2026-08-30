@@ -14,7 +14,9 @@ import { Stage, StageToken, usePages } from '@embedpdf/react/stage';
 import { RenderLayer } from '@embedpdf/react/render';
 import { useSurface } from '@embedpdf/react/shell';
 import { useT } from '@embedpdf/react/i18n';
+import { useHighlightedPageRanges } from '../config-context';
 import { ThumbsStageToken } from '../config/stage';
+import { firstHighlightedPageIndex, pageIndexIsHighlighted } from '../page-highlights';
 import { Icon } from './icons';
 import { AnnotationStylePanel } from './annotation-style';
 import { OutlineList } from './outline-list';
@@ -71,23 +73,31 @@ export function LeftSidebar() {
 function ThumbnailList() {
   const { currentPage, goToPage } = usePages(); // the MAIN lens
   const { reveal } = usePages(ThumbsStageToken); // the SIDEBAR lens
-  // Follow the main view: when its current page changes, make that thumb visible —
-  // minimal movement, zero when it's already on screen.
-  useEffect(() => reveal(currentPage), [currentPage, reveal]);
+  const highlighted = useHighlightedPageRanges();
+  const firstCited = firstHighlightedPageIndex(highlighted);
+  // Follow the main view; on a citation open, land the rail on the first cited
+  // page so the marked range is in view even before the main lens reports it.
+  useEffect(
+    () => reveal(firstCited ?? currentPage),
+    [currentPage, firstCited, reveal],
+  );
   return (
     <Stage
       token={ThumbsStageToken}
       zoomGestures={false} // fixed-magnification rail: cmd+wheel/pinch scrolls, never zooms
       className="flex-1"
       style={{ position: 'relative' }}
-      pageChrome={(page) => (
+      pageChrome={(page) => {
+        const current = page.pageIndex === currentPage;
+        const cited = pageIndexIsHighlighted(page.pageIndex, highlighted);
+        return (
         <>
           {/* BOX-SPACE chrome: the click target + selection border hug the page
               box; the number sits in the reserved bottom band. Neither rotates. */}
           <button
             type="button"
             onClick={() => goToPage(page.pageIndex)}
-            title={`Page ${page.pageIndex + 1}`}
+            title={`Page ${page.pageIndex + 1}${cited ? ' (cited)' : ''}`}
             style={{
               position: 'absolute',
               top: page.frame.top,
@@ -97,12 +107,13 @@ function ThumbnailList() {
               cursor: 'pointer',
               boxSizing: 'border-box',
               borderRadius: 4,
-              border:
-                page.pageIndex === currentPage
+              border: current
+                ? '2px solid var(--ep-accent)'
+                : cited
                   ? '2px solid var(--ep-accent)'
                   : '1px solid var(--ep-border-subtle)',
-              boxShadow:
-                page.pageIndex === currentPage ? '0 0 0 2px var(--ep-accent-light)' : 'none',
+              boxShadow: current ? '0 0 0 2px var(--ep-accent-light)' : 'none',
+              background: cited ? 'var(--ep-accent-light)' : undefined,
             }}
           />
           <div
@@ -123,7 +134,8 @@ function ThumbnailList() {
             {page.pageIndex + 1}
           </div>
         </>
-      )}
+        );
+      }}
     >
       {/* page-space content: the bitmap, which rotates with the page */}
       {() => <RenderLayer />}

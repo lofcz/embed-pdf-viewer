@@ -269,18 +269,39 @@ export function Scrollbar({
         ...trackDefaults,
         touchAction: 'none',
         userSelect: 'none',
+        // Native scrollbars keep the arrow — never inherit the stage's grab/move
+        // tool cursor from the parent viewport.
+        cursor: 'default',
         opacity: shown ? 1 : 0,
         transition: 'opacity 200ms',
         // a hidden overlay bar must not eat the clicks under it
         pointerEvents: shown ? 'auto' : 'none',
         ...style,
       }}
-      onPointerDown={onTrackDown}
-      onPointerMove={onMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onPointerEnter={() => setHovered(true)}
-      onPointerLeave={() => setHovered(false)}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        onTrackDown(e);
+      }}
+      onPointerMove={(e) => {
+        e.stopPropagation();
+        onMove(e);
+      }}
+      onPointerUp={(e) => {
+        e.stopPropagation();
+        endDrag();
+      }}
+      onPointerCancel={(e) => {
+        e.stopPropagation();
+        endDrag();
+      }}
+      onPointerEnter={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+      }}
     >
       <div
         data-embedpdf-scrollbar-thumb=""
@@ -291,7 +312,10 @@ export function Scrollbar({
           background: 'var(--epdf-scrollbar-thumb, rgba(0, 0, 0, 0.4))',
           ...thumbStyle,
         }}
-        onPointerDown={onThumbDown}
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          onThumbDown(e);
+        }}
       />
     </div>
   );

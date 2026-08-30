@@ -147,6 +147,11 @@ describe('initial placement is level-triggered (the new-pane / HMR race)', () =>
     stage.setViewport({ width: 1000, height: 700 });
     expect(stage.currentPage()).toBe(3); // restored, not reset to page 0
   });
+
+  it('config.initialPage lands on that page at first placement', () => {
+    const { stage } = harness(PORTRAIT, { initialPage: 3 });
+    expect(stage.currentPage()).toBe(3);
+  });
 });
 
 describe('goToPage', () => {

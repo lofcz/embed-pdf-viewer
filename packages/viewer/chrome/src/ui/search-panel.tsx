@@ -137,6 +137,11 @@ export function SearchPanel() {
   const [regex, setRegex] = useState(() => query?.regex ?? false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Opening Find should land the caret so the user can type immediately.
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   // The draft IS a SearchQuery — same shape the engine matches on.
   const draftQuery: SearchQuery = { text: draft, regex, matchCase, wholeWord };
   // Early feedback on keystroke: the same validator the engine enforces

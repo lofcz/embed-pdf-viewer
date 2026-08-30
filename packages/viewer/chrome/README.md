@@ -45,6 +45,20 @@ Two kinds of surface, two deliberate semantics:
 A disabled category vanishes everywhere at once — toolbar, menus, overflow,
 shortcuts — because every surface is a projection of the same command registry.
 
+### Deep-link a page
+
+`initialPage` is **1-based** and lands at first placement (no `onReady` race).
+`highlightedPageRanges` marks those pages in the thumbnail rail:
+
+```tsx
+<FullViewer
+  engine={engine}
+  initialDocuments={[{ name: 'Report', source: reportBytes }]}
+  initialPage={31}
+  highlightedPageRanges={[{ start: 31, end: 38 }]}
+/>
+```
+
 ### Add a button
 
 The 90% case, end to end — one command, one icon, one string, one placement:

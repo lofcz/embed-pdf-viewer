@@ -8,6 +8,7 @@ export const initialStageState = (config: StageConfig): StageState => {
     scheduler: _scheduler,
     responsive: _responsive,
     prewarmPages: _prewarmPages,
+    initialPage: _initialPage,
     ...overrides
   } = config;
   return {

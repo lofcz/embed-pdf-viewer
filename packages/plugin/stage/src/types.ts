@@ -702,6 +702,11 @@ export interface StageConfig extends Partial<StageSettings> {
    * so the jump reveals content instead of a blank gap (v2 `prewarmPagesAround`).
    */
   prewarmPages?: (pageIndexes: readonly number[]) => void;
+  /**
+   * 0-based page to land on at first placement. Registered as an initial-view
+   * provider so it wins the first viewport report — no onReady race.
+   */
+  initialPage?: number;
 }
 
 export const StageToken = createCapabilityToken<StageCapability>('stage');

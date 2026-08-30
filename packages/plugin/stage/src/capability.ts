@@ -1678,5 +1678,14 @@ export function createStageCapability(
     }
   }
 
+  if (Number.isInteger(config.initialPage) && (config.initialPage as number) >= 0) {
+    const page = config.initialPage as number;
+    api.provideInitialView(100, () => ({
+      ...api.settings(),
+      cursor: page,
+      anchor: { pageIndex: page, fx: 0, fy: 0 },
+    }));
+  }
+
   return api;
 }

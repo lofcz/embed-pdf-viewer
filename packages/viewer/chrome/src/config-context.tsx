@@ -10,12 +10,15 @@
 import { createContext, useContext } from 'react';
 import type { BarSchema, ChromeSchema, MenuSchema } from '@embedpdf/react/toolbar';
 import { defaultChrome, getMenu, getModeBar, getStrip } from './config/chrome';
+import type { HighlightedPageRange } from './page-highlights';
 import type { IconDef } from './ui/icons';
 
 export interface ResolvedViewerConfig {
   readonly chrome: ChromeSchema;
   /** User-registered icons — additive over the built-in set. */
   readonly icons: Readonly<Record<string, IconDef>>;
+  /** 1-based inclusive ranges marked in the thumbnail rail. */
+  readonly highlightedPageRanges?: readonly HighlightedPageRange[];
 }
 
 const DEFAULT_CONFIG: ResolvedViewerConfig = { chrome: defaultChrome, icons: {} };
@@ -42,4 +45,8 @@ export function useStripSchema(id: string): BarSchema | undefined {
 
 export function useCustomIcons(): Readonly<Record<string, IconDef>> {
   return useContext(ViewerConfigContext).icons;
+}
+
+export function useHighlightedPageRanges(): readonly HighlightedPageRange[] | undefined {
+  return useContext(ViewerConfigContext).highlightedPageRanges;
 }
