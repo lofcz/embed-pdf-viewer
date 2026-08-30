@@ -113,7 +113,11 @@ function ThumbnailList() {
                   ? '2px solid var(--ep-accent)'
                   : '1px solid var(--ep-border-subtle)',
               boxShadow: current ? '0 0 0 2px var(--ep-accent-light)' : 'none',
-              background: cited ? 'var(--ep-accent-light)' : undefined,
+              // Translucent wash — `--ep-accent-light` is opaque and would
+              // hide the page bitmap under this chrome button.
+              background: cited
+                ? 'color-mix(in srgb, var(--ep-accent) 22%, transparent)'
+                : 'transparent',
             }}
           />
           <div
