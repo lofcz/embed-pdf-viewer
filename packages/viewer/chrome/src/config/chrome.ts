@@ -25,7 +25,7 @@ const mainBar: BarSchema = {
   id: 'main',
   sections: {
     // v2 layout: everything before the first spacer sits LEFT-aligned —
-    // document menu, workspace, zoom strip, pan/pointer. Only the mode tabs
+    // document menu, workspace, zoom strip. Only the mode tabs
     // are truly centered.
     start: [
       group('document', { importance: 5 }, [item('document:menu')]),
@@ -38,7 +38,6 @@ const mainBar: BarSchema = {
       group('zoom', { importance: 4 }, [
         custom('zoom-controls', { variants: ['inline', 'button'], terminal: 'zoom:menu' }),
       ]),
-      group('tools', { importance: 2 }, ['pan:toggle', 'pointer:toggle']),
     ],
     center: [
       group('modes', {

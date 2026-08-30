@@ -142,6 +142,7 @@ export const en: Locale = {
       styleTitle: 'Style',
       empty: 'Nothing here yet in this demo panel.',
       page: 'Page {current} of {total}',
+      pageGo: 'Go to page',
       cancel: 'Cancel',
       pageBadge: 'p. {page}',
       redactionTitle: 'Redactions',

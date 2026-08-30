@@ -145,6 +145,7 @@ export const es: Locale = {
       styleTitle: 'Estilo',
       empty: 'Aquí todavía no hay nada en este panel de demostración.',
       page: 'Página {current} de {total}',
+      pageGo: 'Ir a la página',
       cancel: 'Cancelar',
       pageBadge: 'pág. {page}',
       redactionTitle: 'Redacciones',

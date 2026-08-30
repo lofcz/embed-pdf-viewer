@@ -175,6 +175,9 @@ export function Shell() {
                 Renders nothing; mount ONCE per document view. */}
             <SelectionClipboard />
             <Stage
+              // Pointer stays the only default tool. Gap-drag pan would paint
+              // a grab/move cursor on the gutter and the scrollbar track.
+              panFallback={false}
               overlay={
                 <>
                   <AnnotationStrip />

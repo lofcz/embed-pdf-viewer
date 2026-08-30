@@ -8,15 +8,21 @@
  * are the EMBEDDER's chrome, not the viewer's. The frame keeps a `header`
  * socket for a slotted one (see Shell).
  */
-import { useEffect, useState } from 'react';
-import { useSelector, useDocumentId } from '@embedpdf/react/runtime';
-import { Stage, StageToken, usePages } from '@embedpdf/react/stage';
+import { useEffect, useRef, useState } from 'react';
+import { useDocumentId } from '@embedpdf/react/runtime';
+import { Stage, usePages } from '@embedpdf/react/stage';
 import { RenderLayer } from '@embedpdf/react/render';
 import { useSurface } from '@embedpdf/react/shell';
 import { useT } from '@embedpdf/react/i18n';
 import { useHighlightedPageRanges } from '../config-context';
 import { ThumbsStageToken } from '../config/stage';
-import { firstHighlightedPageIndex, pageIndexIsHighlighted } from '../page-highlights';
+import { pageIndexIsHighlighted } from '../page-highlights';
+import {
+  PAGE_CURRENT_MARKER,
+  acceptPageDraft,
+  commitPageDraft,
+  splitPageLabel,
+} from '../page-input';
 import { Icon } from './icons';
 import { AnnotationStylePanel } from './annotation-style';
 import { OutlineList } from './outline-list';
@@ -74,13 +80,8 @@ function ThumbnailList() {
   const { currentPage, goToPage } = usePages(); // the MAIN lens
   const { reveal } = usePages(ThumbsStageToken); // the SIDEBAR lens
   const highlighted = useHighlightedPageRanges();
-  const firstCited = firstHighlightedPageIndex(highlighted);
-  // Follow the main view; on a citation open, land the rail on the first cited
-  // page so the marked range is in view even before the main lens reports it.
-  useEffect(
-    () => reveal(firstCited ?? currentPage),
-    [currentPage, firstCited, reveal],
-  );
+  // Follow the main viewport page — never snap back to a cited range.
+  useEffect(() => reveal(currentPage), [currentPage, reveal]);
   return (
     <Stage
       token={ThumbsStageToken}
@@ -216,14 +217,72 @@ export function RightSidebar() {
 // ── bottom page-controls overlay ─────────────────────────────────────────────
 export function PageControls() {
   const t = useT();
+  const { currentPage, pageCount, goToPage } = usePages();
   // the Stage cursor is a 0-based display index; people count from 1
-  const current = useSelector(StageToken, (c) => c.currentPage() + 1);
-  const total = useSelector(StageToken, (c) => c.pageCount());
+  const current = currentPage + 1;
+  const total = pageCount;
+  const [draft, setDraft] = useState<string | null>(null);
+  const closedRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   if (!total) return null;
+
+  const { lead, tail } = splitPageLabel(
+    t('demo.page', { params: { current: PAGE_CURRENT_MARKER, total } }),
+  );
+  const value = draft ?? String(current);
+  const widthCh = Math.max(String(total).length, value.length || 1);
+
+  const close = (raw: string | null, apply: boolean) => {
+    if (closedRef.current) return;
+    closedRef.current = true;
+    setDraft(null);
+    if (!apply || raw === null) return;
+    const next = commitPageDraft(raw, total, current);
+    if (next !== current) goToPage(next - 1, { behavior: 'instant' });
+  };
+
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center">
-      <div className="border-border-subtle bg-elevated/95 text-fg-secondary pointer-events-auto rounded-full border px-4 py-1.5 text-sm shadow-lg backdrop-blur">
-        {t('demo.page', { params: { current, total } })}
+      <div
+        role="group"
+        aria-label={t('demo.page', { params: { current, total } })}
+        className="border-border-subtle bg-elevated/95 text-fg-secondary pointer-events-auto flex items-center rounded-full border px-4 py-1.5 text-sm shadow-lg backdrop-blur"
+      >
+        <span>{lead}</span>
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          spellCheck={false}
+          aria-label={t('demo.pageGo')}
+          value={value}
+          size={widthCh}
+          onFocus={() => {
+            closedRef.current = false;
+            setDraft(String(current));
+            queueMicrotask(() => inputRef.current?.select());
+          }}
+          onChange={(e) => {
+            const next = acceptPageDraft(e.target.value, total);
+            if (next !== null) setDraft(next);
+          }}
+          onBlur={() => close(draft, true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              close(draft, true);
+              e.currentTarget.blur();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              close(null, false);
+              e.currentTarget.blur();
+            }
+          }}
+          className="text-fg mx-1 min-w-[1ch] rounded px-1 text-center tabular-nums outline-none focus:bg-accent focus:text-on-accent"
+          style={{ width: `${widthCh}ch` }}
+        />
+        <span>{tail}</span>
       </div>
     </div>
   );
