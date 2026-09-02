@@ -1,5 +1,5 @@
 {
-  "name": "@embedpdf/plugin-actions",
+  "name": "@lofcz/embedpdf-plugin-actions",
   "version": "3.0.0-next.11",
   "private": false,
   "description": "The PDF action engine: one dispatcher for extracted /A and /AA action trees (GoTo, URI, Hide, Named, ResetForm, JavaScript chains) with a per-document serialized queue, origin-aware policy, can-twins, and a registry where sibling plugins provide executors and effect sinks. JavaScript is one registered interpreter among many — Hide/ResetForm/navigation work with scripting off.",
@@ -48,22 +48,22 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@embedpdf/core": "workspace:*",
-    "@embedpdf/engine-core": "workspace:*",
-    "@embedpdf/core-acrojs": "workspace:*",
-    "@embedpdf/core-js-sandbox": "workspace:*"
+    "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
+    "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
+    "@embedpdf/core-acrojs": "workspace:@lofcz/embedpdf-core-acrojs@*",
+    "@embedpdf/core-js-sandbox": "workspace:@lofcz/embedpdf-core-js-sandbox@*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
-    "@embedpdf/tooling-build": "workspace:*",
-    "@embedpdf/engine": "workspace:*"
+    "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*",
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/embedpdf/embed-pdf-viewer.git",
+    "url": "git+https://github.com/lofcz/embed-pdf-viewer.git",
     "directory": "packages/plugin/actions"
   }
 }
