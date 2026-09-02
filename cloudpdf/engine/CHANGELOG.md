@@ -1,5 +1,20 @@
 # @cloudpdf/engine
 
+## 3.0.0-next.11
+
+### Minor Changes
+
+- [#793](https://github.com/embedpdf/embed-pdf-viewer/pull/793) by [@bobsingor](https://github.com/bobsingor) – Action trees parsed from the hosted engine now carry full interpreter payloads (the discriminated `PdfActionNode` union) and `DocumentActionsSnapshot.openDestination`; the snapshot schema defaults `openDestination` so responses from older deployments still parse. Cloud actions conformance now gates the payload matrix and the destination-form `/OpenAction` on the HTTP + native-runtime path.
+
+## 3.0.0-next.10
+
+### Minor Changes
+
+- [#788](https://github.com/embedpdf/embed-pdf-viewer/pull/788) by [@bobsingor](https://github.com/bobsingor) – Add coherent whole-document annotation snapshots using annotation versions
+  and audit heads, including stale-version retries and desync-safe hydration.
+  Expose per-record annotation creation, mutation, and group-assignment
+  permission checks through the cloud document security service.
+
 ## 3.0.0-next.9
 
 ### Minor Changes

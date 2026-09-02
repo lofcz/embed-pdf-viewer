@@ -1,5 +1,21 @@
 # @cloudpdf/server
 
+## 3.0.0-next.11
+
+### Minor Changes
+
+- [#793](https://github.com/embedpdf/embed-pdf-viewer/pull/793) by [@bobsingor](https://github.com/bobsingor) – Action reads served by `/v1/docs/:docId/actions@:token` (and the layer-scoped variant) now include interpreter payloads on every executable node and the destination-form `/OpenAction` as `openDestination`, via the shared engine-services reader. The wire representation of action nodes changed shape (payload-carrying discriminated union); deploy server and clients from the same prerelease train.
+
+## 3.0.0-next.10
+
+### Minor Changes
+
+- [#788](https://github.com/embedpdf/embed-pdf-viewer/pull/788) by [@bobsingor](https://github.com/bobsingor) – Persist per-layer annotation versions and add versioned page and
+  whole-document annotation reads with audit-head metadata. Expose a no-store
+  backend endpoint for listing every annotation in a layer. Annotation mutations
+  now advance the version atomically so clients can hydrate and retry against
+  coherent snapshots.
+
 ## 3.0.0-next.9
 
 ### Minor Changes

@@ -2,13 +2,13 @@ import {
   MIN_DRAG,
   resolveClickPlacement,
   widgetAppearanceFromProps,
-} from '@embedpdf/plugin-annotation';
-import type { AnnotationHostCapability } from '@embedpdf/plugin-annotation/internal';
+} from '@embedpdf/plugin-annotation/authoring';
+import type { AnnotationHostCapability } from '@embedpdf/plugin-annotation/contract/host';
 import {
   samplePointOn,
   type InteractionCapability,
   type InteractionHandler,
-} from '@embedpdf/plugin-interaction';
+} from '@embedpdf/plugin-interaction/contract';
 
 import type { Box } from './core/model';
 import { FORM_TOOL_BY_ID } from './tools';
@@ -52,7 +52,7 @@ export function createPlaceHandler(
       // No capture without a page, a known palette tool, or write permission —
       // declining lets edit/pan/text-selection act on the gesture instead.
       if (!s.page || !FORM_TOOL_BY_ID.has(interaction.activeToolId())) return false;
-      if (!form.canModify()) return false;
+      if (!form.canDesign()) return false;
       origin = { pon: s.page.pon, start: s.page.point, last: s.page.point };
       return true;
     },

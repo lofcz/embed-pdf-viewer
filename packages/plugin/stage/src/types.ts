@@ -248,7 +248,7 @@ export interface StageSettings {
  *    `x/y/width/height` only to POSITION the page container.
  *  - `transform`: PRESENTATION truth — the single bridge between PDF points,
  *    view px, and device px for this page. Plugins do ALL coordinate work
- *    through it (`pageToView` / `viewToPage` / `deviceWidth` / `cssMatrix`),
+ *    through it (`contentToView` / `viewToContent` / `deviceWidth` / `cssMatrix`),
  *    never by re-deriving `x * scale` / `* dpr`. Page-local, so it's
  *    camera/pan-invariant.
  */
@@ -313,6 +313,15 @@ export interface StageState extends StageSettings {
    * Stored as a page index so it survives spread/layout regrouping.
    */
   cursor: number;
+  /**
+   * What last drove the camera/cursor: `'programmatic'` for the arrival and
+   * reveal doors (goToPage/next/prev/reset/reveal — the doors action
+   * executors use), `'user'` for direct camera manipulation (wheel, drag,
+   * scrollbars, embedder scroll APIs). Transient like `camera`. Consumed by
+   * the page-state feed as the action engine's cascade-budget fuel: only
+   * programmatic rounds burn budget, so user scrolling never starves.
+   */
+  motionCause: 'user' | 'programmatic';
 }
 
 export type StageAction =
@@ -322,6 +331,7 @@ export type StageAction =
   | { type: 'VP'; vp: Size }
   | { type: 'DPR'; dpr: number }
   | { type: 'CURSOR'; cursor: number }
+  | { type: 'MOTION_CAUSE'; cause: 'user' | 'programmatic' }
   | { type: 'PATCH'; patch: Partial<StageSettings> }
   | { type: 'RESPONSIVE'; active: readonly string[] };
 
@@ -423,11 +433,13 @@ export type RevealZoom = 'keep' | 'fit' | 'fit-width' | 'fit-height' | { level: 
 export interface RevealOptions {
   behavior?: ScrollBehaviorKind;
   /**
-   * CONTENT-space target rect on the page (y-down, crop-relative, unscaled
-   * points — the same space selection/search rects live in). Absent → the
-   * whole page. A zero-size rect is a point (/XYZ).
+   * Target rect on the page in the VIEWER's coordinates (y-down,
+   * crop-relative, unscaled points — the same `Rect` selection/search rects
+   * and `CommentThreadView.contentRect` live in). Absent or `null` → the
+   * whole page (null accepted so nullable sources flow in directly). A
+   * zero-size rect is a point (/XYZ).
    */
-  rect?: Rect;
+  rect?: Rect | null;
   zoom?: RevealZoom;
   anchor?: RevealAnchor;
 }

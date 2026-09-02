@@ -1,5 +1,18 @@
 # @embedpdf/plugin-search
 
+## 3.0.0-next.11
+
+### Minor Changes
+
+- [#793](https://github.com/embedpdf/embed-pdf-viewer/pull/793) by [@bobsingor](https://github.com/bobsingor) – Publish a bundle-safe `/contract` entry for the search token, query validation, results, and capability types without scan, effect, or plugin wiring.
+
+## 3.0.0-next.10
+
+### Minor Changes
+
+- [#788](https://github.com/embedpdf/embed-pdf-viewer/pull/788) by [@bobsingor](https://github.com/bobsingor) – Add `canSearch(mode)` so hosts can gate search and snippet controls using the
+  session's text-search and text-copy permissions.
+
 ## 3.0.0-next.9
 
 ## 3.0.0-next.8

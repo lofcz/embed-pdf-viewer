@@ -804,7 +804,14 @@ export function createStageCapability(
   //    axis with no freedom to the fitAlign rest point.
   // The legitimate "nothing moves" cases are STRUCTURAL, not conditional: under
   // fit-all the canonical placement is the centered scene, which doesn't change.
+  /** Tag what drives the NEXT camera/cursor change — dispatched on flips
+   *  only, read by the page-state feed (see StageState.motionCause). */
+  const markCause = (cause: 'user' | 'programmatic'): void => {
+    if (ctx.getState().motionCause !== cause) ctx.dispatch({ type: 'MOTION_CAUSE', cause });
+  };
+
   const goToTarget = (pageIndex: number, opts?: GoToOptions) => {
+    markCause('programmatic');
     cancelAnim();
     const doc = ctx.document();
     if (!doc || doc.pageCount === 0) return;
@@ -970,7 +977,7 @@ export function createStageCapability(
     );
     const visibleRect =
       onScreen.width > 0 && onScreen.height > 0
-        ? transform.viewToPageRect(onScreen)
+        ? transform.viewToContentRect(onScreen)
         : { x: 0, y: 0, width: 0, height: 0 };
     return {
       ...box,
@@ -1166,15 +1173,15 @@ export function createStageCapability(
     },
     pageAt: (screen) => {
       // Find the visible page whose device-snapped display box contains the
-      // point, then invert that page's transform — same `viewToPage` the
-      // per-page PageContext.toPagePoint uses, so the two never drift.
+      // point, then invert that page's transform — same `viewToContent` the
+      // per-page PageContext.toContentPoint uses, so the two never drift.
       for (const p of visiblePages()) {
         const lx = screen.x - p.screenX;
         const ly = screen.y - p.screenY;
         if (lx >= 0 && ly >= 0 && lx <= p.transform.viewWidth && ly <= p.transform.viewHeight) {
           return {
             pon: p.pon,
-            point: p.transform.viewToPage({ x: lx, y: ly }),
+            point: p.transform.viewToContent({ x: lx, y: ly }),
             scale: p.transform.viewScale,
             rotation: p.rotation,
             zoom: p.transform.zoom,
@@ -1188,7 +1195,7 @@ export function createStageCapability(
       // valid outside its bounds — the same inverse transform, so no drift.
       const p = visiblePages().find((v) => v.pon === pon);
       if (!p) return null;
-      return p.transform.viewToPage({ x: screen.x - p.screenX, y: screen.y - p.screenY });
+      return p.transform.viewToContent({ x: screen.x - p.screenX, y: screen.y - p.screenY });
     },
     pageToWorld: (pon, pt) => {
       const pr = api.pageRect(pon);
@@ -1294,11 +1301,13 @@ export function createStageCapability(
       else applyAnchor(currentAnchor());
     },
     setCamera: (c) => {
+      markCause('user');
       cancelAnim();
       setCam(c);
       syncCursorFromCamera();
     },
     panBy: (dx, dy) => {
+      markCause('user');
       cancelAnim();
       if (gestureDepth > 0 && gestureElastic) {
         // Elastic: integrate the finger on the UNCLAMPED camera and display it
@@ -1312,6 +1321,7 @@ export function createStageCapability(
       syncCursorFromCamera();
     },
     scrollTo: (opts) => {
+      markCause('user');
       cancelAnim();
       const sc = buildScene();
       if (!sc.itemCount) return;
@@ -1457,12 +1467,15 @@ export function createStageCapability(
     },
     goToPage: (pageIndex, opts) => goToTarget(pageIndex, opts),
     reveal: (pageIndex, opts) => {
+      markCause('programmatic');
       const doc = ctx.document();
       if (!doc || doc.pageCount === 0) return;
       const target = Math.max(0, Math.min(pageIndex, doc.pageCount - 1));
       const positioned =
         !!opts &&
-        (opts.rect !== undefined ||
+        // `rect: null` means "no rect", same as absent — so nullable sources
+        // (`CommentThreadView.contentRect`) flow in without a `?? undefined`.
+        (opts.rect != null ||
           opts.anchor !== undefined ||
           (opts.zoom !== undefined && opts.zoom !== 'keep'));
 

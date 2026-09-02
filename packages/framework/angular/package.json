@@ -1,6 +1,6 @@
 {
   "name": "@lofcz/embedpdf-angular",
-  "version": "3.0.0-next.7",
+  "version": "3.0.0-next.11",
   "private": false,
   "description": "Angular adapter for EmbedPDF v3: one generic signal binding + structural components (EpdfViewer, EpdfStage) + headless layers & inject functions. The whole framework surface, one secondary entry point per feature.",
   "sideEffects": false,
@@ -22,6 +22,10 @@
     "./render": {
       "types": "./dist/render/index.d.ts",
       "default": "./dist/fesm2022/embedpdf-angular-render.mjs"
+    },
+    "./actions": {
+      "types": "./dist/actions/index.d.ts",
+      "default": "./dist/fesm2022/embedpdf-angular-actions.mjs"
     }
   },
   "files": [
@@ -40,6 +44,7 @@
     "@embedpdf/plugin-stage": "workspace:@lofcz/embedpdf-plugin-stage@*",
     "@embedpdf/plugin-render": "workspace:@lofcz/embedpdf-plugin-render@*",
     "@embedpdf/plugin-interaction": "workspace:@lofcz/embedpdf-plugin-interaction@*",
+    "@embedpdf/plugin-actions": "workspace:@lofcz/embedpdf-plugin-actions@*",
     "@embedpdf/web": "workspace:@lofcz/embedpdf-web@*"
   },
   "peerDependencies": {

@@ -23,6 +23,7 @@ import { ActionReadBudgetTracker, readActionModel } from '../../../actions/Actio
 export function readAnnotationBase(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
+  docPtr: Ptr,
   annotPtr: Ptr,
   pageObjectNumber: PageObjectNumber,
   index: number,
@@ -33,6 +34,7 @@ export function readAnnotationBase(
   const rect = readAnnotRect(fn, mem, annotPtr);
   const flags = readAnnotFlags(fn, annotPtr);
   const contents = readAnnotString(fn, mem, annotPtr, 'Contents');
+  const subject = readAnnotString(fn, mem, annotPtr, 'Subj');
   const author = readAnnotString(fn, mem, annotPtr, 'T');
   const createdRaw = readAnnotString(fn, mem, annotPtr, 'CreationDate');
   const modifiedRaw = readAnnotString(fn, mem, annotPtr, 'M');
@@ -42,7 +44,7 @@ export function readAnnotationBase(
   // never carries explicit `undefined` keys.
   const embd = readEmbedMetadata(fn, mem, annotPtr);
   const relationship = readAnnotationRelationship(fn, mem, annotPtr, pageObjectNumber);
-  const actions = readAnnotationActions(fn, mem, annotPtr, actionBudget);
+  const actions = readAnnotationActions(fn, mem, docPtr, annotPtr, actionBudget);
 
   return {
     ref: identity.ref,
@@ -53,6 +55,7 @@ export function readAnnotationBase(
     flags,
     rect,
     contents,
+    subject,
     author,
     created: createdRaw ? pdfDateToIso(createdRaw) : null,
     modified: modifiedRaw ? pdfDateToIso(modifiedRaw) : null,
@@ -70,6 +73,7 @@ export function readAnnotationBase(
 function readAnnotationActions(
   fn: PdfFunctions,
   mem: PdfRuntimeMemory,
+  docPtr: Ptr,
   annotPtr: Ptr,
   budget: ActionReadBudgetTracker,
 ): PdfAnnotationActions | undefined {
@@ -88,7 +92,13 @@ function readAnnotationActions(
   ] as const;
   const actions: PdfAnnotationActions = {};
   for (const [key, event] of events) {
-    const action = readActionModel(fn, mem, fn.EPDFAnnot_GetActionModel(annotPtr, event), budget);
+    const action = readActionModel(
+      fn,
+      mem,
+      docPtr,
+      fn.EPDFAnnot_GetActionModel(annotPtr, event),
+      budget,
+    );
     if (action) actions[key] = action;
   }
   return Object.keys(actions).length > 0 ? actions : undefined;

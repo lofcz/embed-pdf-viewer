@@ -1,11 +1,16 @@
 export * from './types';
 export * from './kernel';
+export * from './event-hook';
+export * from './serial-queue';
 export { CancelledError, isCancelled } from './scope';
 
 // Re-export the engine contracts so plugins/adapters import them from @embedpdf/core.
 export {
   AbortablePromise,
   CONTINUOUS_RENDER_POLICY,
+  // The refusal shape of the permissions convention (permissions.md): a
+  // plugin's optimistic gate rejects with the SAME error the engine throws.
+  PermissionDenied,
   snapAppearanceScale,
   snapFullPageViewport,
   snapTileScale,

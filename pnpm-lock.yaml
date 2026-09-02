@@ -594,6 +594,9 @@ importers:
 
   examples/cloud-dashboard:
     dependencies:
+      '@cloudpdf/contract':
+        specifier: workspace:*
+        version: link:../../cloudpdf/contract
       '@cloudpdf/engine':
         specifier: workspace:*
         version: link:../../cloudpdf/engine
@@ -1125,6 +1128,9 @@ importers:
       '@embedpdf/core-stage':
         specifier: workspace:@lofcz/embedpdf-core-stage@*
         version: link:../../core/stage
+      '@embedpdf/plugin-actions':
+        specifier: workspace:*
+        version: link:../../plugin/actions
       '@embedpdf/plugin-interaction':
         specifier: workspace:@lofcz/embedpdf-plugin-interaction@*
         version: link:../../plugin/interaction
@@ -1183,6 +1189,9 @@ importers:
       '@embedpdf/core-ui':
         specifier: workspace:@lofcz/embedpdf-core-ui@*
         version: link:../../core/ui
+      '@embedpdf/plugin-actions':
+        specifier: workspace:*
+        version: link:../../plugin/actions
       '@embedpdf/plugin-annotation':
         specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../../plugin/annotation
@@ -1241,6 +1250,9 @@ importers:
         specifier: '>=18'
         version: 18.3.1(react@18.3.1)
     devDependencies:
+      '@embedpdf/engine':
+        specifier: workspace:*
+        version: link:../../engine/main
       '@embedpdf/tooling-build':
         specifier: workspace:@lofcz/embedpdf-tooling-build@*
         version: link:../../../tooling/build
@@ -1278,11 +1290,42 @@ importers:
         specifier: ^2.1.9
         version: 2.1.9(@types/node@22.19.11)(happy-dom@20.11.0)(less@4.6.7)(lightningcss@1.30.2)(msw@2.11.2(@types/node@22.19.11)(typescript@5.9.3))(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
 
+  packages/plugin/actions:
+    dependencies:
+      '@embedpdf/core':
+        specifier: workspace:*
+        version: link:../../core/main
+      '@embedpdf/core-acrojs':
+        specifier: workspace:*
+        version: link:../../core/acrojs
+      '@embedpdf/core-js-sandbox':
+        specifier: workspace:*
+        version: link:../../core/js-sandbox
+      '@embedpdf/engine-core':
+        specifier: workspace:*
+        version: link:../../engine/core
+    devDependencies:
+      '@embedpdf/engine':
+        specifier: workspace:*
+        version: link:../../engine/main
+      '@embedpdf/tooling-build':
+        specifier: workspace:*
+        version: link:../../../tooling/build
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@22.19.11)(happy-dom@20.11.0)(less@4.6.7)(lightningcss@1.30.2)(msw@2.11.2(@types/node@22.19.11)(typescript@5.9.3))(sass-embedded@1.97.3)(sass@1.97.3)(terser@5.46.0)
+
   packages/plugin/annotation:
     dependencies:
       '@embedpdf/core':
         specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../core/main
+      '@embedpdf/core-acrojs':
+        specifier: workspace:*
+        version: link:../../core/acrojs
       '@embedpdf/core-annotation':
         specifier: workspace:@lofcz/embedpdf-core-annotation@*
         version: link:../../core/annotation
@@ -1292,6 +1335,9 @@ importers:
       '@embedpdf/engine-core':
         specifier: workspace:@lofcz/embedpdf-engine-core@*
         version: link:../../engine/core
+      '@embedpdf/plugin-actions':
+        specifier: workspace:*
+        version: link:../actions
       '@embedpdf/plugin-interaction':
         specifier: workspace:@lofcz/embedpdf-plugin-interaction@*
         version: link:../interaction
@@ -1348,6 +1394,9 @@ importers:
       '@embedpdf/engine-core':
         specifier: workspace:@lofcz/embedpdf-engine-core@*
         version: link:../../engine/core
+      '@embedpdf/plugin-actions':
+        specifier: workspace:*
+        version: link:../actions
       '@embedpdf/plugin-annotation':
         specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../annotation
@@ -1417,6 +1466,9 @@ importers:
       '@embedpdf/engine-core':
         specifier: workspace:@lofcz/embedpdf-engine-core@*
         version: link:../../engine/core
+      '@embedpdf/plugin-actions':
+        specifier: workspace:*
+        version: link:../actions
       '@embedpdf/plugin-annotation':
         specifier: workspace:@lofcz/embedpdf-plugin-annotation@*
         version: link:../annotation
@@ -1593,10 +1645,16 @@ importers:
       '@embedpdf/core-stage':
         specifier: workspace:@lofcz/embedpdf-core-stage@*
         version: link:../../core/stage
+      '@embedpdf/plugin-actions':
+        specifier: workspace:*
+        version: link:../actions
       '@embedpdf/plugin-interaction':
         specifier: workspace:@lofcz/embedpdf-plugin-interaction@*
         version: link:../interaction
     devDependencies:
+      '@embedpdf/engine':
+        specifier: workspace:*
+        version: link:../../engine/main
       '@embedpdf/tooling-build':
         specifier: workspace:@lofcz/embedpdf-tooling-build@*
         version: link:../../../tooling/build
@@ -1612,6 +1670,9 @@ importers:
       '@embedpdf/core':
         specifier: workspace:@lofcz/embedpdf-core@*
         version: link:../../core/main
+      '@embedpdf/core-acrojs':
+        specifier: workspace:*
+        version: link:../../core/acrojs
       '@embedpdf/core-js-sandbox':
         specifier: workspace:@lofcz/embedpdf-core-js-sandbox@*
         version: link:../../core/js-sandbox
