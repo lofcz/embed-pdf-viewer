@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@embedpdf/angular": "workspace:@lofcz/embedpdf-angular@*",
+    "@embedpdf/default-stamps": "workspace:@lofcz/embedpdf-default-stamps@*",
     "@embedpdf/docs-kit": "workspace:@lofcz/embedpdf-docs-kit@*",
     "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
     "@embedpdf/react": "workspace:@lofcz/embedpdf-react@*",

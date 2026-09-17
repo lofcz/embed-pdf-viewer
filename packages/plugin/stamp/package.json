@@ -2,7 +2,7 @@
   "name": "@lofcz/embedpdf-plugin-stamp",
   "version": "3.0.0-next.12",
   "private": false,
-  "description": "Stamp asset libraries: retain imported PDFs as canonical PieceInfo-backed libraries, derive per-page vector assets and previews, materialize opt-in dynamic stamps, and place them through the annotation plugin's armed-stamp flow.",
+  "description": "Stamp libraries as PDFs: import Acrobat-compatible libraries (title + /Names /Pages registry), author assets from pages, rasters, or selected annotations, export the library as a complete PDF, and place stamps by pointer or by code through the annotation plugin.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -40,6 +40,7 @@
   "dependencies": {
     "@embedpdf/core": "workspace:@lofcz/embedpdf-core@*",
     "@embedpdf/core-js-sandbox": "workspace:@lofcz/embedpdf-core-js-sandbox@*",
+    "@embedpdf/plugin-actions": "workspace:@lofcz/embedpdf-plugin-actions@*",
     "@embedpdf/plugin-annotation": "workspace:@lofcz/embedpdf-plugin-annotation@*",
     "@embedpdf/plugin-form": "workspace:@lofcz/embedpdf-plugin-form@*",
     "@embedpdf/engine-core": "workspace:@lofcz/embedpdf-engine-core@*",
@@ -49,7 +50,8 @@
     "typescript": "^5.0.0",
     "vitest": "^2.1.9",
     "@embedpdf/tooling-build": "workspace:@lofcz/embedpdf-tooling-build@*",
-    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*"
+    "@embedpdf/engine": "workspace:@lofcz/embedpdf-engine@*",
+    "@embedpdf/default-stamps": "workspace:@lofcz/embedpdf-default-stamps@*"
   },
   "license": "Apache-2.0",
   "sideEffects": false,

@@ -29,7 +29,8 @@
     "ci:publish": "node scripts/publish-packages.mjs",
     "version:bump": "node scripts/bump-publishable.mjs",
     "trust:setup": "node scripts/setup-trusted-publishing.mjs",
-    "trust:setup:dry": "node scripts/setup-trusted-publishing.mjs --dry-run"
+    "trust:setup:dry": "node scripts/setup-trusted-publishing.mjs --dry-run",
+    "check:network-literals": "node tooling/build/src/check-network-literals.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.6",

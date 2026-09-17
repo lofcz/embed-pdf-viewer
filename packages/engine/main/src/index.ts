@@ -39,6 +39,7 @@ import {
 import {
   resolveInlineWasmSource,
   resolveWasmSource,
+  resolveWasmSourceAsync,
   toAbsoluteUrl,
   type ResolvedWasmSource,
   type WasmSourceOptions,
@@ -85,7 +86,7 @@ export type {
 } from './render/BrowserImageEncoder';
 export { LocalFontService } from './fonts/LocalFontService';
 export { mergeFontFallbacks } from './fonts/mergeFontFallbacks';
-export { DEFAULT_WASM_URL, resolveWasmSource, resolveInlineWasmSource } from './wasm-source';
+export { resolveWasmSource, resolveWasmSourceAsync, resolveInlineWasmSource } from './wasm-source';
 export type { ResolvedWasmSource, WasmSourceOptions, WorkerSource } from './wasm-source';
 
 export interface CreateLocalEngineOptions extends Omit<LocalEngineOptions, 'transport'> {
@@ -109,6 +110,8 @@ export function createLocalEngine(opts: CreateLocalEngineOptions = {}): LocalEng
     concurrency: opts.concurrency,
     imageEncoder: opts.imageEncoder,
     renderPolicy: opts.renderPolicy,
+    signedDocumentPolicy: opts.signedDocumentPolicy,
+    sessionKind: opts.sessionKind,
   });
 }
 
@@ -135,6 +138,8 @@ export function createLocalEngineWithWorker(opts: CreateLocalEngineWithWorkerOpt
     concurrency: opts.concurrency,
     imageEncoder: opts.imageEncoder,
     renderPolicy: opts.renderPolicy,
+    signedDocumentPolicy: opts.signedDocumentPolicy,
+    sessionKind: opts.sessionKind,
   });
 }
 
@@ -153,11 +158,10 @@ export function createLocalEngineWithWorker(opts: CreateLocalEngineWithWorkerOpt
  *     race and nothing needs reclaiming.
  *
  * The wasm source rides the same decision: only the inline blob worker (which
- * has no meaningful location of its own) receives the sibling-first default —
- * the bundler-resolved asset URL with the version-pinned CDN as a
- * fetch-failure-only fallback (see resolveInlineWasmSource); every other
- * delivery self-resolves `embedpdf.wasm` as a sibling of the worker script when
- * no explicit source is configured.
+ * has no meaningful location of its own) receives the default — the sibling
+ * the consumer's bundler emitted, and nothing after it (see
+ * resolveInlineWasmSource); every other delivery self-resolves `embedpdf.wasm`
+ * as a sibling of the worker script when no explicit source is configured.
  */
 function workerBoot(
   source: WorkerSource | undefined,
@@ -171,6 +175,24 @@ function workerBoot(
   // A live Worker is the only object-typed delivery (duck-typed rather than
   // `instanceof Worker` so non-DOM environments and test doubles work).
   if (typeof delivery === 'object' && delivery !== null) {
+    // A live worker is posted its init synchronously (the caller may already
+    // have posted work); a lazy `wasmLoader` is the one source that cannot be
+    // — it boots through spawn() like the other deliveries.
+    if (
+      wasmOptions.wasmLoader &&
+      !resolveWasmSource(wasmOptions).wasmUrl &&
+      !wasmOptions.wasmBinary
+    ) {
+      const ready = resolveWasmSourceAsync(wasmOptions).then((wasm) => {
+        postWorkerInit(delivery, wasm);
+        return watchWorkerReady(delivery);
+      });
+      void ready.catch(() => {});
+      return {
+        spawn: () => BrowserWorkerTransport.spawn(delivery, ready),
+        lazyOptions: { onAbandon: () => delivery.terminate() },
+      };
+    }
     postWorkerInit(delivery, resolveWasmSource(wasmOptions));
     const ready = watchWorkerReady(delivery);
     // A dormant engine must not surface an unhandled rejection if the worker
@@ -186,10 +208,14 @@ function workerBoot(
     spawn: async () => {
       // Resolve BEFORE spawning: if the sibling-url module can't load, no
       // worker is left orphaned. Only the inline blob worker gets the default.
+      // No extra tick for explicit sources: a thunk/URL worker boots on the
+      // same schedule as before; only a lazy `wasmLoader` awaits its bytes.
       const wasm =
         delivery === 'inline'
           ? await resolveInlineWasmSource(wasmOptions)
-          : resolveWasmSource(wasmOptions);
+          : wasmOptions.wasmLoader
+            ? await resolveWasmSourceAsync(wasmOptions)
+            : resolveWasmSource(wasmOptions);
       const spawned = await createEngineWorker(delivery as Exclude<WorkerSource, Worker>);
       postWorkerInit(spawned.worker, wasm);
       try {
@@ -208,7 +234,6 @@ function workerBoot(
 
 function postWorkerInit(worker: Worker, wasm: ResolvedWasmSource): void {
   const init: EngineWorkerInit = { kind: 'init', wasmUrl: wasm.wasmUrl };
-  if (wasm.fallbackWasmUrl) init.fallbackWasmUrl = wasm.fallbackWasmUrl;
   if (wasm.wasmBinary) init.wasmBinary = wasm.wasmBinary;
   worker.postMessage(init, wasm.wasmBinary ? [wasm.wasmBinary] : []);
 }
@@ -251,7 +276,7 @@ async function createEngineWorker(
         'Content-Security-Policy omits `worker-src blob:`. Self-host the worker instead: copy ' +
         "@embedpdf/engine's workers/embedpdf-worker.js and embedpdf.wasm into one served directory " +
         "and pass `worker: '/that/directory/embedpdf-worker.js'` to localEngine(). " +
-        'See https://www.embedpdf.com/docs/self-hosting',
+        'See https://www.embedpdf.com/docs/viewer/self-hosting',
       { cause },
     );
   }
@@ -428,7 +453,7 @@ async function registerBootFonts(
     // is transferred (neutered) by the worker transport.
     fontService.seedRegistered(spec, { fallback });
     const bytes = toStandaloneArrayBuffer(spec.data);
-    await requestOverTransport(transport, (jobId) =>
+    const registered = await requestOverTransport(transport, (jobId) =>
       wirePack(
         {
           kind: 'fonts.register',
@@ -442,6 +467,9 @@ async function registerBootFonts(
         [bytes],
       ),
     );
+    if (registered.tag === 'fonts.register') {
+      fontService.applyIdentity(spec.key, registered.identity);
+    }
     if (fallback) {
       await requestOverTransport(transport, (jobId) =>
         wirePack({ kind: 'fonts.addFallback', jobId, fontKey: spec.key }),

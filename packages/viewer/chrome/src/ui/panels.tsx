@@ -29,6 +29,8 @@ import { OutlineList } from './outline-list';
 import { CommentsPanel } from './comments-panel';
 import { RedactionPanel } from './redaction-panel';
 import { SearchPanel } from './search-panel';
+import { StampsPanel } from './stamps-panel';
+import { SignaturesPanel } from './signatures-panel';
 
 type LeftTab = 'thumbnails' | 'outline';
 
@@ -149,7 +151,7 @@ function ThumbnailList() {
   );
 }
 
-// ── right sidebar (search / comment / style) ─────────────────────────────────
+// ── right sidebar (search / comment / style / redaction / stamps) ────────────
 export function RightSidebar() {
   const t = useT();
   // Keys the SearchPanel below: the panel seeds its query box from the active
@@ -160,6 +162,8 @@ export function RightSidebar() {
   const comment = useSurface('comment');
   const style = useSurface('annotation-style');
   const redaction = useSurface('redaction');
+  const stamps = useSurface('stamps');
+  const signatures = useSurface('signatures');
   const active = search.isOpen
     ? 'search'
     : comment.isOpen
@@ -168,7 +172,11 @@ export function RightSidebar() {
         ? 'style'
         : redaction.isOpen
           ? 'redaction'
-          : null;
+          : stamps.isOpen
+            ? 'stamps'
+            : signatures.isOpen
+              ? 'signatures'
+              : null;
   if (!active) return null;
 
   const titleKey =
@@ -178,7 +186,11 @@ export function RightSidebar() {
         ? 'demo.commentsTitle'
         : active === 'redaction'
           ? 'demo.redactionTitle'
-          : 'demo.styleTitle';
+          : active === 'stamps'
+            ? 'demo.stampsTitle'
+            : active === 'signatures'
+              ? 'demo.signaturesTitle'
+              : 'demo.styleTitle';
   const close =
     active === 'search'
       ? search.close
@@ -186,7 +198,11 @@ export function RightSidebar() {
         ? comment.close
         : active === 'redaction'
           ? redaction.close
-          : style.close;
+          : active === 'stamps'
+            ? stamps.close
+            : active === 'signatures'
+              ? signatures.close
+              : style.close;
 
   return (
     <aside className="border-border-subtle bg-surface flex w-72 shrink-0 flex-col border-l">
@@ -206,6 +222,10 @@ export function RightSidebar() {
         <SearchPanel key={documentId ?? 'none'} />
       ) : active === 'redaction' ? (
         <RedactionPanel />
+      ) : active === 'stamps' ? (
+        <StampsPanel />
+      ) : active === 'signatures' ? (
+        <SignaturesPanel />
       ) : (
         <CommentsPanel key={documentId ?? 'none'} />
       )}

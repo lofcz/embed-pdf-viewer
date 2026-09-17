@@ -29,6 +29,7 @@
     "./search": "./src/search.tsx",
     "./selection": "./src/selection.tsx",
     "./shell": "./src/shell.ts",
+    "./signature": "./src/signature.tsx",
     "./stage": "./src/stage.tsx",
     "./stamp": "./src/stamp.tsx",
     "./toolbar": "./src/toolbar.tsx",
@@ -120,6 +121,10 @@
         "import": "./dist/shell.js",
         "require": "./dist/shell.cjs"
       },
+      "./signature": {
+        "import": "./dist/signature.js",
+        "require": "./dist/signature.cjs"
+      },
       "./stage": {
         "import": "./dist/stage.js",
         "require": "./dist/stage.cjs"
@@ -165,8 +170,10 @@
     "@embedpdf/plugin-search": "workspace:@lofcz/embedpdf-plugin-search@*",
     "@embedpdf/plugin-selection": "workspace:@lofcz/embedpdf-plugin-selection@*",
     "@embedpdf/plugin-shell": "workspace:@lofcz/embedpdf-plugin-shell@*",
+    "@embedpdf/plugin-signature": "workspace:@lofcz/embedpdf-plugin-signature@*",
     "@embedpdf/plugin-stage": "workspace:@lofcz/embedpdf-plugin-stage@*",
     "@embedpdf/plugin-stamp": "workspace:@lofcz/embedpdf-plugin-stamp@*",
+    "@embedpdf/core-signature": "workspace:@lofcz/embedpdf-core-signature@*",
     "@embedpdf/plugin-view-manager": "workspace:@lofcz/embedpdf-plugin-view-manager@*",
     "@embedpdf/core-stage": "workspace:@lofcz/embedpdf-core-stage@*",
     "@embedpdf/core-ui": "workspace:@lofcz/embedpdf-core-ui@*",

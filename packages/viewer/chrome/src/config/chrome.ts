@@ -113,6 +113,9 @@ const insertBar: BarSchema = {
     center: [
       group('stamps', { importance: 4 }, [
         'insert:add-stamp',
+        // Quick marks (`stamps.toolbar`): thumbnails that arm on click; in a
+        // menu the stamps panel stands in for them.
+        custom('quick-stamps', { terminal: 'insert:add-stamp', importance: 3 }),
         'insert:add-attachment',
         'insert:add-signature',
         'insert:add-image',
@@ -133,6 +136,7 @@ const formBar: BarSchema = {
         'form:add-radio',
       ]),
       group('choice-fields', { importance: 2 }, ['form:add-select', 'form:add-listbox']),
+      group('signature-fields', { importance: 2 }, ['form:add-signature']),
       history,
     ],
   },
@@ -191,6 +195,7 @@ const annotationStrip: BarSchema = {
       group('annotation-actions', { importance: 4 }, [
         'annotation:comment',
         'annotation:style',
+        'annotation:stamp-from-selection',
         'annotation:link',
         'annotation:goto-link',
         'annotation:remove-link',

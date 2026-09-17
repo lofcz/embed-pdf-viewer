@@ -1,0 +1,19 @@
+{
+  "name": "@lofcz/embedpdf-bundler-matrix-parcel",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "matrix:build": "parcel build src/index.html --dist-dir dist --public-url ./ --no-cache"
+  },
+  "dependencies": {
+    "@embedpdf/bundler-probe": "workspace:@lofcz/embedpdf-bundler-probe@*"
+  },
+  "devDependencies": {
+    "parcel": "^2.15.0",
+    "@parcel/config-default": "^2.15.0"
+  },
+  "@parcel/resolver-default": {
+    "packageExports": true
+  }
+}

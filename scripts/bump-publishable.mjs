@@ -20,6 +20,7 @@ const STACK_PREFIXES = [
   "@lofcz/embedpdf-web",
   "@lofcz/embedpdf-plugin-",
   "@lofcz/embedpdf-viewer",
+  "@lofcz/embedpdf-default-stamps",
 ];
 
 const DENY = new Set([
